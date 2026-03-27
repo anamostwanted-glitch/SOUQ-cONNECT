@@ -1,0 +1,263 @@
+import React, { useState } from 'react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical, ChevronRight, ChevronDown, Plus, Check, X, Trash2, Hash, Sparkles, Edit2, Tag } from 'lucide-react';
+import { Category } from '../types';
+import { handleFirestoreError, OperationType } from '../utils/errorHandling';
+import { CategoryList } from './CategoryList';
+import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { translateText } from '../services/geminiService';
+import { useTranslation } from 'react-i18next';
+
+interface SortableCategoryItemProps {
+  category: Category;
+  allCategories: Category[];
+  onReorder: (newCategories: Category[]) => void;
+  onManageKeywords?: (category: Category) => void;
+}
+
+export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ category, allCategories, onReorder, onManageKeywords }) => {
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isAddingSub, setIsAddingSub] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [newSubAr, setNewSubAr] = useState('');
+  const [newSubEn, setNewSubEn] = useState('');
+  const [editAr, setEditAr] = useState(category.nameAr);
+  const [editEn, setEditEn] = useState(category.nameEn);
+  const [editType, setEditType] = useState<'product' | 'service'>(category.categoryType || 'product');
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
+  
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 'auto',
+  };
+
+  const subCategories = allCategories.filter(c => c.parentId === category.id);
+  const hasSubCategories = subCategories.length > 0;
+
+  const handleAddSub = async () => {
+    if (!newSubAr || !newSubEn) return;
+    try {
+      await addDoc(collection(db, 'categories'), {
+        nameAr: newSubAr.trim(),
+        nameEn: newSubEn.trim(),
+        parentId: category.id,
+        order: subCategories.length,
+        categoryType: category.categoryType || 'product',
+        createdAt: new Date().toISOString()
+      });
+      setNewSubAr('');
+      setNewSubEn('');
+      setIsAddingSub(false);
+      setIsExpanded(true);
+    } catch (error) {
+      console.error('Error adding subcategory:', error);
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!editAr || !editEn) return;
+    try {
+      await updateDoc(doc(db, 'categories', category.id), {
+        nameAr: editAr.trim(),
+        nameEn: editEn.trim(),
+        categoryType: editType
+      });
+      setIsEditing(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`);
+    }
+  };
+
+  const handleTranslate = async () => {
+    if (!newSubAr) return;
+    setIsTranslating(true);
+    try {
+      const translation = await translateText(newSubAr, 'English');
+      setNewSubEn(translation);
+    } catch (error) {
+      console.error('Translation error:', error);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteDoc(doc(db, 'categories', category.id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `categories/${category.id}`);
+    }
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="mb-3">
+      <div className={`flex items-center gap-4 p-4 bg-brand-surface border ${isDragging ? 'border-brand-primary shadow-xl scale-[1.02]' : 'border-brand-border shadow-sm'} rounded-2xl hover:border-brand-primary/30 hover:shadow-md transition-all group relative`}>
+        <div {...attributes} {...listeners} className="cursor-grab text-brand-text-muted/50 hover:text-brand-primary p-2 hover:bg-brand-primary/10 rounded-xl transition-colors">
+          <GripVertical size={20} />
+        </div>
+        
+        {hasSubCategories ? (
+          <button 
+            onClick={() => setIsExpanded(!isExpanded)}
+            aria-label={isExpanded ? "Collapse subcategories" : "Expand subcategories"}
+            className={`p-2 rounded-xl transition-all ${isExpanded ? 'bg-brand-primary/10 text-brand-primary' : 'bg-brand-background text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10'}`}
+          >
+            {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+          </button>
+        ) : (
+          <div className="w-[36px] flex justify-center">
+            <div className="w-1.5 h-1.5 rounded-full bg-brand-border" />
+          </div>
+        )}
+
+        <div className="flex-1 flex items-center justify-between min-w-0 gap-4">
+          {isEditing ? (
+            <div className="flex flex-col gap-3 bg-brand-background p-3 rounded-2xl border border-brand-border flex-1 animate-in fade-in slide-in-from-left-2 duration-200">
+              <div className="flex items-center gap-2 flex-wrap">
+                <input 
+                  type="text" 
+                  value={editAr}
+                  onChange={e => setEditAr(e.target.value)}
+                  className="flex-1 min-w-[120px] px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary/20"
+                  placeholder="Arabic Name"
+                />
+                <div className="relative flex-1 min-w-[120px]">
+                  <input 
+                    type="text" 
+                    value={editEn}
+                    onChange={e => setEditEn(e.target.value)}
+                    className="w-full px-3 py-2 pr-10 bg-brand-surface border border-brand-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary/20"
+                    placeholder="English Name"
+                  />
+                  <button 
+                    onClick={async () => {
+                      if (!editAr) return;
+                      setIsTranslating(true);
+                      try {
+                        const translation = await translateText(editAr, 'English');
+                        setEditEn(translation);
+                      } catch (error) {
+                        console.error('Translation error:', error);
+                      } finally {
+                        setIsTranslating(false);
+                      }
+                    }}
+                    disabled={isTranslating}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-brand-primary hover:bg-brand-primary/10 rounded-md transition-colors"
+                  >
+                    {isTranslating ? <div className="w-3 h-3 border-2 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" /> : <Sparkles size={14} />}
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-1 bg-brand-surface p-1 rounded-xl border border-brand-border">
+                  <button 
+                    onClick={() => setEditType('product')}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${editType === 'product' ? 'bg-brand-primary text-white shadow-sm' : 'text-brand-text-muted hover:bg-brand-primary/10'}`}
+                  >
+                    {isRtl ? 'منتجات' : 'Products'}
+                  </button>
+                  <button 
+                    onClick={() => setEditType('service')}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${editType === 'service' ? 'bg-brand-primary text-white shadow-sm' : 'text-brand-text-muted hover:bg-brand-primary/10'}`}
+                  >
+                    {isRtl ? 'خدمات' : 'Services'}
+                  </button>
+                </div>
+                
+                <div className="flex items-center gap-1">
+                  <button onClick={handleEdit} className="text-brand-success p-2 hover:bg-brand-success/10 rounded-xl transition-colors" title="Save"><Check size={18} /></button>
+                  <button onClick={() => setIsEditing(false)} className="text-brand-error p-2 hover:bg-brand-error/10 rounded-xl transition-colors" title="Cancel"><X size={18} /></button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-brand-text-main text-base leading-tight truncate">{category.nameAr}</span>
+                <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter ${category.categoryType === 'service' ? 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'}`}>
+                  {category.categoryType === 'service' ? (isRtl ? 'خدمة' : 'Service') : (isRtl ? 'منتج' : 'Product')}
+                </span>
+              </div>
+              <span className="text-[11px] font-bold text-brand-text-muted uppercase tracking-widest truncate mt-0.5">{category.nameEn}</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            {hasSubCategories && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-brand-background rounded-lg border border-brand-border text-xs font-bold text-brand-text-muted">
+                <Hash size={12} />
+                {subCategories.length}
+              </div>
+            )}
+
+            {isAddingSub ? (
+              <div className="flex items-center gap-2 bg-brand-background p-1.5 rounded-xl border border-brand-border animate-in fade-in slide-in-from-right-2 duration-200">
+                <input 
+                  type="text" 
+                  placeholder="Ar" 
+                  value={newSubAr}
+                  onChange={e => setNewSubAr(e.target.value)}
+                  className="w-24 px-3 py-1.5 bg-brand-surface border border-brand-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary/20"
+                  autoFocus
+                />
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    placeholder="En" 
+                    value={newSubEn}
+                    onChange={e => setNewSubEn(e.target.value)}
+                    className="w-24 px-3 py-1.5 bg-brand-surface border border-brand-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary/20"
+                  />
+                  <button 
+                    onClick={handleTranslate}
+                    disabled={isTranslating}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-brand-primary hover:bg-brand-primary/10 rounded-md transition-colors"
+                  >
+                    {isTranslating ? <div className="w-3 h-3 border-2 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" /> : <Sparkles size={12} />}
+                  </button>
+                </div>
+                <div className="flex items-center gap-1 px-1">
+                  <button onClick={handleAddSub} className="text-brand-success p-1.5 hover:bg-brand-success/10 rounded-lg transition-colors"><Check size={16} /></button>
+                  <button onClick={() => setIsAddingSub(false)} className="text-brand-error p-1.5 hover:bg-brand-error/10 rounded-lg transition-colors"><X size={16} /></button>
+                </div>
+              </div>
+            ) : isConfirmingDelete ? (
+              <div className="flex items-center gap-2 bg-brand-error/10 p-1.5 rounded-xl border border-brand-error/20 animate-in fade-in slide-in-from-right-2 duration-200">
+                <span className="text-xs font-bold text-brand-error uppercase tracking-widest px-2">Confirm?</span>
+                <button onClick={handleDelete} className="bg-brand-error text-white p-1.5 rounded-lg hover:bg-brand-error transition-colors"><Check size={16} /></button>
+                <button onClick={() => setIsConfirmingDelete(false)} className="text-brand-error p-1.5 hover:bg-brand-error/20 rounded-lg transition-colors"><X size={16} /></button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {onManageKeywords && (
+                  <button onClick={() => onManageKeywords(category)} className="p-2 text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-colors" title="Manage Keywords">
+                    <Tag size={16} className={(category.keywords?.length || 0) === 0 ? 'text-brand-warning' : ''} />
+                  </button>
+                )}
+                <button onClick={() => setIsAddingSub(true)} className="p-2 text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-colors" title="Add Sub"><Plus size={16} /></button>
+                <button onClick={() => setIsEditing(true)} className="p-2 text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-colors" title="Edit"><Edit2 size={16} /></button>
+                <button onClick={() => setIsConfirmingDelete(true)} className="p-2 text-brand-error/70 hover:text-brand-error hover:bg-brand-error/10 rounded-xl transition-colors" title="Delete"><Trash2 size={16} /></button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {hasSubCategories && isExpanded && (
+        <div className="ml-6 mt-2 border-l-2 border-brand-border pl-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          <CategoryList categories={subCategories} allCategories={allCategories} onReorder={onReorder} onManageKeywords={onManageKeywords} viewMode="list" />
+        </div>
+      )}
+    </div>
+  );
+};

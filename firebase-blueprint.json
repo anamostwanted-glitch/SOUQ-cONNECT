@@ -1,0 +1,241 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System users (Customers, Suppliers, Admins)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "supplier", "customer"] },
+        "companyName": { "type": "string" },
+        "phone": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "verificationDocUrl": { "type": "string", "description": "URL of the uploaded verification document" },
+        "isVerified": { "type": "boolean", "description": "Whether the supplier is verified by AI/Admin" },
+        "verificationDetails": { "type": "string", "description": "Details extracted from the document" },
+        "categories": { "type": "array", "items": { "type": "string" }, "description": "Categories the supplier works in" },
+        "keywords": { "type": "array", "items": { "type": "string" }, "description": "Manual keywords added by the supplier" },
+        "language": { "type": "string", "enum": ["ar", "en"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastActive": { "type": "string", "format": "date-time" },
+        "following": { "type": "array", "items": { "type": "string" }, "description": "List of supplier UIDs the user is following" },
+        "notificationPreferences": {
+          "type": "object",
+          "description": "User notification preferences",
+          "properties": {
+            "newMessages": { "type": "boolean" },
+            "newOffers": { "type": "boolean" },
+            "requestUpdates": { "type": "boolean" },
+            "verificationStatus": { "type": "boolean" }
+          }
+        }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Product categories",
+      "type": "object",
+      "properties": {
+        "nameAr": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "parentId": { "type": "string" },
+        "order": { "type": "integer" },
+        "keywords": { "type": "array", "items": { "type": "string" }, "description": "Active keywords for search optimization" },
+        "suggestedKeywords": { "type": "array", "items": { "type": "string" }, "description": "Keywords suggested by AI from user requests" }
+      },
+      "required": ["nameAr", "nameEn"]
+    },
+    "Request": {
+      "title": "Request",
+      "description": "Customer product requests",
+      "type": "object",
+      "properties": {
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "productName": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "categoryNameAr": { "type": "string" },
+        "categoryNameEn": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "closed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerId", "productName", "categoryId", "status"]
+    },
+    "Offer": {
+      "title": "Offer",
+      "description": "Supplier price offers",
+      "type": "object",
+      "properties": {
+        "requestId": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "price": { "type": "number" },
+        "minPrice": { "type": "number", "description": "Minimum price for auto-negotiation (hidden from customer)" },
+        "autoNegotiate": { "type": "boolean", "description": "Whether AI bot should handle negotiations" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["requestId", "supplierId", "price", "status"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "Private chat between customer and supplier",
+      "type": "object",
+      "properties": {
+        "requestId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["requestId", "customerId", "supplierId"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Individual chat messages",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "audioUrl": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "audio"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "senderId", "type"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Global site settings",
+      "type": "object",
+      "properties": {
+        "logoUrl": { "type": "string" },
+        "siteName": { "type": "string" },
+        "heroTitleAr": { "type": "string" },
+        "heroTitleEn": { "type": "string" },
+        "heroDescriptionAr": { "type": "string" },
+        "heroDescriptionEn": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notifications",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "titleAr": { "type": "string" },
+        "titleEn": { "type": "string" },
+        "bodyAr": { "type": "string" },
+        "bodyEn": { "type": "string" },
+        "link": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "titleAr", "titleEn", "bodyAr", "bodyEn", "read", "createdAt"]
+    },
+    "ModerationAlert": {
+      "title": "ModerationAlert",
+      "description": "Alerts for blocked content",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "reason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "resolved": { "type": "boolean" }
+      },
+      "required": ["chatId", "senderId", "text", "reason", "createdAt", "resolved"]
+    },
+    "Search": {
+      "title": "Search",
+      "description": "User search history",
+      "type": "object",
+      "properties": {
+        "query": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["query", "userId", "createdAt"]
+    },
+    "TranslationCache": {
+      "title": "TranslationCache",
+      "description": "Cache for AI translations to reduce API calls and costs",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "description": "The original text to translate" },
+        "targetLang": { "type": "string", "enum": ["English", "Arabic"] },
+        "translation": { "type": "string", "description": "The translated text" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "targetLang", "translation", "createdAt"]
+    },
+    "MarketTrend": {
+      "title": "MarketTrend",
+      "description": "AI analyzed market trends and demand forecasting",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "analysis": { "type": "string" },
+        "suggestions": { "type": "array", "items": { "type": "string" } },
+        "language": { "type": "string", "enum": ["ar", "en"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "analysis", "language", "createdAt"]
+    },
+    "MarketplaceItem": {
+      "title": "MarketplaceItem",
+      "description": "Items listed for sale in the marketplace",
+      "type": "object",
+      "properties": {
+        "sellerId": { "type": "string" },
+        "sellerName": { "type": "string" },
+        "sellerRole": { "type": "string", "enum": ["admin", "supplier", "customer"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "currency": { "type": "string" },
+        "category": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["active", "sold", "hidden"] },
+        "location": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "isVerifiedSupplier": { "type": "boolean" }
+      },
+      "required": ["sellerId", "title", "price", "status", "createdAt"]
+    },
+    "AppFeatures": {
+      "title": "AppFeatures",
+      "description": "Toggles for enabling/disabling app features",
+      "type": "object",
+      "properties": {
+        "marketplace": { "type": "boolean" },
+        "aiChat": { "type": "boolean" },
+        "supplierVerification": { "type": "boolean" },
+        "marketTrends": { "type": "boolean" },
+        "priceIntelligence": { "type": "boolean" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/categories/{categoryId}": { "schema": "Category", "description": "Product categories" },
+    "/requests/{requestId}": { "schema": "Request", "description": "Customer requests" },
+    "/offers/{offerId}": { "schema": "Offer", "description": "Supplier offers" },
+    "/chats/{chatId}": { "schema": "Chat", "description": "Chat sessions" },
+    "/chats/{chatId}/messages/{messageId}": { "schema": "Message", "description": "Chat messages" },
+    "/settings/{settingId}": { "schema": "Settings", "description": "Global site settings" },
+    "/settings/features": { "schema": "AppFeatures", "description": "Feature toggles" },
+    "/notifications/{notificationId}": { "schema": "Notification", "description": "User notifications" },
+    "/moderation_alerts/{alertId}": { "schema": "ModerationAlert", "description": "Moderation alerts" },
+    "/searches/{searchId}": { "schema": "Search", "description": "User search history" },
+    "/translation_cache/{cacheId}": { "schema": "TranslationCache", "description": "Cache for AI translations" },
+    "/market_trends/{trendId}": { "schema": "MarketTrend", "description": "AI analyzed market trends" },
+    "/marketplace/{itemId}": { "schema": "MarketplaceItem", "description": "Marketplace listings" }
+  }
+}

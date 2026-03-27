@@ -1,0 +1,469 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: uid, email, name, role, companyName, phone, location, website, logoUrl, categories, keywords, language, createdAt, following
+    //
+    // Collection: categories
+    // Fields: nameAr, nameEn, parentId, order, keywords, suggestedKeywords, categoryType, createdAt
+    //
+    // Collection: requests
+    // Fields: customerId, productName, categoryId, status, createdAt
+    //
+    // Collection: offers
+    // Fields: requestId, supplierId, price, message, status, createdAt
+    //
+    // Collection: chats
+    // Fields: requestId, customerId, supplierId, lastMessage, updatedAt, isCategoryChat, categoryId
+    //
+    // Collection: messages (subcollection of chats)
+    // Fields: chatId, senderId, text, audioUrl, imageUrl, type, createdAt
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             getUserData().role == role;
+    }
+
+    function isMasterAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.email == "anamostwanted@gmail.com" && 
+             request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isMasterAdmin() || (
+        isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'manager', 'supervisor']
+      );
+    }
+
+    function isSupplier() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             getUserData().role == 'supplier';
+    }
+
+    function isValidUser(data) {
+      let allowedFields = ['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'website', 'logoUrl', 'categories', 'keywords', 'language', 'createdAt', 'lastActive', 'bio', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'following'];
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.uid is string && data.uid.size() < 128 &&
+             data.email is string && data.email.size() < 256 &&
+             data.role in ['admin', 'supplier', 'customer', 'manager', 'supervisor'] &&
+             (!('name' in data) || (data.name is string && data.name.size() < 128)) &&
+             (!('companyName' in data) || (data.companyName is string && data.companyName.size() < 256)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() < 32)) &&
+             (!('location' in data) || (data.location is string && data.location.size() < 512)) &&
+             (!('website' in data) || (data.website is string && data.website.size() < 512)) &&
+             (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() < 1024)) &&
+             (!('categories' in data) || (data.categories is list && data.categories.size() < 50)) &&
+             (!('keywords' in data) || (data.keywords is list && data.keywords.size() < 100)) &&
+             (!('language' in data) || data.language in ['ar', 'en']) &&
+             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() < 64)) &&
+             (!('lastActive' in data) || (data.lastActive is string && data.lastActive.size() < 64)) &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() < 2000)) &&
+             (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5)) &&
+             (!('reviewCount' in data) || (data.reviewCount is number && data.reviewCount >= 0)) &&
+             (!('verificationDocUrl' in data) || (data.verificationDocUrl is string && data.verificationDocUrl.size() < 1024)) &&
+             (!('isVerified' in data) || data.isVerified is bool) &&
+             (!('verificationDetails' in data) || (data.verificationDetails is string && data.verificationDetails.size() < 5000)) &&
+             (!('following' in data) || (data.following is list && data.following.size() < 1000));
+    }
+
+    function roleUnchanged() {
+      return !('role' in request.resource.data) || request.resource.data.role == resource.data.role;
+    }
+
+    match /invites/{email} {
+      allow read: if isAuthenticated() && request.auth.token.email == email;
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      // PII Protection: Only owner or admin can read full profile.
+      // We allow authenticated users to read supplier profiles for matchmaking and notifications.
+      // This is essential for a marketplace where customers need to see who they are dealing with.
+      // We also allow guests to read supplier profiles so they can see the marketplace.
+      allow read: if (resource.data.role == 'supplier') || (isAuthenticated() && (
+        isOwner(userId) || 
+        isAdmin() || 
+        (isSupplier() && resource.data.role == 'customer')
+      ));
+      allow create: if isAuthenticated() && (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) && (request.resource.data.role != 'admin' || isMasterAdmin() || isAdmin());
+      allow update: if isAuthenticated() && ((isOwner(userId) && isValidUser(request.resource.data) && (roleUnchanged() || isMasterAdmin() || isAdmin())) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    function isValidCategory(data) {
+      let allowedFields = ['id', 'nameAr', 'nameEn', 'parentId', 'order', 'keywords', 'suggestedKeywords', 'autoKeywords', 'defaultSupplierId', 'categoryType', 'createdAt'];
+      return data.keys().hasAll(['nameAr', 'nameEn']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.nameAr is string && data.nameAr.size() < 128 &&
+             data.nameEn is string && data.nameEn.size() < 128 &&
+             (!('parentId' in data) || (data.parentId == null || data.parentId is string)) &&
+             (!('order' in data) || data.order is number) &&
+             (!('keywords' in data) || (data.keywords is list && data.keywords.size() < 100)) &&
+             (!('suggestedKeywords' in data) || (data.suggestedKeywords is list && data.suggestedKeywords.size() < 100)) &&
+             (!('autoKeywords' in data) || (data.autoKeywords is list && data.autoKeywords.size() < 100)) &&
+             (!('defaultSupplierId' in data) || data.defaultSupplierId is string) &&
+             (!('categoryType' in data) || data.categoryType in ['product', 'service', 'main', 'sub']) &&
+             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() < 64));
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidCategory(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    function isValidRequest(data) {
+      let allowedFields = ['customerId', 'customerName', 'productName', 'status', 'createdAt', 'description', 'imageUrl', 'categoryId', 'categoryNameAr', 'categoryNameEn', 'location', 'offerCount', 'quantity', 'approvedSuppliers'];
+      return data.keys().hasAll(['customerId', 'productName', 'status', 'createdAt']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.customerId is string &&
+             data.productName is string && data.productName.size() < 256 &&
+             data.status in ['open', 'closed', 'cancelled'] &&
+             (!('customerName' in data) || (data.customerName is string && data.customerName.size() < 256)) &&
+             (!('categoryNameAr' in data) || (data.categoryNameAr is string && data.categoryNameAr.size() < 256)) &&
+             (!('categoryNameEn' in data) || (data.categoryNameEn is string && data.categoryNameEn.size() < 256)) &&
+             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() < 64)) &&
+             (!('description' in data) || (data.description is string && data.description.size() < 5000)) &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 1024)) &&
+             (!('categoryId' in data) || (data.categoryId is string && data.categoryId.size() < 128)) &&
+             (!('location' in data) || (data.location is string && data.location.size() < 512)) &&
+             (!('offerCount' in data) || data.offerCount is number) &&
+             (!('quantity' in data) || (data.quantity is string && data.quantity.size() < 64)) &&
+             (!('approvedSuppliers' in data) || (data.approvedSuppliers is list && data.approvedSuppliers.size() < 50));
+    }
+
+    match /requests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (request.resource.data.customerId == request.auth.uid || isAdmin()) && isValidRequest(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (resource.data.customerId == request.auth.uid && isValidRequest(request.resource.data)) || 
+        isAdmin()
+      );
+      allow delete: if isAdmin() || (isAuthenticated() && resource != null && resource.data.customerId == request.auth.uid);
+    }
+
+    function isValidOffer(data) {
+      let allowedFields = ['requestId', 'supplierId', 'customerId', 'price', 'status', 'createdAt', 'message', 'notes', 'deliveryTime', 'supplierName', 'minPrice', 'autoNegotiate'];
+      return data.keys().hasAll(['requestId', 'supplierId', 'customerId', 'price', 'status', 'createdAt']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.requestId is string && data.requestId.size() < 128 &&
+             data.supplierId is string && data.supplierId.size() < 128 &&
+             data.customerId is string && data.customerId.size() < 128 &&
+             data.price is number &&
+             data.status in ['pending', 'accepted', 'rejected', 'negotiating'] &&
+             (!('message' in data) || (data.message is string && data.message.size() < 5000)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() < 5000)) &&
+             (!('deliveryTime' in data) || (data.deliveryTime is string && data.deliveryTime.size() < 128)) &&
+             (!('supplierName' in data) || (data.supplierName is string && data.supplierName.size() < 256)) &&
+             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() < 64)) &&
+             (!('minPrice' in data) || data.minPrice is number) &&
+             (!('autoNegotiate' in data) || data.autoNegotiate is bool);
+    }
+
+    match /offers/{offerId} {
+      allow read: if isAuthenticated() && (
+        resource.data.supplierId == request.auth.uid || 
+        resource.data.customerId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/requests/$(resource.data.requestId)) && 
+         get(/databases/$(database)/documents/requests/$(resource.data.requestId)).data.customerId == request.auth.uid) ||
+        isAdmin()
+      );
+      allow create: if (isSupplier() || isAdmin()) && request.resource.data.supplierId == request.auth.uid && isValidOffer(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (resource.data.supplierId == request.auth.uid && isValidOffer(request.resource.data)) || 
+        (resource.data.customerId == request.auth.uid && isValidOffer(request.resource.data)) ||
+        (exists(/databases/$(database)/documents/requests/$(resource.data.requestId)) && 
+         get(/databases/$(database)/documents/requests/$(resource.data.requestId)).data.customerId == request.auth.uid && isValidOffer(request.resource.data)) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.supplierId == request.auth.uid);
+    }
+
+    function isValidChat(data) {
+      return data.keys().hasAll(['customerId', 'supplierId', 'updatedAt']) &&
+             data.customerId is string && data.customerId.size() < 128 &&
+             data.supplierId is string && data.supplierId.size() < 128 &&
+             data.updatedAt is string && data.updatedAt.size() < 64 &&
+             (!('requestId' in data) || (data.requestId is string && data.requestId.size() < 128)) &&
+             (!('lastMessage' in data) || (data.lastMessage is string && data.lastMessage.size() < 5000)) &&
+             (!('isCategoryChat' in data) || data.isCategoryChat is bool) &&
+             (!('categoryId' in data) || (data.categoryId is string && data.categoryId.size() < 128)) &&
+             (!('status' in data) || data.status in ['active', 'closed']) &&
+             (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5)) &&
+             (!('review' in data) || (data.review is string && data.review.size() < 2000));
+    }
+
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid || 
+        resource.data.supplierId == request.auth.uid || 
+        (resource.data.keys().contains('isCategoryChat') && resource.data.isCategoryChat == true) ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && (
+        request.resource.data.customerId == request.auth.uid || 
+        request.resource.data.supplierId == request.auth.uid ||
+        isAdmin()
+      ) && isValidChat(request.resource.data);
+      allow update: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid || 
+        resource.data.supplierId == request.auth.uid || 
+        (resource.data.keys().contains('isCategoryChat') && resource.data.isCategoryChat == true) ||
+        isAdmin()
+      ) && isValidChat(request.resource.data);
+      allow delete: if isAdmin() || (isAuthenticated() && (resource.data.customerId == request.auth.uid || resource.data.supplierId == request.auth.uid));
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (
+          (get(/databases/$(database)/documents/chats/$(chatId)).data.customerId == request.auth.uid || 
+           get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId == request.auth.uid || 
+           (get(/databases/$(database)/documents/chats/$(chatId)).data.keys().contains('isCategoryChat') && get(/databases/$(database)/documents/chats/$(chatId)).data.isCategoryChat == true)) ||
+          isAdmin()
+        );
+        allow create: if isAuthenticated() && request.resource.data.senderId == request.auth.uid;
+        allow update: if isAuthenticated() && (
+          (get(/databases/$(database)/documents/chats/$(chatId)).data.customerId == request.auth.uid || 
+           get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId == request.auth.uid) || 
+          isAdmin()
+        );
+        allow delete: if isAdmin();
+      }
+    }
+
+    function isValidMatchmakingCache(data) {
+      return data.keys().hasAll(['key', 'supplierIds', 'createdAt']) &&
+             data.key is string && data.key.size() < 1000 &&
+             data.supplierIds is list && data.supplierIds.size() < 100 &&
+             data.createdAt is string && data.createdAt.size() < 64;
+    }
+
+    match /matchmaking_cache/{cacheId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidMatchmakingCache(request.resource.data);
+      allow update: if isAuthenticated() && isValidMatchmakingCache(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    function isValidCategorizationCache(data) {
+      return data.keys().hasAll(['key', 'categoryId', 'createdAt']) &&
+             data.key is string && data.key.size() < 1000 &&
+             data.categoryId is string && data.categoryId.size() < 64 &&
+             data.createdAt is string && data.createdAt.size() < 64;
+    }
+
+    match /categorization_cache/{cacheId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidCategorizationCache(request.resource.data);
+      allow update: if isAuthenticated() && isValidCategorizationCache(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    function isValidEnhancementCache(data) {
+      return data.keys().hasAll(['key', 'enhancedDescription', 'createdAt']) &&
+             data.key is string && data.key.size() < 1000 &&
+             data.enhancedDescription is string && data.enhancedDescription.size() < 10000 &&
+             data.createdAt is string && data.createdAt.size() < 64;
+    }
+
+    match /enhancement_cache/{cacheId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidEnhancementCache(request.resource.data);
+      allow update: if isAuthenticated() && isValidEnhancementCache(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    function isValidPriceIntelligenceCache(data) {
+      return data.keys().hasAll(['key', 'result', 'createdAt']) &&
+             data.key is string && data.key.size() < 1000 &&
+             data.result is map &&
+             data.result.recommendedPrice is number &&
+             data.result.minPrice is number &&
+             data.result.maxPrice is number &&
+             data.result.analysis is string && data.result.analysis.size() < 5000 &&
+             data.createdAt is string && data.createdAt.size() < 64;
+    }
+
+    match /price_intelligence_cache/{cacheId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidPriceIntelligenceCache(request.resource.data);
+      allow update: if isAuthenticated() && isValidPriceIntelligenceCache(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /settings/features {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['userId', 'titleAr', 'titleEn', 'bodyAr', 'bodyEn', 'read', 'createdAt']) &&
+             data.userId is string &&
+             data.titleAr is string && data.titleAr.size() < 256 &&
+             data.titleEn is string && data.titleEn.size() < 256 &&
+             data.bodyAr is string && data.bodyAr.size() < 1024 &&
+             data.bodyEn is string && data.bodyEn.size() < 1024 &&
+             data.read is bool &&
+             (!('link' in data) || (data.link is string && data.link.size() < 512)) &&
+             data.createdAt is string && data.createdAt.size() < 64;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isValidNotification(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidNotification(request.resource.data);
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    function isValidModerationAlert(data) {
+      return data.keys().hasAll(['chatId', 'senderId', 'text', 'reason', 'createdAt', 'resolved']) &&
+             data.chatId is string &&
+             data.senderId is string &&
+             data.text is string && data.text.size() < 5000 &&
+             data.reason is string && data.reason.size() < 1024 &&
+             data.createdAt is string && data.createdAt.size() < 64 &&
+             data.resolved is bool;
+    }
+
+    match /moderation_alerts/{alertId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && isValidModerationAlert(request.resource.data);
+      allow update: if isAdmin() && isValidModerationAlert(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    function isValidSearch(data) {
+      return data.keys().hasAll(['query', 'userId', 'createdAt']) &&
+             data.query is string && data.query.size() < 512 &&
+             data.userId is string &&
+             data.createdAt is string && data.createdAt.size() < 64;
+    }
+
+    match /searches/{searchId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidSearch(request.resource.data);
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    function isValidTranslationCache(data) {
+      return data.keys().hasAll(['text', 'targetLang', 'translation', 'createdAt']) &&
+             data.text is string && data.text.size() < 10000 &&
+             data.targetLang in ['English', 'Arabic'] &&
+             data.translation is string && data.translation.size() < 10000 &&
+             data.createdAt is string && data.createdAt.size() < 64;
+    }
+
+    match /translation_cache/{cacheId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidTranslationCache(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    function isValidMarketTrend(data) {
+      return data.keys().hasAll(['titleAr', 'titleEn', 'analysis', 'language', 'createdAt']) &&
+             data.titleAr is string && data.titleAr.size() < 256 &&
+             data.titleEn is string && data.titleEn.size() < 256 &&
+             data.analysis is string && data.analysis.size() < 10000 &&
+             (!('suggestions' in data) || (data.suggestions is list && data.suggestions.size() < 50)) &&
+             data.language in ['ar', 'en'] &&
+             data.createdAt is string && data.createdAt.size() < 64;
+    }
+
+    match /market_trends/{trendId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() && isValidMarketTrend(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    function isValidPriceInsight(data) {
+      return data.keys().hasAll(['productName', 'recommendedPrice', 'minPrice', 'maxPrice', 'analysis', 'createdAt']) &&
+             data.productName is string && data.productName.size() < 256 &&
+             data.recommendedPrice is number &&
+             data.minPrice is number &&
+             data.maxPrice is number &&
+             data.analysis is string && data.analysis.size() < 5000 &&
+             data.createdAt is number;
+    }
+
+    match /price_insights/{insightId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidPriceInsight(request.resource.data);
+      allow update: if isAdmin() && isValidPriceInsight(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    function isValidMarketplaceItem(data) {
+      let allowedFields = ['sellerId', 'sellerName', 'sellerRole', 'title', 'description', 'price', 'currency', 'category', 'images', 'status', 'location', 'createdAt', 'updatedAt', 'isVerifiedSupplier'];
+      return data.keys().hasAll(['sellerId', 'title', 'price', 'status', 'createdAt']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.sellerId is string &&
+             data.title is string && data.title.size() < 256 &&
+             data.price is number && data.price >= 0 &&
+             data.status in ['active', 'sold', 'hidden'] &&
+             (!('description' in data) || (data.description is string && data.description.size() < 5000)) &&
+             (!('currency' in data) || (data.currency is string && data.currency.size() < 10)) &&
+             (!('category' in data) || (data.category is string && data.category.size() < 128)) &&
+             (!('images' in data) || (data.images is list && data.images.size() < 10)) &&
+             (!('location' in data) || (data.location is string && data.location.size() < 512)) &&
+             (!('isVerifiedSupplier' in data) || data.isVerifiedSupplier is bool);
+    }
+
+    match /marketplace/{itemId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.sellerId == request.auth.uid && isValidMarketplaceItem(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (resource.data.sellerId == request.auth.uid && isValidMarketplaceItem(request.resource.data)) || 
+        isAdmin()
+      );
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.sellerId == request.auth.uid);
+    }
+
+    function isValidContactEvent(data) {
+      return data.keys().hasAll(['userId', 'supplierId', 'itemId', 'createdAt']) &&
+             data.userId is string && data.userId.size() < 128 &&
+             data.supplierId is string && data.supplierId.size() < 128 &&
+             data.itemId is string && data.itemId.size() < 128 &&
+             data.createdAt is string && data.createdAt.size() < 64;
+    }
+
+    match /contactEvents/{eventId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.supplierId == request.auth.uid || 
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidContactEvent(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,120 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Kufi+Arabic:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --brand-primary: #1b97a7;
+  --brand-primary-hover: #157a87;
+  --brand-secondary: #64748b;
+  --brand-radius: 1rem;
+  --brand-font: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --brand-glass-blur: 12px;
+  --brand-glass-opacity: 0.9;
+}
+
+@theme {
+  --font-sans: var(--brand-font);
+  --font-arabic: "Noto Kufi Arabic", sans-serif;
+  --font-roboto: "Roboto", sans-serif;
+  --font-poppins: "Poppins", sans-serif;
+  --font-montserrat: "Montserrat", sans-serif;
+  
+  /* Refined Professional Palette */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-hover: var(--brand-primary-600);
+  --color-brand-primary-light: var(--brand-primary-100);
+  --color-brand-primary-lighter: var(--brand-primary-50);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-teal: #1b97a7;
+  --color-brand-teal-dark: #157a87;
+  --color-brand-surface: light-dark(#FFFFFF, #0f172a);
+  --color-brand-background: light-dark(#f8fafc, #020617);
+  --color-brand-text-main: light-dark(#0f172a, #f8fafc);
+  --color-brand-text-muted: light-dark(#64748b, #94a3b8);
+  --color-brand-border: light-dark(#e2e8f0, #1e293b);
+  --color-brand-border-light: light-dark(#f1f5f9, #0f172a);
+  --color-brand-success: #059669;
+  --color-brand-warning: #d97706;
+  --color-brand-error: #dc2626;
+
+  /* V3 Design System Variables - Refined for Professionalism */
+  --color-v3-surface: light-dark(#fff, #0f172a);
+  --color-v3-text: light-dark(#0f172a, #f8fafc);
+  --color-v3-text-muted: light-dark(#64748b, #94a3b8);
+  --color-v3-outline: light-dark(#e2e8f0, #1e293b);
+  --color-v3-hover: light-dark(#f1f5f9, #1e293b);
+
+  --radius-xl: var(--brand-radius);
+
+  --animate-shimmer: shimmer 2s infinite;
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-brand-background text-brand-text-main font-sans antialiased selection:bg-brand-primary/20 selection:text-brand-primary;
+  }
+
+  [dir="rtl"] {
+    @apply font-arabic;
+  }
+}
+
+@layer components {
+  .glass-card {
+    background-color: color-mix(in srgb, var(--color-brand-surface) calc(var(--brand-glass-opacity) * 100%), transparent);
+    backdrop-filter: blur(var(--brand-glass-blur));
+    @apply border border-brand-border shadow-sm rounded-2xl transition-all duration-300 hover:shadow-md hover:border-brand-border-light;
+  }
+
+  .glass-modal {
+    background-color: color-mix(in srgb, var(--color-brand-surface) 90%, transparent);
+    backdrop-filter: blur(20px);
+    @apply border border-brand-border shadow-2xl rounded-3xl;
+  }
+
+  .bento-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6;
+  }
+
+  .btn-primary {
+    @apply bg-brand-primary text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:bg-brand-primary-hover hover:-translate-y-0.5 active:translate-y-0 shadow-sm hover:shadow-brand-primary/25;
+  }
+
+  .btn-secondary {
+    @apply bg-brand-surface text-brand-text-main border border-brand-border px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:bg-brand-background hover:border-brand-text-muted/30 active:scale-95 shadow-sm;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl border border-brand-border bg-brand-surface focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 outline-none transition-all duration-200 text-brand-text-main placeholder:text-brand-text-muted/60;
+  }
+}
+
+/* Custom Scrollbar for Professional Feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-brand-border rounded-full hover:bg-brand-text-muted transition-colors;
+}
+
+@utility pb-safe {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+
+@utility pt-safe {
+  padding-top: calc(1rem + env(safe-area-inset-top));
+}
+
+@utility px-safe {
+  padding-left: calc(1rem + env(safe-area-inset-left));
+  padding-right: calc(1rem + env(safe-area-inset-right));
+}
