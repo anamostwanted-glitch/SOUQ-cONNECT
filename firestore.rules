@@ -46,8 +46,8 @@ service cloud.firestore {
 
     function isMasterAdmin() {
       return isAuthenticated() && 
-             request.auth.token.email == "anamostwanted@gmail.com" && 
-             request.auth.token.email_verified == true;
+             'email' in request.auth.token && request.auth.token.email == "anamostwanted@gmail.com" && 
+             'email_verified' in request.auth.token && request.auth.token.email_verified == true;
     }
 
     function isAdmin() {
@@ -65,7 +65,7 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      let allowedFields = ['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'website', 'logoUrl', 'categories', 'keywords', 'language', 'createdAt', 'lastActive', 'bio', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'following'];
+      let allowedFields = ['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'coordinates', 'website', 'logoUrl', 'photoURL', 'categories', 'keywords', 'language', 'createdAt', 'lastActive', 'bio', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'following', 'referralCode', 'referralPoints', 'logoGenerationUsage', 'isOnline', 'averageResponseTime', 'notificationPreferences', 'branding', 'favoriteProducts'];
       return data.keys().hasAll(['uid', 'email', 'role']) &&
              data.keys().hasOnly(allowedFields) &&
              data.uid is string && data.uid.size() < 128 &&
@@ -75,8 +75,10 @@ service cloud.firestore {
              (!('companyName' in data) || (data.companyName is string && data.companyName.size() < 256)) &&
              (!('phone' in data) || (data.phone is string && data.phone.size() < 32)) &&
              (!('location' in data) || (data.location is string && data.location.size() < 512)) &&
+             (!('coordinates' in data) || (data.coordinates is map && data.coordinates.keys().hasAll(['latitude', 'longitude']) && data.coordinates.latitude is number && data.coordinates.longitude is number)) &&
              (!('website' in data) || (data.website is string && data.website.size() < 512)) &&
              (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() < 1024)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 1024)) &&
              (!('categories' in data) || (data.categories is list && data.categories.size() < 50)) &&
              (!('keywords' in data) || (data.keywords is list && data.keywords.size() < 100)) &&
              (!('language' in data) || data.language in ['ar', 'en']) &&
@@ -88,7 +90,15 @@ service cloud.firestore {
              (!('verificationDocUrl' in data) || (data.verificationDocUrl is string && data.verificationDocUrl.size() < 1024)) &&
              (!('isVerified' in data) || data.isVerified is bool) &&
              (!('verificationDetails' in data) || (data.verificationDetails is string && data.verificationDetails.size() < 5000)) &&
-             (!('following' in data) || (data.following is list && data.following.size() < 1000));
+             (!('following' in data) || (data.following is list && data.following.size() < 1000)) &&
+             (!('referralCode' in data) || (data.referralCode is string && data.referralCode.size() < 32)) &&
+             (!('referralPoints' in data) || (data.referralPoints is number && data.referralPoints >= 0)) &&
+             (!('logoGenerationUsage' in data) || (data.logoGenerationUsage is map && data.logoGenerationUsage.keys().hasAll(['count', 'month']) && data.logoGenerationUsage.count is number && data.logoGenerationUsage.month is string)) &&
+             (!('isOnline' in data) || data.isOnline is bool) &&
+             (!('averageResponseTime' in data) || data.averageResponseTime is number) &&
+             (!('notificationPreferences' in data) || data.notificationPreferences is map) &&
+             (!('branding' in data) || data.branding is map) &&
+             (!('favoriteProducts' in data) || (data.favoriteProducts is list && data.favoriteProducts.size() < 1000));
     }
 
     function roleUnchanged() {
@@ -100,18 +110,22 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    function isValidReferralUpdate() {
+      let oldPoints = ('referralPoints' in resource.data) ? resource.data.referralPoints : 0;
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['referralPoints']) &&
+             request.resource.data.referralPoints == oldPoints + 10;
+    }
+
     match /users/{userId} {
       // PII Protection: Only owner or admin can read full profile.
-      // We allow authenticated users to read supplier profiles for matchmaking and notifications.
-      // This is essential for a marketplace where customers need to see who they are dealing with.
-      // We also allow guests to read supplier profiles so they can see the marketplace.
-      allow read: if (resource.data.role == 'supplier') || (isAuthenticated() && (
-        isOwner(userId) || 
-        isAdmin() || 
-        (isSupplier() && resource.data.role == 'customer')
-      ));
+      // Suppliers are public so customers can find them.
+      allow read: if isOwner(userId) || isAdmin() || (resource != null && 'role' in resource.data && resource.data.role == 'supplier');
       allow create: if isAuthenticated() && (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) && (request.resource.data.role != 'admin' || isMasterAdmin() || isAdmin());
-      allow update: if isAuthenticated() && ((isOwner(userId) && isValidUser(request.resource.data) && (roleUnchanged() || isMasterAdmin() || isAdmin())) || isAdmin());
+      allow update: if isAuthenticated() && (
+        (isOwner(userId) && isValidUser(request.resource.data) && (roleUnchanged() || isMasterAdmin() || isAdmin())) || 
+        isAdmin() ||
+        isValidReferralUpdate()
+      );
       allow delete: if isAdmin();
     }
 
@@ -315,6 +329,21 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    function isValidImageAnalysisCache(data) {
+      return data.keys().hasAll(['hash', 'language', 'result', 'createdAt']) &&
+             data.hash is string && data.hash.size() < 1000 &&
+             data.language in ['ar', 'en'] &&
+             data.result is map &&
+             data.createdAt is string && data.createdAt.size() < 64;
+    }
+
+    match /image_analysis_cache/{cacheId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidImageAnalysisCache(request.resource.data);
+      allow update: if isAuthenticated() && isValidImageAnalysisCache(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -422,19 +451,26 @@ service cloud.firestore {
     }
 
     function isValidMarketplaceItem(data) {
-      let allowedFields = ['sellerId', 'sellerName', 'sellerRole', 'title', 'description', 'price', 'currency', 'category', 'images', 'status', 'location', 'createdAt', 'updatedAt', 'isVerifiedSupplier'];
+      let allowedFields = ['sellerId', 'sellerName', 'sellerRole', 'title', 'description', 'price', 'currency', 'category', 'images', 'status', 'location', 'createdAt', 'updatedAt', 'isVerifiedSupplier', 'phone', 'sellerPhone', 'isHighQuality', 'features'];
       return data.keys().hasAll(['sellerId', 'title', 'price', 'status', 'createdAt']) &&
              data.keys().hasOnly(allowedFields) &&
              data.sellerId is string &&
              data.title is string && data.title.size() < 256 &&
              data.price is number && data.price >= 0 &&
              data.status in ['active', 'sold', 'hidden'] &&
+             (!('sellerName' in data) || (data.sellerName is string && data.sellerName.size() < 256)) &&
+             (!('sellerRole' in data) || (data.sellerRole is string && data.sellerRole.size() < 128)) &&
              (!('description' in data) || (data.description is string && data.description.size() < 5000)) &&
              (!('currency' in data) || (data.currency is string && data.currency.size() < 10)) &&
              (!('category' in data) || (data.category is string && data.category.size() < 128)) &&
-             (!('images' in data) || (data.images is list && data.images.size() < 10)) &&
+             (!('images' in data) || (data.images is list && data.images.size() <= 10)) &&
              (!('location' in data) || (data.location is string && data.location.size() < 512)) &&
-             (!('isVerifiedSupplier' in data) || data.isVerifiedSupplier is bool);
+             (!('phone' in data) || (data.phone is string && data.phone.size() < 30)) &&
+             (!('sellerPhone' in data) || (data.sellerPhone is string && data.sellerPhone.size() < 30)) &&
+             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() < 64)) &&
+             (!('isVerifiedSupplier' in data) || data.isVerifiedSupplier is bool) &&
+             (!('isHighQuality' in data) || data.isHighQuality is bool) &&
+             (!('features' in data) || (data.features is list && data.features.size() <= 20));
     }
 
     match /marketplace/{itemId} {

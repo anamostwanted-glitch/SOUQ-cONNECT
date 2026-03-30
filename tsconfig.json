@@ -16,9 +16,11 @@
     "allowJs": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./src/*"],
+      "@main/*": ["./src/modules/main/*"],
+      "@marketplace/*": ["./src/modules/marketplace/*"],
+      "@chat/*": ["./src/modules/chat/*"],
+      "@shared/*": ["./src/modules/shared/*"]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true

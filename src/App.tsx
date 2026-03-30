@@ -1,33 +1,37 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { auth, db } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { useTranslation } from 'react-i18next';
-import './i18n';
-import { UserProfile, UserRole, AppFeatures } from './types';
-import { Layout } from './components/Layout';
-import { handleFirestoreError, OperationType } from './utils/errorHandling';
-import { isAdmin } from './utils/rbac';
+import { auth, db } from './core/firebase';
+import { UserProfile, AppFeatures, UserRole } from './core/types';
+import { Layout as AppLayout } from './modules/site/components/Layout';
+import { usePersistedState } from './shared/hooks/usePersistedState';
+import ErrorBoundary from './core/components/ErrorBoundary';
+import Auth from './modules/site/components/Auth';
+import RoleSelection from './modules/site/components/RoleSelection';
+import { ProfileView } from './modules/site/components/ProfileView';
 
-// 2. Code Splitting (Lazy Loading)
-const Home = lazy(() => import('./components/Home'));
-const Auth = lazy(() => import('./components/Auth'));
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const ChatView = lazy(() => import('./components/ChatView'));
-const RoleSelection = lazy(() => import('./components/RoleSelection'));
-const Legal = lazy(() => import('./components/Legal'));
-const ProfileView = lazy(() => import('./components/ProfileView').then(m => ({ default: m.ProfileView })));
-const MarketplaceView = lazy(() => import('./components/MarketplaceView'));
-const NotificationsLog = lazy(() => import('./components/NotificationsLog').then(m => ({ default: m.NotificationsLog })));
-const BrandingSettings = lazy(() => import('./components/BrandingSettings'));
-const GraphQLDemo = lazy(() => import('./components/GraphQLDemo'));
+import { TooltipProvider } from './shared/components/ui/tooltip';
+import { BrandingProvider } from './core/providers/BrandingProvider';
+import { Toaster } from 'sonner';
 
-import { BrandingProvider } from './components/BrandingProvider';
+// Lazy load views for better performance
+const Home = lazy(() => import('./modules/site/components/Home'));
+const Dashboard = lazy(() => import('./modules/site/components/Dashboard'));
+const MarketInterface = lazy(() => import('./modules/marketplace/components/MarketInterface').then(m => ({ default: m.MarketInterface })));
+const ChatView = lazy(() => import('./modules/common/components/ChatView'));
+const NotificationsLog = lazy(() => import('./modules/site/components/NotificationsLog').then(m => ({ default: m.NotificationsLog })));
+const Legal = lazy(() => import('./modules/site/components/Legal'));
 
-export default function App() {
-  const { i18n } = useTranslation();
+const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentView, setView] = useState('home');
+  const [viewMode, setViewMode] = usePersistedState<'admin' | 'supplier' | 'customer'>('view_mode', 'customer');
+  const [uiStyle, setUiStyle] = usePersistedState<'classic' | 'minimal'>('ui_style', 'classic');
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [supplierTab, setSupplierTab] = useState<string>('dashboard');
+  const [selectedProfileUid, setSelectedProfileUid] = useState<string | null>(null);
   const [features, setFeatures] = useState<AppFeatures>({
     marketplace: true,
     aiChat: true,
@@ -35,313 +39,186 @@ export default function App() {
     marketTrends: true,
     priceIntelligence: true
   });
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'home' | 'dashboard' | 'chat' | 'auth-supplier' | 'auth-customer' | 'role-selection' | 'profile' | 'privacy' | 'terms' | 'marketplace' | 'notifications-log' | 'branding'>('home');
-  const [history, setHistory] = useState<string[]>(['home']);
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const ref = urlParams.get('ref');
-    if (ref) {
-      localStorage.setItem('referralCode', ref);
-    }
-  }, []);
-
-  const navigate = (newView: any, uid: string | null = null) => {
-    if (newView === view && uid === targetUserId) return;
-    
-    if (newView === 'profile') {
-      setTargetUserId(uid);
-    }
-    
-    setHistory(prev => [...prev, newView]);
-    setView(newView);
-  };
-
-  useEffect(() => {
-    (window as any).navigateApp = navigate;
-  }, [navigate]);
-
-  const goBack = () => {
-    if (history.length > 1) {
-      const newHistory = [...history];
-      newHistory.pop(); // remove current
-      const prevView = newHistory[newHistory.length - 1];
-      setHistory(newHistory);
-      setView(prevView as any);
-    } else {
-      setView('home');
-    }
-  };
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [targetUserId, setTargetUserId] = useState<string | null>(null);
-
-  const [supplierTab, setSupplierTab] = useState<'dashboard' | 'personal' | 'company' | 'marketing'>('dashboard');
-  const [viewMode, setViewMode] = useState<'admin' | 'supplier' | 'customer'>('admin');
-
-  const prefetch = (targetView: string) => {
-    // Simple prefetching logic: trigger data loading for the target view
-    // In a real app, this could involve pre-fetching Firestore collections
-    // or pre-loading components.
-    console.log(`Prefetching data for: ${targetView}`);
-    
-    if (targetView === 'dashboard') {
-      // Pre-fetch dashboard data if needed
-    } else if (targetView === 'marketplace') {
-      // Pre-fetch marketplace data
-    }
-  };
-
-  useEffect(() => {
-    let unsubProfile: (() => void) | undefined;
-    let unsubFeatures: (() => void) | undefined;
-
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      console.log('Auth state changed:', user);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
-      
-      // Fetch features - move inside auth listener but ensure cleanup
-      if (unsubFeatures) unsubFeatures();
-      unsubFeatures = onSnapshot(doc(db, 'settings', 'features'), (snap) => {
-        console.log('Features snapshot:', snap.exists());
-        if (snap.exists()) {
-          setFeatures(snap.data() as AppFeatures);
-        }
-      }, (error) => {
-        console.error('Features error:', error);
-        handleFirestoreError(error, OperationType.GET, 'settings/features');
-      });
-
-      if (user) {
-        console.log('User logged in:', user.uid);
-        const path = `users/${user.uid}`;
-        if (unsubProfile) unsubProfile();
-        unsubProfile = onSnapshot(doc(db, 'users', user.uid), async (snap) => {
-          console.log('Profile snapshot:', snap.exists());
-          if (snap.exists()) {
-            let data = snap.data() as UserProfile;
-            
-            // Force admin role for master email
-            if (user.email === 'anamostwanted@gmail.com' && data.role !== 'admin') {
-              try {
-                const { updateDoc } = await import('firebase/firestore');
-                await updateDoc(doc(db, 'users', user.uid), { role: 'admin' });
-                data.role = 'admin';
-              } catch (e) {
-                console.error("Failed to force admin role:", e);
-              }
-            }
-
-            setProfile(data);
-            if (data.language) {
-              i18n.changeLanguage(data.language);
-            }
-            
-            // Sync email if it was changed via Firebase Auth
-            if (user.email && data.email !== user.email) {
-              try {
-                const { updateDoc } = await import('firebase/firestore');
-                await updateDoc(doc(db, 'users', user.uid), { email: user.email });
-              } catch (e) {
-                console.error("Failed to sync email to Firestore:", e);
-              }
-            }
-
-            // Redirect if on auth views
-            if (view === 'role-selection' || view === 'auth-supplier' || view === 'auth-customer') {
-              const isAdminLike = isAdmin(data);
-              navigate(data.role === 'supplier' || isAdminLike ? 'dashboard' : 'home');
-            }
-          }
-          setLoading(false);
-        }, (error) => {
-          console.error('Profile error:', error);
-          handleFirestoreError(error, OperationType.GET, path);
-          setLoading(false);
-        });
-      } else {
-        console.log('User logged out');
-        if (unsubProfile) {
-          unsubProfile();
-          unsubProfile = undefined;
-        }
+      if (!user) {
         setProfile(null);
         setLoading(false);
       }
     });
+    return unsubscribe;
+  }, []);
 
-    return () => {
-      unsubscribeAuth();
-      if (unsubProfile) unsubProfile();
-      if (unsubFeatures) unsubFeatures();
-    };
-  }, [i18n, view]);
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      if (snap.exists()) {
+        const profileData = snap.data() as UserProfile;
+        setProfile(profileData);
+        if (profileData.role === 'admin') {
+          // If it's an admin, set viewMode to admin if it's currently customer (default)
+          // This ensures admins see the admin view by default
+          if (viewMode === 'customer') {
+            setViewMode('admin');
+          }
+        } else {
+          setViewMode(profileData.role as any);
+        }
+      }
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [user]);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'settings', 'features'), (snap) => {
+      if (snap.exists()) {
+        setFeatures(snap.data() as AppFeatures);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleAuthSuccess = (role: UserRole) => {
+    setView('home');
+    if (role === 'admin') {
+      setViewMode('admin');
+    } else {
+      setViewMode(role as any);
+    }
+  };
+
+  const handleOpenChat = (chatId: string) => {
+    setActiveChatId(chatId);
+    setView('chat');
+  };
+
+  const handleViewProfile = (uid: string) => {
+    setSelectedProfileUid(uid);
+    setView('profile-detail');
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-brand-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary"></div>
+      <div className="flex items-center justify-center min-h-screen bg-brand-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary"></div>
       </div>
     );
   }
 
-  const handleAuthSuccess = (role: UserRole) => {
-    const isAdminLike = ['admin', 'manager', 'supervisor'].includes(role);
-    if (role === 'supplier' || isAdminLike) {
-      navigate('dashboard');
-    } else {
-      navigate('home');
-    }
-  };
-
   const renderView = () => {
-    const currentProfile = profile ? { ...profile, role: viewMode === 'admin' ? profile.role : viewMode } : null;
-
-    if (!user) {
-      switch (view) {
-        case 'role-selection':
-          return <RoleSelection onSelect={(role) => {
-            setSelectedRole(role);
-            navigate(role === 'supplier' ? 'auth-supplier' : 'auth-customer');
-          }} />;
-        case 'auth-supplier':
-          return <Auth onAuthSuccess={handleAuthSuccess} initialRole="supplier" />;
-        case 'auth-customer':
-          return <Auth onAuthSuccess={handleAuthSuccess} initialRole="customer" />;
-        case 'home':
-          return (
-            <div className="space-y-6">
-              <GraphQLDemo />
-              <Home profile={null} features={features} onNavigate={navigate} onOpenChat={() => navigate('role-selection')} />
-            </div>
-          );
-        case 'privacy':
-          return <Legal type="privacy" onBack={goBack} />;
-        case 'terms':
-          return <Legal type="terms" onBack={goBack} />;
-        default:
-          return <Home profile={null} features={features} onNavigate={navigate} onOpenChat={() => navigate('role-selection')} />;
-      }
-    }
-    
-    switch (view) {
+    switch (currentView) {
       case 'home':
         return (
-          <div className="space-y-6">
-            <GraphQLDemo />
-            <Home profile={currentProfile} features={features} onNavigate={navigate} onOpenChat={(chatId) => {
-              setActiveChatId(chatId);
-              navigate('chat');
-            }} onViewProfile={(uid) => {
-              navigate('profile', uid);
-            }} />
-          </div>
+          <Home 
+            profile={profile} 
+            features={features} 
+            onNavigate={setView} 
+            onOpenChat={handleOpenChat}
+            onViewProfile={handleViewProfile}
+            viewMode={viewMode}
+            uiStyle={uiStyle}
+          />
         );
-      case 'privacy':
-        return <Legal type="privacy" onBack={goBack} />;
-      case 'terms':
-        return <Legal type="terms" onBack={goBack} />;
-      case 'role-selection':
-        return <RoleSelection onSelect={(role) => {
-          setSelectedRole(role);
-          navigate(role === 'supplier' ? 'auth-supplier' : 'home');
-        }} />;
       case 'dashboard':
         return (
           <Dashboard 
-            profile={currentProfile} 
-            features={features}
+            profile={profile!} 
+            features={features} 
             supplierTab={supplierTab}
             setSupplierTab={setSupplierTab}
-            onOpenChat={(chatId) => {
-              setActiveChatId(chatId);
-              navigate('chat');
-            }} 
-            onViewProfile={(uid) => {
-              navigate('profile', uid);
-            }}
+            onOpenChat={handleOpenChat}
+            onViewProfile={handleViewProfile}
+            viewMode={viewMode}
+            uiStyle={uiStyle}
+          />
+        );
+      case 'marketplace':
+        return (
+          <MarketInterface 
+            profile={profile} 
+            features={features} 
+            onOpenChat={handleOpenChat}
+            onViewProfile={handleViewProfile}
+          />
+        );
+      case 'profile':
+        return (
+          <ProfileView 
+            userId={user!.uid}
+            profile={profile!} 
+            features={features} 
+            onBack={() => setView('home')}
+          />
+        );
+      case 'profile-detail':
+        return (
+          <ProfileView 
+            userId={selectedProfileUid!}
+            features={features}
+            onBack={() => setView('home')}
           />
         );
       case 'chat':
         return activeChatId ? (
           <ChatView 
             chatId={activeChatId} 
-            profile={currentProfile} 
-            features={features}
-            onBack={goBack} 
-            onViewProfile={(uid) => {
-              navigate('profile', uid);
-            }}
+            profile={profile} 
+            features={features} 
+            onBack={() => setView('home')}
+            onViewProfile={handleViewProfile}
           />
-        ) : <Dashboard profile={currentProfile} features={features} onOpenChat={setActiveChatId} onViewProfile={(uid) => {
-          navigate('profile', uid);
-        }} />;
-      case 'profile':
-        return (
-          <ProfileView 
-            userId={targetUserId || undefined} 
-            profile={!targetUserId ? currentProfile : undefined} 
-            features={features}
-            onBack={goBack}
-          />
-        );
-      case 'marketplace':
-        if (!features.marketplace) {
-          navigate('home');
-          return null;
-        }
-        return (
-          <MarketplaceView 
-            profile={currentProfile} 
-            features={features}
-            onOpenChat={(chatId) => {
-              setActiveChatId(chatId);
-              navigate('chat');
-            }} 
-            onViewProfile={(uid) => {
-              navigate('profile', uid);
-            }}
-          />
-        );
+        ) : <Home profile={profile} features={features} onNavigate={setView} onOpenChat={handleOpenChat} viewMode={viewMode} />;
       case 'notifications-log':
-        return <NotificationsLog onBack={goBack} />;
-      case 'branding':
-        return <BrandingSettings onBack={goBack} />;
+        return <NotificationsLog onBack={() => setView('home')} />;
+      case 'privacy':
+      case 'terms':
+        return <Legal type={currentView} onBack={() => setView('home')} />;
       default:
-        return <Home profile={currentProfile} features={features} onNavigate={navigate} onOpenChat={(chatId) => {
-          setActiveChatId(chatId);
-          navigate('chat');
-        }} onViewProfile={(uid) => {
-          navigate('profile', uid);
-        }} />;
+        return <Home profile={profile} features={features} onNavigate={setView} onOpenChat={handleOpenChat} viewMode={viewMode} />;
     }
   };
 
   return (
-    <BrandingProvider>
-      <Layout 
-        profile={profile} 
-        features={features}
-        currentView={view} 
-        setView={navigate}
-        setActiveChatId={setActiveChatId}
-        onBack={goBack}
-        supplierTab={supplierTab}
-        setSupplierTab={setSupplierTab}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-        onPrefetch={prefetch}
-      >
-        <Suspense fallback={
-          <div className="flex items-center justify-center p-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
-          </div>
-        }>
-          {renderView()}
-        </Suspense>
-      </Layout>
-    </BrandingProvider>
+    <ErrorBoundary>
+      <BrandingProvider>
+        <TooltipProvider>
+          <Toaster position="top-center" richColors />
+          {(!user && currentView === 'role-selection') ? (
+            <RoleSelection onSelect={(role) => setView(`auth-${role}`)} />
+          ) : (!user && currentView.startsWith('auth-')) ? (
+            <Auth onAuthSuccess={handleAuthSuccess} initialRole={currentView.split('-')[1] as UserRole} />
+          ) : (
+            <AppLayout 
+              profile={profile}
+              features={features}
+              currentView={currentView}
+              setView={setView}
+              setActiveChatId={setActiveChatId}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              uiStyle={uiStyle}
+              setUiStyle={setUiStyle}
+              supplierTab={supplierTab}
+              setSupplierTab={setSupplierTab}
+            >
+              <Suspense fallback={
+                <div className="flex items-center justify-center min-h-[60vh]">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-primary"></div>
+                </div>
+              }>
+                {renderView()}
+              </Suspense>
+            </AppLayout>
+          )}
+        </TooltipProvider>
+      </BrandingProvider>
+    </ErrorBoundary>
   );
-}
+};
 
+export default App;
