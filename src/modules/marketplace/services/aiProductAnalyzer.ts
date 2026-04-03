@@ -9,61 +9,100 @@ export interface AIProductSuggestion {
   features: string[];
 }
 
+async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
+  try {
+    return await fn();
+  } catch (error: any) {
+    if (error?.status === 429 && retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return retryWithBackoff(fn, retries - 1, delay * 2);
+    }
+    throw error;
+  }
+}
+
 export async function analyzeProductImage(base64Image: string, mimeType: string): Promise<AIProductSuggestion | null> {
   try {
-    const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.warn('Gemini API key not found. Skipping AI analysis.');
-      return null;
-    }
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return null;
 
     const ai = new GoogleGenAI({ apiKey });
-    
-    // Remove data:image/jpeg;base64, prefix if present
     const base64Data = base64Image.split(',')[1] || base64Image;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: base64Data,
-              mimeType: mimeType,
-            },
-          },
-          {
-            text: 'Analyze this product image for a marketplace listing. Provide a catchy title, a detailed description, the most appropriate category, an estimated price in USD, whether the image is high quality (well-lit, clear, professional), and a list of key features.',
-          },
-        ],
-      },
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING, description: 'A catchy, concise title for the product.' },
-            description: { type: Type.STRING, description: 'A detailed, appealing description of the product.' },
-            category: { type: Type.STRING, description: 'The most appropriate category (e.g., Electronics, Fashion, Home, Vehicles).' },
-            priceEstimate: { type: Type.NUMBER, description: 'An estimated price in USD.' },
-            isHighQuality: { type: Type.BOOLEAN, description: 'True if the image is well-lit, clear, and looks professional.' },
-            features: { 
-              type: Type.ARRAY, 
-              items: { type: Type.STRING },
-              description: 'A list of 3-5 key features or selling points.'
-            },
-          },
-          required: ['title', 'description', 'category', 'priceEstimate', 'isHighQuality', 'features'],
+    return await retryWithBackoff(async () => {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: {
+          parts: [
+            { inlineData: { data: base64Data, mimeType: mimeType } },
+            { text: 'Analyze this product image for a marketplace listing. Provide a catchy title, a detailed description, the most appropriate category, an estimated price in USD, whether the image is high quality (well-lit, clear, professional), and a list of key features.' },
+          ],
         },
-      },
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              description: { type: Type.STRING },
+              category: { type: Type.STRING },
+              priceEstimate: { type: Type.NUMBER },
+              isHighQuality: { type: Type.BOOLEAN },
+              features: { type: Type.ARRAY, items: { type: Type.STRING } },
+            },
+            required: ['title', 'description', 'category', 'priceEstimate', 'isHighQuality', 'features'],
+          },
+        },
+      });
+      return JSON.parse(response.text || '{}') as AIProductSuggestion;
     });
-
-    const text = response.text;
-    if (!text) return null;
-    
-    return JSON.parse(text) as AIProductSuggestion;
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.status === 429 || error?.message?.includes('quota')) {
+      console.warn('AI Quota exhausted. Falling back to manual entry.');
+      throw new Error('QUOTA_EXHAUSTED');
+    }
     console.error('Error analyzing product image with AI:', error);
+    return null;
+  }
+}
+
+export async function generateAlternativeProductImage(base64Image: string, mimeType: string, title: string, category: string): Promise<string | null> {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return null;
+
+    const ai = new GoogleGenAI({ apiKey });
+    const base64Data = base64Image.split(',')[1] || base64Image;
+    const prompt = `A professional, close-up photography of this product. Place it in the center of the picture on elegant interior design elements. Highlight its uses and applications. Product title: ${title || 'Product'}. Category: ${category || 'General'}. High quality, studio lighting, highly detailed.`;
+
+    return await retryWithBackoff(async () => {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [
+            { inlineData: { data: base64Data, mimeType: mimeType } },
+            { text: prompt },
+          ],
+        },
+        config: { imageConfig: { aspectRatio: "3:4" } }
+      });
+
+      const candidates = response.candidates;
+      if (candidates && candidates.length > 0) {
+        for (const part of candidates[0].content.parts || []) {
+          if (part.inlineData) {
+            return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+          }
+        }
+      }
+      return null;
+    });
+  } catch (error: any) {
+    if (error?.status === 429 || error?.message?.includes('quota')) {
+      console.warn('AI Image Generation Quota exhausted.');
+      throw new Error('QUOTA_EXHAUSTED');
+    }
+    console.error('Error generating alternative image:', error);
     return null;
   }
 }

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User as UserIcon, Mail, Phone, MapPin, Save, Camera } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, MapPin, Save, Camera, Cpu, Zap } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../../core/firebase';
 import { UserProfile } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { CacheOptimizer } from '../../../shared/components/CacheOptimizer';
 import imageCompression from 'browser-image-compression';
 
 interface ProfileSettingsProps {
@@ -26,6 +27,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isOptimizerOpen, setIsOptimizerOpen] = useState(false);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -191,6 +193,44 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
           </div>
         </form>
       </div>
+
+      {/* System Optimization Section */}
+      <div className="bg-brand-surface rounded-3xl border border-brand-border shadow-sm p-6">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary shadow-inner">
+            <Cpu size={24} />
+          </div>
+          <div>
+            <h4 className="font-bold text-brand-text-main">
+              {isRtl ? 'تحسين أداء التطبيق' : 'App Performance Optimization'}
+            </h4>
+            <p className="text-[10px] text-brand-text-muted font-medium uppercase tracking-wider">
+              {isRtl ? 'تنظيف ذاكرة التخزين المؤقت وتحسين سرعة التصفح' : 'Clear cache and optimize browsing speed'}
+            </p>
+          </div>
+        </div>
+        
+        <div className="bg-brand-background/50 rounded-2xl p-4 mb-4 border border-brand-border/50">
+          <p className="text-xs text-brand-text-muted leading-relaxed">
+            {isRtl 
+              ? 'إذا كنت تواجه بطئاً في تحميل الصور أو البيانات، يمكنك استخدام أداة التحسين الذكية لتنظيف الملفات المؤقتة وإعادة ضبط أداء الواجهة بشكل فخم وسلس.'
+              : 'If you experience slow loading of images or data, use our smart optimizer to purge temporary files and reset the UI performance for a smooth, premium experience.'}
+          </p>
+        </div>
+
+        <HapticButton
+          onClick={() => setIsOptimizerOpen(true)}
+          className="w-full bg-brand-background border border-brand-border text-brand-text-main py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-brand-surface transition-all group shadow-sm"
+        >
+          <Zap size={18} className="text-brand-primary group-hover:scale-125 transition-transform" />
+          {isRtl ? 'تشغيل أداة التحسين الذكية' : 'Run Smart Optimizer Tool'}
+        </HapticButton>
+      </div>
+
+      <CacheOptimizer 
+        isOpen={isOptimizerOpen} 
+        onClose={() => setIsOptimizerOpen(false)} 
+      />
     </div>
   );
 };

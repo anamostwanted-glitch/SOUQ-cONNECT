@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X as CloseIcon, Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sun, Moon, Globe, LogOut, Bot, ArrowRight } from 'lucide-react';
+import { X as CloseIcon, Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sun, Moon, Globe, LogOut, Bot, ArrowRight, Sparkles, MessageSquare } from 'lucide-react';
 import { UserProfile, AppFeatures } from '../../../../core/types';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { signOut } from 'firebase/auth';
@@ -25,6 +25,7 @@ interface MobileMenuProps {
   siteLogo: string;
   siteName: string;
   onPrefetch?: (view: string) => void;
+  onVisualSearch?: () => void;
 }
 
 export const MobileMenu: React.FC<MobileMenuProps> = ({
@@ -44,7 +45,8 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   toggleLanguage,
   siteLogo,
   siteName,
-  onPrefetch
+  onPrefetch,
+  onVisualSearch
 }) => {
   const { t, i18n } = useTranslation();
 
@@ -64,15 +66,15 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
             animate={{ x: 0 }}
             exit={{ x: isRtl ? '100%' : '-100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 150 }}
-            className={`fixed inset-y-0 w-[85%] sm:w-[380px] bg-white/80 dark:bg-black/80 backdrop-blur-[50px] shadow-2xl z-[70] border-r border-white/30 dark:border-white/10 ${isRtl ? 'right-0' : 'left-0'} safe-top safe-bottom`}
+            className={`fixed inset-y-0 w-[85%] sm:w-[400px] bg-white/90 dark:bg-black/90 backdrop-blur-[50px] shadow-2xl z-[70] border-r border-white/30 dark:border-white/10 ${isRtl ? 'right-0' : 'left-0'} safe-top safe-bottom`}
           >
             <div className="flex flex-col h-full relative overflow-hidden">
               {/* Premium Gradient Overlays */}
-              <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-brand-primary/5 to-transparent pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-brand-teal/5 to-transparent pointer-events-none" />
+              <div className="absolute top-0 left-0 w-full h-48 bg-gradient-to-b from-brand-primary/10 to-transparent pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-brand-teal/10 to-transparent pointer-events-none" />
 
               <div className="p-6 flex flex-col h-full relative z-10">
-                <div className="flex items-center justify-between mb-10">
+                <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-3">
                     <div className="relative group">
                       <div className="absolute -inset-1.5 bg-gradient-to-tr from-brand-primary/30 to-brand-teal/30 rounded-xl blur-md opacity-50" />
@@ -85,7 +87,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                       )}
                     </div>
                     <div className="flex flex-col">
-                      <span className="font-black text-brand-text-main text-lg tracking-tight leading-none">{siteName || 'B2B Connect'}</span>
+                      <span className="font-black text-brand-text-main text-lg tracking-tight leading-none">{siteName || 'B2B2C Connect'}</span>
                       <span className="text-[9px] font-bold text-brand-primary uppercase tracking-[0.2em] mt-1">Executive Suite</span>
                     </div>
                   </div>
@@ -96,6 +98,36 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                     <CloseIcon size={20} />
                   </HapticButton>
                 </div>
+
+                {/* Profile Header Section */}
+                {profile && (
+                  <div className="mb-8 p-6 bg-white/40 dark:bg-white/5 rounded-[2.5rem] border border-white/40 dark:border-white/10 backdrop-blur-xl shadow-xl shadow-black/5 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+                    
+                    <div className="flex items-center gap-4 relative z-10">
+                      <div className="relative">
+                        <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white dark:border-gray-800 shadow-lg">
+                          {profile.photoURL ? (
+                            <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="w-full h-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                              <User size={28} />
+                            </div>
+                          )}
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-brand-success rounded-full border-2 border-white dark:border-gray-900 shadow-sm" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-black text-brand-text-main text-lg truncate tracking-tight">{profile.name}</h3>
+                        <p className="text-xs text-brand-text-muted truncate font-medium">{profile.email}</p>
+                        <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 bg-brand-primary/10 text-brand-primary rounded-md text-[9px] font-black uppercase tracking-wider">
+                          <Sparkles size={10} />
+                          {profile.role}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <nav className="flex-1 flex flex-col gap-1.5 overflow-y-auto custom-scrollbar pr-1">
                   {[
@@ -179,17 +211,37 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
 
                   {/* AI Quick Action */}
                   <HapticButton
-                    className="w-full flex items-center gap-3 p-4 bg-gradient-to-r from-brand-primary/10 to-brand-teal/10 border border-brand-primary/20 rounded-2xl group overflow-hidden relative"
+                    onClick={() => {
+                      onVisualSearch?.();
+                      setIsOpen(false);
+                    }}
+                    className="w-full flex items-center gap-4 p-5 bg-gradient-to-br from-brand-primary via-brand-primary to-brand-teal text-white rounded-3xl group overflow-hidden relative shadow-xl shadow-brand-primary/20 border border-white/20"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-brand-primary/5 to-brand-teal/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center shadow-sm relative z-10">
-                      <Bot size={20} className="text-brand-primary" />
+                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    
+                    {/* Animated Glow */}
+                    <motion.div
+                      animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                      className="absolute -right-4 -top-4 w-24 h-24 bg-white/30 blur-2xl rounded-full"
+                    />
+
+                    <div className="relative w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/30">
+                      <Bot size={24} className="text-white" />
+                      <Sparkles size={12} className="absolute -top-1 -right-1 text-white animate-pulse" />
                     </div>
-                    <div className="flex flex-col items-start relative z-10">
-                      <span className="text-sm font-black text-brand-text-main">{isRtl ? 'المساعد الذكي' : 'Smart Assistant'}</span>
-                      <span className="text-[10px] font-bold text-brand-text-muted">{isRtl ? 'اطلب أي شيء الآن' : 'Ask anything now'}</span>
+                    
+                    <div className="flex-1 text-left relative z-10">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-black uppercase tracking-widest">{isRtl ? 'المساعد الذكي' : 'AI Hub'}</span>
+                        <div className="px-1.5 py-0.5 bg-white/20 rounded-md text-[8px] font-bold uppercase tracking-tighter backdrop-blur-sm">PRO</div>
+                      </div>
+                      <p className="text-[10px] text-white/70 font-medium mt-0.5">
+                        {isRtl ? 'البحث البصري والتحليل الذكي' : 'Visual Search & Smart Analysis'}
+                      </p>
                     </div>
-                    <ArrowRight size={16} className={`ml-auto text-brand-primary transition-transform group-hover:translate-x-1 ${isRtl ? 'rotate-180' : ''}`} />
+
+                    <ArrowRight size={20} className={`text-white/50 group-hover:text-white group-hover:translate-x-1 transition-all ${isRtl ? 'rotate-180' : ''}`} />
                   </HapticButton>
 
                   <div className="flex items-center gap-3">

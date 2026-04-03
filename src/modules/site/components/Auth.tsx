@@ -502,11 +502,11 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-4">
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-4 py-8">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-brand-surface p-8 rounded-3xl shadow-xl border border-brand-border-light"
+        className="w-full max-w-md bg-brand-surface p-6 sm:p-8 rounded-3xl shadow-xl border border-brand-border-light max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-brand-primary/20 scrollbar-track-brand-surface"
       >
         <h2 className="text-3xl font-bold text-center mb-8">
           {isForgotPassword ? (i18n.language === 'ar' ? 'استعادة كلمة المرور' : 'Reset Password') : (isLogin ? t('login') : t('register'))}

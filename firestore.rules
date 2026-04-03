@@ -147,8 +147,44 @@ service cloud.firestore {
 
     match /categories/{categoryId} {
       allow read: if true;
-      allow create, update: if isAdmin() && isValidCategory(request.resource.data);
+      allow create: if isAdmin() && isValidCategory(request.resource.data);
+      allow update: if (isAdmin() && isValidCategory(request.resource.data)) ||
+                       (isAuthenticated() && 
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['keywords', 'suggestedKeywords', 'autoKeywords']) &&
+                        isValidCategory(request.resource.data));
       allow delete: if isAdmin();
+    }
+
+    function isValidProductRequest(data) {
+      let allowedFields = ['customerId', 'customerName', 'supplierId', 'supplierName', 'productName', 'description', 'status', 'createdAt', 'type', 'imageUrl', 'attributes'];
+      return data.keys().hasAll(['customerId', 'supplierId', 'productName', 'status', 'createdAt', 'type']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.customerId is string &&
+             data.supplierId is string &&
+             data.productName is string && data.productName.size() < 256 &&
+             data.status in ['pending', 'accepted', 'rejected', 'completed'] &&
+             data.type == 'visual_search_rfq' &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             (!('customerName' in data) || (data.customerName is string && data.customerName.size() < 256)) &&
+             (!('supplierName' in data) || (data.supplierName is string && data.supplierName.size() < 256)) &&
+             (!('description' in data) || (data.description is string && data.description.size() < 5000)) &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 5000000)) &&
+             (!('attributes' in data) || data.attributes is map);
+    }
+
+    match /product_requests/{requestId} {
+      allow read: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid || 
+        resource.data.supplierId == request.auth.uid || 
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && request.resource.data.customerId == request.auth.uid && isValidProductRequest(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (resource.data.customerId == request.auth.uid && isValidProductRequest(request.resource.data)) || 
+        (resource.data.supplierId == request.auth.uid && isValidProductRequest(request.resource.data)) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.customerId == request.auth.uid);
     }
 
     function isValidRequest(data) {

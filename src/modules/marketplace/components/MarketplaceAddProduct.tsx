@@ -202,7 +202,7 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white w-full max-w-4xl min-h-screen sm:min-h-0 sm:rounded-[32px] overflow-hidden flex flex-col shadow-2xl"
+        className="bg-white w-full max-w-4xl min-h-screen sm:min-h-0 sm:max-h-[90vh] sm:rounded-[32px] overflow-hidden flex flex-col shadow-2xl"
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-brand-primary text-white">

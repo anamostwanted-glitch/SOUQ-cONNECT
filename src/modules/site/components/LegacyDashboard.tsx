@@ -46,6 +46,7 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { UserProfile, ProductRequest, Offer, Category, Chat, MarketTrend, PriceInsight, AppFeatures, ContactEvent } from '../../../core/types';
 import { QRCodeCanvas } from 'qrcode.react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 import SupplierProfileModal from '../../../shared/components/UserProfileModal';
 import { DeleteAllCategoriesModal } from '../../../shared/components/DeleteAllCategoriesModal';
 import { CategoryList } from '../../../shared/components/CategoryList';
@@ -145,316 +146,7 @@ interface DashboardProps {
   setSupplierTab?: (tab: string) => void;
 }
 
-const KeywordManagerModal: React.FC<{
-  category: Category;
-  onClose: () => void;
-  onUpdate: (updatedCategory: Category) => void;
-  t: any;
-  i18n: any;
-}> = ({ category, onClose, onUpdate, t, i18n }) => {
-  const [keywords, setKeywords] = useState<string[]>(category.keywords || []);
-  const [suggestedKeywords, setSuggestedKeywords] = useState<string[]>(category.suggestedKeywords || []);
-  const [autoKeywords, setAutoKeywords] = useState<string[]>(category.autoKeywords || []);
-  const [newKeyword, setNewKeyword] = useState('');
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleAddKeyword = (kw: string) => {
-    const trimmed = kw.trim();
-    if (trimmed && !keywords.includes(trimmed)) {
-      // Optimistic update
-      setKeywords(prev => [...prev, trimmed]);
-      setNewKeyword('');
-    }
-  };
-
-  const handleRemoveKeyword = (kw: string) => {
-    setKeywords(keywords.filter(k => k !== kw));
-    setAutoKeywords(autoKeywords.filter(k => k !== kw));
-  };
-
-  const handleApproveAuto = (kw: string) => {
-    setAutoKeywords(autoKeywords.filter(k => k !== kw));
-  };
-
-  const handlePromoteSuggested = (kw: string) => {
-    if (!keywords.includes(kw)) {
-      setKeywords([...keywords, kw]);
-    }
-    setSuggestedKeywords(suggestedKeywords.filter(k => k !== kw));
-  };
-
-  const handleRemoveSuggested = (kw: string) => {
-    setSuggestedKeywords(suggestedKeywords.filter(k => k !== kw));
-  };
-
-  const handleExtractAI = async () => {
-    setIsExtracting(true);
-    try {
-      // Fetch recent requests for this category to extract keywords
-      const q = query(
-        collection(db, 'requests'),
-        where('categoryId', '==', category.id),
-        limit(20)
-      );
-      const snap = await getDocs(q);
-      const requests = snap.docs.map(d => ({
-        productName: d.data().productName,
-        description: d.data().description
-      }));
-
-      if (requests.length === 0) {
-        alert(i18n.language === 'ar' ? 'لا توجد طلبات كافية في هذه الفئة لاستخراج الكلمات المفتاحية.' : 'Not enough requests in this category to extract keywords.');
-        return;
-      }
-
-      const extracted = await extractKeywordsFromRequests(requests, i18n.language === 'ar' ? category.nameAr : category.nameEn, i18n.language);
-      
-      // Add new ones to suggested
-      const newSuggested = [...new Set([...suggestedKeywords, ...extracted])].filter(kw => !keywords.includes(kw));
-      setSuggestedKeywords(newSuggested);
-    } catch (error) {
-      console.error("Error extracting keywords:", error);
-    } finally {
-      setIsExtracting(false);
-    }
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const categoryRef = doc(db, 'categories', category.id);
-      const updatedData = {
-        keywords,
-        suggestedKeywords,
-        autoKeywords
-      };
-      await updateDoc(categoryRef, updatedData);
-      onUpdate({ ...category, ...updatedData });
-      onClose();
-    } catch (error) {
-      console.error("Error saving keywords:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-      <motion.div 
-        drag="y"
-        dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={0.2}
-        onDragEnd={(_, info) => {
-          if (info.offset.y > 150) {
-            onClose();
-          }
-        }}
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 100 }}
-        className="bg-brand-surface w-full max-w-2xl rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] relative"
-      >
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-brand-border rounded-full md:hidden" />
-        <div className="p-8 border-b border-brand-border flex items-center justify-between bg-brand-surface/50">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-brand-primary/10 rounded-2xl text-brand-primary">
-              <Tag size={24} />
-            </div>
-            <div>
-              <h3 className="text-xl font-black text-brand-text-main">
-                {i18n.language === 'ar' ? 'إدارة الكلمات المفتاحية' : 'Manage Keywords'}
-              </h3>
-              <p className="text-xs text-brand-text-muted font-bold uppercase tracking-widest mt-0.5">
-                {i18n.language === 'ar' ? category.nameAr : category.nameEn}
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 text-brand-text-muted hover:text-brand-text-main hover:bg-brand-surface-hover rounded-xl transition-colors">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="p-8 overflow-y-auto space-y-8">
-          {/* Active Keywords */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-black text-brand-text-main flex items-center gap-2">
-                <Check size={16} className="text-brand-success" />
-                {i18n.language === 'ar' ? 'الكلمات المفتاحية النشطة' : 'Active Keywords'}
-              </h4>
-              <span className="text-[10px] font-bold text-brand-text-muted bg-brand-surface-hover px-2 py-1 rounded-lg uppercase">
-                {keywords.length} {i18n.language === 'ar' ? 'كلمة' : 'Keywords'}
-              </span>
-            </div>
-            
-            <div className="flex flex-wrap gap-2 min-h-[60px] p-4 bg-brand-background rounded-2xl border border-brand-border border-dashed">
-              {keywords.map(kw => {
-                const isAuto = autoKeywords.includes(kw);
-                return (
-                  <span key={kw} className={`px-3 py-1.5 ${isAuto ? 'bg-brand-warning/10 text-brand-warning border-brand-warning/20' : 'bg-brand-primary/10 text-brand-primary border-brand-primary/20'} text-xs font-bold rounded-xl border flex items-center gap-2 group relative`}>
-                    {kw}
-                    {isAuto && (
-                      <span className="flex items-center gap-1 ml-1">
-                        <span className="text-[8px] bg-brand-warning text-white px-1 rounded uppercase tracking-tighter">Auto</span>
-                        <button 
-                          onClick={() => handleApproveAuto(kw)}
-                          className="hover:text-brand-success transition-colors"
-                          title={i18n.language === 'ar' ? 'اعتماد' : 'Approve'}
-                        >
-                          <Check size={12} />
-                        </button>
-                      </span>
-                    )}
-                    <button onClick={() => handleRemoveKeyword(kw)} className="hover:text-brand-error transition-colors">
-                      <X size={14} />
-                    </button>
-                  </span>
-                );
-              })}
-              {keywords.length === 0 && (
-                <p className="text-xs text-brand-text-muted italic w-full text-center py-2">
-                  {i18n.language === 'ar' ? 'لا توجد كلمات مفتاحية نشطة بعد.' : 'No active keywords yet.'}
-                </p>
-              )}
-            </div>
-            <p className="text-[10px] text-brand-text-muted italic leading-relaxed px-2">
-              {i18n.language === 'ar' 
-                ? '* الكلمات المميزة بـ "Auto" تمت إضافتها تلقائياً من طلبات العملاء. يمكنك اعتمادها لإزالة التمييز أو حذفها.' 
-                : '* Keywords marked with "Auto" were added automatically from customer requests. You can approve them to remove the badge or delete them.'}
-            </p>
-
-            <div className="flex gap-2">
-              <input 
-                type="text"
-                value={newKeyword}
-                onChange={e => setNewKeyword(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && handleAddKeyword(newKeyword)}
-                placeholder={i18n.language === 'ar' ? 'أضف كلمة مفتاحية جديدة...' : 'Add new keyword...'}
-                className="flex-1 px-4 py-3 bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 text-brand-text-main placeholder-brand-text-muted/50 transition-all"
-              />
-              <button 
-                onClick={() => handleAddKeyword(newKeyword)}
-                className="px-5 py-3 bg-brand-primary text-white rounded-2xl hover:bg-brand-primary-hover transition-all font-bold shadow-md shadow-brand-primary/20 flex items-center justify-center"
-              >
-                <Plus size={20} />
-              </button>
-            </div>
-          </div>
-
-          {/* Suggested Keywords */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-black text-brand-text-main flex items-center gap-2">
-                <Sparkles size={16} className="text-brand-primary" />
-                {i18n.language === 'ar' ? 'الكلمات المقترحة من الطلبات' : 'Suggested from Requests'}
-              </h4>
-              <button 
-                onClick={handleExtractAI}
-                disabled={isExtracting}
-                className="text-[10px] font-bold text-brand-primary uppercase tracking-widest hover:bg-brand-primary/10 transition-colors px-3 py-2 -mx-3 -my-2 rounded-lg disabled:opacity-50 flex items-center gap-1"
-              >
-                {isExtracting ? (
-                  <div className="w-3 h-3 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" />
-                ) : <Bot size={12} />}
-                {i18n.language === 'ar' ? 'استخراج بالذكاء الاصطناعي' : 'AI Extract'}
-              </button>
-            </div>
-
-            <div className="flex flex-wrap gap-2 p-4 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
-              {suggestedKeywords.map(kw => (
-                <div key={kw} className="flex items-center gap-1 bg-brand-surface border border-brand-border rounded-xl overflow-hidden shadow-sm">
-                  <span className="px-3 py-1.5 text-xs font-bold text-brand-text-main border-r border-brand-border">
-                    {kw}
-                  </span>
-                  <button 
-                    onClick={() => handlePromoteSuggested(kw)}
-                    className="p-2 text-brand-success hover:bg-brand-success/10 transition-colors"
-                    title="Promote to Active"
-                  >
-                    <Check size={14} />
-                  </button>
-                  <button 
-                    onClick={() => handleRemoveSuggested(kw)}
-                    className="p-2 text-brand-error hover:bg-brand-error/10 transition-colors"
-                    title="Dismiss"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-              {suggestedKeywords.length === 0 && (
-                <p className="text-xs text-brand-text-muted italic w-full text-center py-2">
-                  {i18n.language === 'ar' ? 'لا توجد اقتراحات حالياً. سيتم جمع الكلمات من طلبات المستخدمين.' : 'No suggestions currently. Words will be collected from user requests.'}
-                </p>
-              )}
-            </div>
-            <p className="text-[10px] text-brand-text-muted italic leading-relaxed">
-              {i18n.language === 'ar' 
-                ? '* يتم جمع هذه الكلمات تلقائياً من عناوين طلبات المستخدمين في هذه الفئة.' 
-                : '* These words are automatically collected from user request titles in this category.'}
-            </p>
-
-            {/* Simulation Section */}
-            <div className="mt-4 pt-4 border-t border-brand-border">
-              <div className="flex items-center justify-between bg-brand-primary/5 p-4 rounded-2xl border border-brand-primary/10">
-                <div className="flex-1">
-                  <h4 className="text-[11px] font-black text-brand-primary uppercase tracking-wider mb-1">
-                    {i18n.language === 'ar' ? 'تجربة النظام (محاكاة)' : 'System Test (Simulation)'}
-                  </h4>
-                  <p className="text-[10px] text-brand-text-muted leading-relaxed">
-                    {i18n.language === 'ar' 
-                      ? 'اضغط لرؤية كيف تضاف الكلمات تلقائياً عند طلب العملاء' 
-                      : 'Click to see how keywords are added automatically when customers request'}
-                  </p>
-                </div>
-                <button
-                  onClick={async () => {
-                    const testKeywords = ['iPhone 15', 'Samsung S24', 'Gaming Laptop', '4K Monitor', 'Wireless Mouse', 'Mechanical Keyboard'];
-                    const randomKw = testKeywords[Math.floor(Math.random() * testKeywords.length)];
-                    if (!keywords.includes(randomKw)) {
-                      setKeywords(prev => [...prev, randomKw]);
-                      setAutoKeywords(prev => [...prev, randomKw]);
-                      // Also update DB immediately for true simulation
-                      const categoryRef = doc(db, 'categories', category.id);
-                      await updateDoc(categoryRef, {
-                        keywords: [...keywords, randomKw],
-                        autoKeywords: [...autoKeywords, randomKw]
-                      });
-                    }
-                  }}
-                  className="bg-brand-primary text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary-hover transition-all shadow-md shadow-brand-primary/20 flex items-center gap-2"
-                >
-                  <Sparkles size={12} />
-                  {i18n.language === 'ar' ? 'محاكاة طلب عميل' : 'Simulate Request'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-8 border-t border-brand-border bg-brand-surface/50 flex justify-end gap-3">
-          <button 
-            onClick={onClose}
-            className="px-6 py-3 text-sm font-bold text-brand-text-muted hover:text-brand-text-main hover:bg-brand-surface-hover rounded-2xl transition-all"
-          >
-            {t('cancel')}
-          </button>
-          <HapticButton
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-8 py-3 bg-brand-primary text-white rounded-2xl hover:bg-brand-primary-hover transition-all font-bold text-sm shadow-lg shadow-brand-primary/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSaving ? (
-              <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-            ) : <Save size={20} />}
-            {t('save')}
-          </HapticButton>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
+import { KeywordManagerModal } from '../../../shared/components/KeywordManagerModal';
 
 const SortableMainCategory: React.FC<{
   mainCat: Category;
@@ -1368,6 +1060,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [editSuppCategories, setEditSuppCategories] = useState<string[]>([]);
   const [editSuppBio, setEditSuppBio] = useState('');
   const [isSuggestingEditSuppCategories, setIsSuggestingEditSuppCategories] = useState(false);
+  const [editSuppCategorySearch, setEditSuppCategorySearch] = useState('');
   const [editSuppKeywords, setEditSuppKeywords] = useState<string[]>([]);
   const [newSuppKeyword, setNewSuppKeyword] = useState('');
 
@@ -1383,6 +1076,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [newSuppCategories, setNewSuppCategories] = useState<string[]>([]);
   const [newSuppBio, setNewSuppBio] = useState('');
   const [isSuggestingNewSuppCategories, setIsSuggestingNewSuppCategories] = useState(false);
+  const [newSuppCategorySearch, setNewSuppCategorySearch] = useState('');
   const [newSuppKeywords, setNewSuppKeywords] = useState<string[]>([]);
   const [isCreatingSupplier, setIsCreatingSupplier] = useState(false);
 
@@ -1787,8 +1481,13 @@ const Dashboard: React.FC<DashboardProps> = ({
         .map(c => i18n.language === 'ar' ? c.nameAr : c.nameEn);
       const suggestions = await suggestMainCategories(i18n.language, activeCategoryTab, existingNames);
       setAiSuggestions(suggestions);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Suggestion error:', error);
+      if (error.message === 'QUOTA_EXHAUSTED') {
+        toast.error(i18n.language === 'ar' ? 'عذراً، تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI quota exhausted. Please try again later.');
+      } else {
+        toast.error(i18n.language === 'ar' ? 'حدث خطأ أثناء توليد الاقتراحات' : 'Failed to generate suggestions');
+      }
     } finally {
       setIsSuggesting(false);
     }
@@ -1819,8 +1518,13 @@ const Dashboard: React.FC<DashboardProps> = ({
         .map(c => i18n.language === 'ar' ? c.nameAr : c.nameEn);
       const suggestions = await suggestSubcategories(categoryName, activeCategoryTab, existingSubNames);
       setAiSuggestions(suggestions);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Suggestion error:', error);
+      if (error.message === 'QUOTA_EXHAUSTED') {
+        toast.error(i18n.language === 'ar' ? 'عذراً، تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI quota exhausted. Please try again later.');
+      } else {
+        toast.error(i18n.language === 'ar' ? 'حدث خطأ أثناء توليد الاقتراحات' : 'Failed to generate suggestions');
+      }
     } finally {
       setIsSuggesting(false);
     }
@@ -4339,6 +4043,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     setIsAddingSupplier(true);
                     setEditingSupplier(null);
                     setSelectedAdminSupplier(null);
+                    setNewSuppCategorySearch('');
                   }}
                   className="p-2 bg-brand-primary text-white rounded-xl hover:bg-brand-primary-hover hover:scale-105 transition-all shadow-md shadow-brand-primary/20"
                   title={i18n.language === 'ar' ? 'إضافة مورد' : 'Add Supplier'}
@@ -4418,6 +4123,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     setSelectedAdminSupplier(supp);
                     setIsAddingSupplier(false);
                     setEditingSupplier(null);
+                    setEditSuppCategorySearch('');
                   }}
                   className={`p-4 rounded-2xl cursor-pointer flex items-center gap-4 transition-all border group ${
                     selectedAdminSupplier?.uid === supp.uid 
@@ -4482,7 +4188,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <Plus size={20} className="text-brand-primary" />
                     {i18n.language === 'ar' ? 'إضافة مورد جديد' : 'Add New Supplier'}
                   </h4>
-                  <button onClick={() => setIsAddingSupplier(false)} className="text-brand-text-muted hover:text-brand-text-muted">
+                  <button onClick={() => {
+                    setIsAddingSupplier(false);
+                    setNewSuppCategorySearch('');
+                  }} className="text-brand-text-muted hover:text-brand-text-muted">
                     <X size={20} />
                   </button>
                 </div>
@@ -4553,8 +4262,27 @@ const Dashboard: React.FC<DashboardProps> = ({
                         {i18n.language === 'ar' ? 'اقتراح بالذكاء الاصطناعي' : 'AI Suggestion'}
                       </button>
                     </div>
+                    
+                    <div className="relative group">
+                      <input 
+                        type="text"
+                        placeholder={i18n.language === 'ar' ? 'بحث عن فئة...' : 'Search for a category...'}
+                        value={newSuppCategorySearch}
+                        onChange={e => setNewSuppCategorySearch(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary text-xs transition-all group-hover:border-brand-primary/30"
+                      />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-muted group-focus-within:text-brand-primary" size={14} />
+                    </div>
+
                     <div className="space-y-4 p-5 bg-brand-background/50 rounded-2xl border border-brand-border max-h-80 overflow-y-auto custom-scrollbar">
-                      {[...mainCategories].sort((a, b) => {
+                      {[...mainCategories].filter(parent => {
+                        const search = newSuppCategorySearch.toLowerCase();
+                        if (!search) return true;
+                        const parentName = (i18n.language === 'ar' ? parent.nameAr : parent.nameEn).toLowerCase();
+                        if (parentName.includes(search)) return true;
+                        const subs = categories.filter(c => c.parentId === parent.id);
+                        return subs.some(sub => (i18n.language === 'ar' ? sub.nameAr : sub.nameEn).toLowerCase().includes(search));
+                      }).sort((a, b) => {
                         const aSelected = newSuppCategories.includes(a.id);
                         const bSelected = newSuppCategories.includes(b.id);
                         if (aSelected && !bSelected) return -1;
@@ -4600,7 +4328,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                             {subs.length > 0 && isSelected && (
                               <div className="mt-4 pt-4 border-t border-brand-border-light">
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                  {[...subs].sort((a, b) => {
+                                  {subs.filter(sub => {
+                                    const search = newSuppCategorySearch.toLowerCase();
+                                    if (!search) return true;
+                                    const subName = (i18n.language === 'ar' ? sub.nameAr : sub.nameEn).toLowerCase();
+                                    const parentName = (i18n.language === 'ar' ? parent.nameAr : parent.nameEn).toLowerCase();
+                                    return subName.includes(search) || parentName.includes(search);
+                                  }).sort((a, b) => {
                                     const aSelected = newSuppCategories.includes(a.id);
                                     const bSelected = newSuppCategories.includes(b.id);
                                     if (aSelected && !bSelected) return -1;
@@ -4684,7 +4418,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                   </div>
                   <div className="md:col-span-2 flex justify-end gap-3 mt-6">
-                    <button type="button" onClick={() => setIsAddingSupplier(false)} className="px-6 py-3 rounded-2xl font-bold text-brand-text-muted hover:bg-brand-background transition-all">
+                    <button type="button" onClick={() => {
+                      setIsAddingSupplier(false);
+                      setNewSuppCategorySearch('');
+                    }} className="px-6 py-3 rounded-2xl font-bold text-brand-text-muted hover:bg-brand-background transition-all">
                       {i18n.language === 'ar' ? 'إلغاء' : 'Cancel'}
                     </button>
                     <HapticButton type="submit" disabled={isCreatingSupplier} className="px-8 py-3 bg-brand-primary text-white rounded-2xl font-bold hover:bg-brand-primary-hover hover:scale-105 transition-all shadow-lg shadow-brand-primary/20 disabled:opacity-50 disabled:hover:scale-100">
@@ -4701,7 +4438,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <Edit2 size={20} className="text-brand-primary" />
                     {i18n.language === 'ar' ? 'تعديل بيانات المورد' : 'Edit Supplier Details'}
                   </h4>
-                  <button onClick={() => setEditingSupplier(null)} className="text-brand-text-muted hover:text-brand-text-muted">
+                  <button onClick={() => {
+                    setEditingSupplier(null);
+                    setEditSuppCategorySearch('');
+                  }} className="text-brand-text-muted hover:text-brand-text-muted">
                     <X size={20} />
                   </button>
                 </div>
@@ -4781,8 +4521,27 @@ const Dashboard: React.FC<DashboardProps> = ({
                         {i18n.language === 'ar' ? 'اقتراح بالذكاء الاصطناعي' : 'AI Suggestion'}
                       </button>
                     </div>
+
+                    <div className="relative group">
+                      <input 
+                        type="text"
+                        placeholder={i18n.language === 'ar' ? 'بحث عن فئة...' : 'Search for a category...'}
+                        value={editSuppCategorySearch}
+                        onChange={e => setEditSuppCategorySearch(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary text-xs transition-all group-hover:border-brand-primary/30"
+                      />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-muted group-focus-within:text-brand-primary" size={14} />
+                    </div>
+
                     <div className="space-y-4 p-5 bg-brand-background/50 rounded-2xl border border-brand-border max-h-80 overflow-y-auto custom-scrollbar">
-                      {[...mainCategories].sort((a, b) => {
+                      {[...mainCategories].filter(parent => {
+                        const search = editSuppCategorySearch.toLowerCase();
+                        if (!search) return true;
+                        const parentName = (i18n.language === 'ar' ? parent.nameAr : parent.nameEn).toLowerCase();
+                        if (parentName.includes(search)) return true;
+                        const subs = categories.filter(c => c.parentId === parent.id);
+                        return subs.some(sub => (i18n.language === 'ar' ? sub.nameAr : sub.nameEn).toLowerCase().includes(search));
+                      }).sort((a, b) => {
                         const aSelected = editSuppCategories.includes(a.id);
                         const bSelected = editSuppCategories.includes(b.id);
                         if (aSelected && !bSelected) return -1;
@@ -4828,7 +4587,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                             {subs.length > 0 && isSelected && (
                                 <div className="mt-4 pt-4 border-t border-brand-border">
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                  {[...subs].sort((a, b) => {
+                                  {subs.filter(sub => {
+                                    const search = editSuppCategorySearch.toLowerCase();
+                                    if (!search) return true;
+                                    const subName = (i18n.language === 'ar' ? sub.nameAr : sub.nameEn).toLowerCase();
+                                    const parentName = (i18n.language === 'ar' ? parent.nameAr : parent.nameEn).toLowerCase();
+                                    return subName.includes(search) || parentName.includes(search);
+                                  }).sort((a, b) => {
                                     const aSelected = editSuppCategories.includes(a.id);
                                     const bSelected = editSuppCategories.includes(b.id);
                                     if (aSelected && !bSelected) return -1;
@@ -4912,7 +4677,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                   </div>
                   <div className="md:col-span-2 flex justify-end gap-3 mt-4">
-                    <button type="button" onClick={() => setEditingSupplier(null)} className="px-6 py-2 rounded-xl font-bold text-brand-text-muted hover:bg-brand-surface transition-all">
+                    <button type="button" onClick={() => {
+                      setEditingSupplier(null);
+                      setEditSuppCategorySearch('');
+                    }} className="px-6 py-2 rounded-xl font-bold text-brand-text-muted hover:bg-brand-surface transition-all">
                       {i18n.language === 'ar' ? 'إلغاء' : 'Cancel'}
                     </button>
                     <HapticButton type="submit" className="px-6 py-2 bg-brand-primary text-white rounded-xl font-bold hover:bg-brand-primary-hover transition-all shadow-lg shadow-brand-primary/20">
@@ -6143,7 +5911,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-sm bg-brand-surface rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-brand-border"
+              className="relative w-full max-w-sm bg-brand-surface rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-brand-border max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-brand-primary/20 scrollbar-track-brand-surface"
             >
               <div className="p-6 text-center">
                 <div className="w-16 h-16 bg-brand-error/10 rounded-full flex items-center justify-center mx-auto mb-4 text-brand-error">
@@ -7405,7 +7173,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-brand-surface rounded-3xl p-6 max-w-lg w-full border border-brand-border shadow-2xl"
+            className="bg-brand-surface rounded-3xl p-6 max-w-lg w-full border border-brand-border shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-brand-primary/20 scrollbar-track-brand-surface"
           >
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-brand-text-main">

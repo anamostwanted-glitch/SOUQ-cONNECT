@@ -16,6 +16,7 @@ import { PremiumVisualSearchModal } from '../../../../shared/components/PremiumV
 import { NotificationModal } from '../../../../shared/components/NotificationModal';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 
+import { AIActionHub } from './AIActionHub';
 import { Header } from './Header';
 import { MobileMenu } from './MobileMenu';
 import { BottomNav } from './BottomNav';
@@ -35,6 +36,7 @@ interface LayoutProps {
   uiStyle: 'classic' | 'minimal';
   setUiStyle: (style: 'classic' | 'minimal') => void;
   onPrefetch?: (view: string) => void;
+  chatUnreadCount?: number;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
@@ -51,7 +53,8 @@ export const Layout: React.FC<LayoutProps> = ({
   setViewMode,
   uiStyle,
   setUiStyle,
-  onPrefetch
+  onPrefetch,
+  chatUnreadCount = 0
 }) => {
   const { t } = useTranslation();
   const { isDarkMode, toggleDarkMode } = useBranding();
@@ -62,12 +65,13 @@ export const Layout: React.FC<LayoutProps> = ({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [locationName, setLocationName] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
+  const [visualSearchMode, setVisualSearchMode] = useState<'camera' | 'gallery' | null>(null);
+  const [isAIHubOpen, setIsAIHubOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [allSuppliers, setAllSuppliers] = useState<UserProfile[]>([]);
   
@@ -76,7 +80,6 @@ export const Layout: React.FC<LayoutProps> = ({
   const lastNotificationId = useRef<string | null>(null);
   const isInitialNotifLoad = useRef(true);
   const notifRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -184,9 +187,6 @@ export const Layout: React.FC<LayoutProps> = ({
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setShowNotifications(false);
       }
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setShowProfileMenu(false);
-      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -245,8 +245,6 @@ export const Layout: React.FC<LayoutProps> = ({
           setUiStyle={setUiStyle}
           features={features}
           isRtl={isRtl}
-          isDarkMode={isDarkMode}
-          toggleDarkMode={toggleDarkMode}
           toggleLanguage={toggleLanguage}
           isLoadingLocation={isLoadingLocation}
           locationName={locationName}
@@ -254,13 +252,16 @@ export const Layout: React.FC<LayoutProps> = ({
           notifications={notifications}
           showNotifications={showNotifications}
           setShowNotifications={setShowNotifications}
-          showProfileMenu={showProfileMenu}
-          setShowProfileMenu={setShowProfileMenu}
           onNotificationClick={handleNotificationClick}
-          onVisualSearch={() => setIsVisualSearchOpen(true)}
+          onVisualSearch={() => {
+            if (window.innerWidth < 768) {
+              setIsAIHubOpen(true);
+            } else {
+              setIsVisualSearchOpen(true);
+            }
+          }}
           onMobileMenuOpen={() => setIsMobileMenuOpen(true)}
           notifRef={notifRef}
-          profileRef={profileRef}
         />
       </div>
 
@@ -305,9 +306,10 @@ export const Layout: React.FC<LayoutProps> = ({
         siteLogo={siteLogo}
         siteName={siteName}
         onPrefetch={onPrefetch}
+        onVisualSearch={() => setIsAIHubOpen(true)}
       />
 
-      {profile && currentView !== 'chat' && (uiStyle !== 'minimal' || currentView !== 'home') && (
+      {profile && currentView !== 'chat' && (uiStyle !== 'minimal' || currentView !== 'home') && !isAIHubOpen && !isVisualSearchOpen && (
         <div className="safe-bottom bg-brand-background/80 backdrop-blur-xl border-t border-brand-border/50 z-40">
           <BottomNav 
             currentView={currentView}
@@ -315,9 +317,9 @@ export const Layout: React.FC<LayoutProps> = ({
             supplierTab={supplierTab}
             setSupplierTab={setSupplierTab}
             isRtl={isRtl}
-            unreadCount={unreadCount}
+            unreadCount={chatUnreadCount}
             scrollDirection={scrollDirection}
-            onVisualSearch={() => setIsVisualSearchOpen(true)}
+            onVisualSearch={() => setIsAIHubOpen(true)}
             onToggleNotifications={() => setShowNotifications(!showNotifications)}
             showNotifications={showNotifications}
             onPrefetch={onPrefetch}
@@ -336,28 +338,56 @@ export const Layout: React.FC<LayoutProps> = ({
             <HapticButton
               onClick={() => mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
               className="w-12 h-12 bg-brand-primary text-white rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform group relative"
-              title={i18n.language === 'ar' ? 'الرجوع للأعلى' : 'Back to Top'}
+              title={i18nInstance.language === 'ar' ? 'الرجوع للأعلى' : 'Back to Top'}
             >
               <ArrowUp size={24} />
               <span className="absolute right-full mr-4 bg-gray-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap hidden md:block">
-                {i18n.language === 'ar' ? 'الرجوع للأعلى' : 'Back to Top'}
+                {i18nInstance.language === 'ar' ? 'الرجوع للأعلى' : 'Back to Top'}
               </span>
             </HapticButton>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <PremiumVisualSearchModal 
-        isOpen={isVisualSearchOpen} 
-        onClose={() => setIsVisualSearchOpen(false)} 
-        categories={categories}
-        allSuppliers={allSuppliers}
-        profile={profile}
-        onStartChat={(requestId, supplierId, customerId) => {
-          setActiveChatId(requestId);
-          setView('chat');
-        }}
-      />
+      <AnimatePresence>
+        {isVisualSearchOpen && (
+          <PremiumVisualSearchModal 
+            isOpen={isVisualSearchOpen} 
+            onClose={() => {
+              setIsVisualSearchOpen(false);
+              setVisualSearchMode(null);
+            }} 
+            categories={categories}
+            allSuppliers={allSuppliers}
+            profile={profile}
+            initialMode={visualSearchMode}
+            onStartChat={(requestId, supplierId, customerId) => {
+              setActiveChatId(requestId);
+              setView('chat');
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isAIHubOpen && (
+          <AIActionHub 
+            isOpen={isAIHubOpen}
+            onClose={() => setIsAIHubOpen(false)}
+            isRtl={isRtl}
+            onAction={(action) => {
+              if (action === 'camera' || action === 'gallery') {
+                setVisualSearchMode(action);
+                setIsVisualSearchOpen(true);
+              } else if (action === 'chat') {
+                setView('chat');
+              } else if (action === 'voice') {
+                setView('home');
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {selectedNotification && (
         <NotificationModal 

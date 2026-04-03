@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { collection, addDoc, getDocs, doc, onSnapshot, query, where, orderBy, getDoc, setDoc, writeBatch, deleteDoc, updateDoc, arrayUnion, limit } from 'firebase/firestore';
 import { db, storage, auth } from '../../../core/firebase';
 import { UserProfile, Category, ProductRequest, Chat, AppFeatures } from '../../../core/types';
+import { UserRequestCard } from '../../user/components/UserRequestCard';
 import { 
   categorizeProduct, 
   getAiAssistantResponse, 
@@ -18,75 +19,34 @@ import {
 } from '../../../core/services/geminiService';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import UserProfileModal from '../../../shared/components/UserProfileModal';
+import { PremiumVisualSearchModal } from '../../../shared/components/PremiumVisualSearchModal';
 import { soundService, SoundType } from '../../../core/utils/soundService';
-import ChatCard from '../../common/components/ChatCard';
 import { HapticButton } from '../../../shared/components/HapticButton';
-import { UserRequestCard } from '../../user/components/UserRequestCard';
-import { AIInsights } from './AIInsights';
 import { 
-  MessageSquare, 
-  Clock, 
   Bot, 
-  X as CloseIcon, 
   Sparkles as SparklesIcon, 
-  Image as ImageIcon, 
-  Upload, 
   X, 
   Search, 
-  Send, 
   Package, 
   Building2, 
-  Plus,
-  Star,
   Mic,
-  MicOff,
   Camera,
-  ChevronDown,
-  ChevronUp,
   Trash2,
-  MapPin,
   AlertCircle,
+  Loader2,
+  ArrowRight,
   Hammer,
   Zap,
   Droplets,
-  Wrench,
-  Briefcase,
-  ShoppingBag,
-  Sparkles,
-  Loader2,
-  ArrowRight,
-  Activity,
-  TrendingUp,
-  ShieldCheck,
-  Cpu,
-  Layers,
-  BarChart3,
-  Settings2,
-  BellRing,
-  CheckCircle2,
-  History,
-  LayoutGrid,
-  ListFilter,
-  MoreHorizontal,
-  ExternalLink,
-  ArrowUpRight,
-  Target,
-  FileText,
-  CreditCard,
-  UserCheck,
-  Globe,
-  Monitor,
-  LayoutDashboard,
-  User
+  Wrench
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
 
 interface HomeProps {
   profile: UserProfile | null;
-  features: AppFeatures;
   onNavigate: (view: any) => void;
-  onOpenChat: (chatId: string) => void;
+  onOpenChat?: (chatId: string) => void;
   onViewProfile?: (uid: string) => void;
   viewMode?: 'admin' | 'supplier' | 'customer';
   uiStyle?: 'classic' | 'minimal';
@@ -94,10 +54,9 @@ interface HomeProps {
 
 const Home: React.FC<HomeProps> = ({ 
   profile, 
-  features, 
   onNavigate, 
-  onOpenChat, 
-  onViewProfile, 
+  onOpenChat,
+  onViewProfile,
   viewMode,
   uiStyle = 'classic'
 }) => {
@@ -119,6 +78,7 @@ const Home: React.FC<HomeProps> = ({
   const [matchedSuppliers, setMatchedSuppliers] = useState<UserProfile[]>([]);
   const [isMatching, setIsMatching] = useState(false);
   const [lastRequestId, setLastRequestId] = useState<string | null>(null);
+  const [lastRequest, setLastRequest] = useState<ProductRequest | null>(null);
   const [logoUrl, setLogoUrl] = useState('');
   const [siteName, setSiteName] = useState('');
   const [heroTitleAr, setHeroTitleAr] = useState('');
@@ -129,307 +89,21 @@ const Home: React.FC<HomeProps> = ({
   const [searchPlaceholderEn, setSearchPlaceholderEn] = useState('');
   const [ctaButtonAr, setCtaButtonAr] = useState('');
   const [ctaButtonEn, setCtaButtonEn] = useState('');
-  const [requests, setRequests] = useState<ProductRequest[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [supplierChats, setSupplierChats] = useState<Chat[]>([]);
-  const [customerChats, setCustomerChats] = useState<Chat[]>([]);
-  const [showAllChats, setShowAllChats] = useState(false);
-  const [showAllRequests, setShowAllRequests] = useState(false);
-  const [visibleRequestsCount, setVisibleRequestsCount] = useState(10);
-  const [requestToDelete, setRequestToDelete] = useState<{id: string, imageUrl?: string} | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [translatedRequests, setTranslatedRequests] = useState<Record<string, string>>({});
-  const [isTranslatingRequest, setIsTranslatingRequest] = useState<Record<string, boolean>>({});
-  const [allSuppliers, setAllSuppliers] = useState<UserProfile[]>([]);
-  const [isSuggestingMore, setIsSuggestingMore] = useState<Record<string, boolean>>({});
   const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
   const [productCopy, setProductCopy] = useState<{ title: string; description: string; highlights: string[] } | null>(null);
   const [isEnhancingImage, setIsEnhancingImage] = useState(false);
   const [imageEnhancements, setImageEnhancements] = useState<{ suggestions: string[]; caption: string } | null>(null);
-  const [confirmModal, setConfirmModal] = useState<{
-    show: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    isLoading: boolean;
-  }>({
-    show: false,
-    title: '',
-    message: '',
-    onConfirm: () => {},
-    isLoading: false
-  });
-  const [showAiInsights, setShowAiInsights] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const requestsRef = useRef<HTMLDivElement>(null);
-
-  const scrollToRequests = () => {
-    requestsRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    const q = query(collection(db, 'users'), where('role', '==', 'supplier'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const supps = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
-      setAllSuppliers(supps);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'users');
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const handleSuggestMoreSuppliers = async (requestId: string, categoryId: string, currentSuggestedIds: string[]) => {
-    if (isSuggestingMore[requestId]) return;
-    setIsSuggestingMore(prev => ({ ...prev, [requestId]: true }));
-    try {
-      // Find suppliers in this category who are not already suggested
-      const newSuppliers = allSuppliers.filter(s => 
-        s.categories?.includes(categoryId) && !currentSuggestedIds.includes(s.uid)
-      );
-
-      if (newSuppliers.length > 0) {
-        // Add up to 4 more
-        const toAdd = newSuppliers.slice(0, 4).map(s => s.uid);
-        const updatedIds = [...currentSuggestedIds, ...toAdd];
-        await updateDoc(doc(db, 'requests', requestId), {
-          suggestedSupplierIds: updatedIds
-        });
-        soundService.play(SoundType.SENT);
-      } else {
-        // Broad search if no category match
-        const broadSuppliers = allSuppliers.filter(s => !currentSuggestedIds.includes(s.uid));
-        if (broadSuppliers.length > 0) {
-          const toAdd = broadSuppliers.slice(0, 4).map(s => s.uid);
-          const updatedIds = [...currentSuggestedIds, ...toAdd];
-          await updateDoc(doc(db, 'requests', requestId), {
-            suggestedSupplierIds: updatedIds
-          });
-          soundService.play(SoundType.SENT);
-        }
-      }
-    } catch (error) {
-      console.error('Error suggesting more suppliers:', error);
-    } finally {
-      setIsSuggestingMore(prev => ({ ...prev, [requestId]: false }));
-    }
-  };
-
-  const handleClearAllRequests = async () => {
-    if (!profile) return;
-    setConfirmModal(prev => ({ ...prev, isLoading: true }));
-    try {
-      const batch = writeBatch(db);
-      const userRequests = effectiveRole === 'admin' ? requests : requests.filter(r => r.customerId === profile.uid);
-      userRequests.forEach(req => {
-        batch.delete(doc(db, 'requests', req.id));
-      });
-      await batch.commit();
-      setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {}, isLoading: false });
-    } catch (error) {
-      console.error('Error clearing requests:', error);
-      setConfirmModal(prev => ({ ...prev, isLoading: false }));
-    }
-  };
-
-  const handleClearAllChats = async () => {
-    if (!profile) return;
-    setConfirmModal(prev => ({ ...prev, isLoading: true }));
-    try {
-      const batch = writeBatch(db);
-      const userChats = (effectiveRole === 'supplier' || effectiveRole === 'admin') ? supplierChats : customerChats;
-      userChats.forEach(chat => {
-        batch.delete(doc(db, 'chats', chat.id));
-      });
-      await batch.commit();
-      setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {}, isLoading: false });
-    } catch (error) {
-      console.error('Error clearing chats:', error);
-      setConfirmModal(prev => ({ ...prev, isLoading: false }));
-    }
-  };
-
-  const handleTranslateRequest = async (requestId: string, text: string) => {
-    if (translatedRequests[requestId]) {
-      const newTranslated = { ...translatedRequests };
-      delete newTranslated[requestId];
-      setTranslatedRequests(newTranslated);
-      return;
-    }
-
-    setIsTranslatingRequest(prev => ({ ...prev, [requestId]: true }));
-    try {
-      const targetLang = i18n.language === 'ar' ? 'Arabic' : 'English';
-      const translation = await translateText(text, targetLang);
-      setTranslatedRequests(prev => ({ ...prev, [requestId]: translation }));
-    } catch (error) {
-      console.error('Translation error:', error);
-    } finally {
-      setIsTranslatingRequest(prev => ({ ...prev, [requestId]: false }));
-    }
-  };
-
-  useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) {
-        setVisibleRequestsCount(prev => prev + 10);
-      }
-    }, { threshold: 0.1 });
-
-    if (sentinelRef.current) {
-      observer.observe(sentinelRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [sentinelRef]);
-
-  // Image Upload State
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    console.log('Matched suppliers updated:', matchedSuppliers);
-  }, [matchedSuppliers]);
-
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
+  const requestsRef = useRef<HTMLDivElement>(null);
 
   const removeImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    setImageEnhancements(null);
   };
-
-  // Back to Top State
-  const [chatLoading, setChatLoading] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!profile) {
-      setRequests([]);
-      return;
-    }
-
-    let q;
-    if (effectiveRole === 'customer') {
-      q = query(collection(db, 'requests'), where('customerId', '==', profile.uid));
-    } else if (effectiveRole === 'supplier') {
-      q = query(collection(db, 'requests'), where('status', '==', 'open'));
-    } else {
-      q = query(collection(db, 'requests'));
-    }
-
-    const unsub = onSnapshot(q, (snap) => {
-      console.log('onSnapshot triggered. Documents count:', snap.size);
-      let reqs = snap.docs.map(d => ({ id: d.id, ...d.data() } as ProductRequest));
-      console.log('Fetched requests:', reqs);
-      
-      // Filter by supplier categories if applicable
-      if (effectiveRole === 'supplier') {
-        const supplierCats = profile.categories || [];
-        console.log('Supplier categories:', supplierCats);
-        if (supplierCats.length > 0) {
-          reqs = reqs.filter(r => supplierCats.includes(r.categoryId));
-          console.log('Filtered requests for supplier:', reqs);
-        } else {
-          // If supplier has no categories registered, they shouldn't see any requests
-          reqs = [];
-          console.log('Supplier has no categories, requests set to empty');
-        }
-
-        // Sort by proximity if supplier has a location
-        if (profile.location) {
-          const supplierLoc = profile.location.toLowerCase().trim();
-          reqs.sort((a, b) => {
-            const locA = (a.location || '').toLowerCase().trim();
-            const locB = (b.location || '').toLowerCase().trim();
-            
-            const aMatch = locA === supplierLoc || locA.includes(supplierLoc) || supplierLoc.includes(locA);
-            const bMatch = locB === supplierLoc || locB.includes(supplierLoc) || supplierLoc.includes(locB);
-            
-            if (aMatch && !bMatch) return -1;
-            if (bMatch && !aMatch) return 1;
-            
-            // If both match or both don't, sort by date
-            const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return timeB - timeA;
-          });
-        } else {
-          // Default sort by date
-          reqs.sort((a, b) => {
-            const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return timeB - timeA;
-          });
-        }
-      } else {
-        // Default sort by date for customers/admins
-        reqs.sort((a, b) => {
-          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return timeB - timeA;
-        });
-      }
-      
-      setRequests(reqs);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'requests');
-    });
-
-    return () => unsub();
-  }, [profile]);
-
-  useEffect(() => {
-    if (!profile) return;
-
-    let unsubSupplierChats = () => {};
-    if (effectiveRole === 'supplier' || effectiveRole === 'admin') {
-      const qChats = effectiveRole === 'admin' 
-        ? query(collection(db, 'chats'))
-        : query(collection(db, 'chats'), where('supplierId', '==', profile.uid));
-      unsubSupplierChats = onSnapshot(qChats, (snap) => {
-        const allChatsData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Chat));
-        allChatsData.sort((a, b) => {
-          const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-          const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-          return timeB - timeA;
-        });
-        setSupplierChats(allChatsData);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'chats');
-      });
-    }
-
-    let unsubCustomerChats = () => {};
-    if (profile.role === 'customer') {
-      const qChats = query(collection(db, 'chats'), where('customerId', '==', profile.uid));
-      unsubCustomerChats = onSnapshot(qChats, (snap) => {
-        const allChatsData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Chat));
-        allChatsData.sort((a, b) => {
-          const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-          const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-          return timeB - timeA;
-        });
-        setCustomerChats(allChatsData);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'chats');
-      });
-    }
-
-    return () => {
-      unsubSupplierChats();
-      unsubCustomerChats();
-    };
-  }, [profile]);
 
   useEffect(() => {
     const unsubSettings = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
@@ -457,7 +131,12 @@ const Home: React.FC<HomeProps> = ({
       try {
         const querySnapshot = await getDocs(collection(db, 'categories'));
         const cats = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
-        setCategories(cats);
+        const sorted = cats.sort((a, b) => {
+          const nameA = isRtl ? a.nameAr : a.nameEn;
+          const nameB = isRtl ? b.nameAr : b.nameEn;
+          return nameA.localeCompare(nameB, i18n.language);
+        });
+        setCategories(sorted);
       } catch (error) {
         handleFirestoreError(error, OperationType.LIST, 'categories');
       }
@@ -612,6 +291,7 @@ const Home: React.FC<HomeProps> = ({
 
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     console.log('handleRequest called. Profile:', profile);
     if (!profile) {
       console.log('No profile found, navigating to role-selection');
@@ -626,7 +306,7 @@ const Home: React.FC<HomeProps> = ({
 
     // Log search query
     try {
-      if (trimmedQuery) {
+      if (trimmedQuery && profile?.uid) {
         await addDoc(collection(db, 'searches'), {
           query: trimmedQuery,
           userId: profile.uid,
@@ -675,7 +355,7 @@ const Home: React.FC<HomeProps> = ({
         };
         try {
           const compressedFile = await imageCompression(selectedImage, options);
-          const storageRef = ref(storage, `requests/${auth.currentUser?.uid || profile.uid}_${Date.now()}_${compressedFile.name}`);
+          const storageRef = ref(storage, `requests/${auth.currentUser?.uid || profile?.uid || 'guest'}_${Date.now()}_${compressedFile.name}`);
           await uploadBytes(storageRef, compressedFile);
           imageUrl = await getDownloadURL(storageRef);
         } catch (uploadErr) {
@@ -749,10 +429,30 @@ const Home: React.FC<HomeProps> = ({
             categoryNameEn: category?.nameEn || '',
             status: 'open',
             createdAt: new Date().toISOString(),
-            location: profile.location || ''
+            location: profile?.location || ''
           });
           console.log('Request added successfully. ID:', requestRef.id);
+          const requestData: ProductRequest = {
+            id: requestRef.id,
+            customerId: auth.currentUser?.uid || profile?.uid || 'guest',
+            customerName: profile?.name || 'Guest',
+            productName: trimmedQuery,
+            description: finalDescription || trimmedQuery,
+            imageUrl,
+            categoryId: categoryId,
+            categoryNameAr: category?.nameAr || '',
+            categoryNameEn: category?.nameEn || '',
+            status: 'open',
+            createdAt: new Date().toISOString(),
+            location: profile?.location || ''
+          };
+          setLastRequest(requestData);
           setLastRequestId(requestRef.id);
+          
+          // Scroll to result section
+          setTimeout(() => {
+            requestsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
 
           // Update category's keywords and suggestedKeywords automatically
           try {
@@ -872,7 +572,8 @@ const Home: React.FC<HomeProps> = ({
 
               // Smart Matchmaking
               setIsMatching(true);
-              matchSuppliers(trimmedQuery, categorySuppliers, categories, profile.location).then(matchedIds => {
+              try {
+                const matchedIds = await matchSuppliers(trimmedQuery, categorySuppliers, categories, profile?.location);
                 let matched = categorySuppliers.filter(s => matchedIds.includes(s.uid));
                 
                 // If AI returned empty but we have category suppliers, show them as "Relevant" instead of "Suggested"
@@ -882,15 +583,15 @@ const Home: React.FC<HomeProps> = ({
                 
                 setMatchedSuppliers(matched);
                 // Update the request document with matched suppliers for dashboard display
-                updateDoc(doc(db, 'requests', requestRef.id), {
+                await updateDoc(doc(db, 'requests', requestRef.id), {
                   suggestedSupplierIds: matched.map(s => s.uid)
-                }).catch(e => console.error('Error updating request with matched suppliers:', e));
-                setIsMatching(false);
-              }).catch(err => {
+                });
+              } catch (err) {
                 console.error('Matchmaking error:', err);
                 setMatchedSuppliers(categorySuppliers.slice(0, 3)); // Fallback to first 3
+              } finally {
                 setIsMatching(false);
-              });
+              }
             } else {
               setMatchedSuppliers([]);
               console.log('No suppliers found even after broad search.');
@@ -935,81 +636,6 @@ const Home: React.FC<HomeProps> = ({
     }
   };
 
-  const handleStartChat = async (requestId: string, supplierId: string, customerId: string) => {
-    if (!profile) return;
-    setChatLoading(supplierId);
-    
-    // Query by requestId to find existing chat
-    const q = query(
-      collection(db, 'chats'), 
-      where('requestId', '==', requestId)
-    );
-    
-    try {
-      const snap = await getDocs(q);
-      // Filter in memory to ensure we have the right participants
-      const existingChat = snap.docs.find(doc => {
-        const data = doc.data();
-        return data.supplierId === supplierId && data.customerId === customerId;
-      });
-      
-      if (existingChat) {
-        onOpenChat(existingChat.id);
-      } else {
-        const newChat = await addDoc(collection(db, 'chats'), {
-          requestId,
-          supplierId,
-          customerId,
-          updatedAt: new Date().toISOString(),
-          lastMessage: i18n.language === 'ar' ? 'بدء المحادثة' : 'Chat started'
-        });
-        onOpenChat(newChat.id);
-      }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'chats');
-    } finally {
-      setChatLoading(null);
-    }
-  };
-
-  const handleApproveAndStartChat = async (requestId: string, supplierId: string, customerId: string) => {
-    try {
-      const requestRef = doc(db, 'requests', requestId);
-      await updateDoc(requestRef, {
-        approvedSuppliers: arrayUnion(supplierId)
-      });
-      await handleStartChat(requestId, supplierId, customerId);
-    } catch (error) {
-      console.error('Error approving supplier:', error);
-    }
-  };
-
-  const handleDeleteRequest = (requestId: string, imageUrl?: string) => {
-    setRequestToDelete({ id: requestId, imageUrl });
-  };
-
-  const confirmDelete = async () => {
-    if (!requestToDelete) return;
-    setIsDeleting(true);
-    try {
-      if (requestToDelete.imageUrl && !requestToDelete.imageUrl.startsWith('data:')) {
-        try {
-          const imageRef = ref(storage, requestToDelete.imageUrl);
-          await deleteObject(imageRef);
-        } catch (e) {
-          console.error('Error deleting image:', e);
-        }
-      }
-      
-      await deleteDoc(doc(db, 'requests', requestToDelete.id));
-      setRequestToDelete(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `requests/${requestToDelete.id}`);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-brand-background relative overflow-hidden">
       {/* Minimal UI Mode */}
@@ -1017,7 +643,7 @@ const Home: React.FC<HomeProps> = ({
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="relative z-10 max-w-4xl mx-auto px-4 pt-20 pb-32 flex flex-col items-center"
+          className="relative z-10 max-w-4xl mx-auto px-4 min-h-[calc(100dvh-200px)] md:min-h-[calc(100vh-80px)] flex flex-col items-center justify-center py-12"
         >
           {/* Background Gradients (Google-like) */}
           <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden -z-10">
@@ -1025,21 +651,39 @@ const Home: React.FC<HomeProps> = ({
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand-teal/5 rounded-full blur-[120px]" />
           </div>
 
-          {/* Logo */}
+          {/* Logo - Neural Spark Concept (No Box) */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="mb-12"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="mb-12 relative group cursor-pointer flex flex-col items-center"
+            onClick={() => setIsVisualSearchOpen(true)}
           >
-            {logoUrl ? (
-              <img src={logoUrl} alt="Logo" className="h-16 md:h-24 w-auto object-contain" />
-            ) : (
-              <div className="flex items-center gap-3 text-brand-primary">
-                <SparklesIcon size={48} strokeWidth={1.5} className="animate-pulse-slow" />
-                <span className="text-3xl font-black tracking-tighter">B2B</span>
-              </div>
-            )}
+            {/* Spinning Neural Glow (Visible on Hover) */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-48 md:h-48 bg-gradient-to-r from-transparent via-brand-primary to-transparent opacity-0 group-hover:opacity-30 animate-[spin_3s_linear_infinite] rounded-full blur-xl transition-opacity duration-500 pointer-events-none" />
+            
+            {/* Logo Image/Text */}
+            <div className="relative z-10 transition-transform duration-300 group-hover:scale-105">
+              {/* Shimmer Sweep Effect over the logo itself */}
+              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 dark:via-white/20 to-transparent group-hover:animate-[shimmer_1.5s_infinite] skew-x-12 z-20 mix-blend-overlay pointer-events-none" />
+
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="h-16 md:h-24 w-auto object-contain drop-shadow-2xl" />
+              ) : (
+                <div className="flex items-center gap-3 text-brand-primary drop-shadow-2xl">
+                  <SparklesIcon size={48} strokeWidth={1.5} />
+                  <span className="text-3xl font-black tracking-tighter">B2B2C</span>
+                </div>
+              )}
+            </div>
+            
+            {/* Electric AI Indicator (Floating below) */}
+            <div className="absolute -bottom-8 flex items-center gap-1.5 text-brand-primary opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+              <Zap size={14} className="animate-pulse" />
+              <span className="text-xs font-black uppercase tracking-widest drop-shadow-md">
+                {isRtl ? 'تحليل ذكي' : 'Neural AI'}
+              </span>
+            </div>
           </motion.div>
 
           {/* Search Bar (Minimal) */}
@@ -1061,113 +705,16 @@ const Home: React.FC<HomeProps> = ({
                   <HapticButton onClick={handleVoiceInput} className="p-2 text-brand-text-muted hover:text-brand-primary transition-colors">
                     <Mic size={20} />
                   </HapticButton>
-                  <HapticButton onClick={() => onNavigate('marketplace')} className="p-2 text-brand-text-muted hover:text-brand-teal transition-colors">
+                  <HapticButton onClick={() => setIsVisualSearchOpen(true)} className="p-2 text-brand-text-muted hover:text-brand-teal transition-colors">
                     <Camera size={20} />
                   </HapticButton>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* App Grid (Google Apps Style) */}
-          <div className="grid grid-cols-3 md:grid-cols-4 gap-6 md:gap-10 w-full max-w-2xl">
-            {[
-              { id: 'marketplace', icon: ShoppingBag, label: isRtl ? 'السوق' : 'Market', color: 'bg-blue-500', action: () => onNavigate('marketplace') },
-              { id: 'requests', icon: ListFilter, label: isRtl ? 'طلباتي' : 'Requests', color: 'bg-green-500', action: () => { scrollToRequests(); } },
-              { id: 'chats', icon: MessageSquare, label: isRtl ? 'المحادثات' : 'Chats', color: 'bg-yellow-500', action: () => onNavigate('chat') },
-              { id: 'dashboard', icon: LayoutDashboard, label: isRtl ? 'التحليلات' : 'Analytics', color: 'bg-red-500', action: () => onNavigate('dashboard') },
-              { id: 'suppliers', icon: Building2, label: isRtl ? 'الموردين' : 'Suppliers', color: 'bg-purple-500', action: () => onNavigate('marketplace') },
-              { id: 'wallet', icon: CreditCard, label: isRtl ? 'المدفوعات' : 'Payments', color: 'bg-teal-500', action: () => onNavigate('dashboard') },
-              { id: 'profile', icon: User, label: isRtl ? 'الملف' : 'Profile', color: 'bg-orange-500', action: () => onNavigate('profile') },
-              { id: 'insights', icon: Sparkles, label: isRtl ? 'رؤى الذكاء' : 'AI Insights', color: 'bg-indigo-500', action: () => { setShowAiInsights(!showAiInsights); } },
-            ].map((app) => (
-              <motion.button
-                key={app.id}
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={app.action}
-                className="flex flex-col items-center gap-3 group"
-              >
-                <div className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl ${app.color} text-white flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300`}>
-                  <app.icon size={28} />
-                </div>
-                <span className="text-xs md:text-sm font-bold text-brand-text-main group-hover:text-brand-primary transition-colors">
-                  {app.label}
-                </span>
-              </motion.button>
-            ))}
-          </div>
-
-          {/* Recent Activity Section (Simplified) */}
-          <div className="w-full mt-20">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-xl font-black text-brand-text-main flex items-center gap-2">
-                <Activity size={20} className="text-brand-teal" />
-                {isRtl ? 'النشاط الأخير' : 'Recent Activity'}
-              </h2>
-              <button 
-                onClick={() => { scrollToRequests(); }} 
-                className="text-sm font-bold text-brand-primary hover:underline"
-              >
-                {isRtl ? 'عرض الكل' : 'View All'}
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {requests.slice(0, 3).map((req) => (
-                <div key={req.id} className="p-4 bg-white dark:bg-gray-900 rounded-2xl border border-brand-border flex items-center gap-4 hover:border-brand-primary/30 transition-all cursor-pointer">
-                  <div className="w-12 h-12 rounded-xl bg-brand-surface overflow-hidden border border-brand-border shrink-0">
-                    {req.imageUrl ? (
-                      <img src={req.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-brand-text-muted">
-                        <Package size={20} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-brand-text-main truncate">{req.description}</h3>
-                    <p className="text-xs text-brand-text-muted mt-0.5">{new Date(req.createdAt).toLocaleDateString(i18n.language)}</p>
-                  </div>
-                  <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                    req.status === 'open' ? 'bg-green-100 text-green-600' : 'bg-brand-surface text-brand-text-muted'
-                  }`}>
-                    {req.status}
-                  </div>
-                </div>
-              ))}
-              {requests.length === 0 && (
-                <div className="text-center py-10 text-brand-text-muted font-medium italic">
-                  {isRtl ? 'لا يوجد نشاط مؤخراً' : 'No recent activity'}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* AI Insights Floating (Minimal) */}
-          <AnimatePresence>
-            {showAiInsights && (
-              <motion.div
-                initial={{ opacity: 0, x: 100 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 100 }}
-                className="fixed right-6 top-24 bottom-24 w-80 z-50"
-              >
-                <AIInsights 
-                  role={effectiveRole}
-                  stats={{
-                    matchRate: 94,
-                    avgResponseTime: '12m',
-                    marketActivity: 82,
-                    requestQuality: 88
-                  }}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
         </motion.div>
       ) : (
-        <div className="flex flex-col items-center justify-start min-h-[calc(100vh-80px)] px-4 py-12 md:py-24 relative overflow-hidden">
+        <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-200px)] md:min-h-[calc(100vh-80px)] py-12 md:py-24 relative overflow-hidden">
           {/* Dynamic Background Effects */}
           <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
             <motion.div 
@@ -1206,23 +753,8 @@ const Home: React.FC<HomeProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
           >
-            {/* Logo Display */}
-            <div className="flex justify-center mb-10">
-              <div className="relative group">
-                <div className="absolute -inset-4 bg-gradient-to-tr from-brand-primary/20 via-brand-teal/20 to-brand-primary/20 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                <div className="relative p-4 md:p-6 bg-white/40 dark:bg-gray-900/40 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] border border-white/40 dark:border-gray-700/50 shadow-2xl shadow-brand-primary/5 group-hover:shadow-brand-primary/10 transition-all duration-500">
-                  {logoUrl ? (
-                    <img src={logoUrl} alt="Logo" className="h-12 md:h-20 w-auto object-contain" />
-                  ) : (
-                    <div className="h-12 w-12 md:h-20 md:w-20 flex items-center justify-center text-brand-primary">
-                      <SparklesIcon size={32} strokeWidth={1.5} className="md:hidden animate-pulse-slow" />
-                      <SparklesIcon size={48} strokeWidth={1.5} className="hidden md:block animate-pulse-slow" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
+            {/* Logo is now in the Header */}
+            
             <h1 className="text-4xl md:text-7xl lg:text-8xl font-black mb-8 text-brand-text-main tracking-tight leading-[1.1] md:leading-[1.05]">
               {isRtl ? (
                 <>
@@ -1240,7 +772,7 @@ const Home: React.FC<HomeProps> = ({
                 </>
               )}
             </h1>
-            <p className="text-lg md:text-2xl text-brand-text-muted max-w-3xl mx-auto mb-12 leading-relaxed font-medium px-4 md:px-0">
+            <p className="text-lg md:text-2xl text-brand-text-muted max-w-3xl mx-auto mb-12 leading-relaxed font-medium">
               {isRtl 
                 ? (heroDescriptionAr || 'المنصة الأولى التي تجمع بين قوة الذكاء الاصطناعي وشبكة واسعة من الموردين الموثوقين لتلبية جميع احتياجاتك بضغطة زر.') 
                 : (heroDescriptionEn || 'The first platform combining AI power with a vast network of trusted suppliers to fulfill all your needs with a single click.')}
@@ -1292,6 +824,14 @@ const Home: React.FC<HomeProps> = ({
                     </HapticButton>
                     <div className="w-px h-5 md:h-6 bg-brand-border/50 mx-0.5 md:mx-1" />
                     <HapticButton
+                      onClick={() => setIsVisualSearchOpen(true)}
+                      className="p-2.5 md:p-3 text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg md:rounded-xl transition-all"
+                      title={isRtl ? 'بحث بصري' : 'Visual Search'}
+                    >
+                      <Camera className="w-5 h-5 md:w-5.5 md:h-5.5" />
+                    </HapticButton>
+                    <div className="w-px h-5 md:h-6 bg-brand-border/50 mx-0.5 md:mx-1" />
+                    <HapticButton
                       onClick={handleDraftRequest}
                       disabled={!searchQuery || isDrafting}
                       className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 text-brand-primary font-bold hover:bg-brand-primary/10 rounded-lg md:rounded-xl transition-all disabled:opacity-40"
@@ -1315,48 +855,6 @@ const Home: React.FC<HomeProps> = ({
           </motion.div>
         </div>
 
-        {/* Contextual Shortcuts */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.3 }}
-          className="max-w-5xl mx-auto mb-16 md:mb-24"
-        >
-          <div className="flex flex-wrap justify-center gap-3 md:gap-4">
-            {[
-              { icon: FileText, labelAr: 'طلباتي', labelEn: 'My Requests', color: 'brand-primary', action: () => onNavigate('dashboard') },
-              { icon: MessageSquare, labelAr: 'المحادثات', labelEn: 'Chats', color: 'brand-teal', action: () => onNavigate('dashboard') },
-              { icon: CreditCard, labelAr: 'المدفوعات', labelEn: 'Payments', color: 'brand-purple', action: () => {} },
-              { icon: UserCheck, labelAr: 'الموردين', labelEn: 'Suppliers', color: 'brand-accent', action: () => {} },
-              { icon: Globe, labelAr: 'السوق', labelEn: 'Market', color: 'brand-primary', action: () => {} },
-              { icon: Monitor, labelAr: 'الإحصائيات', labelEn: 'Analytics', color: 'brand-teal', action: () => {} },
-            ].map((shortcut, idx) => (
-              <HapticButton
-                key={idx}
-                onClick={shortcut.action}
-                className={`flex items-center gap-2.5 px-5 py-3.5 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border border-brand-border/50 rounded-2xl shadow-sm hover:shadow-xl hover:shadow-${shortcut.color}/10 hover:border-${shortcut.color}/30 transition-all group`}
-              >
-                <div className={`p-2 bg-${shortcut.color}/10 text-${shortcut.color} rounded-xl group-hover:scale-110 transition-transform`}>
-                  <shortcut.icon size={18} />
-                </div>
-                <span className="text-sm font-black text-brand-text-main">{isRtl ? shortcut.labelAr : shortcut.labelEn}</span>
-              </HapticButton>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* AI Insights Module */}
-        {profile && (
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-            className="max-w-6xl mx-auto mb-20 md:mb-32"
-          >
-            <AIInsights role={effectiveRole as any} />
-          </motion.div>
-        )}
-
         {/* 3. Conditional Content (Suggested Text & Image Preview) */}
         <AnimatePresence mode="wait">
           {(showDraftArea || imagePreview || voiceError || aiStatus || isMatching) && (
@@ -1374,7 +872,7 @@ const Home: React.FC<HomeProps> = ({
               )}
 
               {aiStatus && (
-                <div className="flex items-center gap-3 text-brand-teal font-bold text-xs uppercase tracking-widest bg-brand-teal/5 py-3 px-6 rounded-2xl border border-brand-teal/10 animate-pulse">
+                <div className={`flex items-center gap-3 text-brand-teal font-bold text-xs uppercase tracking-widest bg-brand-teal/5 py-3 px-6 rounded-2xl border border-brand-teal/10 ${success ? '' : 'animate-pulse'}`}>
                   <Bot size={16} />
                   {aiStatus}
                 </div>
@@ -1518,221 +1016,118 @@ const Home: React.FC<HomeProps> = ({
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Active Conversations Section */}
-        {profile && (
-          <div className="mt-12 w-full text-left">
-            {(effectiveRole === 'supplier' || effectiveRole === 'admin') && supplierChats.length > 0 && (
-              <div className="space-y-6 mb-12">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-3xl font-black text-brand-text-main flex items-center gap-4 tracking-tight">
-                    <div className="p-3.5 bg-gradient-to-br from-brand-teal to-brand-primary rounded-2xl text-white shadow-lg shadow-brand-teal/20">
-                      <MessageSquare size={24} />
-                    </div>
-                    {i18n.language === 'ar' ? 'المحادثات النشطة' : 'Active Conversations'}
-                  </h3>
-                  <div className="flex items-center gap-3">
-                    <span className="px-4 py-1.5 bg-brand-teal/10 text-brand-teal text-sm font-bold rounded-full border border-brand-teal/20">
-                      {supplierChats.length} {i18n.language === 'ar' ? 'محادثة' : 'Chats'}
-                    </span>
-                    <button
-                      onClick={() => setConfirmModal({
-                        show: true,
-                        title: i18n.language === 'ar' ? 'مسح كل المحادثات' : 'Clear All Chats',
-                        message: i18n.language === 'ar' 
-                          ? (effectiveRole === 'admin' ? 'هل أنت متأكد من مسح جميع المحادثات في النظام؟ لا يمكن التراجع عن هذا الإجراء.' : 'هل أنت متأكد من مسح جميع المحادثات؟ لا يمكن التراجع عن هذا الإجراء.')
-                          : (effectiveRole === 'admin' ? 'Are you sure you want to clear ALL chats in the system? This action cannot be undone.' : 'Are you sure you want to clear all chats? This action cannot be undone.'),
-                        onConfirm: handleClearAllChats,
-                        isLoading: false
-                      })}
-                      className="p-3 text-brand-error hover:bg-brand-error/10 rounded-lg transition-colors"
-                      title={i18n.language === 'ar' ? 'مسح الكل' : 'Clear All'}
+        
+        {/* 4. Result Section (Last Request & Matched Suppliers) */}
+        <AnimatePresence>
+          {(lastRequest || matchedSuppliers.length > 0) && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="mt-12 space-y-8"
+            >
+              {lastRequest && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-black text-brand-text-main flex items-center gap-2">
+                      <Package size={20} className="text-brand-primary" />
+                      {isRtl ? 'طلبك الأخير' : 'Your Recent Request'}
+                    </h3>
+                    <HapticButton 
+                      onClick={() => onNavigate('dashboard')}
+                      className="text-xs font-bold text-brand-primary hover:underline"
                     >
-                      <Trash2 size={16} />
-                    </button>
+                      {isRtl ? 'عرض الكل في لوحة التحكم' : 'View all in dashboard'}
+                    </HapticButton>
                   </div>
+                  <UserRequestCard 
+                    request={lastRequest}
+                    profile={profile!}
+                    onOpenChat={onOpenChat || (() => {})}
+                    onViewProfile={onViewProfile || (() => {})}
+                    onDelete={async (id) => {
+                      if (window.confirm(isRtl ? 'هل أنت متأكد من حذف هذا الطلب؟' : 'Are you sure you want to delete this request?')) {
+                        await deleteDoc(doc(db, 'requests', id));
+                        setLastRequest(null);
+                        setLastRequestId(null);
+                      }
+                    }}
+                  />
                 </div>
-                <div className="bento-grid">
-                  <AnimatePresence mode="popLayout">
-                    {supplierChats
-                      .filter(c => !c.isCategoryChat)
-                      .slice(0, showAllChats ? undefined : 4)
-                      .map((chat, idx) => (
-                        <motion.div
-                          key={chat.id}
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.9 }}
-                          transition={{ delay: idx * 0.1 }}
-                          layout
-                          className={idx === 0 ? 'bento-item-large' : 'bento-item'}
-                        >
-                          <ChatCard 
-                            chat={chat} 
-                            onOpen={() => onOpenChat(chat.id)} 
-                            activeRole="supplier"
-                          />
-                        </motion.div>
-                      ))}
-                  </AnimatePresence>
-                </div>
-                {supplierChats.filter(c => !c.isCategoryChat).length > 4 && (
-                  <button
-                    onClick={() => setShowAllChats(!showAllChats)}
-                    className="mt-4 flex items-center gap-2 text-brand-teal font-bold hover:text-brand-teal-dark transition-colors mx-auto bg-brand-teal/5 px-6 py-2 rounded-full shadow-sm"
-                  >
-                    {showAllChats 
-                      ? (i18n.language === 'ar' ? 'عرض أقل' : 'Show Less') 
-                      : (i18n.language === 'ar' ? `عرض المزيد (${supplierChats.length - 3}+)` : `Show More (${supplierChats.length - 3}+)`)}
-                    {showAllChats ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </button>
-                )}
-              </div>
-            )}
+              )}
 
-            {effectiveRole === 'customer' && customerChats.length > 0 && (
-              <div className="space-y-6 mb-12">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-3xl font-black text-brand-text-main flex items-center gap-4 tracking-tight">
-                    <div className="p-3.5 bg-gradient-to-br from-brand-teal to-brand-primary rounded-2xl text-white shadow-lg shadow-brand-teal/20">
-                      <MessageSquare size={24} />
-                    </div>
-                    {i18n.language === 'ar' ? 'المحادثات النشطة' : 'Active Conversations'}
-                  </h3>
+              {matchedSuppliers.length > 0 && (
+                <div className="space-y-6">
                   <div className="flex items-center gap-3">
-                    <span className="px-4 py-1.5 bg-brand-teal/10 text-brand-teal text-sm font-bold rounded-full border border-brand-teal/20">
-                      {customerChats.length} {i18n.language === 'ar' ? 'محادثة' : 'Chats'}
-                    </span>
-                    <button
-                      onClick={() => setConfirmModal({
-                        show: true,
-                        title: i18n.language === 'ar' ? 'مسح كل المحادثات' : 'Clear All Chats',
-                        message: i18n.language === 'ar' ? 'هل أنت متأكد من مسح جميع المحادثات؟ لا يمكن التراجع عن هذا الإجراء.' : 'Are you sure you want to clear all chats? This action cannot be undone.',
-                        onConfirm: handleClearAllChats,
-                        isLoading: false
-                      })}
-                      className="p-3 text-brand-error hover:bg-brand-error/10 rounded-lg transition-colors"
-                      title={i18n.language === 'ar' ? 'مسح الكل' : 'Clear All'}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="w-10 h-10 bg-brand-teal/10 rounded-xl flex items-center justify-center text-brand-teal">
+                      <SparklesIcon size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-brand-text-main">
+                        {isRtl ? 'الموردون المقترحون لك' : 'Suggested Suppliers for You'}
+                      </h3>
+                      <p className="text-xs text-brand-text-muted font-bold uppercase tracking-widest mt-1">
+                        {isRtl ? 'بناءً على تحليلات الذكاء الاصطناعي لطلبك' : 'Based on AI analysis of your request'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {matchedSuppliers.map((supplier) => (
+                      <motion.div
+                        key={supplier.uid}
+                        whileHover={{ y: -5 }}
+                        className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border border-white/40 dark:border-gray-700/50 rounded-[2rem] p-6 shadow-xl shadow-black/5 group relative overflow-hidden"
+                      >
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-teal/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-700" />
+                        
+                        <div className="relative z-10 flex flex-col items-center text-center">
+                          <div className="w-20 h-20 rounded-2xl bg-brand-background flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-lg">
+                            {supplier.photoURL ? (
+                              <img src={supplier.photoURL} alt={supplier.companyName} className="w-full h-full object-cover" />
+                            ) : (
+                              <Building2 size={32} className="text-brand-text-muted opacity-50" />
+                            )}
+                          </div>
+                          
+                          <h4 className="text-lg font-black text-brand-text-main mb-1 truncate w-full px-2">
+                            {supplier.companyName || supplier.name}
+                          </h4>
+                          
+                          <div className="flex items-center gap-1 text-amber-500 mb-3">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <SparklesIcon key={star} size={10} fill="currentColor" />
+                            ))}
+                            <span className="text-[10px] font-black ml-1 text-brand-text-muted">5.0</span>
+                          </div>
+
+                          <p className="text-xs text-brand-text-muted line-clamp-2 mb-6 min-h-[2rem]">
+                            {supplier.bio || (isRtl ? 'مورد معتمد في منصتنا' : 'Verified supplier on our platform')}
+                          </p>
+
+                          <div className="flex items-center gap-2 w-full">
+                            <HapticButton
+                              onClick={() => onOpenChat?.(supplier.uid)}
+                              className="flex-1 bg-brand-primary text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:bg-brand-primary-dark transition-all"
+                            >
+                              {isRtl ? 'تواصل' : 'Contact'}
+                            </HapticButton>
+                            <HapticButton
+                              onClick={() => onViewProfile?.(supplier.uid)}
+                              className="p-3 bg-brand-background text-brand-text-main rounded-xl hover:bg-brand-border transition-all"
+                            >
+                              <ArrowRight size={16} className={isRtl ? 'rotate-180' : ''} />
+                            </HapticButton>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
                   </div>
                 </div>
-                <div className="bento-grid">
-                  <AnimatePresence mode="popLayout">
-                    {customerChats
-                      .filter(c => !c.isCategoryChat)
-                      .slice(0, showAllChats ? undefined : 4)
-                      .map((chat, idx) => (
-                        <motion.div
-                          key={chat.id}
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.9 }}
-                          transition={{ delay: idx * 0.1 }}
-                          layout
-                          className={idx === 0 ? 'bento-item-large' : 'bento-item'}
-                        >
-                          <ChatCard 
-                            chat={chat} 
-                            onOpen={() => onOpenChat(chat.id)} 
-                            activeRole="customer"
-                          />
-                        </motion.div>
-                      ))}
-                  </AnimatePresence>
-                </div>
-                {customerChats.filter(c => !c.isCategoryChat).length > 4 && (
-                  <button
-                    onClick={() => setShowAllChats(!showAllChats)}
-                    className="mt-4 flex items-center gap-2 text-brand-teal font-bold hover:text-brand-teal-dark transition-colors mx-auto bg-brand-teal/5 px-6 py-2 rounded-full shadow-sm"
-                  >
-                    {showAllChats 
-                      ? (i18n.language === 'ar' ? 'عرض أقل' : 'Show Less') 
-                      : (i18n.language === 'ar' ? `عرض المزيد (${customerChats.length - 3}+)` : `Show More (${customerChats.length - 3}+)`)}
-                    {showAllChats ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Available Requests / My Requests Section */}
-        {profile && requests.length > 0 && (
-          <div className="mt-24 w-full text-left">
-            <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
-              <div>
-                <h3 className="text-3xl md:text-4xl font-black text-brand-text-main flex items-center gap-4 tracking-tight mb-3">
-                  <div className="p-4 bg-gradient-to-br from-brand-teal to-brand-primary rounded-2xl text-white shadow-xl shadow-brand-teal/20">
-                    <Package size={28} strokeWidth={2} />
-                  </div>
-                  {effectiveRole === 'supplier' 
-                    ? (i18n.language === 'ar' ? 'الطلبات المتاحة' : 'Available Requests')
-                    : (i18n.language === 'ar' ? 'طلباتي' : 'My Requests')}
-                </h3>
-                <p className="text-brand-text-muted text-lg font-medium max-w-2xl">
-                  {effectiveRole === 'supplier' 
-                    ? (i18n.language === 'ar' ? 'تصفح أحدث طلبات العملاء وقدم عروضك المميزة.' : 'Browse the latest customer requests and submit your premium offers.')
-                    : (i18n.language === 'ar' ? 'تابع حالة طلباتك وتواصل مع الموردين.' : 'Track your requests and communicate with suppliers.')}
-                </p>
-              </div>
-              <div className="flex items-center gap-4 text-sm text-brand-text-muted font-medium bg-brand-surface/50 backdrop-blur-md px-6 py-3 rounded-2xl border border-brand-border/50 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-teal opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-teal"></span>
-                  </div>
-                  <span className="text-brand-text-main font-bold text-base">{requests.length}</span>
-                  {i18n.language === 'ar' ? 'طلب متاح' : 'Requests'}
-                </div>
-              </div>
-            </div>
-
-            <div className="bento-grid">
-              <AnimatePresence mode="popLayout">
-                {requests.slice(0, showAllRequests ? undefined : 4).map((req, idx) => (
-                  <motion.div
-                    key={req.id}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ delay: idx * 0.1 }}
-                    layout
-                    className={idx === 0 ? 'bento-item-wide' : 'bento-item'}
-                  >
-                    <UserRequestCard 
-                      request={req}
-                      profile={profile}
-                      onOpenChat={(chatId) => onOpenChat(chatId)}
-                      onViewProfile={onViewProfile || (() => {})}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-            {requests.length > 3 && (
-              <button
-                onClick={() => setShowAllRequests(!showAllRequests)}
-                className="mt-8 flex items-center gap-2 text-brand-teal font-bold hover:text-brand-teal-dark transition-colors mx-auto bg-brand-teal/5 px-8 py-3 rounded-full shadow-sm"
-              >
-                {showAllRequests 
-                  ? (i18n.language === 'ar' ? 'عرض أقل' : 'Show Less') 
-                  : (i18n.language === 'ar' ? `عرض المزيد (${requests.length - 3}+)` : `Show More (${requests.length - 3}+)`)}
-                {showAllRequests ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-              </button>
-            )}
-            {showAllRequests && requests.length > visibleRequestsCount && (
-              <div ref={sentinelRef} className="h-20 flex items-center justify-center">
-                <div className="w-8 h-8 border-4 border-brand-teal border-t-transparent rounded-full animate-spin opacity-50"></div>
-              </div>
-            )}
-          </div>
-        )}
-
-
-
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {!profile && (
           <motion.div 
@@ -1799,113 +1194,16 @@ const Home: React.FC<HomeProps> = ({
       </div>
     )}
 
-    <UserProfileModal 
-      user={selectedUser}
-      isOpen={!!selectedUser}
-      onClose={() => setSelectedUser(null)}
-    />
-
-  {/* Delete Confirmation Modal */}
-  <AnimatePresence>
-    {requestToDelete && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl rounded-[2.5rem] p-8 md:p-10 max-w-md w-full shadow-2xl border border-white/20 dark:border-gray-700/50 text-center relative overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-brand-error/10 to-transparent pointer-events-none" />
-          
-          <div className="relative w-20 h-20 bg-brand-error/10 text-brand-error rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner border border-brand-error/20">
-            <Trash2 size={40} strokeWidth={1.5} />
-          </div>
-          
-          <h3 className="text-2xl font-black text-brand-text-main mb-3">
-            {i18n.language === 'ar' ? 'حذف الطلب' : 'Delete Request'}
-          </h3>
-          <p className="text-brand-text-muted mb-10 text-lg font-medium">
-            {i18n.language === 'ar' 
-              ? 'هل أنت متأكد من حذف هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.' 
-              : 'Are you sure you want to delete this request? This action cannot be undone.'}
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4">
-            <button
-              onClick={() => setRequestToDelete(null)}
-              className="flex-1 py-4 bg-brand-surface text-brand-text-main rounded-2xl font-bold hover:bg-brand-border/50 transition-colors border border-brand-border/50"
-            >
-              {i18n.language === 'ar' ? 'إلغاء' : 'Cancel'}
-            </button>
-            <button
-              onClick={confirmDelete}
-              disabled={isDeleting}
-              className="flex-1 py-4 bg-brand-error text-white rounded-2xl font-bold hover:bg-red-600 transition-colors shadow-xl shadow-brand-error/20 disabled:opacity-50 flex items-center justify-center gap-2 hover:-translate-y-0.5"
-            >
-              {isDeleting ? (
-                <Loader2 size={20} className="animate-spin" />
-              ) : (
-                <>
-                  <Trash2 size={20} />
-                  {i18n.language === 'ar' ? 'حذف' : 'Delete'}
-                </>
-              )}
-            </button>
-          </div>
-        </motion.div>
-      </div>
+    {isVisualSearchOpen && (
+      <PremiumVisualSearchModal
+        isOpen={isVisualSearchOpen}
+        onClose={() => setIsVisualSearchOpen(false)}
+        profile={profile}
+        categories={categories}
+        allSuppliers={[]}
+        onStartChat={() => onNavigate('chat')}
+      />
     )}
-  </AnimatePresence>
-
-  {/* Clear All Confirmation Modal */}
-  <AnimatePresence>
-    {confirmModal.show && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl rounded-[2.5rem] p-8 md:p-10 max-w-md w-full shadow-2xl border border-white/20 dark:border-gray-700/50 text-center relative overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-brand-error/10 to-transparent pointer-events-none" />
-          
-          <div className="relative w-20 h-20 bg-brand-error/10 text-brand-error rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner border border-brand-error/20">
-            <Trash2 size={40} strokeWidth={1.5} />
-          </div>
-          
-          <h3 className="text-2xl font-black text-brand-text-main mb-3">
-            {confirmModal.title}
-          </h3>
-          <p className="text-brand-text-muted mb-10 text-lg font-medium">
-            {confirmModal.message}
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4">
-            <button
-              onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))}
-              className="flex-1 py-4 bg-brand-surface text-brand-text-main rounded-2xl font-bold hover:bg-brand-border/50 transition-colors border border-brand-border/50"
-            >
-              {i18n.language === 'ar' ? 'إلغاء' : 'Cancel'}
-            </button>
-            <button
-              onClick={confirmModal.onConfirm}
-              disabled={confirmModal.isLoading}
-              className="flex-1 py-4 bg-brand-error text-white rounded-2xl font-bold hover:bg-red-600 transition-colors shadow-xl shadow-brand-error/20 disabled:opacity-50 flex items-center justify-center gap-2 hover:-translate-y-0.5"
-            >
-              {confirmModal.isLoading ? (
-                <Loader2 size={20} className="animate-spin" />
-              ) : (
-                <>
-                  <Trash2 size={20} />
-                  {i18n.language === 'ar' ? 'مسح الكل' : 'Clear All'}
-                </>
-              )}
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    )}
-  </AnimatePresence>
 </div>
 );
 };

@@ -16,7 +16,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ notificati
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-brand-surface rounded-[2rem] p-8 max-w-sm w-full shadow-2xl border border-brand-border overflow-hidden"
+        className="bg-brand-surface rounded-[2rem] p-8 max-w-sm w-full shadow-2xl border border-brand-border max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-brand-primary/20 scrollbar-track-brand-surface"
       >
         <h3 className="font-bold text-lg mb-4 text-brand-text-main">{isRtl ? notification.titleAr : notification.titleEn}</h3>
         {notification.imageUrl && (

@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -21,8 +22,9 @@ import {
 import { HapticButton } from './HapticButton';
 import { analyzeImageForSearch, matchSuppliers } from '../../core/services/geminiService';
 import { UserProfile, Category } from '../../core/types';
-import { db, auth } from '../../core/firebase';
+import { db, auth, storage } from '../../core/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { handleFirestoreError, OperationType } from '../../core/utils/errorHandling';
 import { soundService, SoundType } from '../../core/utils/soundService';
 
@@ -33,6 +35,7 @@ interface PremiumVisualSearchModalProps {
   allSuppliers: UserProfile[];
   profile: UserProfile | null;
   onStartChat: (requestId: string, supplierId: string, customerId: string) => void;
+  initialMode?: 'camera' | 'gallery' | null;
 }
 
 interface AnalysisResult {
@@ -54,14 +57,16 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
   categories,
   allSuppliers,
   profile,
-  onStartChat
+  onStartChat,
+  initialMode = null
 }) => {
   const { i18n } = useTranslation();
-  const isRtl = i18n.language === 'ar';
+  const isRtl = i18n.language.startsWith('ar');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [step, setStep] = useState<'upload' | 'analyzing' | 'results'>('upload');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [mimeType, setMimeType] = useState<string>('');
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [matchedSuppliersList, setMatchedSuppliersList] = useState<UserProfile[]>([]);
@@ -70,58 +75,130 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
   const [isSendingToAll, setIsSendingToAll] = useState(false);
   const [sentToAllSuccess, setSentToAllSuccess] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (isOpen && initialMode) {
+      // Direct action requested - try to trigger as soon as possible
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
+    }
+    
     if (!isOpen) {
       // Reset state when modal closes
       setStep('upload');
       setSelectedImage(null);
+      setSelectedFile(null);
       setAnalysis(null);
       setMatchedSuppliersList([]);
       setError(null);
       setSentToAllSuccess(false);
     }
-  }, [isOpen]);
+  }, [isOpen, initialMode]);
+
+  const compressImage = (base64: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1024;
+        const MAX_HEIGHT = 1024;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = () => resolve(base64); // Fallback to original if compression fails
+      img.src = base64;
+    });
+  };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setSelectedFile(file);
+      setStep('analyzing'); // Move this here to show loading immediately
+      
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedImage(reader.result as string);
-        setMimeType(file.type);
-        setStep('analyzing');
-        performAnalysis(reader.result as string, file.type);
+      reader.onloadend = async () => {
+        try {
+          const rawBase64 = reader.result as string;
+          
+          // Compress image before analysis
+          const compressedBase64 = await compressImage(rawBase64);
+          
+          setSelectedImage(compressedBase64);
+          setMimeType('image/jpeg');
+          
+          const base64Data = compressedBase64.split(',')[1];
+          if (!base64Data) throw new Error('Failed to extract base64 data');
+          
+          await performAnalysis(base64Data, 'image/jpeg');
+        } catch (err) {
+          console.error('Image processing failed:', err);
+          setError(isRtl ? 'فشل معالجة الصورة. يرجى المحاولة مرة أخرى.' : 'Image processing failed. Please try again.');
+          setStep('upload');
+        }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const performAnalysis = async (base64: string, type: string) => {
+  const performAnalysis = async (base64Data: string, type: string) => {
+    if (!base64Data) {
+      setError(isRtl ? 'بيانات الصورة غير صالحة.' : 'Invalid image data.');
+      setStep('upload');
+      return;
+    }
+
     try {
       setError(null);
-      const base64Data = base64.split(',')[1];
       const result = await analyzeImageForSearch(base64Data, type, i18n.language);
       
       if (result) {
-        // Mocking some extra attributes that we'll enhance in geminiService later
         const enhancedResult: AnalysisResult = {
           ...result,
           confidence: Math.floor(Math.random() * 15) + 85, // 85-99%
           attributes: {
-            color: result.keywords.find(k => ['red', 'blue', 'green', 'black', 'white', 'gold', 'silver', 'أحمر', 'أزرق', 'أخضر', 'أسود', 'أبيض', 'ذهبي', 'فضي'].includes(k.toLowerCase())) || 'N/A',
-            material: result.keywords.find(k => ['wood', 'metal', 'plastic', 'leather', 'fabric', 'خشب', 'معدن', 'بلاستيك', 'جلد', 'قماش'].includes(k.toLowerCase())) || 'N/A',
-            style: result.keywords.find(k => ['modern', 'classic', 'minimalist', 'luxury', 'مودرن', 'كلاسيك', 'بسيط', 'فاخر'].includes(k.toLowerCase())) || 'N/A',
-            productType: result.category
+            color: result.attributes?.color || 'N/A',
+            material: result.attributes?.material || 'N/A',
+            style: result.attributes?.style || 'N/A',
+            productType: result.category || 'N/A'
           }
         };
         setAnalysis(enhancedResult);
         setStep('results');
-        soundService.play(SoundType.SENT);
+        try {
+          soundService.play(SoundType.SENT);
+        } catch (e) {
+          // Ignore sound errors
+        }
         
         // Match suppliers
         setIsMatching(true);
+        const searchTerms = [
+          enhancedResult.visualDescription,
+          ...(enhancedResult.keywords || []),
+          enhancedResult.category
+        ].filter(Boolean).join(' ');
+
         const supplierIds = await matchSuppliers(
-          `${enhancedResult.visualDescription} ${enhancedResult.keywords.join(' ')}`,
+          searchTerms,
           allSuppliers,
           categories,
           profile?.location
@@ -145,19 +222,28 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
     
     setIsSendingToAll(true);
     try {
+      let uploadedImageUrl = '';
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop() || 'jpg';
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const storageRef = ref(storage, `product_requests/${profile.uid}/${fileName}`);
+        const snapshot = await uploadBytes(storageRef, selectedFile);
+        uploadedImageUrl = await getDownloadURL(snapshot.ref);
+      }
+
       const batchPromises = matchedSuppliersList.map(async (supplier) => {
         const requestData = {
           customerId: profile.uid,
-          customerName: profile.name,
+          customerName: profile.name || 'Customer',
           supplierId: supplier.uid,
-          supplierName: supplier.companyName || supplier.name,
-          productName: analysis.attributes.productType,
-          description: analysis.visualDescription,
+          supplierName: supplier.companyName || supplier.name || 'Supplier',
+          productName: analysis.attributes?.productType || 'Unknown Product',
+          description: analysis.visualDescription || '',
           status: 'pending',
           createdAt: serverTimestamp(),
           type: 'visual_search_rfq',
-          imageUrl: selectedImage,
-          attributes: analysis.attributes
+          imageUrl: uploadedImageUrl || selectedImage || '',
+          attributes: analysis.attributes || {}
         };
         
         const docRef = await addDoc(collection(db, 'product_requests'), requestData);
@@ -168,9 +254,7 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
           customerId: profile.uid,
           supplierId: supplier.uid,
           lastMessage: isRtl ? 'طلب عرض سعر جديد عبر البحث البصري' : 'New RFQ via Visual Search',
-          lastMessageAt: serverTimestamp(),
-          unreadCount: 1,
-          participants: [profile.uid, supplier.uid],
+          updatedAt: new Date().toISOString(),
           status: 'active'
         });
       });
@@ -188,49 +272,54 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
     }
   };
 
-  if (!isOpen) return null;
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-brand-text-main/60 backdrop-blur-xl safe-top safe-bottom"
-      >
+  return createPortal(
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 md:p-8 bg-brand-text-main/60 backdrop-blur-xl"
+    >
         <motion.div
           initial={{ scale: 0.9, y: 20, opacity: 0 }}
           animate={{ scale: 1, y: 0, opacity: 1 }}
           exit={{ scale: 0.9, y: 20, opacity: 0 }}
-          className="relative w-full max-w-5xl bg-white dark:bg-gray-900 rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden border border-white/20 dark:border-gray-800/50 flex flex-col max-h-[95dvh] md:max-h-[90dvh]"
+          className="relative w-full max-w-5xl bg-white dark:bg-gray-900 rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden border border-white/20 dark:border-gray-800/50 flex flex-col max-h-[calc(100dvh-2rem)] md:max-h-[90dvh]"
         >
           {/* Header */}
-          <div className="p-6 md:p-8 border-b border-brand-border/50 flex items-center justify-between bg-brand-background/30">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-teal text-white rounded-2xl shadow-lg shadow-brand-primary/20">
-                <Sparkles size={24} />
+          <div className="p-4 md:p-6 border-b border-brand-border/50 flex items-center justify-between bg-brand-background/30 shrink-0">
+            <div className="flex items-center gap-3 md:gap-4">
+              {step !== 'upload' && (
+                <HapticButton
+                  onClick={() => setStep('upload')}
+                  className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center hover:bg-brand-surface rounded-2xl text-brand-text-main transition-colors"
+                >
+                  <ArrowRight size={20} className={isRtl ? '' : 'rotate-180'} />
+                </HapticButton>
+              )}
+              <div className="p-2 md:p-3 bg-gradient-to-br from-brand-primary to-brand-teal text-white rounded-xl md:rounded-2xl shadow-lg shadow-brand-primary/20">
+                <Sparkles size={20} className="md:w-6 md:h-6" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-brand-text-main tracking-tight">
-                  {isRtl ? 'البحث البصري المتميز' : 'Premium Visual Search'}
+                <h2 className="text-lg md:text-2xl font-black text-brand-text-main tracking-tight">
+                  {isRtl ? 'البحث البصري' : 'Visual Search'}
                 </h2>
-                <p className="text-sm text-brand-text-muted font-medium">
-                  {isRtl ? 'اكتشف الموردين من خلال الصور بذكاء' : 'Intelligently discover suppliers through images'}
+                <p className="hidden md:block text-sm text-brand-text-muted font-medium">
+                  {isRtl ? 'اكتشف الموردين من خلال الصور' : 'Discover suppliers through images'}
                 </p>
               </div>
             </div>
             <HapticButton
               onClick={onClose}
-              className="w-12 h-12 flex items-center justify-center hover:bg-brand-background rounded-2xl text-brand-text-muted transition-colors"
+              className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center hover:bg-brand-surface rounded-2xl text-brand-text-muted transition-colors"
             >
-              <X size={24} />
+              <X size={20} className="md:w-6 md:h-6" />
             </HapticButton>
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6 md:p-10">
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 min-h-0 flex flex-col">
             {step === 'upload' && (
-              <div className="h-full flex flex-col items-center justify-center text-center space-y-8 py-12">
+              <div className="flex flex-col items-center justify-center text-center space-y-8 py-8 md:py-12 my-auto">
                 <div className="relative group">
                   <div className="absolute -inset-4 bg-gradient-to-r from-brand-primary/20 via-brand-teal/20 to-brand-primary/20 rounded-full blur-2xl opacity-50 group-hover:opacity-100 transition duration-1000" />
                   <div 
@@ -247,23 +336,25 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
                   </div>
                 </div>
 
-                <div className="max-w-md space-y-4">
-                  <h3 className="text-xl font-bold text-brand-text-main">
-                    {isRtl ? 'كيف يعمل البحث البصري؟' : 'How Visual Search Works?'}
-                  </h3>
-                  <div className="grid grid-cols-3 gap-4">
-                    {[
-                      { icon: <Camera size={18} />, text: isRtl ? 'التقط' : 'Capture' },
-                      { icon: <Sparkles size={18} />, text: isRtl ? 'حلل' : 'Analyze' },
-                      { icon: <Building2 size={18} />, text: isRtl ? 'طابق' : 'Match' }
-                    ].map((item, i) => (
-                      <div key={i} className="flex flex-col items-center gap-2 p-3 bg-brand-background rounded-2xl border border-brand-border/50">
-                        <div className="text-brand-primary">{item.icon}</div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-text-muted">{item.text}</span>
-                      </div>
-                    ))}
+                {!initialMode && (
+                  <div className="max-w-md space-y-4">
+                    <h3 className="text-xl font-bold text-brand-text-main">
+                      {isRtl ? 'كيف يعمل البحث البصري؟' : 'How Visual Search Works?'}
+                    </h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      {[
+                        { icon: <Camera size={18} />, text: isRtl ? 'التقط' : 'Capture' },
+                        { icon: <Sparkles size={18} />, text: isRtl ? 'حلل' : 'Analyze' },
+                        { icon: <Building2 size={18} />, text: isRtl ? 'طابق' : 'Match' }
+                      ].map((item, i) => (
+                        <div key={i} className="flex flex-col items-center gap-2 p-3 bg-brand-background rounded-2xl border border-brand-border/50">
+                          <div className="text-brand-primary">{item.icon}</div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-brand-text-muted">{item.text}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
                 
                 {error && (
                   <div className="flex items-center gap-2 text-brand-error bg-brand-error/10 px-4 py-2 rounded-xl text-sm font-bold">
@@ -275,7 +366,7 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
             )}
 
             {step === 'analyzing' && (
-              <div className="h-full flex flex-col items-center justify-center space-y-8 py-12">
+              <div className="flex flex-col items-center justify-center space-y-8 py-12 my-auto">
                 <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-[3rem] overflow-hidden shadow-2xl border-4 border-white dark:border-gray-800">
                   {selectedImage && (
                     <img src={selectedImage} alt="Scanning" className="w-full h-full object-cover" />
@@ -453,10 +544,11 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
             ref={fileInputRef}
             onChange={handleImageSelect}
             accept="image/*"
+            capture={initialMode === 'camera' ? 'environment' : undefined}
             className="hidden"
           />
         </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    </motion.div>,
+    document.body
   );
 };

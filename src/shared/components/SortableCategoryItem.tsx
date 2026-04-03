@@ -239,10 +239,20 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
                 <button onClick={() => setIsConfirmingDelete(false)} className="text-brand-error p-3 hover:bg-brand-error/20 rounded-lg transition-colors"><X size={16} /></button>
               </div>
             ) : (
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className={`flex items-center gap-1 transition-opacity ${(category.suggestedKeywords?.length || 0) > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                 {onManageKeywords && (
-                  <button onClick={() => onManageKeywords(category)} className="p-3 text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-colors" title="Manage Keywords">
-                    <Tag size={16} className={(category.keywords?.length || 0) === 0 ? 'text-brand-warning' : ''} />
+                  <button onClick={() => onManageKeywords(category)} className="p-3 text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-colors relative group" title="Manage Keywords">
+                    <div className="flex items-center gap-1.5">
+                      <Tag size={16} className={(category.keywords?.length || 0) === 0 ? 'text-brand-warning' : ''} />
+                      {(category.keywords?.length || 0) > 0 && (
+                        <span className="text-xs font-medium text-brand-text-muted group-hover:text-brand-primary transition-colors">
+                          {category.keywords?.length}
+                        </span>
+                      )}
+                    </div>
+                    {(category.suggestedKeywords?.length || 0) > 0 && (
+                      <span className="absolute top-2 right-2 w-2 h-2 bg-brand-warning rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]" title="New suggested keywords"></span>
+                    )}
                   </button>
                 )}
                 {onSuggestSubcategories && (

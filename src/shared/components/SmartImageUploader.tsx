@@ -17,7 +17,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
-import { analyzeProductImage } from '../../core/services/geminiService';
+import { analyzeProductImage, generateAlternativeProductImage } from '../../core/services/geminiService';
 import { HapticButton } from './HapticButton';
 
 interface UploadingImage {
@@ -49,7 +49,7 @@ interface SmartImageUploaderProps {
 export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
   onImagesChange,
   maxImages = 10,
-  watermarkText = "B2B Connect",
+  watermarkText = "B2B2C Connect",
   watermarkLogo,
   watermarkOpacity = 0.5
 }) => {
@@ -120,6 +120,52 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
     } catch (error) {
       console.error("Error processing image:", error);
       setImages(prev => prev.map(img => img.id === uploadingImg.id ? { ...img, status: 'error' as const, error: 'Failed to process' } : img));
+    }
+  };
+
+  const generateAlternative = async (uploadingImg: UploadingImage) => {
+    try {
+      setImages(prev => prev.map(img => img.id === uploadingImg.id ? { ...img, status: 'analyzing' as const, progress: 50 } : img));
+      
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+        reader.readAsDataURL(uploadingImg.file);
+      });
+      
+      const base64 = await base64Promise;
+      const productName = uploadingImg.aiData?.productName || 'Product';
+      const category = uploadingImg.aiData?.category || 'General';
+
+      const newImageUrl = await generateAlternativeProductImage(base64, uploadingImg.file.type, productName, category, i18n.language);
+
+      if (newImageUrl) {
+        const res = await fetch(newImageUrl);
+        const blob = await res.blob();
+        const newFile = new File([blob], `enhanced_${uploadingImg.file.name}`, { type: 'image/png' });
+        
+        setImages(prev => {
+          const updated = prev.map(img => img.id === uploadingImg.id ? { 
+            ...img, 
+            file: newFile,
+            preview: newImageUrl,
+            finalUrl: newImageUrl,
+            status: 'success' as const, 
+            progress: 100,
+            aiData: img.aiData ? {
+              ...img.aiData,
+              isHighQuality: true
+            } : undefined
+          } : img);
+          onImagesChange(updated);
+          return updated;
+        });
+      } else {
+        throw new Error("Failed to generate image");
+      }
+    } catch (error) {
+      console.error("Error generating alternative image:", error);
+      setImages(prev => prev.map(img => img.id === uploadingImg.id ? { ...img, status: 'error' as const, error: 'Failed to generate' } : img));
     }
   };
 
@@ -297,12 +343,23 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
                 <GripVertical className="w-5 h-5" />
               </div>
 
-              <div className="relative w-20 h-24 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0">
+              <div className="relative w-20 h-24 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 group/img">
                 <img src={img.preview} alt="Preview" className="w-full h-full object-cover" />
                 {img.status === 'success' && img.aiData?.isHighQuality && (
-                  <div className="absolute top-1 right-1 bg-brand-primary text-white p-0.5 rounded-full shadow-sm">
+                  <div className="absolute top-1 right-1 bg-brand-primary text-white p-0.5 rounded-full shadow-sm z-10">
                     <Sparkles className="w-3 h-3" />
                   </div>
+                )}
+                {img.status === 'success' && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); generateAlternative(img); }}
+                    className="absolute inset-0 bg-brand-primary/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-1 z-20"
+                  >
+                    <Sparkles className="w-5 h-5" />
+                    <span className="text-[8px] font-bold uppercase tracking-tighter">
+                      {i18n.language?.startsWith('ar') ? 'تحسين' : 'Enhance'}
+                    </span>
+                  </button>
                 )}
               </div>
 
@@ -343,14 +400,24 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
                   </span>
                   
                     <div className="flex items-center gap-2">
+                      {img.status === 'success' && (
+                        <HapticButton 
+                          onClick={() => generateAlternative(img)}
+                          className="px-3 py-1.5 bg-brand-primary text-white rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-brand-primary/20 hover:scale-105 active:scale-95"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          <span className="text-xs font-bold uppercase">
+                            {i18n.language?.startsWith('ar') ? 'تحسين الصورة' : 'Enhance Image'}
+                          </span>
+                        </HapticButton>
+                      )}
                       {img.status === 'success' && !img.aiData && (
                         <button 
                           onClick={() => processImage(img)}
-                          className="p-1 text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-all flex items-center gap-1"
+                          className="p-1.5 text-slate-400 hover:text-brand-primary transition-colors flex items-center gap-1"
                           title={t('smart_analyze', 'Smart Analyze')}
                         >
-                          <Sparkles className="w-4 h-4" />
-                          <span className="text-[10px] font-bold uppercase">{t('analyze', 'Analyze')}</span>
+                          <RefreshCw className="w-4 h-4" />
                         </button>
                       )}
                       {img.status === 'error' && (

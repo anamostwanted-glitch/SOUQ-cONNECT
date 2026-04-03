@@ -53,9 +53,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
         
-        {/* Gradient Overlay for Text Readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80" />
-
         {/* Top Badges */}
         <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-10">
           <div className="flex flex-col gap-2">
@@ -126,35 +123,36 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </div>
           )}
         </div>
+      </div>
 
-        {/* Bottom Info (Inside Image) */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-          <div className="flex justify-between items-end gap-2">
-            <div className="flex-1 min-w-0">
-              <span className="inline-block px-2 py-0.5 rounded-md bg-white/20 backdrop-blur-md text-white/90 text-[10px] font-medium mb-1.5 uppercase tracking-wider">
-                {item.category}
-              </span>
-              <h3 className="text-white font-bold text-lg leading-tight truncate">
-                {item.title}
-              </h3>
-              <div className="flex items-center gap-1.5 mt-1.5 text-white/80 text-xs">
-                <MapPin size={12} />
-                <span className="truncate">{item.location || (isRtl ? 'غير محدد' : 'Not specified')}</span>
-              </div>
-            </div>
-            <div className="text-right shrink-0">
-              <div className="text-white font-black text-xl">
-                {item.price > 0 ? (
-                  <>
-                    <span className="text-sm font-medium opacity-80 mr-1">{item.currency || '$'}</span>
-                    {item.price.toLocaleString()}
-                  </>
-                ) : (
-                  <span className="text-sm uppercase tracking-wider">{isRtl ? 'حسب الطلب' : 'On Demand'}</span>
-                )}
-              </div>
+      {/* Product Info (Below Image) */}
+      <div className="p-4">
+        <div className="flex justify-between items-start gap-2 mb-2">
+          <div className="flex-1 min-w-0">
+            <span className="inline-block px-2 py-0.5 rounded-md bg-brand-primary/10 text-brand-primary text-[10px] font-bold mb-1.5 uppercase tracking-wider">
+              {item.category}
+            </span>
+            <h3 className="text-brand-text-main font-bold text-base leading-tight truncate group-hover:text-brand-primary transition-colors">
+              {item.title}
+            </h3>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-brand-primary font-black text-lg">
+              {item.price > 0 ? (
+                <>
+                  <span className="text-xs font-medium opacity-80 mr-1">{item.currency || '$'}</span>
+                  {item.price.toLocaleString()}
+                </>
+              ) : (
+                <span className="text-xs uppercase tracking-wider">{isRtl ? 'حسب الطلب' : 'On Demand'}</span>
+              )}
             </div>
           </div>
+        </div>
+        
+        <div className="flex items-center gap-1.5 text-brand-text-muted text-xs">
+          <MapPin size={12} />
+          <span className="truncate">{item.location || (isRtl ? 'غير محدد' : 'Not specified')}</span>
         </div>
       </div>
 

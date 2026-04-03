@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, UploadCloud, Camera, Image as ImageIcon, Search, AlertCircle, RefreshCw, Crop as CropIcon } from 'lucide-react';
+import { X, UploadCloud, Camera, Image as ImageIcon, Search, AlertCircle, RefreshCw, Crop as CropIcon, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import imageCompression from 'browser-image-compression';
 import ReactCrop, { type Crop } from 'react-image-crop';
@@ -230,15 +230,28 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({ isOpen, on
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 20 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="relative w-full max-w-2xl bg-brand-surface border border-brand-border rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+          className="relative w-full max-w-2xl bg-brand-surface border border-brand-border rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] md:max-h-[90vh]"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-brand-border">
+          <div className="flex items-center justify-between p-4 md:p-6 border-b border-brand-border shrink-0">
             <div className="flex items-center space-x-3 rtl:space-x-reverse">
+              {selectedImage && (
+                <button
+                  onClick={() => {
+                    setSelectedImage(null);
+                    setIsCropping(false);
+                    setCompletedCrop(null);
+                    setError(null);
+                  }}
+                  className="p-2 hover:bg-brand-background rounded-full text-brand-text-main transition-colors"
+                >
+                  <ArrowRight size={20} className="rtl:rotate-0 rotate-180" />
+                </button>
+              )}
               <div className="p-2 bg-brand-primary/10 rounded-xl">
                 <Camera className="w-6 h-6 text-brand-primary" />
               </div>
-              <h2 className="text-xl font-semibold text-brand-text-main">
+              <h2 className="text-lg md:text-xl font-semibold text-brand-text-main">
                 {t('visualSearch.title', 'Visual Search')}
               </h2>
             </div>
@@ -252,9 +265,9 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({ isOpen, on
           </div>
 
           {/* Body */}
-          <div className="p-6 flex-1 flex flex-col items-center justify-center min-h-[400px] relative">
+          <div className="p-4 md:p-6 flex-1 flex flex-col min-h-[50vh] md:min-h-[400px] relative overflow-y-auto min-h-0">
             {selectedImage ? (
-              <div className="relative w-full h-full flex flex-col items-center justify-center rounded-2xl overflow-hidden bg-black/5">
+              <div className="relative w-full h-full flex flex-col items-center justify-center rounded-2xl overflow-hidden bg-black/5 my-auto">
                 {isCropping ? (
                   <div className="flex flex-col items-center w-full max-h-[500px]">
                     <div className="flex-1 overflow-auto p-4 w-full flex justify-center items-center bg-black/10 rounded-xl">
@@ -325,7 +338,7 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({ isOpen, on
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`w-full h-full min-h-[300px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
+                className={`w-full flex-1 min-h-[300px] my-auto border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
                   isDragging 
                     ? 'border-brand-primary bg-brand-primary/5 scale-[1.02]' 
                     : 'border-brand-border hover:border-brand-primary/50 hover:bg-brand-surface-hover'

@@ -1,8 +1,8 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
-import { X, UploadCloud, Camera, CheckCircle, AlertCircle, Loader2, Sparkles, Wifi, WifiOff } from 'lucide-react';
-import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { X, UploadCloud, Camera, CheckCircle, AlertCircle, Loader2, Sparkles, Wifi, WifiOff, Wand2 } from 'lucide-react';
+import { collection, addDoc, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '../../../../core/firebase';
 import { UserProfile, MarketplaceItem } from '../../../../core/types';
@@ -13,7 +13,8 @@ import { ImageFile, UploadStatus } from './ImageThumbnail';
 import { DraggableGrid } from './DraggableGrid';
 import { useNetworkAwareness } from '../../hooks/useNetworkAwareness';
 import { useSmartCompression } from '../../hooks/useSmartCompression';
-import { analyzeProductImage, AIProductSuggestion } from '../../services/aiProductAnalyzer';
+import { analyzeProductImage, AIProductSuggestion, generateAlternativeProductImage } from '../../services/aiProductAnalyzer';
+import { processImageTo4x5WithWatermark } from '../../../../core/utils/imageManipulation';
 
 interface SmartUploadModalProps {
   onClose: () => void;
@@ -35,6 +36,19 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const [isDragging, setIsDragging] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<AIProductSuggestion | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [watermarkUrl, setWatermarkUrl] = useState<string | undefined>();
+  const [aiQuotaExhausted, setAiQuotaExhausted] = useState(false);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
+      if (snap.exists()) {
+        setWatermarkUrl(snap.data().watermarkUrl);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -46,6 +60,61 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleGenerateAlternativeImage = async () => {
+    if (images.length === 0 || !title || !category) return;
+    
+    setIsGeneratingImage(true);
+    try {
+      const mainImage = images.find(img => img.isMain) || images[0];
+      
+      const reader = new FileReader();
+      reader.readAsDataURL(mainImage.file);
+      reader.onloadend = async () => {
+        const base64data = reader.result as string;
+        const catName = categories.find(c => c.id === category)?.nameEn || category;
+        
+        try {
+          const newImageDataUrl = await generateAlternativeProductImage(base64data, mainImage.file.type, title, catName);
+          
+          if (newImageDataUrl) {
+            const res = await fetch(newImageDataUrl);
+            const blob = await res.blob();
+            const file = new File([blob], `ai-generated-${Date.now()}.png`, { type: 'image/png' });
+            
+            // Process to 4:5 and add watermark
+            const processedFile = await processImageTo4x5WithWatermark(file, watermarkUrl, true);
+            
+            const newImage: ImageFile = {
+              id: `img-ai-${Date.now()}`,
+              file: processedFile,
+              previewUrl: URL.createObjectURL(processedFile),
+              status: 'success',
+              progress: 100,
+              isMain: false,
+            };
+            
+            setImages(prev => [...prev, newImage]);
+          } else {
+            setErrorMessage(isRtl ? 'فشل توليد الصورة. حاول مرة أخرى.' : 'Failed to generate image. Try again.');
+          }
+        } catch (error: any) {
+          if (error.message === 'QUOTA_EXHAUSTED') {
+            setAiQuotaExhausted(true);
+            setErrorMessage(isRtl ? 'تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI Quota exhausted. Please try again later.');
+          } else {
+            setErrorMessage(isRtl ? 'حدث خطأ أثناء توليد الصورة.' : 'Error generating image.');
+          }
+        } finally {
+          setIsGeneratingImage(false);
+        }
+      };
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(isRtl ? 'حدث خطأ أثناء توليد الصورة.' : 'Error generating image.');
+      setIsGeneratingImage(false);
+    }
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -85,38 +154,53 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
     updateImageStatus(id, 'compressing');
     const compressedFile = await compressImage(file, networkStatus);
     
-    // 2. Analyze if it's the main image and we don't have suggestions yet
+    // 2. Process to 4:5 and add watermark
+    updateImageStatus(id, 'processing');
+    const processedFile = await processImageTo4x5WithWatermark(compressedFile, watermarkUrl, false);
+    
+    // Update the file reference to the processed one
+    setImages(prev => prev.map(img => img.id === id ? { ...img, file: processedFile, previewUrl: URL.createObjectURL(processedFile) } : img));
+    
+    // 3. Analyze if it's the main image and we don't have suggestions yet
     const currentImages = [...images];
     const isMain = currentImages.length === 0 || currentImages[0].id === id;
     
-    if (isMain && !aiSuggestion && !isAnalyzing) {
-      updateImageStatus(id, 'analyzing');
-      setIsAnalyzing(true);
+    if (isMain && !aiSuggestion && !isAnalyzing && !aiQuotaExhausted) {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
       
-      const reader = new FileReader();
-      reader.readAsDataURL(compressedFile);
-      reader.onloadend = async () => {
-        const base64data = reader.result as string;
-        const suggestion = await analyzeProductImage(base64data, compressedFile.type);
+      debounceTimer.current = setTimeout(async () => {
+        updateImageStatus(id, 'analyzing');
+        setIsAnalyzing(true);
         
-        if (suggestion) {
-          setAiSuggestion(suggestion);
-          setTitle(suggestion.title);
-          setDescription(suggestion.description);
-          setCategory(categories.find(c => c.nameEn.toLowerCase() === suggestion.category.toLowerCase())?.id || categories[0]?.id || '');
-          setPrice(suggestion.priceEstimate.toString());
-          setIsHighQuality(suggestion.isHighQuality);
-          setFeatures(suggestion.features);
-        }
-        setIsAnalyzing(false);
-        updateImageStatus(id, 'success'); // Ready to upload
-      };
+        const reader = new FileReader();
+        reader.readAsDataURL(processedFile);
+        reader.onloadend = async () => {
+          const base64data = reader.result as string;
+          try {
+            const suggestion = await analyzeProductImage(base64data, processedFile.type);
+            
+            if (suggestion) {
+              setAiSuggestion(suggestion);
+              setTitle(suggestion.title);
+              setDescription(suggestion.description);
+              setCategory(categories.find(c => c.nameEn.toLowerCase() === suggestion.category.toLowerCase())?.id || categories[0]?.id || '');
+              setPrice(suggestion.priceEstimate.toString());
+              setIsHighQuality(suggestion.isHighQuality);
+              setFeatures(suggestion.features);
+            }
+          } catch (error: any) {
+            if (error.message === 'QUOTA_EXHAUSTED') {
+              setAiQuotaExhausted(true);
+            }
+          } finally {
+            setIsAnalyzing(false);
+            updateImageStatus(id, 'success'); // Ready to upload
+          }
+        };
+      }, 1000); // 1 second debounce
     } else {
       updateImageStatus(id, 'success'); // Ready to upload
     }
-
-    // Update the file reference to the compressed one
-    setImages(prev => prev.map(img => img.id === id ? { ...img, file: compressedFile } : img));
   };
 
   const updateImageStatus = (id: string, status: UploadStatus, progress: number = 0, error?: string) => {
@@ -272,7 +356,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
           {/* Left Side: Upload Zone */}
           <div className="w-full md:w-1/2 flex flex-col">
             <div 
-              className={`relative flex-1 min-h-[200px] border-2 border-dashed rounded-3xl flex flex-col items-center justify-center p-6 transition-all ${
+              className={`relative flex-1 min-h-[300px] border-2 border-dashed rounded-3xl flex flex-col items-center justify-center overflow-hidden transition-all ${
                 isDragging 
                   ? 'border-brand-primary bg-brand-primary/5 scale-[1.02]' 
                   : 'border-slate-300 dark:border-slate-600 hover:border-brand-primary/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
@@ -298,31 +382,69 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                 onChange={handleFileSelect}
               />
 
-              <div className="w-16 h-16 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center mb-4">
-                <UploadCloud size={32} />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 text-center">
-                {isRtl ? 'اسحب وأفلت الصور هنا' : 'Drag & Drop images here'}
-              </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">
-                {isRtl ? 'أو استخدم الأزرار أدناه لاختيار الصور' : 'Or use the buttons below to select images'}
-              </p>
+              {images.length > 0 ? (
+                <>
+                  {/* Large Preview of Main Image */}
+                  <img 
+                    src={images.find(img => img.isMain)?.previewUrl || images[0]?.previewUrl} 
+                    alt="Main Preview" 
+                    className="absolute inset-0 w-full h-full object-contain bg-slate-100 dark:bg-slate-800"
+                  />
+                  
+                  {/* Overlay for adding more */}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-4">
+                    <div className="flex gap-3">
+                      <HapticButton 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-6 py-3 bg-white text-slate-900 rounded-xl font-bold text-sm shadow-lg hover:scale-105 transition-transform flex items-center gap-2"
+                      >
+                        <UploadCloud size={18} />
+                        {isRtl ? 'إضافة المزيد' : 'Add More'}
+                      </HapticButton>
+                      <HapticButton 
+                        onClick={() => cameraInputRef.current?.click()}
+                        className="px-6 py-3 bg-brand-primary text-white rounded-xl font-bold text-sm shadow-lg hover:scale-105 transition-transform flex items-center gap-2"
+                      >
+                        <Camera size={18} />
+                        {isRtl ? 'الكاميرا' : 'Camera'}
+                      </HapticButton>
+                    </div>
+                  </div>
+                  
+                  {/* Main badge */}
+                  <div className="absolute top-4 left-4 bg-brand-primary text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                    {isRtl ? 'الصورة الرئيسية' : 'Main Image'}
+                  </div>
+                </>
+              ) : (
+                <div className="p-6 flex flex-col items-center justify-center w-full h-full">
+                  <div className="w-16 h-16 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center mb-4">
+                    <UploadCloud size={32} />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 text-center">
+                    {isRtl ? 'اسحب وأفلت الصور هنا' : 'Drag & Drop images here'}
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">
+                    {isRtl ? 'أو استخدم الأزرار أدناه لاختيار الصور' : 'Or use the buttons below to select images'}
+                  </p>
 
-              <div className="flex gap-3 w-full max-w-xs">
-                <HapticButton 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all"
-                >
-                  {isRtl ? 'المعرض' : 'Gallery'}
-                </HapticButton>
-                <HapticButton 
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="flex-1 py-3 bg-brand-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-brand-primary/30 hover:shadow-xl transition-all flex items-center justify-center gap-2"
-                >
-                  <Camera size={18} />
-                  {isRtl ? 'الكاميرا' : 'Camera'}
-                </HapticButton>
-              </div>
+                  <div className="flex gap-3 w-full max-w-xs">
+                    <HapticButton 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all"
+                    >
+                      {isRtl ? 'المعرض' : 'Gallery'}
+                    </HapticButton>
+                    <HapticButton 
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="flex-1 py-3 bg-brand-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-brand-primary/30 hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                    >
+                      <Camera size={18} />
+                      {isRtl ? 'الكاميرا' : 'Camera'}
+                    </HapticButton>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Draggable Grid */}
@@ -335,6 +457,35 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                 if (img) processSingleImage(id, img.file);
               }}
             />
+
+            {/* AI Image Generation Button */}
+            {images.length > 0 && title && category && (
+              <div className="mt-4">
+                <HapticButton
+                  type="button"
+                  onClick={handleGenerateAlternativeImage}
+                  disabled={isGeneratingImage}
+                  className="w-full py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isGeneratingImage ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      {isRtl ? 'جاري توليد صورة احترافية...' : 'Generating Professional Image...'}
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 size={18} />
+                      {isRtl ? 'توليد صورة احترافية بالذكاء الاصطناعي' : 'Generate Professional Image with AI'}
+                    </>
+                  )}
+                </HapticButton>
+                <p className="text-xs text-slate-500 mt-2 text-center">
+                  {isRtl 
+                    ? 'سيقوم الذكاء الاصطناعي بإنشاء صورة بديلة احترافية بناءً على الصورة المرفقة واسم المنتج.' 
+                    : 'AI will generate a professional alternative image based on the uploaded photo and product title.'}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Right Side: Form & AI Suggestions */}
@@ -361,6 +512,30 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                           {isRtl 
                             ? 'قمنا بتحليل الصورة واقتراح هذه التفاصيل. يمكنك تعديلها كما تشاء.' 
                             : 'We analyzed the image and suggested these details. Feel free to edit them.'}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {aiQuotaExhausted && !aiSuggestion && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
+                        <AlertCircle size={16} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-amber-600 mb-1">
+                          {isRtl ? 'ميزات الذكاء الاصطناعي محدودة حالياً' : 'AI Features Currently Limited'}
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-300">
+                          {isRtl 
+                            ? 'تم استنفاد حصة الاستخدام المجانية للذكاء الاصطناعي. يمكنك الاستمرار في إدخال تفاصيل المنتج يدوياً.' 
+                            : 'Free AI usage quota has been reached. You can still enter product details manually.'}
                         </p>
                       </div>
                     </div>

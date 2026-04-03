@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User as UserIcon, CheckCircle, Sparkles as SparklesIcon, FileText, Printer, MapPin, ZoomIn, CheckCheck, Check, Reply, Play, Pause } from 'lucide-react';
+import { User as UserIcon, CheckCircle, Sparkles as SparklesIcon, FileText, Printer, MapPin, ZoomIn, CheckCheck, Check, Reply, Play, Pause, SmilePlus, MoreVertical, Copy, Forward, Pin, Trash2, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Message, UserProfile } from '../../../../core/types';
 import { extractUrls, renderTextWithLinks } from '../../../../core/utils/linkParser';
@@ -166,7 +166,19 @@ interface ChatMessageProps {
   handleTranslateAudio: (messageId: string, audioUrl: string) => void;
   setReplyingTo: (msg: Message) => void;
   setZoomedImage: (url: string) => void;
+  activeReactionMessageId?: string | null;
+  setActiveReactionMessageId?: (id: string | null) => void;
+  activeMessageMenuId?: string | null;
+  setActiveMessageMenuId?: (id: string | null) => void;
+  handleReaction?: (messageId: string, emoji: string) => void;
+  handlePinMessage?: (messageId: string) => void;
+  handleDeleteMessage?: (messageId: string, forEveryone: boolean) => void;
+  setMessageToForward?: (msg: Message) => void;
+  setShowForwardModal?: (show: boolean) => void;
+  chat?: any;
 }
+
+const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
   msg,
@@ -181,12 +193,25 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   handleTranslate,
   handleTranslateAudio,
   setReplyingTo,
-  setZoomedImage
+  setZoomedImage,
+  activeReactionMessageId,
+  setActiveReactionMessageId,
+  activeMessageMenuId,
+  setActiveMessageMenuId,
+  handleReaction,
+  handlePinMessage,
+  handleDeleteMessage,
+  setMessageToForward,
+  setShowForwardModal,
+  chat
 }) => {
   const { t, i18n } = useTranslation();
 
   const isOwn = msg.senderId === profile?.uid;
-  const showAvatar = index === 0 || messages[index - 1].senderId !== msg.senderId;
+  const isNextFromSameSender = index < messages.length - 1 && messages[index + 1].senderId === msg.senderId;
+  const isPrevFromSameSender = index > 0 && messages[index - 1].senderId === msg.senderId;
+  const showAvatar = !isNextFromSameSender || index === messages.length - 1;
+  const showName = !isPrevFromSameSender;
   
   const msgDate = new Date(msg.createdAt);
   const dateString = msgDate.toLocaleDateString(i18n.language, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -197,10 +222,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const showDateHeader = dateString !== prevDateString;
 
   return (
-    <div className="px-6 pb-6">
+    <div className={`px-4 ${isNextFromSameSender ? 'pb-1' : 'pb-4'}`}>
       {showDateHeader && (
-        <div className="flex justify-center my-4">
-          <span className="px-3 py-1 bg-brand-surface border border-brand-border-light rounded-full text-[10px] font-bold text-brand-text-muted uppercase tracking-wider shadow-sm">
+        <div className="flex justify-center my-6 sticky top-2 z-10">
+          <span className="px-4 py-1.5 bg-brand-surface/80 backdrop-blur-md border border-brand-border/30 rounded-full text-[10px] font-black text-brand-text-muted uppercase tracking-widest shadow-sm">
             {dateString}
           </span>
         </div>
@@ -213,13 +238,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       >
         {/* Avatar */}
         <div className="w-8 h-8 shrink-0 mb-1">
-          {showAvatar ? (
-            <div className="w-full h-full rounded-xl bg-brand-primary/20 border border-brand-border overflow-hidden shadow-sm relative">
+          {showAvatar && !isOwn ? (
+            <div className="w-full h-full rounded-xl bg-brand-primary/10 border border-brand-border/50 overflow-hidden shadow-sm relative group">
               {senderPhotos[msg.senderId] ? (
                 <img 
                   src={senderPhotos[msg.senderId]} 
                   alt={senderNames[msg.senderId]} 
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform group-hover:scale-110"
                   referrerPolicy="no-referrer"
                   loading="lazy"
                 />
@@ -229,7 +254,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                 </div>
               )}
               {senderProfiles[msg.senderId]?.isOnline && (
-                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" />
+                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-brand-surface" />
               )}
             </div>
           ) : (
@@ -237,30 +262,37 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           )}
         </div>
 
-        <div className={`flex flex-col max-w-[85%] md:max-w-[75%] ${isOwn ? 'items-end' : 'items-start'}`}>
-          {showAvatar && (
-            <div className="flex items-center gap-1 px-1 mb-1">
-              <span className="text-[11px] font-bold text-brand-text-muted">
-                {isOwn ? t('you') : (senderNames[msg.senderId] || '...')}
+        <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${isOwn ? 'items-end' : 'items-start'}`}>
+          {showName && !isOwn && (
+            <div className="flex items-center gap-1 px-2 mb-1">
+              <span className="text-[10px] font-black text-brand-text-muted uppercase tracking-tight">
+                {senderNames[msg.senderId] || '...'}
               </span>
               {senderProfiles[msg.senderId]?.isVerified && (
-                <CheckCircle className="w-3 h-3 text-emerald-500" />
+                <CheckCircle className="w-2.5 h-2.5 text-brand-primary" />
               )}
             </div>
           )}
           
           <div className={`flex items-center gap-2 group/msg ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
             <div 
-              className={`px-4 py-3 shadow-sm relative ${
+              className={`px-4 py-3 shadow-sm relative transition-all duration-300 ${
                 isOwn 
-                  ? 'bg-brand-primary text-white rounded-2xl rounded-tr-sm' 
-                  : 'bg-brand-surface text-brand-text-main rounded-2xl rounded-tl-sm border border-brand-border-light'
+                  ? `bg-gradient-to-br from-brand-primary to-brand-primary/90 text-white shadow-lg shadow-brand-primary/10 ${isPrevFromSameSender ? 'rounded-2xl' : 'rounded-2xl rounded-tr-sm'}` 
+                  : `bg-white dark:bg-brand-surface text-brand-text-main border border-brand-border/30 ${isPrevFromSameSender ? 'rounded-2xl' : 'rounded-2xl rounded-tl-sm'}`
               }`}
             >
+              {/* Message Tail */}
+              {!isPrevFromSameSender && (
+                <div className={`absolute top-0 w-4 h-4 ${isOwn ? '-right-1.5' : '-left-1.5'} overflow-hidden`}>
+                  <div className={`w-4 h-4 transform rotate-45 ${isOwn ? 'bg-brand-primary -translate-x-2' : 'bg-white dark:bg-brand-surface border-l border-t border-brand-border/30 translate-x-2'}`} />
+                </div>
+              )}
+
               {msg.replyTo && (
-                <div className={`mb-2 p-2 rounded-lg text-xs border-l-2 ${isOwn ? 'bg-white/10 border-white/50' : 'bg-brand-background border-brand-primary'}`}>
-                  <p className={`font-bold mb-0.5 ${isOwn ? 'text-white/90' : 'text-brand-primary'}`}>{msg.replyTo.senderName}</p>
-                  <p className={`truncate ${isOwn ? 'text-white/70' : 'text-brand-text-muted'}`}>{msg.replyTo.text}</p>
+                <div className={`mb-2 p-2 rounded-xl text-xs border-l-4 ${isOwn ? 'bg-white/10 border-white/40' : 'bg-brand-background border-brand-primary'}`}>
+                  <p className={`font-black mb-0.5 uppercase tracking-tighter text-[9px] ${isOwn ? 'text-white/90' : 'text-brand-primary'}`}>{msg.replyTo.senderName}</p>
+                  <p className={`truncate font-medium ${isOwn ? 'text-white/70' : 'text-brand-text-muted'}`}>{msg.replyTo.text}</p>
                 </div>
               )}
               {msg.type === 'text' ? (
@@ -443,6 +475,38 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             </div>
           </div>
           
+          {/* Reaction Button */}
+          <div className="relative">
+            <button 
+              onClick={() => setActiveReactionMessageId?.(activeReactionMessageId === msg.id ? null : msg.id)}
+              className="opacity-0 group-hover/msg:opacity-100 p-3 text-brand-text-muted hover:text-brand-primary hover:bg-brand-surface rounded-full transition-all shrink-0"
+              title={i18n.language === 'ar' ? 'تفاعل' : 'React'}
+            >
+              <SmilePlus size={16} />
+            </button>
+            
+            <AnimatePresence>
+              {activeReactionMessageId === msg.id && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                  className={`absolute bottom-full mb-2 ${isOwn ? 'right-0' : 'left-0'} bg-white border border-brand-border-light shadow-xl rounded-full px-3 py-2 flex items-center gap-2 z-50`}
+                >
+                  {EMOJI_REACTIONS.map(emoji => (
+                    <button
+                      key={emoji}
+                      onClick={() => handleReaction?.(msg.id, emoji)}
+                      className={`text-xl hover:scale-125 transition-transform ${msg.reactions?.[emoji]?.includes(profile?.uid || '') ? 'bg-brand-primary/10 rounded-full' : ''}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           {/* Reply Button */}
           <button 
             onClick={() => setReplyingTo(msg)} 
@@ -451,7 +515,97 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           >
             <Reply size={16} className={i18n.language === 'ar' ? 'rotate-180' : ''} />
           </button>
+
+          {/* More Options Button */}
+          <div className="relative">
+            <button 
+              onClick={() => setActiveMessageMenuId?.(activeMessageMenuId === msg.id ? null : msg.id)}
+              className="opacity-0 group-hover/msg:opacity-100 p-3 text-brand-text-muted hover:text-brand-primary hover:bg-brand-surface rounded-full transition-all shrink-0"
+              title={i18n.language === 'ar' ? 'خيارات إضافية' : 'More options'}
+            >
+              <MoreVertical size={16} />
+            </button>
+            
+            <AnimatePresence>
+              {activeMessageMenuId === msg.id && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                  className={`absolute bottom-full mb-2 ${isOwn ? 'right-0' : 'left-0'} bg-white border border-brand-border-light shadow-xl rounded-xl py-1 flex flex-col min-w-[150px] z-50`}
+                >
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(msg.text || '');
+                      setActiveMessageMenuId?.(null);
+                    }}
+                    className="px-4 py-2 text-sm text-left hover:bg-brand-surface text-brand-text-main flex items-center gap-2 transition-colors"
+                  >
+                    <Copy size={14} />
+                    {i18n.language === 'ar' ? 'نسخ النص' : 'Copy Text'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMessageToForward?.(msg);
+                      setShowForwardModal?.(true);
+                      setActiveMessageMenuId?.(null);
+                    }}
+                    className="px-4 py-2 text-sm text-left hover:bg-brand-surface text-brand-text-main flex items-center gap-2 transition-colors"
+                  >
+                    <Forward size={14} />
+                    {i18n.language === 'ar' ? 'إعادة توجيه' : 'Forward'}
+                  </button>
+                  <button
+                    onClick={() => handlePinMessage?.(msg.id)}
+                    className="px-4 py-2 text-sm text-left hover:bg-brand-surface text-brand-text-main flex items-center gap-2 transition-colors"
+                  >
+                    <Pin size={14} />
+                    {chat?.pinnedMessageId === msg.id 
+                      ? (i18n.language === 'ar' ? 'إلغاء التثبيت' : 'Unpin')
+                      : (i18n.language === 'ar' ? 'تثبيت' : 'Pin')}
+                  </button>
+                  <div className="h-px bg-brand-border-light my-1" />
+                  <button
+                    onClick={() => handleDeleteMessage?.(msg.id, false)}
+                    className="px-4 py-2 text-sm text-left hover:bg-brand-error/10 text-brand-error flex items-center gap-2 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                    {i18n.language === 'ar' ? 'حذف لدي' : 'Delete for me'}
+                  </button>
+                  {isOwn && (
+                    <button
+                      onClick={() => handleDeleteMessage?.(msg.id, true)}
+                      className="px-4 py-2 text-sm text-left hover:bg-brand-error/10 text-brand-error flex items-center gap-2 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                      {i18n.language === 'ar' ? 'حذف لدى الجميع' : 'Delete for everyone'}
+                    </button>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
+
+        {/* Reactions Display */}
+        {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+          <div className={`flex flex-wrap gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+            {Object.entries(msg.reactions).map(([emoji, users]) => (
+              <button
+                key={emoji}
+                onClick={() => handleReaction?.(msg.id, emoji)}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                  users.includes(profile?.uid || '') 
+                    ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary' 
+                    : 'bg-brand-surface border-brand-border-light text-brand-text-muted'
+                }`}
+              >
+                <span>{emoji}</span>
+                <span>{users.length}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </motion.div>
   </div>

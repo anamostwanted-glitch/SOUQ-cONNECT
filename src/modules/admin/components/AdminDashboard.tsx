@@ -19,6 +19,7 @@ import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc } from '
 import { db } from '../../../core/firebase';
 import { UserProfile, AppFeatures, ProductRequest, Category } from '../../../core/types';
 import { CategoryManagement } from '../../../shared/components/CategoryManagement';
+import { KeywordManagerModal } from '../../../shared/components/KeywordManagerModal';
 import BrandingSettings from '../../site/components/BrandingSettings';
 import { SiteSettingsManager } from './SiteSettingsManager';
 import { toast } from 'sonner';
@@ -62,8 +63,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const { suggestMainCategories } = await import('../../../core/services/geminiService');
       const suggestions = await suggestMainCategories(i18n.language, activeCategoryTab, existingNames);
       setAiSuggestions(suggestions);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Suggestion error:', error);
+      if (error.message === 'QUOTA_EXHAUSTED') {
+        toast.error(i18n.language === 'ar' ? 'عذراً، تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI quota exhausted. Please try again later.');
+      } else {
+        toast.error(i18n.language === 'ar' ? 'حدث خطأ أثناء توليد الاقتراحات' : 'Failed to generate suggestions');
+      }
     } finally {
       setIsSuggesting(false);
     }
@@ -89,8 +95,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const { suggestSubcategories } = await import('../../../core/services/geminiService');
       const suggestions = await suggestSubcategories(categoryName, activeCategoryTab, existingSubNames);
       setAiSuggestions(suggestions);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Suggestion error:', error);
+      if (error.message === 'QUOTA_EXHAUSTED') {
+        toast.error(i18n.language === 'ar' ? 'عذراً، تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI quota exhausted. Please try again later.');
+      } else {
+        toast.error(i18n.language === 'ar' ? 'حدث خطأ أثناء توليد الاقتراحات' : 'Failed to generate suggestions');
+      }
     } finally {
       setIsSuggesting(false);
     }
@@ -361,6 +372,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               exit={{ opacity: 0, y: -20 }}
               className="max-w-6xl mx-auto"
             >
+              <AnimatePresence>
+                {selectedCategoryForKeywords && (
+                  <KeywordManagerModal 
+                    category={selectedCategoryForKeywords}
+                    onClose={() => setSelectedCategoryForKeywords(null)}
+                    onUpdate={(updatedCategory) => {
+                      setCategories(categories.map(c => c.id === updatedCategory.id ? updatedCategory : c));
+                    }}
+                    t={t}
+                    i18n={i18n}
+                  />
+                )}
+              </AnimatePresence>
               <CategoryManagement 
                 allCategories={categories}
                 onReorder={(newCategories) => setCategories(newCategories)}

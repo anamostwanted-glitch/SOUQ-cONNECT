@@ -253,6 +253,7 @@ export interface AppFeatures {
 
 export interface SiteSettings {
   logoUrl?: string;
+  watermarkUrl?: string;
   siteName?: string;
   heroTitleAr?: string;
   heroTitleEn?: string;

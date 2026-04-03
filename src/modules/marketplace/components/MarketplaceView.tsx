@@ -43,6 +43,7 @@ import { GestureImageViewer } from '../../../shared/components/GestureImageViewe
 import { MarketplaceAddProduct } from './MarketplaceAddProduct';
 import { ProductDetailsModal } from '../../../shared/components/ProductDetailsModal';
 import { VisualSearchModal } from '../../../shared/components/search/VisualSearchModal';
+import { SmartCategoryExplorer } from './SmartCategoryExplorer';
 import { WhatsAppButton } from '../../../shared/components/WhatsAppButton';
 
 interface MarketplaceViewProps {
@@ -61,6 +62,7 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showVisualSearch, setShowVisualSearch] = useState(false);
+  const [showSmartCategories, setShowSmartCategories] = useState(false);
   const [visualSearchResults, setVisualSearchResults] = useState<MarketplaceItem[] | null>(null);
   const [visualSearchKeywords, setVisualSearchKeywords] = useState<string[]>([]);
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
@@ -342,6 +344,13 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
 
             {/* Horizontal Categories */}
             <div className="flex items-center gap-3 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4">
+              <HapticButton 
+                onClick={() => setShowSmartCategories(true)}
+                className="px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border-2 bg-gradient-to-r from-brand-primary to-brand-teal text-white border-transparent shadow-lg shadow-brand-primary/20 flex items-center gap-2"
+              >
+                <Sparkles size={16} />
+                {i18n.language === 'ar' ? 'المستكشف الذكي' : 'Smart Explorer'}
+              </HapticButton>
               <button 
                 onClick={() => toggleCategory('all')}
                 className={`px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border-2 ${selectedCategories.length === 0 ? 'bg-brand-primary border-brand-primary text-white shadow-lg shadow-brand-primary/20' : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200 hover:bg-slate-50'}`}
@@ -624,6 +633,35 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
           setVisualSearchKeywords(keywords);
         }}
       />
+
+      <AnimatePresence>
+        {showSmartCategories && (
+          <motion.div
+            initial={{ opacity: 0, y: '100%' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed inset-0 z-50 bg-brand-background md:p-4"
+          >
+            <div className="absolute top-4 right-4 z-50">
+              <HapticButton 
+                onClick={() => setShowSmartCategories(false)}
+                className="w-10 h-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-full flex items-center justify-center text-brand-text-main shadow-lg border border-brand-border/50"
+              >
+                <X size={20} />
+              </HapticButton>
+            </div>
+            <SmartCategoryExplorer 
+              onSelectCategory={(categoryId, subcategoryId) => {
+                // For now, we map the mock IDs to real category logic or just close and show all if not found
+                // In a real app, we'd map this to the actual selectedCategories state
+                setSelectedCategories([categoryId]);
+                setShowSmartCategories(false);
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

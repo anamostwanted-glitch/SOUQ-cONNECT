@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { X, RefreshCw, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { X, RefreshCw, CheckCircle, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 
-export type UploadStatus = 'idle' | 'compressing' | 'analyzing' | 'uploading' | 'success' | 'error';
+export type UploadStatus = 'idle' | 'compressing' | 'processing' | 'analyzing' | 'uploading' | 'success' | 'error';
 
 export interface ImageFile {
   id: string;
@@ -18,9 +18,10 @@ interface ImageThumbnailProps {
   image: ImageFile;
   onRemove: (id: string) => void;
   onRetry?: (id: string) => void;
+  onEnhance?: (id: string) => void;
 }
 
-export const ImageThumbnail: React.FC<ImageThumbnailProps> = ({ image, onRemove, onRetry }) => {
+export const ImageThumbnail: React.FC<ImageThumbnailProps> = ({ image, onRemove, onRetry, onEnhance }) => {
   return (
     <div className="relative aspect-[4/5] rounded-2xl overflow-hidden group bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
       <img 
@@ -37,12 +38,23 @@ export const ImageThumbnail: React.FC<ImageThumbnailProps> = ({ image, onRemove,
       )}
 
       {/* Remove Button */}
-      <button
-        onClick={() => onRemove(image.id)}
-        className="absolute top-2 right-2 w-6 h-6 bg-black/50 hover:bg-red-500 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-colors z-10 opacity-0 group-hover:opacity-100"
-      >
-        <X size={14} />
-      </button>
+      <div className="absolute top-2 right-2 flex flex-col gap-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={() => onRemove(image.id)}
+          className="w-6 h-6 bg-black/50 hover:bg-red-500 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-colors"
+        >
+          <X size={14} />
+        </button>
+        {onEnhance && image.status === 'success' && (
+          <button
+            onClick={() => onEnhance(image.id)}
+            className="w-6 h-6 bg-brand-primary/80 hover:bg-brand-primary text-white rounded-full flex items-center justify-center backdrop-blur-md transition-colors"
+            title="AI Enhance"
+          >
+            <Sparkles size={12} />
+          </button>
+        )}
+      </div>
 
       {/* Status Overlay */}
       {image.status !== 'idle' && image.status !== 'success' && (
@@ -51,6 +63,13 @@ export const ImageThumbnail: React.FC<ImageThumbnailProps> = ({ image, onRemove,
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center text-white">
               <Loader2 className="w-8 h-8 animate-spin mb-2" />
               <span className="text-xs font-medium">Compressing...</span>
+            </motion.div>
+          )}
+
+          {image.status === 'processing' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center text-white">
+              <Loader2 className="w-8 h-8 animate-spin mb-2 text-brand-secondary" />
+              <span className="text-xs font-medium">Processing 4:5...</span>
             </motion.div>
           )}
           

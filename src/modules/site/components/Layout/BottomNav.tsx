@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Home as HomeIcon, Sparkles, LayoutDashboard, ShoppingBag, User, Bell } from 'lucide-react';
+import { Home as HomeIcon, Bot, LayoutDashboard, ShoppingBag, MessageSquare, Bell, Sparkles } from 'lucide-react';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { useTranslation } from 'react-i18next';
 import { ScrollDirection } from '../../../../shared/hooks/useScrollDirection';
@@ -64,10 +64,24 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
       <HapticButton 
         onClick={onVisualSearch}
-        className="flex flex-col items-center justify-center w-14 h-14 bg-gradient-to-br from-brand-primary via-brand-primary to-brand-teal text-white rounded-2xl shadow-xl shadow-brand-primary/30 -mt-10 scale-110 border-[4px] border-white dark:border-gray-900 transition-transform active:scale-95 relative overflow-hidden group"
+        className="flex flex-col items-center justify-center w-16 h-16 bg-gradient-to-br from-brand-primary via-brand-primary to-brand-teal text-white rounded-[1.5rem] shadow-2xl shadow-brand-primary/40 -mt-12 scale-110 border-[4px] border-white dark:border-gray-900 transition-all duration-300 active:scale-95 relative overflow-hidden group"
       >
+        {/* Animated Background Glow */}
+        <motion.div
+          animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 3, repeat: Infinity }}
+          className="absolute inset-0 bg-white/30 blur-xl"
+        />
+        
         <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-        <Sparkles size={24} className="relative z-10" />
+        
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="relative">
+            <Bot size={24} className="relative z-10" />
+            <Sparkles size={12} className="absolute -top-1 -right-2 text-white/80 animate-pulse" />
+          </div>
+          <span className="text-[7px] font-black tracking-widest uppercase mt-0.5">AI</span>
+        </div>
       </HapticButton>
 
       <HapticButton 
@@ -80,12 +94,19 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       </HapticButton>
 
       <HapticButton 
-        onClick={() => setView('profile')}
-        onPrefetch={() => onPrefetch?.('profile')}
-        className={`flex-1 flex flex-col items-center gap-1 p-2 transition-all relative ${currentView === 'profile' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+        onClick={() => setView('chat')}
+        onPrefetch={() => onPrefetch?.('chat')}
+        className={`flex-1 flex flex-col items-center gap-1 p-2 transition-all relative ${currentView === 'chat' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
       >
-        <User size={20} strokeWidth={currentView === 'profile' ? 2.5 : 2} />
-        <span className="text-[9px] font-black tracking-tight uppercase">{t('profile')}</span>
+        <div className="relative">
+          <MessageSquare size={20} strokeWidth={currentView === 'chat' ? 2.5 : 2} />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-brand-error text-white text-[7px] font-black flex items-center justify-center rounded-full border border-white dark:border-gray-900">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </div>
+        <span className="text-[9px] font-black tracking-tight uppercase">{t('messages')}</span>
       </HapticButton>
     </motion.div>
   );

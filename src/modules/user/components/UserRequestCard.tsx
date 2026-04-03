@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Clock, MapPin, ChevronRight, ChevronDown, MessageSquare, 
-  Star, Building2, Sparkles, Package
+  Star, Building2, Sparkles, Package, Trash2
 } from 'lucide-react';
 import { doc, updateDoc, collection, query, where, getDocs, addDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
@@ -15,13 +15,15 @@ interface UserRequestCardProps {
   profile: UserProfile;
   onOpenChat: (chatId: string) => void;
   onViewProfile: (uid: string) => void;
+  onDelete?: (requestId: string, imageUrl?: string) => void;
 }
 
 export const UserRequestCard: React.FC<UserRequestCardProps> = ({
   request,
   profile,
   onOpenChat,
-  onViewProfile
+  onViewProfile,
+  onDelete
 }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
@@ -30,6 +32,36 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
   const [suppliers, setSuppliers] = useState<UserProfile[]>([]);
   const [isSuggestingMore, setIsSuggestingMore] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
+
+  const getAIMatchDetails = (supp: UserProfile, req: ProductRequest) => {
+    let matchScore = 85;
+    let shortReasonAr = 'متخصص في هذا المجال';
+    let shortReasonEn = 'Specialized in this field';
+    let longReasonAr = 'مورد متخصص في هذا المجال بأسعار تنافسية.';
+    let longReasonEn = 'A specialized supplier in this field with competitive pricing.';
+
+    if (req.suggestedSupplierIds?.includes(supp.uid)) {
+      matchScore = 98;
+      shortReasonAr = 'تطابق عالي';
+      shortReasonEn = 'High match';
+      longReasonAr = 'هذا المورد يتطابق بشكل كبير مع متطلبات طلبك بناءً على تحليل الذكاء الاصطناعي.';
+      longReasonEn = 'This supplier highly matches your request requirements based on AI analysis.';
+    } else if (supp.location && req.location && supp.location === req.location) {
+      matchScore = 95;
+      shortReasonAr = 'الأقرب لموقعك';
+      shortReasonEn = 'Closest to you';
+      longReasonAr = 'هذا المورد هو الأقرب لموقعك الجغرافي ولديه تقييمات ممتازة في نفس فئة طلبك.';
+      longReasonEn = 'This supplier is closest to your location and has excellent ratings in your request category.';
+    } else if (supp.rating && supp.rating >= 4.5) {
+      matchScore = 92;
+      shortReasonAr = 'الأفضل تقييماً';
+      shortReasonEn = 'Highest rated';
+      longReasonAr = 'يمتلك هذا المورد خبرة واسعة وتقييمات عالية جداً من عملاء سابقين.';
+      longReasonEn = 'This supplier has extensive experience and very high ratings from previous customers.';
+    }
+
+    return { matchScore, shortReasonAr, shortReasonEn, longReasonAr, longReasonEn };
+  };
 
   // Fetch suppliers for this request
   useEffect(() => {
@@ -49,14 +81,14 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
         fetchedSuppliers.push({ uid: doc.id, ...doc.data() } as UserProfile);
       });
       
-      // Filter based on request's suggested suppliers or just show some
+      // Filter based on request's suggested suppliers or category match
       const relevantSuppliers = fetchedSuppliers.filter(s => 
         request.suggestedSupplierIds?.includes(s.uid) || 
         request.pinnedSupplierIds?.includes(s.uid) ||
         (s.categories && s.categories.includes(request.categoryId))
       ).slice(0, 4);
       
-      setSuppliers(relevantSuppliers.length > 0 ? relevantSuppliers : fetchedSuppliers.slice(0, 4));
+      setSuppliers(relevantSuppliers);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
     }
@@ -172,6 +204,20 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
             {request.productName}
           </h4>
         </div>
+        
+        {/* Delete Button */}
+        {onDelete && (profile?.uid === request.customerId || profile?.role === 'admin') && (
+          <HapticButton
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(request.id, request.imageUrl);
+            }}
+            className="p-2.5 text-brand-text-muted hover:text-brand-error hover:bg-brand-error/10 rounded-xl transition-all shrink-0 border border-transparent hover:border-brand-error/20"
+            title={isRtl ? 'حذف الطلب' : 'Delete Request'}
+          >
+            <Trash2 size={18} strokeWidth={2} />
+          </HapticButton>
+        )}
       </div>
 
       {/* Core Details */}
@@ -212,10 +258,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
           
           <div className="flex overflow-x-auto no-scrollbar gap-3 pb-1 -mx-2 px-2 snap-x">
             {suppliers.map((supp, index) => {
-              // Mock AI Match Score and Reasoning
-              const matchScore = 98 - (index * 5); 
-              const reasoningAr = index === 0 ? 'الأقرب لموقعك' : index === 1 ? 'الأفضل تقييماً' : 'متخصص في هذا المجال';
-              const reasoningEn = index === 0 ? 'Closest to you' : index === 1 ? 'Highest rated' : 'Specialized in this field';
+              const { matchScore, shortReasonAr, shortReasonEn } = getAIMatchDetails(supp, request);
 
               return (
                 <div 
@@ -242,7 +285,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
                     </span>
                     <div className="flex items-center gap-1 text-[9px] text-brand-text-muted font-bold mt-0.5 truncate">
                       <Sparkles size={8} className="text-brand-primary/60 shrink-0" />
-                      <span className="truncate">{isRtl ? reasoningAr : reasoningEn}</span>
+                      <span className="truncate">{isRtl ? shortReasonAr : shortReasonEn}</span>
                     </div>
                   </div>
                 </div>
@@ -310,9 +353,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
                   
                   <div className="space-y-3">
                     {suppliers.map((supp, index) => {
-                      const matchScore = 98 - (index * 5);
-                      const reasoningAr = index === 0 ? 'هذا المورد هو الأقرب لموقعك الجغرافي ولديه تقييمات ممتازة في نفس فئة طلبك.' : index === 1 ? 'يمتلك هذا المورد خبرة واسعة وتقييمات عالية جداً من عملاء سابقين.' : 'مورد متخصص في هذا المجال بأسعار تنافسية.';
-                      const reasoningEn = index === 0 ? 'This supplier is closest to your location and has excellent ratings in your request category.' : index === 1 ? 'This supplier has extensive experience and very high ratings from previous customers.' : 'A specialized supplier in this field with competitive pricing.';
+                      const { matchScore, longReasonAr, longReasonEn } = getAIMatchDetails(supp, request);
 
                       return (
                         <div key={supp.uid} className="bg-brand-surface/50 border border-brand-border rounded-2xl p-4 hover:border-brand-primary/30 transition-colors">
@@ -354,7 +395,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
                           
                           <div className="bg-white/50 dark:bg-slate-800/50 rounded-xl p-3 text-xs text-brand-text-muted leading-relaxed flex items-start gap-2">
                             <Sparkles size={14} className="text-brand-primary shrink-0 mt-0.5" />
-                            <p>{isRtl ? reasoningAr : reasoningEn}</p>
+                            <p>{isRtl ? longReasonAr : longReasonEn}</p>
                           </div>
                         </div>
                       );

@@ -17,7 +17,7 @@ export const DeleteAllCategoriesModal: React.FC<DeleteAllCategoriesModalProps> =
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-brand-surface w-full max-w-sm rounded-[2rem] border border-brand-border shadow-2xl p-8"
+        className="bg-brand-surface w-full max-w-sm rounded-[2rem] border border-brand-border shadow-2xl p-8 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-brand-primary/20 scrollbar-track-brand-surface"
       >
         <h3 className="text-lg font-black text-brand-text-main mb-4">
           {isRtl ? 'هل أنت متأكد؟' : 'Are you sure?'}

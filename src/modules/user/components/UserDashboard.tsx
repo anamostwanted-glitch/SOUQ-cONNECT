@@ -14,11 +14,23 @@ import {
   CreditCard,
   Plus,
   User as UserIcon,
+  Globe,
+  Users,
+  MessageSquare,
+  FileText,
+  BarChart3,
+  Zap,
+  ShieldCheck,
+  Activity,
+  Cpu,
+  Target,
+  Sparkles,
   Bell,
   LogOut
 } from 'lucide-react';
-import { collection, query, where, orderBy, onSnapshot, documentId, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, documentId, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../../../core/firebase';
+import { toast } from 'sonner';
 import { UserProfile, AppFeatures, ProductRequest, MarketplaceItem } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { RequestSkeleton } from '../../../shared/components/Skeleton';
@@ -39,7 +51,7 @@ interface UserDashboardProps {
   uiStyle?: 'classic' | 'minimal';
 }
 
-type UserTab = 'requests' | 'favorites' | 'wallet' | 'addresses' | 'settings';
+type UserTab = 'requests' | 'favorites' | 'wallet' | 'addresses' | 'settings' | 'chats' | 'suppliers' | 'market' | 'stats';
 
 export const UserDashboard: React.FC<UserDashboardProps> = ({
   profile,
@@ -55,7 +67,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   
   // Map supplierTab to UserTab
   const [activeTab, setActiveTab] = useState<UserTab>(
-    supplierTab === 'personal' ? 'settings' : 'requests'
+    supplierTab === 'personal' ? 'settings' : 'stats'
   );
   const [showProfileEdit, setShowProfileEdit] = useState(false);
 
@@ -136,18 +148,248 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     return () => unsubscribe();
   }, [profile?.uid]);
 
+  const handleDeleteRequest = async (requestId: string) => {
+    if (window.confirm(isRtl ? 'هل أنت متأكد من حذف هذا الطلب؟' : 'Are you sure you want to delete this request?')) {
+      try {
+        await deleteDoc(doc(db, 'requests', requestId));
+        toast.success(isRtl ? 'تم حذف الطلب بنجاح' : 'Request deleted successfully');
+      } catch (error) {
+        console.error('Error deleting request:', error);
+        toast.error(isRtl ? 'حدث خطأ أثناء حذف الطلب' : 'Error deleting request');
+      }
+    }
+  };
+
   const tabs = [
-    { id: 'requests', icon: ShoppingBag, label: isRtl ? 'طلباتي' : 'My Requests' },
+    { id: 'requests', icon: FileText, label: isRtl ? 'طلباتي' : 'My Requests' },
+    { id: 'chats', icon: MessageSquare, label: isRtl ? 'المحادثات' : 'Chats' },
+    { id: 'wallet', icon: Wallet, label: isRtl ? 'المدفوعات' : 'Payments' },
+    { id: 'suppliers', icon: Users, label: isRtl ? 'الموردين' : 'Suppliers' },
+    { id: 'market', icon: Globe, label: isRtl ? 'السوق' : 'Market' },
+    { id: 'stats', icon: BarChart3, label: isRtl ? 'الإحصائيات' : 'Statistics' },
     { id: 'favorites', icon: Heart, label: isRtl ? 'المفضلة' : 'Favorites' },
-    { id: 'wallet', icon: Wallet, label: isRtl ? 'المحفظة' : 'Wallet' },
-    { id: 'addresses', icon: MapPin, label: isRtl ? 'عناويني' : 'Addresses' },
     { id: 'settings', icon: Settings, label: isRtl ? 'الإعدادات' : 'Settings' },
   ];
 
   const glassClass = "bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/20 dark:border-slate-700/50 shadow-sm";
 
+  const renderAIAnalytics = () => {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
+              <Sparkles size={20} />
+            </div>
+            <h2 className="text-xl font-black text-brand-text-main">
+              {isRtl ? 'تحليلات الذكاء الاصطناعي' : 'AI Analytics'}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-black uppercase tracking-widest">
+            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+            {isRtl ? 'مباشر' : 'Live'}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Accuracy Card */}
+          <div className={`${glassClass} p-6 rounded-[2rem] relative overflow-hidden group hover:scale-[1.02] transition-all duration-500`}>
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-12 h-12 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary">
+                <Target size={24} />
+              </div>
+              <Activity size={20} className="text-brand-primary opacity-50" />
+            </div>
+            <p className="text-brand-text-muted text-xs font-bold uppercase tracking-wider mb-1">
+              {isRtl ? 'دقة المطابقة' : 'Match Accuracy'}
+            </p>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-3xl font-black text-brand-text-main">94%</h3>
+              <span className="text-emerald-500 text-xs font-bold">+2.4%</span>
+            </div>
+          </div>
+
+          {/* Response Speed Card */}
+          <div className={`${glassClass} p-6 rounded-[2rem] relative overflow-hidden group hover:scale-[1.02] transition-all duration-500`}>
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500">
+                <Clock size={24} />
+              </div>
+              <Zap size={20} className="text-amber-500 opacity-50" />
+            </div>
+            <p className="text-brand-text-muted text-xs font-bold uppercase tracking-wider mb-1">
+              {isRtl ? 'سرعة الاستجابة' : 'Response Speed'}
+            </p>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-3xl font-black text-brand-text-main">12m</h3>
+              <span className="text-rose-500 text-xs font-bold">-3d</span>
+            </div>
+          </div>
+
+          {/* Market Activity Card */}
+          <div className={`${glassClass} p-6 rounded-[2rem] relative overflow-hidden group hover:scale-[1.02] transition-all duration-500`}>
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-500">
+                <BarChart3 size={24} />
+              </div>
+              <Zap size={20} className="text-indigo-500 opacity-50" />
+            </div>
+            <p className="text-brand-text-muted text-xs font-bold uppercase tracking-wider mb-1">
+              {isRtl ? 'نشاط السوق' : 'Market Activity'}
+            </p>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-3xl font-black text-brand-text-main">82%</h3>
+              <span className="text-indigo-500 text-xs font-bold">High</span>
+            </div>
+          </div>
+
+          {/* Quality Card */}
+          <div className={`${glassClass} p-6 rounded-[2rem] relative overflow-hidden group hover:scale-[1.02] transition-all duration-500`}>
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500">
+                <ShieldCheck size={24} />
+              </div>
+              <CheckCircle2 size={20} className="text-emerald-500 opacity-50" />
+            </div>
+            <p className="text-brand-text-muted text-xs font-bold uppercase tracking-wider mb-1">
+              {isRtl ? 'جودة الطلبات' : 'Requests Quality'}
+            </p>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-3xl font-black text-brand-text-main">88%</h3>
+              <span className="text-emerald-500 text-xs font-bold">Optimal</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          {/* Smart Assistant Card */}
+          <div className="bg-gradient-to-br from-brand-primary to-brand-teal p-8 rounded-[2.5rem] text-white relative overflow-hidden group shadow-xl shadow-brand-primary/20">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:scale-110 transition-transform duration-700"></div>
+            <div className="relative z-10">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6">
+                <Sparkles size={28} />
+              </div>
+              <h3 className="text-2xl font-black mb-4 leading-tight">
+                {isRtl ? 'المساعد الذكي يتوقع احتياجك' : 'Smart Assistant predicts your needs'}
+              </h3>
+              <p className="text-white/80 text-sm mb-8 leading-relaxed max-w-sm">
+                {isRtl 
+                  ? 'بناءً على طلبك الأخير لـ "إسمنت"، قد تحتاج قريباً إلى "حديد تسليح". هل ترغب في استكشاف الموردين المتاحين؟' 
+                  : 'Based on your recent request for "Cement", you might soon need "Rebar". Would you like to explore available suppliers?'}
+              </p>
+              <HapticButton className="px-8 py-4 bg-white text-brand-primary rounded-2xl font-black hover:bg-white/90 transition-all flex items-center gap-3 group/btn">
+                {isRtl ? 'استكشاف المقترحات' : 'Explore Suggestions'}
+                <ChevronRight size={20} className={`group-hover/btn:translate-x-1 transition-transform ${isRtl ? 'rotate-180' : ''}`} />
+              </HapticButton>
+            </div>
+          </div>
+
+          {/* System Diagnostics */}
+          <div className={`${glassClass} p-8 rounded-[2.5rem]`}>
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <Activity size={24} className="text-brand-text-main" />
+                <h3 className="text-xl font-black text-brand-text-main">
+                  {isRtl ? 'تشخيصات النظام' : 'System Diagnostics'}
+                </h3>
+              </div>
+              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                {isRtl ? 'مثالي' : 'Optimal'}
+              </span>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <div className="flex justify-between text-xs font-bold mb-2">
+                  <span className="text-brand-text-muted uppercase tracking-wider">{isRtl ? 'سرعة المعالجة' : 'Processing Speed'}</span>
+                  <span className="text-brand-text-main">98%</span>
+                </div>
+                <div className="h-2 bg-brand-background rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: '98%' }}
+                    transition={{ duration: 1, delay: 0.5 }}
+                    className="h-full bg-brand-primary rounded-full"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between text-xs font-bold mb-2">
+                  <span className="text-brand-text-muted uppercase tracking-wider">{isRtl ? 'دقة البيانات' : 'Data Accuracy'}</span>
+                  <span className="text-brand-text-main">100%</span>
+                </div>
+                <div className="h-2 bg-brand-background rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: 1, delay: 0.7 }}
+                    className="h-full bg-brand-teal rounded-full"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between text-xs font-bold mb-2">
+                  <span className="text-brand-text-muted uppercase tracking-wider">{isRtl ? 'أمان المعاملات' : 'Transaction Security'}</span>
+                  <span className="text-brand-text-main">99.9%</span>
+                </div>
+                <div className="h-2 bg-brand-background rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: '99.9%' }}
+                    transition={{ duration: 1, delay: 0.9 }}
+                    className="h-full bg-indigo-500 rounded-full"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'stats':
+        return renderAIAnalytics();
+      case 'chats':
+        return (
+          <div className={`${glassClass} rounded-3xl p-12 text-center`}>
+            <div className="w-20 h-20 bg-brand-primary/10 rounded-full flex items-center justify-center text-brand-primary mx-auto mb-6">
+              <MessageSquare size={40} />
+            </div>
+            <h3 className="text-2xl font-black text-brand-text-main mb-4">{isRtl ? 'المحادثات' : 'Chats'}</h3>
+            <p className="text-brand-text-muted max-w-md mx-auto">
+              {isRtl ? 'سيتم عرض محادثاتك مع الموردين هنا قريباً.' : 'Your chats with suppliers will be displayed here soon.'}
+            </p>
+          </div>
+        );
+      case 'suppliers':
+        return (
+          <div className={`${glassClass} rounded-3xl p-12 text-center`}>
+            <div className="w-20 h-20 bg-brand-primary/10 rounded-full flex items-center justify-center text-brand-primary mx-auto mb-6">
+              <Users size={40} />
+            </div>
+            <h3 className="text-2xl font-black text-brand-text-main mb-4">{isRtl ? 'الموردين' : 'Suppliers'}</h3>
+            <p className="text-brand-text-muted max-w-md mx-auto">
+              {isRtl ? 'قائمة الموردين المفضلين والموثوقين ستظهر هنا.' : 'Your list of favorite and trusted suppliers will appear here.'}
+            </p>
+          </div>
+        );
+      case 'market':
+        return (
+          <div className={`${glassClass} rounded-3xl p-12 text-center`}>
+            <div className="w-20 h-20 bg-brand-primary/10 rounded-full flex items-center justify-center text-brand-primary mx-auto mb-6">
+              <Globe size={40} />
+            </div>
+            <h3 className="text-2xl font-black text-brand-text-main mb-4">{isRtl ? 'السوق' : 'Market'}</h3>
+            <p className="text-brand-text-muted max-w-md mx-auto">
+              {isRtl ? 'استكشف المنتجات والمواد المتاحة في السوق.' : 'Explore products and materials available in the market.'}
+            </p>
+          </div>
+        );
       case 'requests':
         return (
           <div className="space-y-4">
@@ -185,6 +427,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     profile={profile}
                     onOpenChat={onOpenChat}
                     onViewProfile={onViewProfile}
+                    onDelete={handleDeleteRequest}
                   />
                 ))
               )}
@@ -346,88 +589,80 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   };
 
   return (
-    <div className={`max-w-4xl mx-auto pb-24 md:pb-8 ${uiStyle === 'minimal' ? 'pt-8' : ''}`}>
-      {/* Header - Hidden in Minimal Mode if not on settings */}
-      {uiStyle !== 'minimal' && (
-        <div className="px-6 pt-8 pb-6 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl border-b border-white/20 dark:border-slate-700/50 sticky top-0 z-30">
-          <h1 className="text-3xl font-black text-brand-text-main tracking-tight">
-            {isRtl ? 'مرحباً،' : 'Hello,'} <span className="text-brand-primary">{profile.name?.split(' ')[0]}</span> 👋
-          </h1>
-          <p className="text-brand-text-muted mt-1">
-            {isRtl ? 'إليك نظرة عامة على نشاطك اليوم' : 'Here is an overview of your activity today'}
-          </p>
+    <div className={`min-h-screen pb-24 md:pb-8 transition-colors duration-500 ${activeTab === 'stats' ? 'bg-slate-50/50 dark:bg-slate-950/50' : ''}`}>
+      {/* Immersive Background for Stats */}
+      {activeTab === 'stats' && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-primary/5 rounded-full blur-[120px] animate-pulse"></div>
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand-teal/5 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }}></div>
         </div>
       )}
 
-      <div className="p-6">
-        {/* Quick Stats - Hidden in Minimal Mode */}
-        {uiStyle !== 'minimal' && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className={`${glassClass} p-4 rounded-2xl flex flex-col justify-center`}>
-              <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary mb-3">
-                <ShoppingBag size={20} />
-              </div>
-              <span className="text-2xl font-black text-brand-text-main">{requests.length}</span>
-              <span className="text-xs font-bold text-brand-text-muted uppercase tracking-wider mt-1">{isRtl ? 'إجمالي الطلبات' : 'Total Requests'}</span>
-            </div>
-            <div className={`${glassClass} p-4 rounded-2xl flex flex-col justify-center`}>
-              <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 mb-3">
-                <CheckCircle2 size={20} />
-              </div>
-              <span className="text-2xl font-black text-brand-text-main">{requests.filter(r => r.status === 'closed').length}</span>
-              <span className="text-xs font-bold text-brand-text-muted uppercase tracking-wider mt-1">{isRtl ? 'مكتملة' : 'Completed'}</span>
-            </div>
-            <div className={`${glassClass} p-4 rounded-2xl flex flex-col justify-center`}>
-              <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-500 mb-3">
-                <AlertCircle size={20} />
-              </div>
-              <span className="text-2xl font-black text-brand-text-main">{requests.filter(r => r.status === 'open').length}</span>
-              <span className="text-xs font-bold text-brand-text-muted uppercase tracking-wider mt-1">{isRtl ? 'بانتظار العروض' : 'Awaiting Offers'}</span>
-            </div>
-            <div className="bg-gradient-to-br from-brand-primary to-brand-teal p-4 rounded-2xl shadow-lg text-white flex flex-col justify-center relative overflow-hidden">
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
-              <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white mb-3">
-                <Wallet size={20} />
-              </div>
-              <span className="text-2xl font-black">0.00</span>
-              <span className="text-xs font-bold text-white/80 uppercase tracking-wider mt-1">{isRtl ? 'الرصيد (ر.س)' : 'Balance (SAR)'}</span>
-            </div>
+      <div className="max-w-6xl mx-auto relative z-10">
+        {/* Header - Hidden in Minimal Mode if not on settings */}
+        {uiStyle !== 'minimal' && activeTab !== 'stats' && (
+          <div className="px-6 pt-8 pb-6 sticky top-0 z-30">
+            <h1 className="text-3xl font-black text-brand-text-main tracking-tight">
+              {isRtl ? 'مرحباً،' : 'Hello,'} <span className="text-brand-primary">{profile.name?.split(' ')[0]}</span> 👋
+            </h1>
+            <p className="text-brand-text-muted mt-1">
+              {isRtl ? 'إليك نظرة عامة على نشاطك اليوم' : 'Here is an overview of your activity today'}
+            </p>
           </div>
         )}
 
-        {/* Navigation Tabs - Minimalist Underline Style */}
-        <div className={`border-b border-brand-border/40 mb-8 overflow-x-auto hide-scrollbar ${uiStyle === 'minimal' ? 'sticky top-0 bg-brand-background/80 backdrop-blur-md z-30 py-2' : ''}`}>
-          <div className="flex gap-8 min-w-max px-1">
-            {tabs.map(tab => (
-              <HapticButton
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id as UserTab);
-                  if (tab.id === 'settings') setSupplierTab?.('personal');
-                  else setSupplierTab?.('dashboard');
-                }}
-                className={`flex items-center gap-2 py-4 text-sm font-bold transition-all relative border-b-2 ${
-                  activeTab === tab.id 
-                    ? 'text-brand-primary border-brand-primary' 
-                    : 'text-brand-text-muted border-transparent hover:text-brand-text-main'
-                }`}
-              >
-                <tab.icon size={18} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
-                {tab.label}
-              </HapticButton>
-            ))}
+        <div className="p-6">
+          {/* Navigation Tabs - Centered Pill Style */}
+          <div className="flex justify-center mb-12 overflow-x-auto hide-scrollbar py-4">
+            <div className="flex items-center gap-2 md:gap-4 p-2 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl rounded-[2.5rem] border border-white/20 dark:border-slate-700/50 shadow-xl shadow-black/5">
+              {tabs.map(tab => (
+                <HapticButton
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id as UserTab);
+                    if (tab.id === 'settings') setSupplierTab?.('personal');
+                    else setSupplierTab?.('dashboard');
+                  }}
+                  className={`flex flex-col items-center gap-1.5 py-3 px-4 md:px-6 rounded-[2rem] transition-all duration-300 relative group ${
+                    activeTab === tab.id 
+                      ? 'text-brand-primary' 
+                      : 'text-brand-text-muted hover:text-brand-text-main'
+                  }`}
+                >
+                  <div className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-500 ${
+                    activeTab === tab.id 
+                      ? 'bg-white dark:bg-slate-800 shadow-lg scale-110' 
+                      : 'bg-transparent group-hover:bg-white/50 dark:group-hover:bg-slate-800/50'
+                  }`}>
+                    <tab.icon size={activeTab === tab.id ? 24 : 20} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
+                  </div>
+                  <span className={`text-[10px] md:text-xs font-black uppercase tracking-widest transition-opacity duration-300 ${activeTab === tab.id ? 'opacity-100' : 'opacity-60'}`}>
+                    {tab.label}
+                  </span>
+                  {activeTab === tab.id && (
+                    <motion.div 
+                      layoutId="activeTabGlow"
+                      className="absolute inset-0 bg-brand-primary/5 rounded-[2rem] -z-10"
+                      initial={false}
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                    />
+                  )}
+                </HapticButton>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Content Area */}
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          {renderTabContent()}
-        </motion.div>
+          {/* Content Area */}
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {renderTabContent()}
+          </motion.div>
+        </div>
       </div>
     </div>
   );

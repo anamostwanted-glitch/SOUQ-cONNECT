@@ -77,7 +77,13 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     const fetchCategories = async () => {
       try {
         const catSnap = await getDocs(collection(db, 'categories'));
-        setCategories(catSnap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
+        const docs = catSnap.docs.map(d => ({ id: d.id, ...d.data() } as Category));
+        const sorted = docs.sort((a, b) => {
+          const nameA = isRtl ? a.nameAr : a.nameEn;
+          const nameB = isRtl ? b.nameAr : b.nameEn;
+          return nameA.localeCompare(nameB, i18n.language);
+        });
+        setCategories(sorted);
       } catch (error) {
         handleFirestoreError(error, OperationType.LIST, 'categories');
       }
@@ -321,7 +327,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl"
+              className="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent"
             >
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
                 {isRtl ? 'تأكيد الحذف' : 'Confirm Delete'}

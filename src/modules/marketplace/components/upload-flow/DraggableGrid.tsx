@@ -23,9 +23,10 @@ interface SortableItemProps {
   image: ImageFile;
   onRemove: (id: string) => void;
   onRetry?: (id: string) => void;
+  onEnhance?: (id: string) => void;
 }
 
-const SortableItem: React.FC<SortableItemProps> = ({ id, image, onRemove, onRetry }) => {
+const SortableItem: React.FC<SortableItemProps> = ({ id, image, onRemove, onRetry, onEnhance }) => {
   const {
     attributes,
     listeners,
@@ -44,7 +45,7 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, image, onRemove, onRetr
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-none">
-      <ImageThumbnail image={image} onRemove={onRemove} onRetry={onRetry} />
+      <ImageThumbnail image={image} onRemove={onRemove} onRetry={onRetry} onEnhance={onEnhance} />
     </div>
   );
 };
@@ -54,9 +55,10 @@ interface DraggableGridProps {
   setImages: React.Dispatch<React.SetStateAction<ImageFile[]>>;
   onRemove: (id: string) => void;
   onRetry?: (id: string) => void;
+  onEnhance?: (id: string) => void;
 }
 
-export const DraggableGrid: React.FC<DraggableGridProps> = ({ images, setImages, onRemove, onRetry }) => {
+export const DraggableGrid: React.FC<DraggableGridProps> = ({ images, setImages, onRemove, onRetry, onEnhance }) => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -107,6 +109,7 @@ export const DraggableGrid: React.FC<DraggableGridProps> = ({ images, setImages,
               image={image} 
               onRemove={onRemove} 
               onRetry={onRetry} 
+              onEnhance={onEnhance}
             />
           ))}
         </SortableContext>

@@ -259,6 +259,18 @@ export const SiteSettingsManager: React.FC = () => {
                 className="w-full bg-brand-background border-brand-border rounded-xl p-3 text-brand-text-main focus:ring-2 focus:ring-brand-primary/20 transition-all"
               />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-brand-text-muted flex items-center gap-2">
+                <ImageIcon size={14} />
+                {isRtl ? 'رابط العلامة المائية' : 'Watermark URL'}
+              </label>
+              <input
+                type="text"
+                value={settings.watermarkUrl}
+                onChange={(e) => setSettings({ ...settings, watermarkUrl: e.target.value })}
+                className="w-full bg-brand-background border-brand-border rounded-xl p-3 text-brand-text-main focus:ring-2 focus:ring-brand-primary/20 transition-all"
+              />
+            </div>
           </div>
         </div>
       </div>

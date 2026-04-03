@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, query, collection, where } from 'firebase/firestore';
 import { auth, db } from './core/firebase';
 import { UserProfile, AppFeatures, UserRole } from './core/types';
 import { Layout as AppLayout } from './modules/site/components/Layout';
@@ -13,12 +13,14 @@ import { ProfileView } from './modules/site/components/ProfileView';
 import { TooltipProvider } from './shared/components/ui/tooltip';
 import { BrandingProvider } from './core/providers/BrandingProvider';
 import { Toaster } from 'sonner';
+import { CacheOptimizer } from './shared/components/CacheOptimizer';
 
 // Lazy load views for better performance
 const Home = lazy(() => import('./modules/site/components/Home'));
 const Dashboard = lazy(() => import('./modules/site/components/Dashboard'));
 const MarketInterface = lazy(() => import('./modules/marketplace/components/MarketInterface').then(m => ({ default: m.MarketInterface })));
 const ChatView = lazy(() => import('./modules/common/components/ChatView'));
+const ChatHub = lazy(() => import('./modules/common/components/ChatHub').then(m => ({ default: m.ChatHub })));
 const NotificationsLog = lazy(() => import('./modules/site/components/NotificationsLog').then(m => ({ default: m.NotificationsLog })));
 const Legal = lazy(() => import('./modules/site/components/Legal'));
 
@@ -30,8 +32,10 @@ const App: React.FC = () => {
   const [viewMode, setViewMode] = usePersistedState<'admin' | 'supplier' | 'customer'>('view_mode', 'customer');
   const [uiStyle, setUiStyle] = usePersistedState<'classic' | 'minimal'>('ui_style', 'classic');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [supplierTab, setSupplierTab] = useState<string>('dashboard');
   const [selectedProfileUid, setSelectedProfileUid] = useState<string | null>(null);
+  const [isAutoOptimizerOpen, setIsAutoOptimizerOpen] = useState(false);
   const [features, setFeatures] = useState<AppFeatures>({
     marketplace: true,
     aiChat: true,
@@ -83,6 +87,38 @@ const App: React.FC = () => {
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    const lastOptimization = localStorage.getItem('last_system_optimization');
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    if (!lastOptimization || (now - parseInt(lastOptimization)) > oneDay) {
+      // Small delay to let the app settle
+      const timer = setTimeout(() => {
+        setIsAutoOptimizerOpen(true);
+        localStorage.setItem('last_system_optimization', now.toString());
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user || !profile) return;
+    const q = query(
+      collection(db, 'chats'),
+      where(profile.role === 'supplier' ? 'supplierId' : 'customerId', '==', user.uid)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      let count = 0;
+      snap.docs.forEach(d => {
+        const data = d.data();
+        count += (data.unreadCount?.[user.uid] || 0);
+      });
+      setChatUnreadCount(count);
+    });
+    return unsub;
+  }, [user, profile]);
+
   const handleAuthSuccess = (role: UserRole) => {
     setView('home');
     if (role === 'admin') {
@@ -116,7 +152,6 @@ const App: React.FC = () => {
         return (
           <Home 
             profile={profile} 
-            features={features} 
             onNavigate={setView} 
             onOpenChat={handleOpenChat}
             onViewProfile={handleViewProfile}
@@ -169,17 +204,23 @@ const App: React.FC = () => {
             chatId={activeChatId} 
             profile={profile} 
             features={features} 
-            onBack={() => setView('home')}
+            onBack={() => setActiveChatId(null)}
             onViewProfile={handleViewProfile}
           />
-        ) : <Home profile={profile} features={features} onNavigate={setView} onOpenChat={handleOpenChat} viewMode={viewMode} />;
+        ) : (
+          <ChatHub 
+            profile={profile}
+            onOpenChat={handleOpenChat}
+            onBack={() => setView('home')}
+          />
+        );
       case 'notifications-log':
         return <NotificationsLog onBack={() => setView('home')} />;
       case 'privacy':
       case 'terms':
         return <Legal type={currentView} onBack={() => setView('home')} />;
       default:
-        return <Home profile={profile} features={features} onNavigate={setView} onOpenChat={handleOpenChat} viewMode={viewMode} />;
+        return <Home profile={profile} onNavigate={setView} onOpenChat={handleOpenChat} onViewProfile={handleViewProfile} viewMode={viewMode} />;
     }
   };
 
@@ -188,6 +229,11 @@ const App: React.FC = () => {
       <BrandingProvider>
         <TooltipProvider>
           <Toaster position="top-center" richColors />
+          <CacheOptimizer 
+            isOpen={isAutoOptimizerOpen} 
+            onClose={() => setIsAutoOptimizerOpen(false)} 
+            autoStart={true}
+          />
           {(!user && currentView === 'role-selection') ? (
             <RoleSelection onSelect={(role) => setView(`auth-${role}`)} />
           ) : (!user && currentView.startsWith('auth-')) ? (
@@ -205,6 +251,7 @@ const App: React.FC = () => {
               setUiStyle={setUiStyle}
               supplierTab={supplierTab}
               setSupplierTab={setSupplierTab}
+              chatUnreadCount={chatUnreadCount}
             >
               <Suspense fallback={
                 <div className="flex items-center justify-center min-h-[60vh]">

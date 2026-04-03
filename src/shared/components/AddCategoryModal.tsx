@@ -59,7 +59,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ isOpen, onCl
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className={`bg-brand-surface rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl border border-brand-border ${isRtl ? 'font-arabic' : ''}`} dir={isRtl ? 'rtl' : 'ltr'}>
+      <div className={`bg-brand-surface rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl border border-brand-border max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-brand-primary/20 scrollbar-track-brand-surface ${isRtl ? 'font-arabic' : ''}`} dir={isRtl ? 'rtl' : 'ltr'}>
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-brand-primary/10 rounded-2xl text-brand-primary">
