@@ -20,6 +20,7 @@ import { AIActionHub } from './AIActionHub';
 import { Header } from './Header';
 import { MobileMenu } from './MobileMenu';
 import { BottomNav } from './BottomNav';
+import HelpCenter from '../HelpCenter';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -72,6 +73,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
   const [visualSearchMode, setVisualSearchMode] = useState<'camera' | 'gallery' | null>(null);
   const [isAIHubOpen, setIsAIHubOpen] = useState(false);
+  const [showHelpCenter, setShowHelpCenter] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [allSuppliers, setAllSuppliers] = useState<UserProfile[]>([]);
   
@@ -132,16 +134,24 @@ export const Layout: React.FC<LayoutProps> = ({
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
       setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'categories');
     });
     return () => unsub();
   }, []);
 
   useEffect(() => {
+    if (!auth.currentUser) {
+      setAllSuppliers([]);
+      return;
+    }
     const unsub = onSnapshot(query(collection(db, 'users'), where('role', '==', 'supplier')), (snap) => {
       setAllSuppliers(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users (suppliers)');
     });
     return () => unsub();
-  }, []);
+  }, [auth.currentUser]);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
@@ -261,6 +271,7 @@ export const Layout: React.FC<LayoutProps> = ({
             }
           }}
           onMobileMenuOpen={() => setIsMobileMenuOpen(true)}
+          onOpenHelpCenter={() => setShowHelpCenter(true)}
           notifRef={notifRef}
         />
       </div>
@@ -307,6 +318,7 @@ export const Layout: React.FC<LayoutProps> = ({
         siteName={siteName}
         onPrefetch={onPrefetch}
         onVisualSearch={() => setIsAIHubOpen(true)}
+        onOpenHelpCenter={() => setShowHelpCenter(true)}
       />
 
       {profile && currentView !== 'chat' && (uiStyle !== 'minimal' || currentView !== 'home') && !isAIHubOpen && !isVisualSearchOpen && (
@@ -396,6 +408,15 @@ export const Layout: React.FC<LayoutProps> = ({
           isRtl={isRtl}
         />
       )}
+
+      <AnimatePresence>
+        {showHelpCenter && (
+          <HelpCenter 
+            onClose={() => setShowHelpCenter(false)} 
+            isRtl={isRtl} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

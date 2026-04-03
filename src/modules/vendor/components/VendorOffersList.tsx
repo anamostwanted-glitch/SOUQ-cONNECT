@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { MessageSquare, Clock, CheckCircle2, XCircle, DollarSign } from 'lucide-react';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { db } from '../../../core/firebase';
 import { UserProfile, Offer, ProductRequest } from '../../../core/types';
 
@@ -52,7 +53,7 @@ export const VendorOffersList: React.FC<VendorOffersListProps> = ({ profile, onO
       setOffers(fetchedOffers);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching offers:", error);
+      handleFirestoreError(error, OperationType.LIST, 'offers');
       setLoading(false);
     });
 

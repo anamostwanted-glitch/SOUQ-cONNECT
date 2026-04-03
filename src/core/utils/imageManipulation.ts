@@ -49,10 +49,33 @@ export const processImageTo4x5WithWatermark = async (
       );
 
       // Add Watermark
+      const addTextWatermark = () => {
+        const text = "B2B2C Connect";
+        const fontSize = Math.floor(drawWidth * 0.05);
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+        
+        // Add shadow for readability
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 4;
+        
+        ctx.fillText(text, drawWidth - 20, drawHeight - 20);
+        
+        // Reset shadow
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+      };
+
       if (watermarkUrl) {
         try {
           const watermarkImg = new Image();
-          watermarkImg.crossOrigin = "anonymous";
+          // Only set crossOrigin if it's not a base64 string
+          if (!watermarkUrl.startsWith('data:')) {
+            watermarkImg.crossOrigin = "anonymous";
+          }
+          
           await new Promise((res, rej) => {
             watermarkImg.onload = res;
             watermarkImg.onerror = rej;
@@ -61,6 +84,8 @@ export const processImageTo4x5WithWatermark = async (
 
           const watermarkSize = Math.floor(drawWidth * 0.15);
           const padding = Math.floor(drawWidth * 0.02);
+          
+          ctx.globalAlpha = 0.7;
           ctx.drawImage(
             watermarkImg,
             drawWidth - watermarkSize - padding,
@@ -68,9 +93,13 @@ export const processImageTo4x5WithWatermark = async (
             watermarkSize,
             watermarkSize
           );
+          ctx.globalAlpha = 1.0;
         } catch (e) {
-          console.error("Failed to load watermark image", e);
+          console.error("Failed to load watermark image, falling back to text", e);
+          addTextWatermark();
         }
+      } else {
+        addTextWatermark();
       }
 
       // Convert back to file

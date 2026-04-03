@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sparkles, MapPin, Globe, Bell, Menu, UploadCloud, Bot, MessageSquare } from 'lucide-react';
+import { Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sparkles, MapPin, Globe, Bell, Menu, UploadCloud, Bot, MessageSquare, BookOpen } from 'lucide-react';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { UserProfile, AppFeatures, Notification } from '../../../../core/types';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +30,7 @@ interface HeaderProps {
   onNotificationClick: (n: Notification) => void;
   onVisualSearch: () => void;
   onMobileMenuOpen: () => void;
+  onOpenHelpCenter: () => void;
   notifRef: React.RefObject<HTMLDivElement>;
 }
 
@@ -57,6 +58,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNotificationClick,
   onVisualSearch,
   onMobileMenuOpen,
+  onOpenHelpCenter,
   notifRef
 }) => {
   const { t, i18n } = useTranslation();
@@ -127,8 +129,17 @@ export const Header: React.FC<HeaderProps> = ({
           <HapticButton 
             onClick={toggleLanguage}
             className="hidden md:flex w-10 h-10 items-center justify-center hover:bg-brand-surface rounded-xl transition-all text-brand-text-muted hover:text-brand-primary"
+            title={isRtl ? 'تبديل اللغة' : 'Toggle Language'}
           >
             <Globe size={20} />
+          </HapticButton>
+
+          <HapticButton 
+            onClick={onOpenHelpCenter}
+            className="hidden md:flex w-10 h-10 items-center justify-center hover:bg-brand-surface rounded-xl transition-all text-brand-text-muted hover:text-brand-primary"
+            title={isRtl ? 'مركز المساعدة' : 'Help Center'}
+          >
+            <BookOpen size={20} />
           </HapticButton>
 
           {features.aiChat && (

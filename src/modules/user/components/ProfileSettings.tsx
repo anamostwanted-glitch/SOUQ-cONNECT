@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User as UserIcon, Mail, Phone, MapPin, Save, Camera, Cpu, Zap } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, MapPin, Save, Camera, Cpu, Zap, BookOpen, FileText, ShieldCheck, Lock, Sparkles } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../../core/firebase';
 import { UserProfile } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { CacheOptimizer } from '../../../shared/components/CacheOptimizer';
+import HelpCenter from '../../site/components/HelpCenter';
 import imageCompression from 'browser-image-compression';
+import { AnimatePresence } from 'motion/react';
 
 interface ProfileSettingsProps {
   profile: UserProfile;
@@ -28,6 +30,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
   const [isUploading, setIsUploading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isOptimizerOpen, setIsOptimizerOpen] = useState(false);
+  const [showHelpCenter, setShowHelpCenter] = useState(false);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -77,6 +80,15 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
 
   return (
     <div className="space-y-6">
+      <AnimatePresence>
+        {showHelpCenter && (
+          <HelpCenter 
+            onClose={() => setShowHelpCenter(false)} 
+            isRtl={isRtl} 
+          />
+        )}
+      </AnimatePresence>
+
       {onBack && (
         <button onClick={onBack} className="text-brand-primary font-bold text-sm mb-4">
           {isRtl ? '← عودة' : '← Back'}
@@ -231,6 +243,52 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
         isOpen={isOptimizerOpen} 
         onClose={() => setIsOptimizerOpen(false)} 
       />
+
+      {/* User Guide & Policies Section */}
+      <div className="bg-brand-surface rounded-3xl border border-brand-border shadow-sm p-6">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary shadow-inner">
+            <BookOpen size={24} />
+          </div>
+          <div>
+            <h4 className="font-bold text-brand-text-main">
+              {isRtl ? 'دليل المستخدم والسياسات' : 'User Guide & Policies'}
+            </h4>
+            <p className="text-[10px] text-brand-text-muted font-medium uppercase tracking-wider">
+              {isRtl ? 'عرض الدليل الكامل وشروط الاستخدام' : 'View full guide and terms of use'}
+            </p>
+          </div>
+        </div>
+        
+        <div className="bg-brand-background/50 rounded-2xl p-4 mb-4 border border-brand-border/50">
+          <p className="text-xs text-brand-text-muted leading-relaxed">
+            {isRtl 
+              ? 'تعرف على كيفية استخدام المنصة بشكل احترافي، واطلع على سياسة الخصوصية وشروط الاستخدام لضمان تجربة آمنة وموثوقة.'
+              : 'Learn how to use the platform professionally, and review the privacy policy and terms of use to ensure a safe and reliable experience.'}
+          </p>
+        </div>
+
+        <HapticButton
+          onClick={() => setShowHelpCenter(true)}
+          className="w-full bg-brand-primary text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-brand-primary-hover transition-all group shadow-lg shadow-brand-primary/20"
+        >
+          <FileText size={18} className="group-hover:rotate-12 transition-transform" />
+          {isRtl ? 'فتح مركز المساعدة' : 'Open Help Center'}
+        </HapticButton>
+
+        <div className="grid grid-cols-3 gap-2 mt-4">
+          {[
+            { label: isRtl ? 'دليل الميزات' : 'Guide', icon: Sparkles },
+            { label: isRtl ? 'الشروط' : 'Terms', icon: ShieldCheck },
+            { label: isRtl ? 'الخصوصية' : 'Privacy', icon: Lock }
+          ].map((item, idx) => (
+            <div key={idx} className="flex flex-col items-center gap-1 p-2 bg-brand-background/30 rounded-xl border border-brand-border/30">
+              <item.icon size={12} className="text-brand-primary/60" />
+              <span className="text-[8px] font-black uppercase tracking-tighter text-brand-text-muted">{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

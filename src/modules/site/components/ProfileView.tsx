@@ -129,7 +129,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
   };
 
   const getCategoryProductCount = (categoryId: string) => {
-    return supplierProducts.filter(p => p.category === categoryId).length;
+    return supplierProducts.filter(p => p.categories.includes(categoryId)).length;
   };
 
   const getAICategoryDescription = (category: Category) => {

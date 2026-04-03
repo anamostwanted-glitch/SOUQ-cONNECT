@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { X, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
-import { MarketplaceItem } from '../../../core/types';
+import { MarketplaceItem, Category } from '../../../core/types';
+import { translateText } from '../../../core/services/geminiService';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { AINeuralCategorySelector } from '../../../shared/components/AINeuralCategorySelector';
 
 interface EditProductModalProps {
   item: MarketplaceItem;
@@ -23,7 +25,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ item, onClos
   const [title, setTitle] = useState(item.title);
   const [description, setDescription] = useState(item.description || '');
   const [price, setPrice] = useState(item.price.toString());
-  const [category, setCategory] = useState(item.category || '');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(item.categories || []);
   const [status, setStatus] = useState(item.status);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,12 +37,38 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ item, onClos
     setErrorMessage(null);
 
     try {
+      // Automatic Translation
+      let titleAr = '';
+      let titleEn = '';
+      let descriptionAr = '';
+      let descriptionEn = '';
+
+      if (i18n.language.startsWith('ar')) {
+        titleAr = title;
+        descriptionAr = description;
+        [titleEn, descriptionEn] = await Promise.all([
+          translateText(title, 'en'),
+          translateText(description, 'en')
+        ]);
+      } else {
+        titleEn = title;
+        descriptionEn = description;
+        [titleAr, descriptionAr] = await Promise.all([
+          translateText(title, 'ar'),
+          translateText(description, 'ar')
+        ]);
+      }
+
       const docRef = doc(db, 'marketplace', item.id);
       await updateDoc(docRef, {
         title,
+        titleAr,
+        titleEn,
         description,
+        descriptionAr,
+        descriptionEn,
         price: Number(price),
-        category,
+        categories: selectedCategories,
         status,
         updatedAt: new Date().toISOString(),
       });
@@ -97,7 +125,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ item, onClos
               <input 
                 required
                 type="text" 
-                value={title}
+                value={title || ''}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-primary/50 outline-none"
               />
@@ -112,7 +140,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ item, onClos
                   <input 
                     required
                     type="number" 
-                    value={price}
+                    value={price || ''}
                     onChange={(e) => setPrice(e.target.value)}
                     className={`w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-3 ${isRtl ? 'pl-4 pr-10' : 'pr-4 pl-10'} focus:ring-2 focus:ring-brand-primary/50 outline-none`}
                   />
@@ -125,19 +153,17 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ item, onClos
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   {isRtl ? 'الفئة' : 'Category'}
                 </label>
-                <select 
-                  required
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-primary/50 outline-none appearance-none"
-                >
-                  <option value="" disabled>{isRtl ? 'اختر الفئة' : 'Select Category'}</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>
-                      {isRtl ? cat.nameAr : cat.nameEn}
-                    </option>
-                  ))}
-                </select>
+                <AINeuralCategorySelector 
+                  categories={categories as any}
+                  selectedCategoryIds={selectedCategories}
+                  onSelect={setSelectedCategories}
+                  productInfo={{
+                    title,
+                    description,
+                    imageUrl: item.images[0]
+                  }}
+                  isRtl={isRtl}
+                />
               </div>
             </div>
 
@@ -164,7 +190,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ item, onClos
               <textarea 
                 required
                 rows={4}
-                value={description}
+                value={description || ''}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-primary/50 outline-none resize-none"
               />

@@ -52,6 +52,8 @@ import { DeleteAllCategoriesModal } from '../../../shared/components/DeleteAllCa
 import { CategoryList } from '../../../shared/components/CategoryList';
 import { CategoryManagement } from '../../../shared/components/CategoryManagement';
 import { RequestSkeleton } from '../../../shared/components/Skeleton';
+import { AdminNeuralHub } from '../../admin/components/AdminNeuralHub';
+import HelpCenter from './HelpCenter';
 import { 
   MessageSquare, 
   Plus, 
@@ -92,12 +94,16 @@ import {
   Trash2,
   GripVertical,
   ShieldCheck,
+  BookOpen,
+  FileText,
+  Lock,
   PlusCircle,
   Archive,
   Combine,
   ShoppingBag,
   TrendingUp,
   DollarSign,
+  Cpu,
   Shield,
   LineChart,
   ShieldAlert,
@@ -110,7 +116,10 @@ import {
   RotateCcw,
   Copy,
   Share2,
-  Palette
+  Palette,
+  Wand2,
+  Loader2,
+  BrainCircuit
 } from 'lucide-react';
 import { 
   translateText, 
@@ -128,7 +137,8 @@ import {
   suggestSupplierCategories,
   formatCategoryName,
   suggestCategoryMerges,
-  generateSupplierLogoImage
+  generateSupplierLogoImage,
+  suggestColorHarmony
 } from '../../../core/services/geminiService';
 import { createNotification } from '../../../core/services/notificationService';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
@@ -1098,7 +1108,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [activeRole, setActiveRole] = useState<UserProfile['role'] | null>(null);
   const [isCustomerMode, setIsCustomerMode] = useState(false);
-  const [adminTab, setAdminTab] = useState<'overview' | 'suppliers' | 'users' | 'categories' | 'chats' | 'moderation' | 'settings' | 'market-trends' | 'price-intelligence' | 'user-data' | 'marketing' | 'branding'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'suppliers' | 'users' | 'categories' | 'chats' | 'moderation' | 'settings' | 'market-trends' | 'price-intelligence' | 'user-data' | 'marketing' | 'branding' | 'ai'>('overview');
   const [userSearch, setUserSearch] = useState('');
   const [selectedAdminUser, setSelectedAdminUser] = useState<UserProfile | null>(null);
   
@@ -1286,9 +1296,17 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [heroTitleEn, setHeroTitleEn] = useState('');
   const [heroDescriptionAr, setHeroDescriptionAr] = useState('');
   const [heroDescriptionEn, setHeroDescriptionEn] = useState('');
+  const [logoScale, setLogoScale] = useState(1);
+  const [logoAuraColor, setLogoAuraColor] = useState('#1b97a7');
+  const [showNeuralLogo, setShowNeuralLogo] = useState(true);
+  const [primaryTextColor, setPrimaryTextColor] = useState('#ffffff');
+  const [secondaryTextColor, setSecondaryTextColor] = useState('#94a3b8');
+  const [enableNeuralPulse, setEnableNeuralPulse] = useState(true);
+  const [isHarmonizingColors, setIsHarmonizingColors] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showHelpCenter, setShowHelpCenter] = useState(false);
 
   // Feature Toggles
   const [features, setFeatures] = useState<AppFeatures>(initialFeatures || {
@@ -2041,6 +2059,12 @@ const Dashboard: React.FC<DashboardProps> = ({
         setHeroTitleEn(data.heroTitleEn || '');
         setHeroDescriptionAr(data.heroDescriptionAr || '');
         setHeroDescriptionEn(data.heroDescriptionEn || '');
+        setLogoScale(data.logoScale ?? 1);
+        setLogoAuraColor(data.logoAuraColor || '#1b97a7');
+        setShowNeuralLogo(data.showNeuralLogo ?? true);
+        setPrimaryTextColor(data.primaryTextColor || '#ffffff');
+        setSecondaryTextColor(data.secondaryTextColor || '#94a3b8');
+        setEnableNeuralPulse(data.enableNeuralPulse ?? true);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'settings/site');
@@ -2164,6 +2188,20 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
+  const handleHarmonizeColors = async () => {
+    if (!primaryTextColor) return;
+    setIsHarmonizingColors(true);
+    try {
+      const result = await suggestColorHarmony(primaryTextColor);
+      setSecondaryTextColor(result.secondaryColor);
+      toast.success(i18n.language === 'ar' ? `تم اقتراح لون متناسق: ${result.reason}` : `Suggested harmonious color: ${result.reason}`);
+    } catch (error) {
+      toast.error(i18n.language === 'ar' ? 'فشل اقتراح اللون' : 'Failed to suggest color');
+    } finally {
+      setIsHarmonizingColors(false);
+    }
+  };
+
   const handleUpdateSiteName = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -2175,6 +2213,12 @@ const Dashboard: React.FC<DashboardProps> = ({
         heroDescriptionEn,
         watermarkOpacity,
         watermarkPosition,
+        logoScale,
+        logoAuraColor,
+        showNeuralLogo,
+        primaryTextColor,
+        secondaryTextColor,
+        enableNeuralPulse,
         updatedAt: new Date().toISOString()
       }, { merge: true });
       setSaveSuccess(true);
@@ -3212,6 +3256,12 @@ const Dashboard: React.FC<DashboardProps> = ({
     return (
       <>
         <AnimatePresence>
+          {showHelpCenter && (
+            <HelpCenter 
+              onClose={() => setShowHelpCenter(false)} 
+              isRtl={isRtl} 
+            />
+          )}
           {dashboardError && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
@@ -3262,6 +3312,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 ...(features.priceIntelligence ? [{ id: 'price-intelligence', label: isRtl ? 'ذكاء الأسعار' : 'Price Intelligence', icon: LineChart }] : []),
                 { id: 'moderation', label: isRtl ? 'تنبيهات الإشراف' : 'Moderation Alerts', icon: ShieldAlert, badge: unresolvedAlerts },
                 { id: 'chats', label: isRtl ? 'أرشيف المحادثات' : 'Chat Archive', icon: MessageSquare },
+                { id: 'ai', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu },
                 { id: 'settings', label: isRtl ? 'إعدادات الموقع' : 'Site Settings', icon: Settings },
               ].map((item) => {
                 const Icon = item.icon;
@@ -3332,6 +3383,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   {adminTab === 'price-intelligence' && (isRtl ? 'ذكاء الأسعار' : 'Price Intelligence')}
                   {adminTab === 'user-data' && (isRtl ? 'بيانات المستخدمين' : 'User Data')}
                   {adminTab === 'marketing' && (isRtl ? 'التسويق والانتشار' : 'Marketing & Growth')}
+                  {adminTab === 'ai' && (isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub')}
                   {adminTab === 'settings' && (isRtl ? 'إعدادات الموقع' : 'Site Settings')}
                 </h1>
               </div>
@@ -3819,6 +3871,273 @@ const Dashboard: React.FC<DashboardProps> = ({
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Logo Scale & Aura Color */}
+            <div className="space-y-8 bg-brand-background/30 p-6 rounded-3xl border border-brand-border/50">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-brand-primary/10 rounded-xl text-brand-primary">
+                    <Sparkles size={20} />
+                  </div>
+                  <h4 className="font-black text-brand-text-main uppercase tracking-widest text-xs">
+                    {i18n.language === 'ar' ? 'تخصيص الشعار العصبي' : 'Neural Logo Customization'}
+                  </h4>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-brand-text-muted uppercase tracking-widest">
+                    {showNeuralLogo ? (i18n.language === 'ar' ? 'مفعل' : 'Enabled') : (i18n.language === 'ar' ? 'معطل' : 'Disabled')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      console.log('Toggling showNeuralLogo from', showNeuralLogo, 'to', !showNeuralLogo);
+                      setShowNeuralLogo(!showNeuralLogo);
+                    }}
+                    className={`w-12 h-6 rounded-full transition-all relative ${showNeuralLogo ? 'bg-brand-primary' : 'bg-brand-border'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${showNeuralLogo ? (i18n.language === 'ar' ? 'right-7' : 'left-7') : (i18n.language === 'ar' ? 'right-1' : 'left-1')}`} />
+                  </button>
+                </div>
+              </div>
+
+              <AnimatePresence>
+                {showNeuralLogo && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-4">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <label className="text-xs font-black text-brand-text-main uppercase tracking-widest">
+                            {i18n.language === 'ar' ? 'حجم الشعار' : 'Logo Scale'}
+                          </label>
+                          <span className="text-xs font-mono font-bold text-brand-primary bg-brand-primary/10 px-2 py-1 rounded-lg">
+                            {Math.round(logoScale * 100)}%
+                          </span>
+                        </div>
+                        <input 
+                          type="range"
+                          min="0.5"
+                          max="2"
+                          step="0.1"
+                          value={logoScale}
+                          onChange={e => setLogoScale(parseFloat(e.target.value))}
+                          className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
+                        />
+                        <div className="flex justify-between text-[10px] font-bold text-brand-text-muted uppercase tracking-tighter">
+                          <span>{i18n.language === 'ar' ? 'صغير' : 'Small'}</span>
+                          <span>{i18n.language === 'ar' ? 'طبيعي' : 'Normal'}</span>
+                          <span>{i18n.language === 'ar' ? 'كبير' : 'Large'}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <label className="text-xs font-black text-brand-text-main uppercase tracking-widest block">
+                          {i18n.language === 'ar' ? 'لون الهالة (Aura)' : 'Aura Color'}
+                        </label>
+                        <div className="flex gap-3">
+                          <div 
+                            className="w-12 h-12 rounded-2xl shadow-inner border-2 border-white relative overflow-hidden ring-1 ring-brand-border"
+                            style={{ backgroundColor: logoAuraColor }}
+                          >
+                            <input 
+                              type="color" 
+                              value={logoAuraColor}
+                              onChange={(e) => setLogoAuraColor(e.target.value)}
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <input 
+                              type="text" 
+                              value={logoAuraColor}
+                              onChange={(e) => setLogoAuraColor(e.target.value)}
+                              className="w-full px-4 py-3 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all font-mono text-sm"
+                            />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-brand-text-muted leading-relaxed">
+                          {i18n.language === 'ar' 
+                            ? 'هذا اللون سيستخدم لإنشاء تأثير التوهج العصبي خلف الشعار في الصفحة الرئيسية.' 
+                            : 'This color will be used to create the neural glow effect behind the logo on the home page.'}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Neural Pulse Customization */}
+            <div className="space-y-8 bg-brand-background/30 p-6 rounded-3xl border border-brand-border/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-brand-primary/10 rounded-xl text-brand-primary">
+                    <BrainCircuit size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-brand-text-main uppercase tracking-widest text-xs">
+                      {i18n.language === 'ar' ? 'النبض العصبي (Neural Pulse)' : 'Neural Pulse Intelligence'}
+                    </h4>
+                    <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-tighter">
+                      {i18n.language === 'ar' ? 'تفعيل الذكاء الاصطناعي الاستباقي' : 'Enable Proactive AI Intelligence'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEnableNeuralPulse(!enableNeuralPulse)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    enableNeuralPulse ? 'bg-brand-primary' : 'bg-brand-border'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      enableNeuralPulse ? (i18n.language === 'ar' ? '-translate-x-6' : 'translate-x-6') : (i18n.language === 'ar' ? '-translate-x-1' : 'translate-x-1')
+                    }`}
+                  />
+                </button>
+              </div>
+              
+              <div className="p-4 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
+                <p className="text-[10px] font-bold text-brand-text-muted leading-relaxed flex items-center gap-2">
+                  <Zap size={12} className="text-brand-primary" />
+                  {i18n.language === 'ar' 
+                    ? 'هذه الميزة تتيح للمستخدمين استخدام الكاميرا والموقع والمايك للحصول على اقتراحات توريد ذكية فورية.' 
+                    : 'This feature allows users to use camera, location, and mic for instant smart sourcing suggestions.'}
+                </p>
+              </div>
+            </div>
+
+            {/* User Guide & Policies */}
+            <div className="space-y-8 bg-brand-primary/5 p-8 rounded-[2.5rem] border-2 border-dashed border-brand-primary/20 hover:border-brand-primary/40 transition-all group">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-5">
+                  <div className="w-16 h-16 bg-brand-primary/10 rounded-3xl flex items-center justify-center text-brand-primary shadow-inner group-hover:scale-110 transition-transform">
+                    <BookOpen size={32} />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-black text-brand-text-main tracking-tight">
+                      {i18n.language === 'ar' ? 'دليل المستخدم والسياسات' : 'User Guide & Policies'}
+                    </h4>
+                    <p className="text-brand-text-muted text-xs font-bold uppercase tracking-widest mt-1">
+                      {i18n.language === 'ar' ? 'عرض الدليل الكامل، شروط الاستخدام، وسياسة الخصوصية' : 'View full guide, terms of use, and privacy policy'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowHelpCenter(true)}
+                  className="px-8 py-4 bg-brand-primary text-white rounded-2xl font-black hover:bg-brand-primary-hover transition-all shadow-xl shadow-brand-primary/20 flex items-center gap-3 group/btn"
+                >
+                  <FileText size={20} className="group-hover/btn:rotate-12 transition-transform" />
+                  {i18n.language === 'ar' ? 'فتح مركز المساعدة' : 'Open Help Center'}
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {[
+                  { label: i18n.language === 'ar' ? 'دليل الميزات' : 'Feature Guide', icon: Sparkles },
+                  { label: i18n.language === 'ar' ? 'شروط الاستخدام' : 'Terms of Use', icon: ShieldCheck },
+                  { label: i18n.language === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy', icon: Lock }
+                ].map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2 px-4 py-2 bg-white/50 rounded-xl border border-brand-border/50 text-[10px] font-black uppercase tracking-tighter text-brand-text-muted">
+                    <item.icon size={14} className="text-brand-primary/60" />
+                    {item.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Text Color Customization */}
+            <div className="space-y-8 bg-brand-background/30 p-6 rounded-3xl border border-brand-border/50">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-brand-primary/10 rounded-xl text-brand-primary">
+                  <Palette size={20} />
+                </div>
+                <h4 className="font-black text-brand-text-main uppercase tracking-widest text-xs">
+                  {i18n.language === 'ar' ? 'تخصيص ألوان النصوص' : 'Text Color Customization'}
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <label className="text-xs font-black text-brand-text-main uppercase tracking-widest block">
+                    {i18n.language === 'ar' ? 'اللون الرئيسي للنصوص' : 'Primary Text Color'}
+                  </label>
+                  <div className="flex gap-3">
+                    <div 
+                      className="w-12 h-12 rounded-2xl shadow-inner border-2 border-white relative overflow-hidden ring-1 ring-brand-border"
+                      style={{ backgroundColor: primaryTextColor }}
+                    >
+                      <input 
+                        type="color" 
+                        value={primaryTextColor}
+                        onChange={(e) => setPrimaryTextColor(e.target.value)}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <input 
+                        type="text" 
+                        value={primaryTextColor}
+                        onChange={(e) => setPrimaryTextColor(e.target.value)}
+                        className="w-full px-4 py-3 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-black text-brand-text-main uppercase tracking-widest block">
+                      {i18n.language === 'ar' ? 'اللون الثانوي (المساعد)' : 'Secondary Text Color'}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleHarmonizeColors}
+                      disabled={isHarmonizingColors}
+                      className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-brand-primary hover:text-brand-primary-hover transition-colors disabled:opacity-50"
+                    >
+                      {isHarmonizingColors ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                      {i18n.language === 'ar' ? 'تناسق ذكي' : 'AI Harmony'}
+                    </button>
+                  </div>
+                  <div className="flex gap-3">
+                    <div 
+                      className="w-12 h-12 rounded-2xl shadow-inner border-2 border-white relative overflow-hidden ring-1 ring-brand-border"
+                      style={{ backgroundColor: secondaryTextColor }}
+                    >
+                      <input 
+                        type="color" 
+                        value={secondaryTextColor}
+                        onChange={(e) => setSecondaryTextColor(e.target.value)}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <input 
+                        type="text" 
+                        value={secondaryTextColor}
+                        onChange={(e) => setSecondaryTextColor(e.target.value)}
+                        className="w-full px-4 py-3 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
+                <p className="text-[10px] font-bold text-brand-text-muted leading-relaxed flex items-center gap-2">
+                  <Sparkles size={12} className="text-brand-primary" />
+                  {i18n.language === 'ar' 
+                    ? 'نصيحة: استخدم ميزة "التناسق الذكي" ليقوم الذكاء الاصطناعي باختيار لون ثانوي يتناسب مع لونك الرئيسي ويضمن وضوح القراءة.' 
+                    : 'Tip: Use "AI Harmony" to let the AI pick a secondary color that matches your primary choice while ensuring readability.'}
+                </p>
               </div>
             </div>
 
@@ -5661,6 +5980,12 @@ const Dashboard: React.FC<DashboardProps> = ({
             isRtl={isRtl} 
             t={t} 
           />
+        )}
+
+        {adminTab === 'ai' && (
+          <div className="animate-fade-in">
+            <AdminNeuralHub />
+          </div>
         )}
 
         {/* Merge Categories Modal */}

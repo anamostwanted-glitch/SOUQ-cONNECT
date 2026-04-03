@@ -36,6 +36,7 @@ import { HapticButton } from '../../../shared/components/HapticButton';
 import { RequestSkeleton } from '../../../shared/components/Skeleton';
 import { ProductCard } from '../../marketplace/components/ProductCard';
 import { ProductDetailsModal } from '../../../shared/components/ProductDetailsModal';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 
 import { ProfileSettings } from './ProfileSettings';
 
@@ -141,7 +142,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       setRequests(reqs);
       setIsLoadingRequests(false);
     }, (error) => {
-      console.error("Error fetching user requests:", error);
+      handleFirestoreError(error, OperationType.GET, 'requests');
       setIsLoadingRequests(false);
     });
 

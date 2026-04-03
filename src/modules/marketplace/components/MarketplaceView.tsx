@@ -122,10 +122,14 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
       sellerName: profile.name,
       sellerRole: profile.role,
       title: itemData.title || '',
+      titleAr: itemData.titleAr || '',
+      titleEn: itemData.titleEn || '',
       description: itemData.description || '',
+      descriptionAr: itemData.descriptionAr || '',
+      descriptionEn: itemData.descriptionEn || '',
       price: itemData.price || 0,
       currency: t('currency'),
-      category: itemData.category || '',
+      categories: itemData.categories || [],
       location: itemData.location || '',
       images: itemData.images || ['https://picsum.photos/seed/product/800/600'],
       status: 'active',
@@ -147,10 +151,14 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
         sellerName: newItemData.sellerName,
         sellerRole: newItemData.sellerRole,
         title: newItemData.title,
+        titleAr: newItemData.titleAr,
+        titleEn: newItemData.titleEn,
         description: newItemData.description,
+        descriptionAr: newItemData.descriptionAr,
+        descriptionEn: newItemData.descriptionEn,
         price: newItemData.price,
         currency: newItemData.currency,
-        category: newItemData.category,
+        categories: newItemData.categories,
         location: newItemData.location,
         images: newItemData.images,
         status: newItemData.status,
@@ -173,12 +181,14 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
     if (item.sellerId === auth.currentUser.uid) return;
 
     const chatId = [auth.currentUser.uid, item.sellerId].sort().join('_');
+    const isRtl = i18n.language.startsWith('ar');
+    const displayTitle = isRtl ? (item.titleAr || item.title) : (item.titleEn || item.title);
     
     try {
       const chatRef = doc(db, 'chats', chatId);
       await updateDoc(chatRef, {
         updatedAt: new Date().toISOString(),
-        lastMessage: `${t('marketplace')}: ${item.title}`
+        lastMessage: `${t('marketplace')}: ${displayTitle}`
       }).catch(async () => {
         const { setDoc } = await import('firebase/firestore');
         await setDoc(chatRef, {
@@ -186,7 +196,7 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
           customerId: auth.currentUser?.uid,
           supplierId: item.sellerId,
           updatedAt: new Date().toISOString(),
-          lastMessage: `${t('marketplace')}: ${item.title}`,
+          lastMessage: `${t('marketplace')}: ${displayTitle}`,
           status: 'active'
         });
       });
@@ -194,7 +204,7 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
       await addDoc(collection(db, `chats/${chatId}/messages`), {
         chatId,
         senderId: auth.currentUser.uid,
-        text: `${t('contact_seller')} - ${item.title}\n${window.location.origin}/marketplace/${item.id}`,
+        text: `${t('contact_seller')} - ${displayTitle}\n${window.location.origin}/marketplace/${item.id}`,
         type: 'text',
         createdAt: new Date().toISOString()
       });
@@ -235,8 +245,14 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
   const filteredItems = visualSearchResults 
     ? visualSearchResults 
     : items.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         item.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = 
+      item.title.toLowerCase().includes(searchLower) || 
+      item.description.toLowerCase().includes(searchLower) ||
+      (item.titleAr && item.titleAr.toLowerCase().includes(searchLower)) ||
+      (item.titleEn && item.titleEn.toLowerCase().includes(searchLower)) ||
+      (item.descriptionAr && item.descriptionAr.toLowerCase().includes(searchLower)) ||
+      (item.descriptionEn && item.descriptionEn.toLowerCase().includes(searchLower));
     
     let matchesCategory = true;
     if (selectedCategories.length > 0) {
@@ -245,7 +261,7 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
         .map(cat => cat.id);
       
       const allValidIds = [...selectedCategories, ...subCategoryIds];
-      matchesCategory = allValidIds.includes(item.category);
+      matchesCategory = allValidIds.some(id => item.categories.includes(id));
     }
 
     return matchesSearch && matchesCategory;
@@ -465,7 +481,7 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
                 <BlurImage 
                   layoutId={`item-image-${item.id}`}
                   src={item.images[0]} 
-                  alt={item.title}
+                  alt={i18n.language.startsWith('ar') ? (item.titleAr || item.title) : (item.titleEn || item.title)}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                 />
                 
@@ -508,9 +524,11 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
               <div className="p-6">
                 <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-2 font-black uppercase tracking-widest">
                   <Tag className="w-4 h-4" />
-                  <span>{item.category}</span>
+                  <span>{item.categories && item.categories.length > 0 ? item.categories.join(', ') : 'N/A'}</span>
                 </div>
-                <h3 className="text-xl font-black text-slate-800 mb-2 line-clamp-1 group-hover:text-brand-primary transition-colors">{item.title}</h3>
+                <h3 className="text-xl font-black text-slate-800 mb-2 line-clamp-1 group-hover:text-brand-primary transition-colors">
+                  {i18n.language.startsWith('ar') ? (item.titleAr || item.title) : (item.titleEn || item.title)}
+                </h3>
                 <div className="flex items-center gap-2 text-sm text-slate-500 mb-6 font-medium">
                   <MapPin className="w-4 h-4 text-brand-primary" />
                   <span>{item.location || 'N/A'}</span>
@@ -547,7 +565,7 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
                         </motion.button>
                         <WhatsAppButton 
                           phoneNumber={item.sellerPhone} 
-                          productName={item.title}
+                          productName={i18n.language.startsWith('ar') ? (item.titleAr || item.title) : (item.titleEn || item.title)}
                           productId={item.id}
                           variant="icon"
                         />
@@ -652,6 +670,11 @@ export default function MarketplaceView({ profile, features, onOpenChat, onViewP
               </HapticButton>
             </div>
             <SmartCategoryExplorer 
+              categories={categories}
+              onVisualSearch={() => {
+                setShowSmartCategories(false);
+                setShowVisualSearch(true);
+              }}
               onSelectCategory={(categoryId, subcategoryId) => {
                 // For now, we map the mock IDs to real category logic or just close and show all if not found
                 // In a real app, we'd map this to the actual selectedCategories state

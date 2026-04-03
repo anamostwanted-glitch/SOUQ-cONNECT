@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { UserProfile, BrandingPreferences } from '../types';
+import { handleFirestoreError, OperationType } from '../utils/errorHandling';
 
 interface BrandingContextType {
   branding: BrandingPreferences | null;
@@ -91,46 +92,45 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [isDarkMode]);
 
   useEffect(() => {
-    let unsubscribeUser: () => void;
-    
-    // First, listen to global site settings
+    // Listen to global site settings
     const unsubscribeGlobal = onSnapshot(doc(db, 'settings', 'site'), (siteDoc) => {
-      const globalBranding = siteDoc.exists() && siteDoc.data().branding ? siteDoc.data().branding : DEFAULT_BRANDING;
-      
-      // Then listen to user-specific settings
-      const unsubscribeAuth = auth.onAuthStateChanged((user) => {
-        if (user) {
-          if (unsubscribeUser) unsubscribeUser();
-          unsubscribeUser = onSnapshot(doc(db, 'users', user.uid), (userDoc) => {
-            if (userDoc.exists()) {
-              const data = userDoc.data() as UserProfile;
-              if (data.branding) {
-                setBranding(data.branding);
-              } else {
-                setBranding(globalBranding);
-              }
-            } else {
-              setBranding(globalBranding);
-            }
-          }, (error) => {
-            console.error('BrandingProvider Firestore Error:', error);
-            setBranding(globalBranding);
-          });
-        } else {
-          setBranding(globalBranding);
-        }
-      });
-      
-      return () => {
-        unsubscribeAuth();
-        if (unsubscribeUser) unsubscribeUser();
-      };
+      if (siteDoc.exists() && siteDoc.data().branding) {
+        setBranding(prev => ({ ...prev, ...siteDoc.data().branding }));
+      }
     }, (error) => {
-      console.error('BrandingProvider Global Settings Error:', error);
+      handleFirestoreError(error, OperationType.GET, 'settings/site');
+    });
+
+    return () => unsubscribeGlobal();
+  }, []);
+
+  useEffect(() => {
+    let unsubscribeUser: (() => void) | undefined;
+
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      if (user) {
+        if (unsubscribeUser) unsubscribeUser();
+        unsubscribeUser = onSnapshot(doc(db, 'users', user.uid), (userDoc) => {
+          if (userDoc.exists()) {
+            const data = userDoc.data() as UserProfile;
+            if (data.branding) {
+              setBranding(data.branding);
+            }
+          }
+        }, (error) => {
+          handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+        });
+      } else {
+        if (unsubscribeUser) {
+          unsubscribeUser();
+          unsubscribeUser = undefined;
+        }
+      }
     });
 
     return () => {
-      unsubscribeGlobal();
+      unsubscribeAuth();
+      if (unsubscribeUser) unsubscribeUser();
     };
   }, []);
 

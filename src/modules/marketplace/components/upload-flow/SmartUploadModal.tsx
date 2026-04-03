@@ -1,13 +1,13 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
-import { X, UploadCloud, Camera, CheckCircle, AlertCircle, Loader2, Sparkles, Wifi, WifiOff, Wand2 } from 'lucide-react';
+import { X, UploadCloud, Camera, CheckCircle, AlertCircle, Loader2, Sparkles, Wifi, WifiOff, Wand2, MapPin, Phone, Tag, Plus, Trash2 } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../../../../core/utils/errorHandling';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '../../../../core/firebase';
 import { UserProfile, MarketplaceItem } from '../../../../core/types';
 import { HapticButton } from '../../../../shared/components/HapticButton';
-import { handleFirestoreError, OperationType } from '../../../../core/utils/errorHandling';
 
 import { ImageFile, UploadStatus } from './ImageThumbnail';
 import { DraggableGrid } from './DraggableGrid';
@@ -15,6 +15,8 @@ import { useNetworkAwareness } from '../../hooks/useNetworkAwareness';
 import { useSmartCompression } from '../../hooks/useSmartCompression';
 import { analyzeProductImage, AIProductSuggestion, generateAlternativeProductImage } from '../../services/aiProductAnalyzer';
 import { processImageTo4x5WithWatermark } from '../../../../core/utils/imageManipulation';
+import { AINeuralCategorySelector } from '../../../../shared/components/AINeuralCategorySelector';
+import { translateText } from '../../../../core/services/geminiService';
 
 interface SmartUploadModalProps {
   onClose: () => void;
@@ -25,7 +27,7 @@ interface SmartUploadModalProps {
 
 export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onAdd, categories, profile }) => {
   const { t, i18n } = useTranslation();
-  const isRtl = i18n.language === 'ar';
+  const isRtl = i18n.language.startsWith('ar');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -35,6 +37,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<AIProductSuggestion | null>(null);
+  const [bilingualContent, setBilingualContent] = useState({ titleAr: '', titleEn: '', descriptionAr: '', descriptionEn: '', keywordsAr: [] as string[], keywordsEn: [] as string[] });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [watermarkUrl, setWatermarkUrl] = useState<string | undefined>();
@@ -44,8 +47,11 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
       if (snap.exists()) {
-        setWatermarkUrl(snap.data().watermarkUrl);
+        const data = snap.data();
+        setWatermarkUrl(data.watermarkUrl || data.watermarkLogoUrl);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'settings/site');
     });
     return () => unsub();
   }, []);
@@ -54,15 +60,62 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isHighQuality, setIsHighQuality] = useState(false);
   const [features, setFeatures] = useState<string[]>([]);
+  const [classification, setClassification] = useState('');
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [location, setLocation] = useState(profile.location || '');
+  const [phone, setPhone] = useState(profile.phone || '');
+  const [isLocating, setIsLocating] = useState(false);
+  const [featureInput, setFeatureInput] = useState('');
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      setErrorMessage(isRtl ? 'المتصفح لا يدعم تحديد الموقع' : 'Geolocation is not supported by your browser');
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=${i18n.language}`);
+          const data = await response.json();
+          const city = data.address.city || data.address.town || data.address.village || data.address.suburb || '';
+          const country = data.address.country || '';
+          setLocation(city && country ? `${city}, ${country}` : city || country || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`);
+        } catch (err) {
+          console.error('Location error:', err);
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (err) => {
+        console.error('Geolocation error:', err);
+        setIsLocating(false);
+        setErrorMessage(isRtl ? 'فشل تحديد الموقع. يرجى إدخاله يدوياً.' : 'Failed to get location. Please enter it manually.');
+      }
+    );
+  };
+
+  const addFeature = () => {
+    if (featureInput.trim() && !features.includes(featureInput.trim())) {
+      setFeatures([...features, featureInput.trim()]);
+      setFeatureInput('');
+    }
+  };
+
+  const removeFeature = (index: number) => {
+    setFeatures(features.filter((_, i) => i !== index));
+  };
+
   const handleGenerateAlternativeImage = async () => {
-    if (images.length === 0 || !title || !category) return;
+    if (images.length === 0 || !title || selectedCategories.length === 0) return;
     
     setIsGeneratingImage(true);
     try {
@@ -72,7 +125,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
       reader.readAsDataURL(mainImage.file);
       reader.onloadend = async () => {
         const base64data = reader.result as string;
-        const catName = categories.find(c => c.id === category)?.nameEn || category;
+        const catName = categories.find(c => c.id === selectedCategories[0])?.nameEn || selectedCategories[0];
         
         try {
           const newImageDataUrl = await generateAlternativeProductImage(base64data, mainImage.file.type, title, catName);
@@ -141,15 +194,18 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
       isMain: images.length === 0 && index === 0, // First image is main if none exist
     }));
 
+    const wasEmpty = images.length === 0;
     setImages(prev => [...prev, ...newImages]);
 
     // Process each image sequentially or in parallel based on network
-    for (const img of newImages) {
-      await processSingleImage(img.id, img.file);
+    for (let i = 0; i < newImages.length; i++) {
+      const img = newImages[i];
+      const isMain = wasEmpty && i === 0;
+      await processSingleImage(img.id, img.file, isMain);
     }
   };
 
-  const processSingleImage = async (id: string, file: File) => {
+  const processSingleImage = async (id: string, file: File, isMain: boolean = false) => {
     // 1. Compress
     updateImageStatus(id, 'compressing');
     const compressedFile = await compressImage(file, networkStatus);
@@ -162,9 +218,6 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
     setImages(prev => prev.map(img => img.id === id ? { ...img, file: processedFile, previewUrl: URL.createObjectURL(processedFile) } : img));
     
     // 3. Analyze if it's the main image and we don't have suggestions yet
-    const currentImages = [...images];
-    const isMain = currentImages.length === 0 || currentImages[0].id === id;
-    
     if (isMain && !aiSuggestion && !isAnalyzing && !aiQuotaExhausted) {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       
@@ -181,12 +234,35 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
             
             if (suggestion) {
               setAiSuggestion(suggestion);
-              setTitle(suggestion.title);
-              setDescription(suggestion.description);
-              setCategory(categories.find(c => c.nameEn.toLowerCase() === suggestion.category.toLowerCase())?.id || categories[0]?.id || '');
-              setPrice(suggestion.priceEstimate.toString());
+              
+              // Set title and description based on current language, fallback to other if empty
+              const suggestedTitle = isRtl 
+                ? (suggestion.productNameAr || suggestion.productNameEn) 
+                : (suggestion.productNameEn || suggestion.productNameAr);
+              
+              const suggestedDesc = isRtl 
+                ? (suggestion.descriptionAr || suggestion.descriptionEn) 
+                : (suggestion.descriptionEn || suggestion.descriptionAr);
+
+              // Only set if currently empty to avoid overwriting user edits
+              if (!title) setTitle(suggestedTitle || '');
+              if (!description) setDescription(suggestedDesc || '');
+              
+              // Store bilingual content for later use
+              setBilingualContent({
+                titleAr: suggestion.productNameAr || '',
+                titleEn: suggestion.productNameEn || '',
+                descriptionAr: suggestion.descriptionAr || '',
+                descriptionEn: suggestion.descriptionEn || '',
+                keywordsAr: suggestion.keywordsAr || [],
+                keywordsEn: suggestion.keywordsEn || []
+              });
+              
+              const cat = categories.find(c => c.nameEn.toLowerCase() === suggestion.category?.toLowerCase());
+              if (cat && selectedCategories.length === 0) setSelectedCategories([cat.id]);
+              if (!price) setPrice(suggestion.priceEstimate?.toString() || '');
               setIsHighQuality(suggestion.isHighQuality);
-              setFeatures(suggestion.features);
+              if (features.length === 0) setFeatures(suggestion.features || []);
             }
           } catch (error: any) {
             if (error.message === 'QUOTA_EXHAUSTED') {
@@ -259,10 +335,58 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth.currentUser || images.length === 0) return;
+    if (!auth.currentUser) return;
+    
+    if (images.length === 0) {
+      setErrorMessage(isRtl ? 'يرجى إضافة صورة واحدة على الأقل.' : 'Please add at least one image.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
+      // AI Translation
+      let titleAr = '';
+      let titleEn = '';
+      let descriptionAr = '';
+      let descriptionEn = '';
+
+      if (aiSuggestion && bilingualContent.titleAr) {
+        titleAr = bilingualContent.titleAr;
+        titleEn = bilingualContent.titleEn;
+        descriptionAr = bilingualContent.descriptionAr;
+        descriptionEn = bilingualContent.descriptionEn;
+      } else if (i18n.language.startsWith('ar')) {
+        titleAr = title;
+        descriptionAr = description;
+        try {
+          const [tTitle, tDesc] = await Promise.all([
+            translateText(title, 'en'),
+            translateText(description, 'en')
+          ]);
+          titleEn = tTitle;
+          descriptionEn = tDesc;
+        } catch (e) {
+          console.error('Translation error:', e);
+          titleEn = title;
+          descriptionEn = description;
+        }
+      } else {
+        titleEn = title;
+        descriptionEn = description;
+        try {
+          const [tTitle, tDesc] = await Promise.all([
+            translateText(title, 'ar'),
+            translateText(description, 'ar')
+          ]);
+          titleAr = tTitle;
+          descriptionAr = tDesc;
+        } catch (e) {
+          console.error('Translation error:', e);
+          titleAr = title;
+          descriptionAr = description;
+        }
+      }
+
       // 1. Create initial document
       const docRef = await addDoc(collection(db, 'marketplace'), {
         sellerId: auth.currentUser.uid,
@@ -270,17 +394,22 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
         sellerRole: profile.role,
         title,
         description,
+        titleAr,
+        titleEn,
+        descriptionAr,
+        descriptionEn,
         price: Number(price),
         currency: t('currency'),
-        category,
-        location: profile.location || '',
+        categories: selectedCategories,
+        location: location || profile.location || '',
         status: 'active',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         isVerifiedSupplier: profile.isVerified || false,
-        sellerPhone: profile.phone || '',
+        sellerPhone: phone || profile.phone || '',
         isHighQuality,
         features,
+        classification,
         images: [] // Will update after upload
       });
 
@@ -303,13 +432,20 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const glassClass = "bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/20 dark:border-slate-700/50 shadow-2xl";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className={`w-full max-w-4xl h-full sm:h-[90vh] sm:rounded-3xl overflow-hidden flex flex-col ${glassClass}`}
-      >
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm"
+      onClick={(e) => {
+        // Strictly prevent closure on backdrop click to avoid unexpected disappearance
+        e.stopPropagation();
+      }}
+    >
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          onClick={(e) => e.stopPropagation()}
+          className={`w-full max-w-4xl h-full sm:h-[90vh] sm:rounded-3xl overflow-hidden flex flex-col ${glassClass}`}
+        >
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200/50 dark:border-slate-700/50">
           <div className="flex items-center gap-3">
@@ -459,33 +595,38 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
             />
 
             {/* AI Image Generation Button */}
-            {images.length > 0 && title && category && (
-              <div className="mt-4">
-                <HapticButton
-                  type="button"
-                  onClick={handleGenerateAlternativeImage}
-                  disabled={isGeneratingImage}
-                  className="w-full py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isGeneratingImage ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      {isRtl ? 'جاري توليد صورة احترافية...' : 'Generating Professional Image...'}
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 size={18} />
-                      {isRtl ? 'توليد صورة احترافية بالذكاء الاصطناعي' : 'Generate Professional Image with AI'}
-                    </>
-                  )}
-                </HapticButton>
-                <p className="text-xs text-slate-500 mt-2 text-center">
+            <div className="mt-4">
+              <HapticButton
+                type="button"
+                onClick={handleGenerateAlternativeImage}
+                disabled={isGeneratingImage || images.length === 0 || !title || selectedCategories.length === 0}
+                className="w-full py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale"
+              >
+                {isGeneratingImage ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    {isRtl ? 'جاري توليد صورة احترافية...' : 'Generating Professional Image...'}
+                  </>
+                ) : (
+                  <>
+                    <Wand2 size={18} />
+                    {isRtl ? 'توليد صورة احترافية بالذكاء الاصطناعي' : 'Generate Professional Image with AI'}
+                  </>
+                )}
+              </HapticButton>
+              {(!title || selectedCategories.length === 0) && images.length > 0 && (
+                <p className="text-[10px] text-amber-500 mt-2 text-center font-bold">
                   {isRtl 
-                    ? 'سيقوم الذكاء الاصطناعي بإنشاء صورة بديلة احترافية بناءً على الصورة المرفقة واسم المنتج.' 
-                    : 'AI will generate a professional alternative image based on the uploaded photo and product title.'}
+                    ? 'يرجى كتابة اسم المنتج واختيار الفئة لتفعيل توليد الصور.' 
+                    : 'Please enter product title and select category to enable image generation.'}
                 </p>
-              </div>
-            )}
+              )}
+              <p className="text-[10px] text-slate-500 mt-1 text-center">
+                {isRtl 
+                  ? 'سيقوم الذكاء الاصطناعي بإنشاء صورة بديلة احترافية بناءً على الصورة المرفقة واسم المنتج.' 
+                  : 'AI will generate a professional alternative image based on the uploaded photo and product title.'}
+              </p>
+            </div>
           </div>
 
           {/* Right Side: Form & AI Suggestions */}
@@ -547,14 +688,24 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
                   {isRtl ? 'اسم المنتج' : 'Product Title'}
                 </label>
-                <input 
-                  required
-                  type="text" 
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-primary/50 outline-none"
-                  placeholder={isRtl ? 'مثال: حذاء رياضي نايك' : 'e.g., Nike Running Shoes'}
-                />
+                <div className="relative">
+                  <input 
+                    required
+                    type="text" 
+                    value={title || ''}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-primary/50 outline-none"
+                    placeholder={isRtl ? 'مثال: حذاء رياضي نايك' : 'e.g., Nike Running Shoes'}
+                  />
+                  {isAnalyzing && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                      <Loader2 size={16} className="animate-spin text-brand-primary" />
+                      <span className="text-[10px] font-bold text-brand-primary animate-pulse">
+                        {isRtl ? 'جاري التحليل...' : 'Analyzing...'}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -566,7 +717,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                     <input 
                       required
                       type="number" 
-                      value={price}
+                      value={price || ''}
                       onChange={(e) => setPrice(e.target.value)}
                       className={`w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-3 ${isRtl ? 'pl-4 pr-10' : 'pr-4 pl-10'} focus:ring-2 focus:ring-brand-primary/50 outline-none`}
                       placeholder="0.00"
@@ -580,19 +731,17 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
                     {isRtl ? 'الفئة' : 'Category'}
                   </label>
-                  <select 
-                    required
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-primary/50 outline-none appearance-none"
-                  >
-                    <option value="" disabled>{isRtl ? 'اختر الفئة' : 'Select Category'}</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>
-                        {isRtl ? cat.nameAr : cat.nameEn}
-                      </option>
-                    ))}
-                  </select>
+                  <AINeuralCategorySelector 
+                    categories={categories}
+                    selectedCategoryIds={selectedCategories}
+                    onSelect={setSelectedCategories}
+                    productInfo={{
+                      title,
+                      description,
+                      imageUrl: images[0]?.previewUrl
+                    }}
+                    isRtl={isRtl}
+                  />
                 </div>
               </div>
 
@@ -603,11 +752,118 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                 <textarea 
                   required
                   rows={4}
-                  value={description}
+                  value={description || ''}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-primary/50 outline-none resize-none"
                   placeholder={isRtl ? 'اكتب وصفاً جذاباً لمنتجك...' : 'Write an appealing description...'}
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {isRtl ? 'رقم الهاتف' : 'Phone Number'}
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="tel" 
+                      value={phone || ''}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className={`w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-3 ${isRtl ? 'pl-4 pr-10' : 'pr-4 pl-10'} focus:ring-2 focus:ring-brand-primary/50 outline-none`}
+                      placeholder="+966..."
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {isRtl ? 'الموقع' : 'Location'}
+                  </label>
+                  <div className="relative">
+                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="text" 
+                      value={location || ''}
+                      onChange={(e) => setLocation(e.target.value)}
+                      className={`w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-3 ${isRtl ? 'pl-12 pr-10' : 'pr-12 pl-10'} focus:ring-2 focus:ring-brand-primary/50 outline-none`}
+                      placeholder={isRtl ? 'المدينة، الدولة' : 'City, Country'}
+                    />
+                    <button 
+                      type="button"
+                      onClick={handleGetLocation}
+                      className={`absolute top-1/2 -translate-y-1/2 ${isRtl ? 'left-2' : 'right-2'} p-2 text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors`}
+                    >
+                      {isLocating ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {isRtl ? 'التصنيف' : 'Classification'}
+                </label>
+                <input 
+                  type="text" 
+                  value={classification}
+                  onChange={(e) => setClassification(e.target.value)}
+                  className="w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-primary/50 outline-none"
+                  placeholder={isRtl ? 'جديد، مستعمل، إلخ...' : 'New, Used, etc...'}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {isRtl ? 'المميزات' : 'Features'}
+                </label>
+                <div className="flex gap-2 mb-2">
+                  <input 
+                    type="text" 
+                    value={featureInput}
+                    onChange={(e) => setFeatureInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
+                    className="flex-1 bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-brand-primary/50 outline-none"
+                    placeholder={isRtl ? 'أضف ميزة...' : 'Add a feature...'}
+                  />
+                  <button 
+                    type="button"
+                    onClick={addFeature}
+                    className="p-2 bg-brand-primary text-white rounded-xl hover:bg-brand-primary-hover transition-colors"
+                  >
+                    <Plus size={20} />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {features.map((feature, index) => (
+                    <span key={index} className="flex items-center gap-1 px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-xs font-bold">
+                      {feature}
+                      <button type="button" onClick={() => removeFeature(index)} className="hover:text-red-500">
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 p-4 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
+                <div className="p-2 bg-brand-primary/10 rounded-xl text-brand-primary">
+                  <Sparkles size={20} />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-white">
+                    {isRtl ? 'منتج عالي الجودة' : 'High Quality Product'}
+                  </h4>
+                  <p className="text-[10px] text-slate-500">
+                    {isRtl ? 'سيظهر هذا المنتج في قسم المنتجات المميزة' : 'This product will appear in the featured products section'}
+                  </p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setIsHighQuality(!isHighQuality)}
+                  className={`w-12 h-6 rounded-full transition-colors relative ${isHighQuality ? 'bg-brand-primary' : 'bg-slate-300'}`}
+                >
+                  <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${isHighQuality ? 'translate-x-6' : ''}`} />
+                </button>
               </div>
 
             </form>

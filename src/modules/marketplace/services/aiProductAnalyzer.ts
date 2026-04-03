@@ -1,8 +1,12 @@
 import { GoogleGenAI, Type } from '@google/genai';
 
 export interface AIProductSuggestion {
-  title: string;
-  description: string;
+  productNameAr: string;
+  descriptionAr: string;
+  productNameEn: string;
+  descriptionEn: string;
+  keywordsAr: string[];
+  keywordsEn: string[];
   category: string;
   priceEstimate: number;
   isHighQuality: boolean;
@@ -35,7 +39,7 @@ export async function analyzeProductImage(base64Image: string, mimeType: string)
         contents: {
           parts: [
             { inlineData: { data: base64Data, mimeType: mimeType } },
-            { text: 'Analyze this product image for a marketplace listing. Provide a catchy title, a detailed description, the most appropriate category, an estimated price in USD, whether the image is high quality (well-lit, clear, professional), and a list of key features.' },
+            { text: 'Analyze this product image for a marketplace listing. Provide catchy titles and detailed descriptions in both Arabic and English. Also provide keywords in both languages, the most appropriate category (in English), an estimated price in USD, whether the image is high quality (well-lit, clear, professional), and a list of key features.' },
           ],
         },
         config: {
@@ -43,14 +47,18 @@ export async function analyzeProductImage(base64Image: string, mimeType: string)
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              title: { type: Type.STRING },
-              description: { type: Type.STRING },
+              productNameAr: { type: Type.STRING },
+              descriptionAr: { type: Type.STRING },
+              productNameEn: { type: Type.STRING },
+              descriptionEn: { type: Type.STRING },
+              keywordsAr: { type: Type.ARRAY, items: { type: Type.STRING } },
+              keywordsEn: { type: Type.ARRAY, items: { type: Type.STRING } },
               category: { type: Type.STRING },
               priceEstimate: { type: Type.NUMBER },
               isHighQuality: { type: Type.BOOLEAN },
               features: { type: Type.ARRAY, items: { type: Type.STRING } },
             },
-            required: ['title', 'description', 'category', 'priceEstimate', 'isHighQuality', 'features'],
+            required: ['productNameAr', 'descriptionAr', 'productNameEn', 'descriptionEn', 'category', 'priceEstimate', 'isHighQuality', 'features'],
           },
         },
       });

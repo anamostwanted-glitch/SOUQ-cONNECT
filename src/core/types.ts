@@ -216,12 +216,16 @@ export interface MarketplaceItem {
   sellerName: string;
   sellerRole: UserRole;
   title: string;
+  titleAr?: string;
+  titleEn?: string;
   description: string;
+  descriptionAr?: string;
+  descriptionEn?: string;
   price: number;
   currency: string;
-  category: string;
+  categories: string[];
   images: string[];
-  status: 'active' | 'sold' | 'hidden' | 'deleted';
+  status: 'active' | 'sold' | 'hidden' | 'deleted' | 'draft';
   location?: string;
   createdAt: string;
   updatedAt: string;
@@ -264,4 +268,23 @@ export interface SiteSettings {
   ctaButtonAr?: string;
   ctaButtonEn?: string;
   lastUpdated?: string;
+  logoScale?: number;
+  logoAuraColor?: string;
+  showNeuralLogo?: boolean;
+  primaryTextColor?: string;
+  secondaryTextColor?: string;
+  enableNeuralPulse?: boolean;
+}
+
+export interface GeminiApiKey {
+  id: string;
+  key: string;
+  label: string;
+  status: 'active' | 'error' | 'testing' | 'disabled';
+  latency?: number;
+  modelType?: string;
+  isPaid?: boolean;
+  lastTested?: string;
+  usageCount?: number;
+  createdAt: string;
 }

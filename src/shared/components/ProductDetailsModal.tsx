@@ -46,10 +46,18 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   onViewProfile
 }) => {
   const { t, i18n } = useTranslation();
-  const isRtl = i18n.language === 'ar';
+  const isRtl = i18n.language.startsWith('ar');
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
   const [isFavorite, setIsFavorite] = React.useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = React.useState(false);
+
+  const displayTitle = isRtl 
+    ? (item?.titleAr || item?.title) 
+    : (item?.titleEn || item?.title);
+  
+  const displayDescription = isRtl 
+    ? (item?.descriptionAr || item?.description) 
+    : (item?.descriptionEn || item?.description);
 
   React.useEffect(() => {
     const checkFavoriteStatus = async () => {
@@ -96,8 +104,8 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
     if (!item) return;
     
     const shareData = {
-      title: item.title,
-      text: item.description,
+      title: displayTitle || '',
+      text: displayDescription || '',
       url: `${window.location.origin}?product=${item.id}`
     };
 
@@ -139,7 +147,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                 <motion.img 
                   key={currentImageIndex}
                   src={item.images[currentImageIndex]} 
-                  alt={item.title}
+                  alt={displayTitle}
                   initial={{ opacity: 0, scale: 1.1 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
@@ -197,7 +205,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           <div className="w-full md:w-2/5 p-6 sm:p-10 overflow-y-auto flex flex-col">
             <div className="flex items-center justify-between mb-6">
               <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-xs font-bold uppercase tracking-widest">
-                {item.category}
+                {item.categories && item.categories.length > 0 ? item.categories[0] : ''}
               </span>
               <div className="flex gap-2">
                 <button 
@@ -225,7 +233,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
               </div>
             </div>
 
-            <h1 className="text-3xl font-bold text-slate-900 mb-2 leading-tight">{item.title}</h1>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2 leading-tight">{displayTitle}</h1>
             <div className="text-4xl font-black text-brand-primary mb-8 flex items-baseline gap-2">
               {item.price}
               <span className="text-lg font-bold text-slate-400">{item.currency}</span>
@@ -239,7 +247,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                   {t('item_description', 'Description')}
                 </h4>
                 <p className="text-slate-600 leading-relaxed text-sm sm:text-base">
-                  {item.description}
+                  {displayDescription}
                 </p>
               </div>
 
@@ -324,7 +332,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                 
                 <WhatsAppButton 
                   phoneNumber={item.sellerPhone}
-                  productName={item.title}
+                  productName={displayTitle}
                   productId={item.id}
                   variant="full"
                 />

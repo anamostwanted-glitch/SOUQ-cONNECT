@@ -26,8 +26,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isAdmin
 }) => {
   const { t, i18n } = useTranslation();
-  const isRtl = i18n.language === 'ar';
+  const isRtl = i18n.language.startsWith('ar');
   const [showMenu, setShowMenu] = useState(false);
+
+  const displayTitle = isRtl 
+    ? (item.titleAr || item.title) 
+    : (item.titleEn || item.title);
+  
+  const displayDescription = isRtl 
+    ? (item.descriptionAr || item.description) 
+    : (item.descriptionEn || item.description);
 
   const mainImage = item.images && item.images.length > 0 
     ? item.images[0] 
@@ -49,7 +57,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
         <BlurImage 
           src={mainImage}
-          alt={item.title}
+          alt={displayTitle}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
         
@@ -130,10 +138,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <div className="flex justify-between items-start gap-2 mb-2">
           <div className="flex-1 min-w-0">
             <span className="inline-block px-2 py-0.5 rounded-md bg-brand-primary/10 text-brand-primary text-[10px] font-bold mb-1.5 uppercase tracking-wider">
-              {item.category}
+              {item.categories && item.categories.length > 0 ? item.categories[0] : ''}
             </span>
             <h3 className="text-brand-text-main font-bold text-base leading-tight truncate group-hover:text-brand-primary transition-colors">
-              {item.title}
+              {displayTitle}
             </h3>
           </div>
           <div className="text-right shrink-0">
@@ -181,7 +189,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           
           <WhatsAppButton 
             phoneNumber={item.sellerPhone || ''}
-            productName={item.title}
+            productName={displayTitle}
             productId={item.id}
             className="w-9 h-9 !p-0 rounded-full flex items-center justify-center"
           />

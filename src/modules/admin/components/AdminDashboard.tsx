@@ -13,15 +13,18 @@ import {
   MessageSquare,
   Activity,
   Building2,
-  Globe
+  Globe,
+  Cpu
 } from 'lucide-react';
 import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { db } from '../../../core/firebase';
 import { UserProfile, AppFeatures, ProductRequest, Category } from '../../../core/types';
 import { CategoryManagement } from '../../../shared/components/CategoryManagement';
 import { KeywordManagerModal } from '../../../shared/components/KeywordManagerModal';
 import BrandingSettings from '../../site/components/BrandingSettings';
 import { SiteSettingsManager } from './SiteSettingsManager';
+import { AdminNeuralHub } from './AdminNeuralHub';
 import { toast } from 'sonner';
 
 interface AdminDashboardProps {
@@ -137,18 +140,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const fetchedUsers: UserProfile[] = [];
       snap.forEach(doc => fetchedUsers.push({ uid: doc.id, ...doc.data() } as UserProfile));
       setUsers(fetchedUsers);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users');
     });
 
     const unsubscribeRequests = onSnapshot(collection(db, 'requests'), (snap) => {
       const fetchedRequests: ProductRequest[] = [];
       snap.forEach(doc => fetchedRequests.push({ id: doc.id, ...doc.data() } as ProductRequest));
       setRequests(fetchedRequests);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'requests');
     });
 
     const unsubscribeCategories = onSnapshot(collection(db, 'categories'), (snap) => {
       const fetchedCategories: Category[] = [];
       snap.forEach(doc => fetchedCategories.push({ id: doc.id, ...doc.data() } as Category));
       setCategories(fetchedCategories);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'categories');
     });
 
     setLoading(false);
@@ -181,6 +190,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'users', label: isRtl ? 'المستخدمين' : 'Users', icon: Users },
     { id: 'categories', label: isRtl ? 'الأقسام' : 'Categories', icon: ListTree },
     { id: 'site', label: isRtl ? 'إعدادات الموقع' : 'Site Settings', icon: Globe },
+    { id: 'ai', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu },
     { id: 'settings', label: isRtl ? 'إعدادات النظام' : 'System Settings', icon: Settings },
   ];
 
@@ -414,6 +424,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               exit={{ opacity: 0, y: -20 }}
             >
               <SiteSettingsManager />
+            </motion.div>
+          )}
+
+          {activeTab === 'ai' && (
+            <motion.div
+              key="ai"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <AdminNeuralHub />
             </motion.div>
           )}
 

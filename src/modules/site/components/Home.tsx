@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
+import { NeuralPulse } from './NeuralPulse';
 
 interface HomeProps {
   profile: UserProfile | null;
@@ -89,6 +90,12 @@ const Home: React.FC<HomeProps> = ({
   const [searchPlaceholderEn, setSearchPlaceholderEn] = useState('');
   const [ctaButtonAr, setCtaButtonAr] = useState('');
   const [ctaButtonEn, setCtaButtonEn] = useState('');
+  const [logoScale, setLogoScale] = useState(1);
+  const [logoAuraColor, setLogoAuraColor] = useState('#1b97a7');
+  const [showNeuralLogo, setShowNeuralLogo] = useState(true);
+  const [primaryTextColor, setPrimaryTextColor] = useState('#ffffff');
+  const [secondaryTextColor, setSecondaryTextColor] = useState('#94a3b8');
+  const [enableNeuralPulse, setEnableNeuralPulse] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
   const [productCopy, setProductCopy] = useState<{ title: string; description: string; highlights: string[] } | null>(null);
@@ -119,6 +126,12 @@ const Home: React.FC<HomeProps> = ({
         setSearchPlaceholderEn(data.searchPlaceholderEn || '');
         setCtaButtonAr(data.ctaButtonAr || '');
         setCtaButtonEn(data.ctaButtonEn || '');
+        setLogoScale(data.logoScale ?? 1);
+        setLogoAuraColor(data.logoAuraColor || '#1b97a7');
+        setShowNeuralLogo(data.showNeuralLogo ?? true);
+        setPrimaryTextColor(data.primaryTextColor || '#ffffff');
+        setSecondaryTextColor(data.secondaryTextColor || '#94a3b8');
+        setEnableNeuralPulse(data.enableNeuralPulse ?? true);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'settings/site');
@@ -267,7 +280,7 @@ const Home: React.FC<HomeProps> = ({
         setAiStatus(i18n.language === 'ar' ? 'جاري تحليل الصورة بالذكاء الاصطناعي...' : 'AI is analyzing the image...');
         const base64 = imagePreview?.split(',')[1];
         if (base64) {
-          const result = await analyzeProductImage(base64, selectedImage.type, i18n.language);
+          const result = await analyzeProductImage(base64, selectedImage.type);
           if (result) {
             aiDescription = result.description;
             if (!searchQuery) {
@@ -278,7 +291,6 @@ const Home: React.FC<HomeProps> = ({
       }
       
       setAiStatus(i18n.language === 'ar' ? 'جاري صياغة الطلب...' : 'Drafting request...');
-      const { enhanceRequestDescription } = await import('../../../core/services/geminiService');
       const enhancedDescription = await enhanceRequestDescription(searchQuery + (aiDescription ? ` (Image context: ${aiDescription})` : ''), i18n.language);
       setDraftDescription(enhancedDescription);
     } catch (error) {
@@ -335,7 +347,7 @@ const Home: React.FC<HomeProps> = ({
         const base64 = imagePreview?.split(',')[1];
         if (base64) {
           try {
-            const result = await analyzeProductImage(base64, selectedImage.type, i18n.language);
+            const result = await analyzeProductImage(base64, selectedImage.type);
             if (result) {
               aiDescription = result.description;
               if (!trimmedQuery) {
@@ -637,7 +649,10 @@ const Home: React.FC<HomeProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-brand-background relative overflow-hidden">
+    <div className="min-h-screen bg-brand-background relative overflow-hidden" style={{ 
+      '--primary-text': primaryTextColor,
+      '--secondary-text': secondaryTextColor
+    } as React.CSSProperties}>
       {/* Minimal UI Mode */}
       {uiStyle === 'minimal' && effectiveRole !== 'admin' ? (
         <motion.div 
@@ -652,39 +667,50 @@ const Home: React.FC<HomeProps> = ({
           </div>
 
           {/* Logo - Neural Spark Concept (No Box) */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className="mb-12 relative group cursor-pointer flex flex-col items-center"
-            onClick={() => setIsVisualSearchOpen(true)}
-          >
-            {/* Spinning Neural Glow (Visible on Hover) */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-48 md:h-48 bg-gradient-to-r from-transparent via-brand-primary to-transparent opacity-0 group-hover:opacity-30 animate-[spin_3s_linear_infinite] rounded-full blur-xl transition-opacity duration-500 pointer-events-none" />
-            
-            {/* Logo Image/Text */}
-            <div className="relative z-10 transition-transform duration-300 group-hover:scale-105">
-              {/* Shimmer Sweep Effect over the logo itself */}
-              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 dark:via-white/20 to-transparent group-hover:animate-[shimmer_1.5s_infinite] skew-x-12 z-20 mix-blend-overlay pointer-events-none" />
+          {showNeuralLogo && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="mb-12 relative group cursor-pointer flex flex-col items-center"
+              onClick={() => setIsVisualSearchOpen(true)}
+            >
+              {/* Spinning Neural Glow (Visible on Hover) */}
+              <div 
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-48 md:h-48 opacity-0 group-hover:opacity-30 animate-[spin_3s_linear_infinite] rounded-full blur-xl transition-opacity duration-500 pointer-events-none" 
+                style={{ background: `linear-gradient(to right, transparent, ${logoAuraColor}, transparent)` }}
+              />
+              
+              {/* Logo Image/Text */}
+              <div 
+                className="relative z-10 transition-transform duration-300 group-hover:scale-105"
+                style={{ transform: `scale(${logoScale})` }}
+              >
+                {/* Shimmer Sweep Effect over the logo itself */}
+                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 dark:via-white/20 to-transparent group-hover:animate-[shimmer_1.5s_infinite] skew-x-12 z-20 mix-blend-overlay pointer-events-none" />
 
-              {logoUrl ? (
-                <img src={logoUrl} alt="Logo" className="h-16 md:h-24 w-auto object-contain drop-shadow-2xl" />
-              ) : (
-                <div className="flex items-center gap-3 text-brand-primary drop-shadow-2xl">
-                  <SparklesIcon size={48} strokeWidth={1.5} />
-                  <span className="text-3xl font-black tracking-tighter">B2B2C</span>
-                </div>
-              )}
-            </div>
-            
-            {/* Electric AI Indicator (Floating below) */}
-            <div className="absolute -bottom-8 flex items-center gap-1.5 text-brand-primary opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-              <Zap size={14} className="animate-pulse" />
-              <span className="text-xs font-black uppercase tracking-widest drop-shadow-md">
-                {isRtl ? 'تحليل ذكي' : 'Neural AI'}
-              </span>
-            </div>
-          </motion.div>
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Logo" className="h-16 md:h-24 w-auto object-contain drop-shadow-2xl" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="flex items-center gap-3 text-brand-primary drop-shadow-2xl">
+                    <SparklesIcon size={48} strokeWidth={1.5} />
+                    <span className="text-3xl font-black tracking-tighter">{siteName || 'B2B2C'}</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Electric AI Indicator (Floating below) */}
+              <div 
+                className="absolute -bottom-8 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0"
+                style={{ color: logoAuraColor }}
+              >
+                <Zap size={14} className="animate-pulse" />
+                <span className="text-xs font-black uppercase tracking-widest drop-shadow-md">
+                  {isRtl ? 'تحليل ذكي' : 'Neural AI'}
+                </span>
+              </div>
+            </motion.div>
+          )}
 
           {/* Search Bar (Minimal) */}
           <div className="w-full relative group mb-12">
@@ -753,9 +779,49 @@ const Home: React.FC<HomeProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
           >
-            {/* Logo is now in the Header */}
+            {/* Neural Brand Crown */}
+            {showNeuralLogo && (
+              <div className="flex justify-center mb-12 relative group">
+                {/* Dynamic Aura Effect */}
+                <motion.div 
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    opacity: [0.3, 0.5, 0.3],
+                  }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 md:w-64 md:h-64 rounded-full blur-[60px] pointer-events-none z-0"
+                  style={{ backgroundColor: logoAuraColor }}
+                />
+                
+                {/* Logo Container with Scale */}
+                <div 
+                  className="relative z-10 transition-all duration-500 ease-out group-hover:scale-105"
+                  style={{ transform: `scale(${logoScale})` }}
+                >
+                  {logoUrl ? (
+                    <img 
+                      src={logoUrl} 
+                      alt={siteName || "Logo"} 
+                      className="h-20 md:h-28 w-auto object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.15)]"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-4 text-brand-primary drop-shadow-xl">
+                      <SparklesIcon size={64} strokeWidth={1.5} />
+                      <span className="text-5xl font-black tracking-tighter">{siteName || 'DEIF'}</span>
+                    </div>
+                  )}
+                  
+                  {/* AI Pulse Ring */}
+                  <div 
+                    className="absolute -inset-4 rounded-full border border-brand-primary/20 animate-ping opacity-0 group-hover:opacity-100 transition-opacity duration-700"
+                    style={{ borderColor: `${logoAuraColor}33` }}
+                  />
+                </div>
+              </div>
+            )}
             
-            <h1 className="text-4xl md:text-7xl lg:text-8xl font-black mb-8 text-brand-text-main tracking-tight leading-[1.1] md:leading-[1.05]">
+            <h1 className="text-4xl md:text-7xl lg:text-8xl font-black mb-8 tracking-tight leading-[1.1] md:leading-[1.05]" style={{ color: 'var(--primary-text)' }}>
               {isRtl ? (
                 <>
                   {heroTitleAr || 'اطلب أي منتج'} <br className="hidden md:block" />
@@ -772,7 +838,7 @@ const Home: React.FC<HomeProps> = ({
                 </>
               )}
             </h1>
-            <p className="text-lg md:text-2xl text-brand-text-muted max-w-3xl mx-auto mb-12 leading-relaxed font-medium">
+            <p className="text-lg md:text-2xl max-w-3xl mx-auto mb-12 leading-relaxed font-medium" style={{ color: 'var(--secondary-text)' }}>
               {isRtl 
                 ? (heroDescriptionAr || 'المنصة الأولى التي تجمع بين قوة الذكاء الاصطناعي وشبكة واسعة من الموردين الموثوقين لتلبية جميع احتياجاتك بضغطة زر.') 
                 : (heroDescriptionEn || 'The first platform combining AI power with a vast network of trusted suppliers to fulfill all your needs with a single click.')}
@@ -1204,6 +1270,7 @@ const Home: React.FC<HomeProps> = ({
         onStartChat={() => onNavigate('chat')}
       />
     )}
+    {enableNeuralPulse && <NeuralPulse />}
 </div>
 );
 };

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X as CloseIcon, Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sun, Moon, Globe, LogOut, Bot, ArrowRight, Sparkles, MessageSquare } from 'lucide-react';
+import { X as CloseIcon, Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sun, Moon, Globe, LogOut, Bot, ArrowRight, Sparkles, MessageSquare, BookOpen } from 'lucide-react';
 import { UserProfile, AppFeatures } from '../../../../core/types';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { signOut } from 'firebase/auth';
@@ -26,6 +26,7 @@ interface MobileMenuProps {
   siteName: string;
   onPrefetch?: (view: string) => void;
   onVisualSearch?: () => void;
+  onOpenHelpCenter?: () => void;
 }
 
 export const MobileMenu: React.FC<MobileMenuProps> = ({
@@ -46,7 +47,8 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   siteLogo,
   siteName,
   onPrefetch,
-  onVisualSearch
+  onVisualSearch,
+  onOpenHelpCenter
 }) => {
   const { t, i18n } = useTranslation();
 
@@ -134,21 +136,26 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                     { id: 'home', label: t('home'), icon: HomeIcon, view: 'home' },
                     { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard, view: 'dashboard', tab: 'dashboard' },
                     { id: 'marketing', label: isRtl ? 'التسويق والنمو' : 'Marketing & Growth', icon: Megaphone, view: 'dashboard', tab: 'marketing', condition: profile && viewMode !== 'admin' },
-                    { id: 'marketplace', label: t('marketplace'), icon: ShoppingBag, view: 'marketplace', condition: features.marketplace },
-                    { id: 'profile', label: t('profile'), icon: User, view: 'profile' },
+                    {id: 'marketplace', label: t('marketplace'), icon: ShoppingBag, view: 'marketplace', condition: features.marketplace},
+                    {id: 'profile', label: t('profile'), icon: User, view: 'profile'},
+                    {id: 'help', label: isRtl ? 'مركز المساعدة' : 'Help Center', icon: BookOpen, action: onOpenHelpCenter},
                   ].map((item) => {
                     if (item.condition === false) return null;
-                    const isActive = currentView === item.view && (!item.tab || supplierTab === item.tab);
+                    const isActive = item.view && currentView === item.view && (!item.tab || supplierTab === item.tab);
                     
                     return (
                       <HapticButton 
                         key={item.id}
                         onClick={() => { 
-                          setView(item.view); 
-                          if (item.tab) setSupplierTab?.(item.tab);
+                          if (item.action) {
+                            item.action();
+                          } else if (item.view) {
+                            setView(item.view); 
+                            if (item.tab) setSupplierTab?.(item.tab);
+                          }
                           setIsOpen(false); 
                         }}
-                        onPrefetch={() => onPrefetch?.(item.view)}
+                        onPrefetch={() => item.view && onPrefetch?.(item.view)}
                         className={`group flex items-center justify-between p-4 rounded-2xl transition-all duration-300 ${
                           isActive 
                             ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20' 

@@ -99,7 +99,7 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
       });
       
       const base64 = await base64Promise;
-      const aiResult = await analyzeProductImage(base64, watermarkedBlob.type, i18n.language);
+      const aiResult = await analyzeProductImage(base64, watermarkedBlob.type);
       
       // 4. Final Success (In a real app, you'd upload to Firebase Storage here)
       // For this demo, we'll use the local blob URL as the "finalUrl"
@@ -172,8 +172,10 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
   const applyWatermark = (file: File | Blob, text: string, opacity: number, logo?: string): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.src = URL.createObjectURL(file);
-      img.onload = () => {
+      const objectUrl = URL.createObjectURL(file);
+      img.src = objectUrl;
+      img.onload = async () => {
+        URL.revokeObjectURL(objectUrl);
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (!ctx) return reject(new Error("Canvas context failed"));
@@ -210,24 +212,56 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
         ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
 
         // Apply Watermark
-        ctx.globalAlpha = opacity;
-        ctx.font = `${Math.floor(canvas.width / 20)}px sans-serif`;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'bottom';
-        
-        // Shadow for readability
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 10;
-        
-        ctx.fillText(text, canvas.width - 20, canvas.height - 20);
+        const drawWatermark = async () => {
+          if (logo) {
+            try {
+              const logoImg = new Image();
+              if (!logo.startsWith('data:')) {
+                logoImg.crossOrigin = 'anonymous';
+              }
+              await new Promise((res, rej) => {
+                logoImg.onload = res;
+                logoImg.onerror = rej;
+                logoImg.src = logo;
+              });
+
+              const logoSize = canvas.width * 0.15;
+              const padding = 20;
+              ctx.globalAlpha = opacity;
+              ctx.drawImage(logoImg, canvas.width - logoSize - padding, canvas.height - logoSize - padding, logoSize, logoSize);
+              ctx.globalAlpha = 1.0;
+              return;
+            } catch (e) {
+              console.error("Failed to load watermark logo, falling back to text", e);
+            }
+          }
+
+          // Fallback to text
+          ctx.globalAlpha = opacity;
+          ctx.font = `bold ${Math.floor(canvas.width / 20)}px sans-serif`;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'bottom';
+          
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowBlur = 10;
+          ctx.fillText(text, canvas.width - 20, canvas.height - 20);
+          ctx.globalAlpha = 1.0;
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+        };
+
+        await drawWatermark();
 
         canvas.toBlob((blob) => {
           if (blob) resolve(blob);
           else reject(new Error("Blob conversion failed"));
         }, 'image/jpeg', 0.9);
       };
-      img.onerror = reject;
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error("Failed to load image"));
+      };
     });
   };
 

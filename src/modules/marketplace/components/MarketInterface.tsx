@@ -18,7 +18,8 @@ import {
   Search, 
   Filter, 
   X, 
-  Sparkles
+  Sparkles,
+  Camera
 } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { Skeleton } from '../../../shared/components/Skeleton';
@@ -27,6 +28,8 @@ import { ProductCard } from './ProductCard';
 import { ProductDetailsModal } from '../../../shared/components/ProductDetailsModal';
 import { SmartUploadModal } from './upload-flow/SmartUploadModal';
 import { EditProductModal } from './EditProductModal';
+import { SmartCategoryExplorer } from './SmartCategoryExplorer';
+import { VisualSearchModal } from '../../../shared/components/search/VisualSearchModal';
 
 interface MarketInterfaceProps {
   profile: UserProfile | null;
@@ -35,6 +38,9 @@ interface MarketInterfaceProps {
   onViewProfile: (uid: string) => void;
   viewMode?: 'admin' | 'supplier' | 'customer';
 }
+
+import { useScroll } from '../../../shared/contexts/ScrollContext';
+import { ScrollDirection } from '../../../shared/hooks/useScrollDirection';
 
 export const MarketInterface: React.FC<MarketInterfaceProps> = ({ 
   profile, 
@@ -45,13 +51,26 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
+  const { scrollDirection } = useScroll();
+  const [isMinimized, setIsMinimized] = useState(false);
   
   const [items, setItems] = useState<MarketplaceItem[]>([]);
+
+  useEffect(() => {
+    if (scrollDirection === ScrollDirection.DOWN) {
+      setIsMinimized(true);
+    } else if (scrollDirection === ScrollDirection.UP) {
+      setIsMinimized(false);
+    }
+  }, [scrollDirection]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSmartCategories, setShowSmartCategories] = useState(false);
+  const [showVisualSearch, setShowVisualSearch] = useState(false);
+  const [visualSearchResults, setVisualSearchResults] = useState<MarketplaceItem[] | null>(null);
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
   const [activeTab, setActiveTab] = useState<'discover' | 'myshop'>('discover');
   const [itemToDelete, setItemToDelete] = useState<MarketplaceItem | null>(null);
@@ -107,10 +126,19 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     }
   };
 
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          item.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
+  const filteredItems = visualSearchResults 
+    ? visualSearchResults 
+    : items.filter(item => {
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = 
+      item.title.toLowerCase().includes(searchLower) || 
+      item.description.toLowerCase().includes(searchLower) ||
+      (item.titleAr && item.titleAr.toLowerCase().includes(searchLower)) ||
+      (item.titleEn && item.titleEn.toLowerCase().includes(searchLower)) ||
+      (item.descriptionAr && item.descriptionAr.toLowerCase().includes(searchLower)) ||
+      (item.descriptionEn && item.descriptionEn.toLowerCase().includes(searchLower));
+    
+    const matchesCategory = selectedCategory ? item.categories.includes(selectedCategory) : true;
     return matchesSearch && matchesCategory;
   });
 
@@ -119,10 +147,10 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   return (
     <div className="min-h-screen bg-brand-background pb-24">
       {/* Floating Header & Search */}
-      <div className={`sticky top-0 z-40 ${glassClass} border-b border-white/10`}>
-        <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
+      <div className={`sticky top-0 z-40 ${glassClass} border-b border-white/10 transition-all duration-300 ${isMinimized ? '-translate-y-full' : 'translate-y-0'}`}>
+        <div className={`max-w-7xl mx-auto px-4 transition-all duration-300 ${isMinimized ? 'py-2 opacity-0' : 'py-4 md:py-6 opacity-100'}`}>
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="w-full md:w-auto flex items-center justify-between">
+            <div className={`w-full md:w-auto flex items-center justify-between transition-all duration-300 ${isMinimized ? 'opacity-0 h-0 overflow-hidden mb-0' : 'opacity-100 h-auto mb-2 md:mb-0'}`}>
               <h1 className="text-2xl md:text-3xl font-black text-brand-text-main tracking-tight">
                 {isRtl ? 'السوق الذكي' : 'Smart Market'}
               </h1>
@@ -138,7 +166,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
               )}
             </div>
 
-            <div className="w-full md:w-1/2 flex items-center gap-2">
+            <div className={`w-full md:w-1/2 flex items-center gap-2 transition-all duration-300 ${isMinimized ? 'md:w-full' : ''}`}>
               <div className="relative flex-1">
                 <Search className={`absolute ${isRtl ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 text-brand-text-muted`} size={20} />
                 <input
@@ -146,16 +174,21 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                   placeholder={isRtl ? 'ابحث عن منتجات، موردين...' : 'Search products, suppliers...'}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full bg-white/50 dark:bg-slate-800/50 border border-white/30 dark:border-slate-700 rounded-2xl py-3 ${isRtl ? 'pr-12 pl-4' : 'pl-12 pr-4'} focus:outline-none focus:ring-2 focus:ring-brand-primary/50 text-brand-text-main placeholder-brand-text-muted backdrop-blur-md transition-all`}
+                  className={`w-full bg-white/50 dark:bg-slate-800/50 border border-white/30 dark:border-slate-700 rounded-2xl py-3 ${isRtl ? 'pr-12 pl-12' : 'pl-12 pr-12'} focus:outline-none focus:ring-2 focus:ring-brand-primary/50 text-brand-text-main placeholder-brand-text-muted backdrop-blur-md transition-all`}
                 />
-                {searchTerm && (
-                  <button 
-                    onClick={() => setSearchTerm('')}
-                    className={`absolute ${isRtl ? 'left-4' : 'right-4'} top-1/2 -translate-y-1/2 text-brand-text-muted hover:text-brand-text-main`}
-                  >
-                    <X size={16} />
-                  </button>
-                )}
+                <div className={`absolute ${isRtl ? 'left-4' : 'right-4'} top-1/2 -translate-y-1/2 flex items-center gap-2`}>
+                  {loading && (
+                    <Sparkles className="w-4 h-4 text-brand-primary animate-pulse" />
+                  )}
+                  {searchTerm && (
+                    <button 
+                      onClick={() => setSearchTerm('')}
+                      className="text-brand-text-muted hover:text-brand-text-main"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
               
               {/* Desktop Add Button */}
@@ -200,36 +233,67 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           )}
 
           {/* Categories Horizontal Scroll */}
-          <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`shrink-0 px-5 py-2 rounded-full text-sm font-bold transition-all ${
-                !selectedCategory 
-                  ? 'bg-brand-primary text-white shadow-md' 
-                  : 'bg-white/50 dark:bg-slate-800/50 text-brand-text-main hover:bg-white/80 dark:hover:bg-slate-700/80 backdrop-blur-md'
-              }`}
+          <div className="mt-4 flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+            <HapticButton 
+              onClick={() => setShowSmartCategories(true)}
+              className="shrink-0 px-6 py-3 rounded-full text-sm font-bold transition-all border-2 bg-gradient-to-r from-brand-primary to-brand-teal text-white border-transparent shadow-lg shadow-brand-primary/20 flex items-center gap-2"
             >
-              {isRtl ? 'الكل' : 'All'}
-            </button>
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`shrink-0 px-5 py-2 rounded-full text-sm font-bold transition-all ${
-                  selectedCategory === cat.id 
-                    ? 'bg-brand-primary text-white shadow-md' 
-                    : 'bg-white/50 dark:bg-slate-800/50 text-brand-text-main hover:bg-white/80 dark:hover:bg-slate-700/80 backdrop-blur-md'
-                }`}
+              <Sparkles size={18} />
+              {isRtl ? 'المستكشف الذكي للفئات' : 'Smart Category Explorer'}
+            </HapticButton>
+            
+            {selectedCategory && (
+              <HapticButton
+                onClick={() => setSelectedCategory(null)}
+                className="shrink-0 px-5 py-3 rounded-full text-sm font-bold bg-white/50 dark:bg-slate-800/50 text-brand-text-main hover:bg-white/80 dark:hover:bg-slate-700/80 backdrop-blur-md border border-brand-border/50 flex items-center gap-2"
               >
-                {isRtl ? cat.nameAr : cat.nameEn}
-              </button>
-            ))}
+                <X size={16} />
+                {isRtl ? 'إلغاء الفلتر' : 'Clear Filter'}
+              </HapticButton>
+            )}
           </div>
         </div>
       </div>
 
       {/* Product Grid */}
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Visual Search Active State */}
+        <AnimatePresence>
+          {visualSearchResults !== null && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+              animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
+              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="bg-brand-primary/5 border border-brand-primary/10 rounded-2xl p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                    <Camera size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-brand-primary text-sm font-black">
+                      {isRtl ? 'نتائج البحث البصري' : 'Visual Search Results'}
+                    </h3>
+                    <p className="text-slate-500 text-xs font-medium">
+                      {isRtl 
+                        ? `تم العثور على ${visualSearchResults.length} منتج مطابق` 
+                        : `Found ${visualSearchResults.length} matching items`}
+                    </p>
+                  </div>
+                </div>
+                
+                <HapticButton
+                  onClick={() => setVisualSearchResults(null)}
+                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                >
+                  <X size={20} />
+                </HapticButton>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
             {[...Array(10)].map((_, i) => (
@@ -351,6 +415,47 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <VisualSearchModal
+        isOpen={showVisualSearch}
+        onClose={() => setShowVisualSearch(false)}
+        items={items}
+        onResultsFound={(results, keywords) => {
+          setVisualSearchResults(results as MarketplaceItem[]);
+        }}
+      />
+
+      <AnimatePresence>
+        {showSmartCategories && (
+          <motion.div
+            initial={{ opacity: 0, y: '100%' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed inset-0 z-[120] bg-brand-background md:p-4"
+          >
+            <div className="absolute top-4 right-4 z-50">
+              <HapticButton 
+                onClick={() => setShowSmartCategories(false)}
+                className="w-10 h-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-full flex items-center justify-center text-brand-text-main shadow-lg border border-brand-border/50"
+              >
+                <X size={20} />
+              </HapticButton>
+            </div>
+            <SmartCategoryExplorer 
+              categories={categories}
+              onVisualSearch={() => {
+                setShowSmartCategories(false);
+                setShowVisualSearch(true);
+              }}
+              onSelectCategory={(categoryId, subcategoryId) => {
+                setSelectedCategory(categoryId);
+                setShowSmartCategories(false);
+              }}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

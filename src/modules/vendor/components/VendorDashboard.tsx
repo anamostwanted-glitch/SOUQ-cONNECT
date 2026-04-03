@@ -26,6 +26,7 @@ import { HapticButton } from '../../../shared/components/HapticButton';
 import { VendorRequestCard } from './VendorRequestCard';
 import { VendorOffersList } from './VendorOffersList';
 import { ProfileSettings } from '../../user/components/ProfileSettings';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 
 interface VendorDashboardProps {
   profile: UserProfile;
@@ -74,7 +75,7 @@ export const VendorDashboard: React.FC<VendorDashboardProps> = ({
       setRequests(fetchedRequests);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching requests:", error);
+      handleFirestoreError(error, OperationType.GET, 'requests');
       setLoading(false);
     });
 

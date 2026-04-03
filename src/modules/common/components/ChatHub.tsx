@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
 import { UserProfile, Chat } from '../../../core/types';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { Search, MessageSquare, User, Clock, ChevronRight, Sparkles, Bot } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { formatDistanceToNow } from 'date-fns';
@@ -75,6 +76,9 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
       if (changed) {
         setOtherUsers(newOtherUsers);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'chats');
+      setLoading(false);
     });
 
     return unsubscribe;

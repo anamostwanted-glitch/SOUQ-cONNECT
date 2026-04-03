@@ -1,15 +1,53 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Category, UserProfile } from "../types";
+import { Category, UserProfile, GeminiApiKey } from "../types";
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { neuralCache } from '../utils/neuralCache';
 
-const getApiKey = () => (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY;
+let cachedKeys: GeminiApiKey[] = [];
+let lastFetch = 0;
 
-async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 2, delay = 1000): Promise<T> {
+const fetchKeys = async () => {
+  const now = Date.now();
+  if (now - lastFetch < 60000 && cachedKeys.length > 0) return cachedKeys;
+  
+  try {
+    const docSnap = await getDoc(doc(db, 'settings', 'gemini_config'));
+    if (docSnap.exists()) {
+      cachedKeys = (docSnap.data().keys || []).filter((k: GeminiApiKey) => k.status === 'active');
+      lastFetch = now;
+    }
+  } catch (e) {
+    console.error('Error fetching AI keys:', e);
+  }
+  return cachedKeys;
+};
+
+const getApiKey = async () => {
+  const activeKeys = await fetchKeys();
+  if (activeKeys.length > 0) {
+    // Simple random selection for load balancing
+    const selected = activeKeys[Math.floor(Math.random() * activeKeys.length)];
+    return selected.key;
+  }
+  return (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY;
+};
+
+async function retryWithBackoff<T>(fn: (apiKey?: string) => Promise<T>, retries = 3, delay = 1000): Promise<T> {
   try {
     return await fn();
   } catch (error: any) {
-    const isQuotaError = error?.status === 429 || error?.message?.includes('quota') || error?.message?.includes('RESOURCE_EXHAUSTED');
+    const isQuotaError = 
+      error?.status === 429 || 
+      error?.error?.code === 429 ||
+      error?.message?.includes('quota') || 
+      error?.message?.includes('RESOURCE_EXHAUSTED') ||
+      error?.message?.includes('429');
+      
     if (isQuotaError && retries > 0) {
+      console.warn(`Quota exceeded, retrying in ${delay}ms... (${retries} retries left)`);
       await new Promise(resolve => setTimeout(resolve, delay));
+      // On quota error, we try to get a fresh key which might be different due to random selection
       return retryWithBackoff(fn, retries - 1, delay * 2);
     }
     throw error;
@@ -17,11 +55,11 @@ async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 2, delay = 10
 }
 
 export const translateText = async (text: string, targetLanguage: string): Promise<string> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return text;
-  
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return text;
+      
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-flash-latest",
@@ -35,12 +73,179 @@ export const translateText = async (text: string, targetLanguage: string): Promi
   }
 };
 
-export const verifyDocument = async (base64Data: string, mimeType: string): Promise<any> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return { isLegit: true, details: 'Verified (Offline Mode)' };
-  
+export const suggestColorHarmony = async (primaryColor: string): Promise<{ secondaryColor: string; reason: string }> => {
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return { secondaryColor: '#ffffff', reason: 'Default fallback' };
+      
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-flash-latest",
+        contents: `Given the primary brand color ${primaryColor}, suggest a secondary text color that is visually harmonious, maintains high contrast for accessibility (WCAG), and feels professional. Return ONLY a JSON object with 'secondaryColor' (hex) and a brief 'reason'.`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              secondaryColor: { type: Type.STRING },
+              reason: { type: Type.STRING }
+            },
+            required: ["secondaryColor", "reason"]
+          }
+        }
+      });
+      
+      try {
+        return JSON.parse(response.text || '{}');
+      } catch (e) {
+        return { secondaryColor: '#ffffff', reason: 'Parsing failed' };
+      }
+    });
+  } catch (e) {
+    console.warn('Color harmony suggestion failed:', e);
+    return { secondaryColor: '#ffffff', reason: 'AI service unavailable' };
+  }
+};
+
+export const analyzeNeuralPulseImage = async (base64Data: string, mimeType: string): Promise<any> => {
+  try {
+    // 1. Semantic Check (0 Tokens)
+    const fingerprint = neuralCache.generateImageFingerprint(base64Data);
+    const cached = neuralCache.get(fingerprint);
+    if (cached) return { ...cached, isCached: true };
+
+    return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return { found: false, details: 'AI Service Unavailable' };
+      
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-flash-latest",
+        contents: {
+          parts: [
+            { inlineData: { data: base64Data, mimeType } },
+            // Conceptual Compression: Shorter, more direct prompt
+            { text: "[V-SCAN:JSON] Identify product, specs, 3 categories. Return JSON: {productName, specs, suggestedCategories[], confidence}" }
+          ]
+        },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              productName: { type: Type.STRING },
+              specs: { type: Type.STRING },
+              suggestedCategories: { type: Type.ARRAY, items: { type: Type.STRING } },
+              confidence: { type: Type.NUMBER }
+            },
+            required: ["productName", "specs", "suggestedCategories", "confidence"]
+          }
+        }
+      });
+      
+      const result = JSON.parse(response.text || '{}');
+      // Store in Semantic Memory
+      neuralCache.set(fingerprint, result);
+      return result;
+    });
+  } catch (e) {
+    console.error('Neural Pulse Image Analysis failed:', e);
+    return { found: false, error: 'Analysis failed' };
+  }
+};
+
+export const processNeuralPulseVoice = async (transcript: string): Promise<any> => {
+  try {
+    // 1. Semantic Check (0 Tokens)
+    const fingerprint = neuralCache.generateVoiceFingerprint(transcript);
+    const cached = neuralCache.get(fingerprint);
+    if (cached) return { ...cached, isCached: true };
+
+    return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return { success: false };
+      
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-flash-latest",
+        // Conceptual Compression: Direct mapping
+        contents: `[V-RFQ:JSON] Map transcript to RFQ: "${transcript}". JSON: {product, quantity, budget, urgency, professionalSummary}`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              product: { type: Type.STRING },
+              quantity: { type: Type.STRING },
+              budget: { type: Type.STRING },
+              urgency: { type: Type.STRING },
+              professionalSummary: { type: Type.STRING }
+            },
+            required: ["product", "quantity", "budget", "urgency", "professionalSummary"]
+          }
+        }
+      });
+      
+      const result = JSON.parse(response.text || '{}');
+      // Store in Semantic Memory
+      neuralCache.set(fingerprint, result);
+      return result;
+    });
+  } catch (e) {
+    console.error('Neural Pulse Voice Processing failed:', e);
+    return { success: false };
+  }
+};
+
+export const generateNeuralPulseGeoInsight = async (lat: number, lng: number, recentInterests: string[]): Promise<any> => {
+  try {
+    // 1. Semantic Check (0 Tokens) - Bucketed location
+    const fingerprint = neuralCache.generateGeoFingerprint(lat, lng, recentInterests);
+    const cached = neuralCache.get(fingerprint);
+    if (cached) return { ...cached, isCached: true };
+
+    return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return { hasInsight: false };
+      
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-flash-latest",
+        // Conceptual Compression: Scenario-based prompt
+        contents: `[GEO-INSIGHT:JSON] User @ (${lat}, ${lng}), Interests: [${recentInterests.join(',')}]. Generate Luxurious Proximity Insight. JSON: {hasInsight, title, message, actionLabel}`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              hasInsight: { type: Type.BOOLEAN },
+              title: { type: Type.STRING },
+              message: { type: Type.STRING },
+              actionLabel: { type: Type.STRING }
+            },
+            required: ["hasInsight", "title", "message", "actionLabel"]
+          }
+        }
+      });
+      
+      const result = JSON.parse(response.text || '{}');
+      // Store in Semantic Memory (expires in 1 hour for geo)
+      neuralCache.set(fingerprint, result, 60 * 60 * 1000);
+      return result;
+    });
+  } catch (e) {
+    console.error('Neural Pulse Geo Insight failed:', e);
+    return { hasInsight: false };
+  }
+};
+
+export const verifyDocument = async (base64Data: string, mimeType: string): Promise<any> => {
+  try {
+    return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return { isLegit: true, details: 'Verified (Offline Mode)' };
+      
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-flash-latest",
@@ -72,11 +277,11 @@ export const verifyDocument = async (base64Data: string, mimeType: string): Prom
 };
 
 export const optimizeSupplierProfile = async (companyName: string, bio: string, keywords: string[], language: string): Promise<any> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return { suggestedBio: bio, suggestedKeywords: keywords };
-  
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return { suggestedBio: bio, suggestedKeywords: keywords };
+      
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-flash-latest",
@@ -106,7 +311,6 @@ export const optimizeSupplierProfile = async (companyName: string, bio: string, 
 };
 
 export const generateSupplierLogo = async (companyName: string, category: string, language: string): Promise<any> => {
-  const apiKey = getApiKey();
   const fallback = { 
     logoUrl: 'https://picsum.photos/seed/logo/200/200',
     bgColor: '#000000',
@@ -114,10 +318,12 @@ export const generateSupplierLogo = async (companyName: string, category: string
     font: 'Inter',
     logoText: companyName
   };
-  if (!apiKey) return fallback;
   
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return fallback;
+      
       const ai = new GoogleGenAI({ apiKey });
       const prompt = `A professional, modern, minimalist logo for a company named "${companyName}" in the "${category}" industry. 
       The style should be high-end, luxury tech, suitable for a B2B platform. 
@@ -154,11 +360,11 @@ export const generateSupplierLogo = async (companyName: string, category: string
 };
 
 export const getProfileInsights = async (profileData: any, language: string): Promise<any> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return null;
-  
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return null;
+      
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-flash-latest",
@@ -191,11 +397,11 @@ export const getProfileInsights = async (profileData: any, language: string): Pr
 };
 
 export const suggestSupplierCategories = async (profile: any, allCategories: Category[], language: string): Promise<string[]> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return [];
-  
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return [];
+      
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-flash-latest",
@@ -218,15 +424,14 @@ export const suggestSupplierCategories = async (profile: any, allCategories: Cat
   }
 };
 
-// ... keep other stubs or implement as needed ...
 export const generateKeywords = async (...args: any[]): Promise<string[]> => ['keyword1', 'keyword2'];
 export const generateSupplierProposal = async (...args: any[]): Promise<string> => 'Proposal';
 export const enhanceRequestDescription = async (description: string, language: string): Promise<string> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return description;
-  
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return description;
+      
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-flash-latest",
@@ -255,12 +460,14 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number = AI_TIMEOUT): Pr
 };
 
 export const categorizeProduct = async (query: string, categories: Category[]): Promise<string | null> => {
-  const apiKey = getApiKey();
   const defaultCat = categories.length > 0 ? categories[0].id : null;
-  if (!apiKey || categories.length === 0) return defaultCat;
+  if (categories.length === 0) return defaultCat;
   
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return defaultCat;
+      
       const ai = new GoogleGenAI({ apiKey });
       const categoryList = categories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn }));
       
@@ -283,11 +490,13 @@ export const categorizeProduct = async (query: string, categories: Category[]): 
 };
 
 export const matchSuppliers = async (query: string, suppliers: UserProfile[], categories: Category[], userLocation?: string): Promise<string[]> => {
-  const apiKey = getApiKey();
-  if (!apiKey || suppliers.length === 0) return [];
+  if (suppliers.length === 0) return [];
   
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return [];
+      
       const ai = new GoogleGenAI({ apiKey });
       const supplierList = suppliers.map(s => ({ 
         uid: s.uid, 
@@ -312,13 +521,17 @@ export const matchSuppliers = async (query: string, suppliers: UserProfile[], ca
         config: {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
+            type: Type.OBJECT,
+            properties: {
+              uids: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["uids"]
           }
         }
       }));
       
-      return JSON.parse(response.text || "[]");
+      const data = JSON.parse(response.text || "{}");
+      return data.uids || [];
     });
   } catch (e) {
     console.error('Matchmaking failed:', e);
@@ -326,20 +539,24 @@ export const matchSuppliers = async (query: string, suppliers: UserProfile[], ca
   }
 };
 
-export const analyzeProductImage = async (base64Data: string, mimeType: string, language: string): Promise<any> => {
-  const apiKey = getApiKey();
-  const fallback = { productName: 'Product', description: 'A product' };
-  if (!apiKey) return fallback;
+export const analyzeProductImage = async (base64Data: string, mimeType: string): Promise<any> => {
+  const fallback = { 
+    productNameAr: 'منتج', descriptionAr: 'وصف المنتج',
+    productNameEn: 'Product', descriptionEn: 'Product description' 
+  };
   
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return fallback;
+      
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-flash-latest",
         contents: {
           parts: [
             { inlineData: { data: base64Data, mimeType } },
-            { text: `Analyze this product image. What is this product? Provide a professional name and a detailed description in ${language.startsWith('ar') ? 'Arabic' : 'English'}.` }
+            { text: `Analyze this product image. Provide a professional name and a detailed description in BOTH Arabic and English.` }
           ]
         },
         config: {
@@ -347,10 +564,18 @@ export const analyzeProductImage = async (base64Data: string, mimeType: string, 
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              productName: { type: Type.STRING },
-              description: { type: Type.STRING }
+              productNameAr: { type: Type.STRING },
+              descriptionAr: { type: Type.STRING },
+              productNameEn: { type: Type.STRING },
+              descriptionEn: { type: Type.STRING },
+              keywordsAr: { type: Type.ARRAY, items: { type: Type.STRING } },
+              keywordsEn: { type: Type.ARRAY, items: { type: Type.STRING } },
+              category: { type: Type.STRING },
+              priceEstimate: { type: Type.NUMBER },
+              isHighQuality: { type: Type.BOOLEAN },
+              features: { type: Type.ARRAY, items: { type: Type.STRING } }
             },
-            required: ["productName", "description"]
+            required: ["productNameAr", "descriptionAr", "productNameEn", "descriptionEn", "keywordsAr", "keywordsEn", "category", "priceEstimate", "isHighQuality", "features"]
           }
         }
       });
@@ -363,12 +588,13 @@ export const analyzeProductImage = async (base64Data: string, mimeType: string, 
 };
 
 export const parseVoiceRequest = async (transcript: string, language: string): Promise<any> => {
-  const apiKey = getApiKey();
   const fallback = { intent: 'search', query: transcript, productName: transcript };
-  if (!apiKey) return fallback;
   
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return fallback;
+      
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-flash-latest",
@@ -399,12 +625,13 @@ export const parseVoiceRequest = async (transcript: string, language: string): P
 };
 
 export const generateProductCopy = async (productName: string, features: string[], targetAudience: string, language: string): Promise<any> => {
-  const apiKey = getApiKey();
   const fallback = { title: productName, description: productName, highlights: [] };
-  if (!apiKey) return fallback;
   
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return fallback;
+      
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-flash-latest",
@@ -435,12 +662,13 @@ export const generateProductCopy = async (productName: string, features: string[
 };
 
 export const enhanceProductImageDescription = async (base64Data: string, mimeType: string, language: string): Promise<any> => {
-  const apiKey = getApiKey();
   const fallback = { suggestions: [], caption: "Product image" };
-  if (!apiKey) return fallback;
   
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return fallback;
+      
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-flash-latest",
@@ -471,11 +699,11 @@ export const enhanceProductImageDescription = async (base64Data: string, mimeTyp
 };
 
 export const generateAlternativeProductImage = async (base64Data: string, mimeType: string, productName: string, category: string, language: string): Promise<string | null> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return null;
-  
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return null;
+      
       const ai = new GoogleGenAI({ apiKey });
       const prompt = `Enhance and professionalize this product image for a B2B marketplace. 
       Product: ${productName}
@@ -510,12 +738,13 @@ export const generateAlternativeProductImage = async (base64Data: string, mimeTy
 };
 
 export const getAiAssistantResponse = async (query: string, context: any, language: string): Promise<string> => {
-  const apiKey = getApiKey();
   const fallback = "I am an AI assistant. How can I help you?";
-  if (!apiKey) return fallback;
   
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return fallback;
+      
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-flash-latest",
@@ -532,6 +761,7 @@ export const getAiAssistantResponse = async (query: string, context: any, langua
     return fallback;
   }
 };
+
 export const generateSmartReplies = async (...args: any[]) => ["Ok", "Thanks", "I'll check"];
 export const moderateContent = async (...args: any[]) => ({ isSafe: true, reason: "" });
 export const translateAudio = async (...args: any[]) => "Translated audio text";
@@ -541,12 +771,15 @@ export const summarizeChat = async (...args: any[]) => "Chat summary";
 export const analyzeSentiment = async (...args: any[]) => ({ score: 5, sentiment: "positive" as const, summary: "Sentiment summary" });
 export const validatePhoneNumber = async (...args: any[]) => ({ isValid: true, formattedNumber: args[0], country: "Unknown" });
 export const generateBrandingSuggestions = async (...args: any[]) => ({ colors: ["#000000"], primaryColor: "#000000", secondaryColor: "#ffffff", fontFamily: "Inter", borderRadius: "md", enableGlassmorphism: true, slogan: "Quality first" });
+
 export const semanticSearch = async (query: string, items: any[], language: string) => {
-  const apiKey = getApiKey();
-  if (!apiKey || items.length === 0) return [];
+  if (items.length === 0) return [];
   
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return [];
+      
       const ai = new GoogleGenAI({ apiKey });
       const itemList = items.map(i => ({ id: i.id, name: i.name, description: i.description, category: i.category }));
       
@@ -555,17 +788,21 @@ export const semanticSearch = async (query: string, items: any[], language: stri
         contents: `Perform a strict semantic search on these items for the query: "${query}"
         Items: ${JSON.stringify(itemList)}
         
-        Return a JSON array of the top 10 item IDs that truly and closely match the query.
+        Return a JSON object with a 'results' array of the top 10 item IDs that truly and closely match the query.
         If no items are a good match, return an empty array []. Be very strict.`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
+            type: Type.OBJECT,
+            properties: {
+              results: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["results"]
           }
         }
       }));
-      return JSON.parse(response.text || "[]");
+      const data = JSON.parse(response.text || "{}");
+      return data.results || [];
     });
   } catch (e) {
     console.error('Semantic search failed:', e);
@@ -574,12 +811,13 @@ export const semanticSearch = async (query: string, items: any[], language: stri
 };
 
 export const analyzeImageForSearch = async (base64Data: string, mimeType: string, language: string): Promise<any> => {
-  const apiKey = getApiKey();
   const fallback = { query: "Product from image", keywords: ["product"], category: "General", visualDescription: "A product image" };
-  if (!apiKey) return fallback;
   
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return fallback;
+      
       const ai = new GoogleGenAI({ apiKey });
       const response = await withTimeout(ai.models.generateContent({
         model: "gemini-flash-latest",
@@ -625,6 +863,7 @@ export const analyzeImageForSearch = async (base64Data: string, mimeType: string
     return fallback;
   }
 };
+
 export const generateProposal = async (...args: any[]): Promise<string> => 'Proposal';
 export const getMarketTrends = async (...args: any[]): Promise<any> => ({ analysis: 'Trends analysis', suggestions: [] });
 export const getPriceInsights = async (...args: any[]): Promise<any> => ({ recommendedPrice: 100, analysis: 'Stable market' });
@@ -637,11 +876,11 @@ export const formatCategoryName = async (...args: any[]) => ({ nameAr: args[0], 
 export const suggestCategoryMerges = async (...args: any[]) => [];
 
 export const suggestMainCategories = async (language: string, categoryType: 'product' | 'service', existingCategories: string[]): Promise<string[]> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return [];
-  
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return [];
+      
       const ai = new GoogleGenAI({ apiKey });
       const existingList = existingCategories.length > 0 ? `Do not include these existing categories: ${existingCategories.join(', ')}.` : '';
       const response = await ai.models.generateContent({
@@ -667,11 +906,11 @@ export const suggestMainCategories = async (language: string, categoryType: 'pro
 };
 
 export const suggestSubcategories = async (parentCategory: string, categoryType: 'product' | 'service', existingSubcategories: string[]): Promise<string[]> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return [];
-  
   try {
     return await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) return [];
+      
       const ai = new GoogleGenAI({ apiKey });
       const existingList = existingSubcategories.length > 0 ? `Do not include these existing subcategories: ${existingSubcategories.join(', ')}.` : '';
       const response = await ai.models.generateContent({
@@ -693,5 +932,47 @@ export const suggestSubcategories = async (parentCategory: string, categoryType:
       throw new Error('QUOTA_EXHAUSTED');
     }
     throw e;
+  }
+};
+
+const neuralCategoryCache = new Map<string, { matches: string[], timestamp: number }>();
+
+export const suggestNeuralCategories = async (productInfo: { title: string, description: string }, categories: Category[]): Promise<string[]> => {
+  if (!productInfo.title) return [];
+  
+  const cacheKey = `${productInfo.title}|${productInfo.description}`;
+  const cached = neuralCategoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < 300000) { // 5 minute cache
+    return cached.matches;
+  }
+
+  const categoryList = categories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn }));
+  
+  try {
+    const matches = await retryWithBackoff(async () => {
+      const apiKey = await getApiKey();
+      if (!apiKey) throw new Error('No API Key available');
+      
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-flash-latest",
+        contents: `Based on the product title: "${productInfo.title}" and description: "${productInfo.description}", which of the following categories are the best matches? Return ONLY the IDs of the top 3 matching categories as a JSON array of strings.
+        Categories: ${JSON.stringify(categoryList)}`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING }
+          }
+        }
+      });
+      return JSON.parse(response.text || "[]");
+    });
+    
+    neuralCategoryCache.set(cacheKey, { matches, timestamp: Date.now() });
+    return matches;
+  } catch (e) {
+    console.error('Neural category suggestion failed:', e);
+    return [];
   }
 };

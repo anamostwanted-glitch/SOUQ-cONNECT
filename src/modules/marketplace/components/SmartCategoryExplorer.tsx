@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Camera, Sparkles, ChevronRight, X, Coffee, Monitor, Sofa, Shirt, Wrench, Car, Utensils, ShoppingBag } from 'lucide-react';
+import { Search, Camera, Sparkles, ChevronRight, X, Coffee, Monitor, Sofa, Shirt, Wrench, Car, Utensils, ShoppingBag, Package, Box, Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { Category as FireCategory } from '../../../core/types';
 
 // --- Types ---
 interface Subcategory {
@@ -12,98 +13,112 @@ interface Subcategory {
   icon?: React.ReactNode;
 }
 
-interface Category {
+interface DisplayCategory {
   id: string;
   nameAr: string;
   nameEn: string;
   icon: React.ReactNode;
   color: string;
-  span?: string; // for bento grid (e.g., 'col-span-2')
+  span?: string;
   subcategories: Subcategory[];
 }
 
-// --- Mock Data ---
-const MOCK_CATEGORIES: Category[] = [
-  {
-    id: 'c1', nameAr: 'معدات المقاهي والمطاعم', nameEn: 'Cafe & Restaurant Eq.', icon: <Coffee size={24} />, color: 'from-orange-400 to-red-500', span: 'col-span-2 row-span-2',
-    subcategories: [
-      { id: 's1', nameAr: 'آلات الإسبريسو', nameEn: 'Espresso Machines' },
-      { id: 's2', nameAr: 'مطاحن القهوة', nameEn: 'Coffee Grinders' },
-      { id: 's3', nameAr: 'أفران تجارية', nameEn: 'Commercial Ovens' },
-      { id: 's4', nameAr: 'ثلاجات عرض', nameEn: 'Display Fridges' },
-    ]
-  },
-  {
-    id: 'c2', nameAr: 'إلكترونيات وتقنية', nameEn: 'Electronics & Tech', icon: <Monitor size={24} />, color: 'from-blue-400 to-indigo-500',
-    subcategories: [
-      { id: 's5', nameAr: 'حواسيب محمولة', nameEn: 'Laptops' },
-      { id: 's6', nameAr: 'شاشات عرض', nameEn: 'Monitors' },
-      { id: 's7', nameAr: 'أنظمة نقاط البيع', nameEn: 'POS Systems' },
-    ]
-  },
-  {
-    id: 'c3', nameAr: 'أثاث وديكور', nameEn: 'Furniture & Decor', icon: <Sofa size={24} />, color: 'from-emerald-400 to-teal-500',
-    subcategories: [
-      { id: 's8', nameAr: 'كراسي ومقاعد', nameEn: 'Chairs & Seating' },
-      { id: 's9', nameAr: 'طاولات', nameEn: 'Tables' },
-      { id: 's10', nameAr: 'إضاءة', nameEn: 'Lighting' },
-    ]
-  },
-  {
-    id: 'c4', nameAr: 'أزياء وملابس', nameEn: 'Fashion & Apparel', icon: <Shirt size={24} />, color: 'from-pink-400 to-rose-500',
-    subcategories: [
-      { id: 's11', nameAr: 'ملابس رجالية', nameEn: 'Men Clothing' },
-      { id: 's12', nameAr: 'ملابس نسائية', nameEn: 'Women Clothing' },
-    ]
-  },
-  {
-    id: 'c5', nameAr: 'معدات صناعية', nameEn: 'Industrial Eq.', icon: <Wrench size={24} />, color: 'from-gray-600 to-gray-800', span: 'col-span-2',
-    subcategories: [
-      { id: 's13', nameAr: 'أدوات يدوية', nameEn: 'Hand Tools' },
-      { id: 's14', nameAr: 'معدات ثقيلة', nameEn: 'Heavy Machinery' },
-    ]
-  },
+const CATEGORY_COLORS = [
+  'from-orange-400 to-red-500',
+  'from-blue-400 to-indigo-500',
+  'from-emerald-400 to-teal-500',
+  'from-pink-400 to-rose-500',
+  'from-purple-400 to-violet-500',
+  'from-amber-400 to-yellow-500',
+  'from-cyan-400 to-blue-500',
+  'from-gray-600 to-gray-800',
 ];
 
-// Mock AI Semantic Search
-const getAISuggestions = (query: string): Subcategory[] => {
-  if (!query) return [];
-  const q = query.toLowerCase();
-  const allSubs = MOCK_CATEGORIES.flatMap(c => c.subcategories);
-  
-  // Fake semantic logic
-  if (q.includes('مقهى') || q.includes('قهوة') || q.includes('cafe') || q.includes('coffee')) {
-    return allSubs.filter(s => ['s1', 's2', 's4', 's8', 's9'].includes(s.id));
-  }
-  if (q.includes('مطعم') || q.includes('restaurant')) {
-    return allSubs.filter(s => ['s3', 's4', 's8', 's9'].includes(s.id));
-  }
-  
-  return allSubs.filter(s => s.nameAr.includes(q) || s.nameEn.toLowerCase().includes(q));
-};
+const CATEGORY_ICONS = [
+  <Package size={24} />,
+  <Box size={24} />,
+  <Layers size={24} />,
+  <ShoppingBag size={24} />,
+  <Coffee size={24} />,
+  <Monitor size={24} />,
+  <Sofa size={24} />,
+  <Shirt size={24} />,
+  <Wrench size={24} />,
+  <Utensils size={24} />,
+];
 
 interface SmartCategoryExplorerProps {
+  categories: FireCategory[];
   onSelectCategory?: (categoryId: string, subcategoryId?: string) => void;
+  onVisualSearch?: () => void;
 }
 
-export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ onSelectCategory }) => {
+export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ categories, onSelectCategory, onVisualSearch }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<Category | null>(null);
-  const [aiSuggestions, setAiSuggestions] = useState<Subcategory[]>([]);
+  const [activeCategory, setActiveCategory] = useState<DisplayCategory | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Process real categories into DisplayCategory format
+  const displayCategories = useMemo(() => {
+    const mainCategories = categories.filter(c => !c.parentId);
+    
+    return mainCategories.map((cat, index) => {
+      const subcategories = categories
+        .filter(c => c.parentId === cat.id)
+        .map(sub => ({
+          id: sub.id,
+          nameAr: sub.nameAr,
+          nameEn: sub.nameEn,
+        }));
+
+      return {
+        id: cat.id,
+        nameAr: cat.nameAr,
+        nameEn: cat.nameEn,
+        icon: CATEGORY_ICONS[index % CATEGORY_ICONS.length],
+        color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+        span: index === 0 ? 'col-span-2 row-span-2' : index === 4 ? 'col-span-2' : undefined,
+        subcategories
+      };
+    });
+  }, [categories]);
+
+  // AI Semantic Search Logic
+  const aiSuggestions = useMemo(() => {
+    if (searchQuery.length < 2) return [];
+    const q = searchQuery.toLowerCase();
+    
+    // Flatten all subcategories for searching
+    const allSubs = displayCategories.flatMap(c => c.subcategories);
+    
+    // Semantic mapping (can be expanded)
+    const cafeKeywords = ['مقهى', 'قهوة', 'cafe', 'coffee', 'باريستا', 'barista'];
+    const restaurantKeywords = ['مطعم', 'restaurant', 'أكل', 'food', 'مطبخ', 'kitchen'];
+    
+    if (cafeKeywords.some(k => q.includes(k))) {
+      return allSubs.filter(s => 
+        s.nameAr.includes('قهوة') || s.nameAr.includes('آلة') || s.nameEn.toLowerCase().includes('coffee') || s.nameEn.toLowerCase().includes('machine')
+      ).slice(0, 6);
+    }
+
+    if (restaurantKeywords.some(k => q.includes(k))) {
+      return allSubs.filter(s => 
+        s.nameAr.includes('مطبخ') || s.nameAr.includes('فرن') || s.nameEn.toLowerCase().includes('kitchen') || s.nameEn.toLowerCase().includes('oven')
+      ).slice(0, 6);
+    }
+
+    return allSubs.filter(s => 
+      s.nameAr.includes(q) || s.nameEn.toLowerCase().includes(q)
+    ).slice(0, 8);
+  }, [searchQuery, displayCategories]);
 
   useEffect(() => {
     if (searchQuery.length > 2) {
       setIsSearching(true);
-      const timer = setTimeout(() => {
-        setAiSuggestions(getAISuggestions(searchQuery));
-        setIsSearching(false);
-      }, 600); // Simulate AI processing delay
+      const timer = setTimeout(() => setIsSearching(false), 500);
       return () => clearTimeout(timer);
-    } else {
-      setAiSuggestions([]);
     }
   }, [searchQuery]);
 
@@ -126,7 +141,10 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ on
             placeholder={isRtl ? "ما الذي تبحث عنه؟ (مثال: أريد تجهيز مقهى)" : "What are you looking for? (e.g., Cafe setup)"}
             className={`w-full bg-brand-surface border-none rounded-2xl py-4 ${isRtl ? 'pr-4 pl-12' : 'pl-12 pr-4'} text-sm font-medium text-brand-text-main focus:ring-2 focus:ring-brand-primary/50 transition-all shadow-inner`}
           />
-          <HapticButton className="absolute inset-y-2 right-2 w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary hover:bg-brand-primary hover:text-white transition-colors">
+          <HapticButton 
+            onClick={onVisualSearch}
+            className="absolute inset-y-2 right-2 w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary hover:bg-brand-primary hover:text-white transition-colors"
+          >
             <Camera className="w-5 h-5" />
           </HapticButton>
         </div>
@@ -154,7 +172,7 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ on
                   aiSuggestions.map(sub => (
                     <HapticButton
                       key={sub.id}
-                      onClick={() => onSelectCategory?.('ai', sub.id)}
+                      onClick={() => onSelectCategory?.(sub.id)}
                       className="px-4 py-2 bg-brand-teal/10 text-brand-teal rounded-full text-xs font-bold border border-brand-teal/20 hover:bg-brand-teal hover:text-white transition-all"
                     >
                       {isRtl ? sub.nameAr : sub.nameEn}
@@ -173,13 +191,13 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ on
         </AnimatePresence>
 
         {/* 2. Predictive Sorting (For You) */}
-        {!searchQuery && (
+        {!searchQuery && displayCategories.length > 0 && (
           <div>
             <h3 className="text-sm font-bold text-brand-text-main mb-3 px-1">
               {isRtl ? 'مقترح لك' : 'For You'}
             </h3>
             <div className="flex overflow-x-auto pb-4 -mx-4 px-4 gap-3 snap-x hide-scrollbar">
-              {MOCK_CATEGORIES.slice(0, 3).map(cat => (
+              {displayCategories.slice(0, 4).map(cat => (
                 <HapticButton
                   key={`foryou-${cat.id}`}
                   onClick={() => setActiveCategory(cat)}
@@ -203,26 +221,34 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ on
             <h3 className="text-sm font-bold text-brand-text-main mb-3 px-1">
               {isRtl ? 'استكشف الأقسام' : 'Explore Categories'}
             </h3>
-            <div className="grid grid-cols-2 gap-3 auto-rows-[120px]">
-              {MOCK_CATEGORIES.map((cat, idx) => (
-                <HapticButton
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat)}
-                  className={`relative overflow-hidden rounded-3xl p-4 flex flex-col justify-between group ${cat.span || ''} bg-gradient-to-br ${cat.color} shadow-md`}
-                >
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
-                  <div className="relative z-10 text-white/90">
-                    {cat.icon}
-                  </div>
-                  <div className="relative z-10 flex items-end justify-between">
-                    <span className="text-sm font-black text-white leading-tight max-w-[80%] text-start">
-                      {isRtl ? cat.nameAr : cat.nameEn}
-                    </span>
-                    <ChevronRight className={`w-5 h-5 text-white/50 ${isRtl ? 'rotate-180' : ''}`} />
-                  </div>
-                </HapticButton>
-              ))}
-            </div>
+            {displayCategories.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3 auto-rows-[120px]">
+                {displayCategories.map((cat, idx) => (
+                  <HapticButton
+                    key={cat.id}
+                    onClick={() => setActiveCategory(cat)}
+                    className={`relative overflow-hidden rounded-3xl p-4 flex flex-col justify-between group ${cat.span || ''} bg-gradient-to-br ${cat.color} shadow-md`}
+                  >
+                    <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
+                    <div className="relative z-10 text-white/90">
+                      {cat.icon}
+                    </div>
+                    <div className="relative z-10 flex items-end justify-between">
+                      <span className="text-sm font-black text-white leading-tight max-w-[80%] text-start">
+                        {isRtl ? cat.nameAr : cat.nameEn}
+                      </span>
+                      <ChevronRight className={`w-5 h-5 text-white/50 ${isRtl ? 'rotate-180' : ''}`} />
+                    </div>
+                  </HapticButton>
+                ))}
+              </div>
+            ) : (
+              <div className="py-10 text-center">
+                <p className="text-sm text-brand-text-muted">
+                  {isRtl ? 'لا توجد فئات مضافة بعد' : 'No categories added yet'}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -269,27 +295,39 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ on
                   {isRtl ? 'الفئات الفرعية' : 'Subcategories'}
                 </h3>
                 <div className="grid grid-cols-1 gap-3">
-                  {activeCategory.subcategories.map((sub, idx) => (
-                    <motion.div
-                      initial={{ opacity: 0, x: isRtl ? 20 : -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      key={sub.id}
-                    >
-                      <HapticButton 
-                        onClick={() => {
-                          onSelectCategory?.(activeCategory.id, sub.id);
-                          setActiveCategory(null);
-                        }}
-                        className="w-full flex items-center justify-between p-4 rounded-2xl bg-brand-surface hover:bg-brand-primary/5 border border-transparent hover:border-brand-primary/20 transition-all group"
+                  {activeCategory.subcategories.length > 0 ? (
+                    activeCategory.subcategories.map((sub, idx) => (
+                      <motion.div
+                        initial={{ opacity: 0, x: isRtl ? 20 : -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        key={sub.id}
                       >
-                        <span className="text-sm font-bold text-brand-text-main group-hover:text-brand-primary transition-colors">
-                          {isRtl ? sub.nameAr : sub.nameEn}
-                        </span>
-                        <ChevronRight className={`w-4 h-4 text-brand-text-muted group-hover:text-brand-primary ${isRtl ? 'rotate-180' : ''}`} />
-                      </HapticButton>
-                    </motion.div>
-                  ))}
+                        <HapticButton 
+                          onClick={() => {
+                            onSelectCategory?.(sub.id);
+                            setActiveCategory(null);
+                          }}
+                          className="w-full flex items-center justify-between p-4 rounded-2xl bg-brand-surface hover:bg-brand-primary/5 border border-transparent hover:border-brand-primary/20 transition-all group"
+                        >
+                          <span className="text-sm font-bold text-brand-text-main group-hover:text-brand-primary transition-colors">
+                            {isRtl ? sub.nameAr : sub.nameEn}
+                          </span>
+                          <ChevronRight className={`w-4 h-4 text-brand-text-muted group-hover:text-brand-primary ${isRtl ? 'rotate-180' : ''}`} />
+                        </HapticButton>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <HapticButton 
+                      onClick={() => {
+                        onSelectCategory?.(activeCategory.id);
+                        setActiveCategory(null);
+                      }}
+                      className="w-full p-4 rounded-2xl bg-brand-primary/10 text-brand-primary text-center font-bold"
+                    >
+                      {isRtl ? `عرض كل ${activeCategory.nameAr}` : `View all ${activeCategory.nameEn}`}
+                    </HapticButton>
+                  )}
                 </div>
               </div>
             </motion.div>

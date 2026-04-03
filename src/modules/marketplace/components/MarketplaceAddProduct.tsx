@@ -17,11 +17,15 @@ import {
   Image as ImageIcon,
   Loader2
 } from 'lucide-react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../../core/firebase';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { SmartImageUploader } from '../../../shared/components/SmartImageUploader';
-import { validatePhoneNumber } from '../../../core/services/geminiService';
+import { validatePhoneNumber, translateText } from '../../../core/services/geminiService';
 import { Category, UserProfile, MarketplaceItem } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { BlurImage } from '../../../shared/components/BlurImage';
+import { AINeuralCategorySelector } from '../../../shared/components/AINeuralCategorySelector';
 
 interface MarketplaceAddProductProps {
   isOpen: boolean;
@@ -52,7 +56,7 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
     title: '',
     description: '',
     price: '',
-    category: '',
+    categories: [] as string[],
     location: profile?.location || '',
     phone: profile?.phone || '',
     features: [] as string[],
@@ -60,13 +64,35 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
     classification: ''
   });
 
+  const [watermarkSettings, setWatermarkSettings] = useState<{
+    logo?: string;
+    text?: string;
+    opacity?: number;
+  }>({});
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setWatermarkSettings({
+          logo: data.watermarkUrl || data.watermarkLogoUrl,
+          text: data.siteName || "B2B2C Connect",
+          opacity: data.watermarkOpacity || 0.5
+        });
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'settings/site');
+    });
+    return () => unsub();
+  }, []);
+
   useEffect(() => {
     if (initialData) {
       setFormData({
         title: initialData.title,
         description: initialData.description,
         price: initialData.price.toString(),
-        category: initialData.category,
+        categories: initialData.categories || [],
         location: initialData.location,
         phone: initialData.sellerPhone || '',
         features: initialData.features || [],
@@ -88,7 +114,7 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
         title: '',
         description: '',
         price: '',
-        category: '',
+        categories: [] as string[],
         location: profile?.location || '',
         phone: profile?.phone || '',
         features: [],
@@ -123,7 +149,7 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
       ...prev,
       title: aiSuggestions.productName,
       description: aiSuggestions.description,
-      category: aiSuggestions.category,
+      categories: [aiSuggestions.category],
       features: aiSuggestions.features,
       isHighQuality: aiSuggestions.isHighQuality,
       classification: aiSuggestions.classification
@@ -178,8 +204,34 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
     e.preventDefault();
     setLoading(true);
     try {
+      // Automatic Translation
+      let titleAr = '';
+      let titleEn = '';
+      let descriptionAr = '';
+      let descriptionEn = '';
+
+      if (i18n.language.startsWith('ar')) {
+        titleAr = formData.title;
+        descriptionAr = formData.description;
+        [titleEn, descriptionEn] = await Promise.all([
+          translateText(formData.title, 'en'),
+          translateText(formData.description, 'en')
+        ]);
+      } else {
+        titleEn = formData.title;
+        descriptionEn = formData.description;
+        [titleAr, descriptionAr] = await Promise.all([
+          translateText(formData.title, 'ar'),
+          translateText(formData.description, 'ar')
+        ]);
+      }
+
       await onAdd({
         ...formData,
+        titleAr,
+        titleEn,
+        descriptionAr,
+        descriptionEn,
         price: parseFloat(formData.price),
         images: uploadedImages.map(img => img.finalUrl || img.preview),
         sellerPhone: formData.phone,
@@ -235,6 +287,9 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
                   <SmartImageUploader 
                     onImagesChange={setUploadedImages}
                     maxImages={10}
+                    watermarkLogo={watermarkSettings.logo}
+                    watermarkText={watermarkSettings.text}
+                    watermarkOpacity={watermarkSettings.opacity}
                   />
                   {uploadedImages.length > 0 && (
                     <div className="flex justify-end">
@@ -307,7 +362,7 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
                         type="text"
                         placeholder={t('title_placeholder', 'e.g. Industrial Water Pump')}
                         className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-primary focus:bg-white outline-none transition-all"
-                        value={formData.title}
+                        value={formData.title || ''}
                         onChange={e => setFormData({...formData, title: e.target.value})}
                       />
                     </div>
@@ -323,7 +378,7 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
                             type="number"
                             placeholder="0.00"
                             className="w-full pl-12 pr-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-primary focus:bg-white outline-none transition-all"
-                            value={formData.price}
+                            value={formData.price || ''}
                             onChange={e => setFormData({...formData, price: e.target.value})}
                           />
                         </div>
@@ -331,20 +386,17 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
 
                       {/* Category */}
                       <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">{t('item_category', 'Category')}</label>
-                        <select 
-                          required
-                          className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-primary focus:bg-white outline-none transition-all appearance-none"
-                          value={formData.category}
-                          onChange={e => setFormData({...formData, category: e.target.value})}
-                        >
-                          <option value="">{t('category_select', 'Select Category')}</option>
-                          {categories.map(cat => (
-                            <option key={cat.id} value={cat.id}>
-                              {i18n.language === 'ar' ? cat.nameAr : cat.nameEn}
-                            </option>
-                          ))}
-                        </select>
+                        <AINeuralCategorySelector 
+                          categories={categories}
+                          selectedCategoryIds={formData.categories}
+                          onSelect={(ids) => setFormData({...formData, categories: ids})}
+                          productInfo={{
+                            title: formData.title,
+                            description: formData.description,
+                            imageUrl: uploadedImages[0]?.preview
+                          }}
+                          isRtl={i18n.language === 'ar'}
+                        />
                       </div>
                     </div>
 
@@ -356,7 +408,7 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
                         rows={4}
                         placeholder={t('desc_placeholder', 'Describe your product in detail...')}
                         className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-primary focus:bg-white outline-none transition-all resize-none"
-                        value={formData.description}
+                        value={formData.description || ''}
                         onChange={e => setFormData({...formData, description: e.target.value})}
                       />
                     </div>
@@ -375,7 +427,7 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
                               phoneValidation?.isValid === false ? 'border-red-200 focus:ring-red-500' : 
                               'border-slate-200 focus:ring-brand-primary'
                             }`}
-                            value={formData.phone}
+                            value={formData.phone || ''}
                             onChange={e => setFormData({...formData, phone: e.target.value})}
                           />
                           {phoneValidation?.isValid && (
@@ -398,7 +450,7 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
                             type="text"
                             placeholder={t('location_placeholder', 'City, Country')}
                             className="w-full pl-12 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-primary focus:bg-white outline-none transition-all"
-                            value={formData.location}
+                            value={formData.location || ''}
                             onChange={e => setFormData({...formData, location: e.target.value})}
                           />
                           <button 
@@ -474,7 +526,7 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
                 <div className="p-5">
                   <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-1 font-bold uppercase tracking-wider">
                     <Tag className="w-3 h-3" />
-                    <span>{formData.category || t('category', 'Category')}</span>
+                    <span>{formData.categories.length > 0 ? formData.categories.join(', ') : t('category', 'Category')}</span>
                   </div>
                   <h3 className="font-bold text-slate-800 mb-1 line-clamp-1">
                     {formData.title || t('product_title', 'Product Title')}
