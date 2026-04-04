@@ -677,8 +677,11 @@ const Home: React.FC<HomeProps> = ({
             >
               {/* Spinning Neural Glow (Visible on Hover) */}
               <div 
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-48 md:h-48 opacity-0 group-hover:opacity-30 animate-[spin_3s_linear_infinite] rounded-full blur-xl transition-opacity duration-500 pointer-events-none" 
-                style={{ background: `linear-gradient(to right, transparent, ${logoAuraColor}, transparent)` }}
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-48 md:h-48 opacity-0 group-hover:opacity-40 animate-[spin_3s_linear_infinite] rounded-full blur-xl transition-opacity duration-500 pointer-events-none" 
+                style={{ 
+                  background: `linear-gradient(to right, transparent, ${logoAuraColor}, transparent)`,
+                  boxShadow: logoAuraColor.toLowerCase() === '#ffffff' ? '0 0 30px 5px rgba(0,0,0,0.05)' : 'none'
+                }}
               />
               
               {/* Logo Image/Text */}
@@ -702,7 +705,10 @@ const Home: React.FC<HomeProps> = ({
               {/* Electric AI Indicator (Floating below) */}
               <div 
                 className="absolute -bottom-8 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0"
-                style={{ color: logoAuraColor }}
+                style={{ 
+                  color: logoAuraColor,
+                  filter: logoAuraColor.toLowerCase() === '#ffffff' ? 'drop-shadow(0 0 2px rgba(0,0,0,0.2))' : 'none'
+                }}
               >
                 <Zap size={14} className="animate-pulse" />
                 <span className="text-xs font-black uppercase tracking-widest drop-shadow-md">
@@ -786,11 +792,14 @@ const Home: React.FC<HomeProps> = ({
                 <motion.div 
                   animate={{ 
                     scale: [1, 1.1, 1],
-                    opacity: [0.3, 0.5, 0.3],
+                    opacity: [0.3, 0.6, 0.3],
                   }}
                   transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 md:w-64 md:h-64 rounded-full blur-[60px] pointer-events-none z-0"
-                  style={{ backgroundColor: logoAuraColor }}
+                  style={{ 
+                    backgroundColor: logoAuraColor,
+                    boxShadow: logoAuraColor.toLowerCase() === '#ffffff' ? '0 0 40px 10px rgba(0,0,0,0.05)' : 'none'
+                  }}
                 />
                 
                 {/* Logo Container with Scale */}
@@ -815,7 +824,10 @@ const Home: React.FC<HomeProps> = ({
                   {/* AI Pulse Ring */}
                   <div 
                     className="absolute -inset-4 rounded-full border border-brand-primary/20 animate-ping opacity-0 group-hover:opacity-100 transition-opacity duration-700"
-                    style={{ borderColor: `${logoAuraColor}33` }}
+                    style={{ 
+                      borderColor: `${logoAuraColor}33`,
+                      boxShadow: logoAuraColor.toLowerCase() === '#ffffff' ? '0 0 10px 1px rgba(0,0,0,0.05)' : 'none'
+                    }}
                   />
                 </div>
               </div>

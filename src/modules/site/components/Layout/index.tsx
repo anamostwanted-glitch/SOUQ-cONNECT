@@ -63,6 +63,8 @@ export const Layout: React.FC<LayoutProps> = ({
   
   const [siteLogo, setSiteLogo] = useState('');
   const [siteName, setSiteName] = useState('');
+  const [logoAuraColor, setLogoAuraColor] = useState('#1b97a7');
+  const [showNeuralLogo, setShowNeuralLogo] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
@@ -159,6 +161,8 @@ export const Layout: React.FC<LayoutProps> = ({
         const data = snap.data();
         setSiteLogo(data.logoUrl || '');
         setSiteName(data.siteName || '');
+        setLogoAuraColor(data.logoAuraColor || '#1b97a7');
+        setShowNeuralLogo(data.showNeuralLogo ?? true);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'settings/site');
@@ -244,6 +248,8 @@ export const Layout: React.FC<LayoutProps> = ({
         <Header 
           siteLogo={siteLogo}
           siteName={siteName}
+          logoAuraColor={logoAuraColor}
+          showNeuralLogo={showNeuralLogo}
           currentView={currentView}
           setView={setView}
           supplierTab={supplierTab}
@@ -316,6 +322,8 @@ export const Layout: React.FC<LayoutProps> = ({
         toggleLanguage={toggleLanguage}
         siteLogo={siteLogo}
         siteName={siteName}
+        logoAuraColor={logoAuraColor}
+        showNeuralLogo={showNeuralLogo}
         onPrefetch={onPrefetch}
         onVisualSearch={() => setIsAIHubOpen(true)}
         onOpenHelpCenter={() => setShowHelpCenter(true)}

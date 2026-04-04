@@ -9,6 +9,8 @@ import { motion, useAnimation, AnimatePresence } from 'motion/react';
 interface HeaderProps {
   siteLogo: string;
   siteName: string;
+  logoAuraColor?: string;
+  showNeuralLogo?: boolean;
   currentView: string;
   setView: (view: any) => void;
   supplierTab: string;
@@ -37,6 +39,8 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   siteLogo,
   siteName,
+  logoAuraColor = '#1b97a7',
+  showNeuralLogo = true,
   currentView,
   setView,
   supplierTab,
@@ -71,23 +75,39 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-8">
           <HapticButton 
             onClick={() => setView('home')}
-            className="flex items-center gap-2 text-brand-primary"
+            className="flex items-center gap-2 text-brand-primary relative group"
           >
-            {siteLogo ? (
-              <img 
-                src={siteLogo} 
-                alt="Logo" 
-                className="h-10 w-auto object-contain" 
-                referrerPolicy="no-referrer" 
+            {showNeuralLogo && (
+              <motion.div 
+                animate={{ 
+                  scale: [1, 1.2, 1],
+                  opacity: [0.2, 0.4, 0.2],
+                }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute inset-0 rounded-full blur-xl pointer-events-none z-0"
+                style={{ 
+                  backgroundColor: logoAuraColor,
+                  boxShadow: logoAuraColor.toLowerCase() === '#ffffff' ? '0 0 20px 2px rgba(0,0,0,0.05)' : 'none'
+                }}
               />
-            ) : (
-              <div className="flex items-center gap-2">
-                <Building2 size={28} />
-                <span className="font-extrabold text-xl tracking-tight hidden sm:block">
-                  {siteName || 'B2B2C'}
-                </span>
-              </div>
             )}
+            <div className="relative z-10 flex items-center gap-2">
+              {siteLogo ? (
+                <img 
+                  src={siteLogo} 
+                  alt="Logo" 
+                  className="h-10 w-auto object-contain drop-shadow-sm" 
+                  referrerPolicy="no-referrer" 
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Building2 size={28} />
+                  <span className="font-extrabold text-xl tracking-tight hidden sm:block">
+                    {siteName || 'B2B2C'}
+                  </span>
+                </div>
+              )}
+            </div>
           </HapticButton>
 
           {/* Desktop Navigation */}

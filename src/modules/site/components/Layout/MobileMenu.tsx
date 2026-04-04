@@ -24,6 +24,8 @@ interface MobileMenuProps {
   toggleLanguage: () => void;
   siteLogo: string;
   siteName: string;
+  logoAuraColor?: string;
+  showNeuralLogo?: boolean;
   onPrefetch?: (view: string) => void;
   onVisualSearch?: () => void;
   onOpenHelpCenter?: () => void;
@@ -46,6 +48,8 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   toggleLanguage,
   siteLogo,
   siteName,
+  logoAuraColor = '#1b97a7',
+  showNeuralLogo = true,
   onPrefetch,
   onVisualSearch,
   onOpenHelpCenter
@@ -79,14 +83,29 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-3">
                     <div className="relative group">
-                      <div className="absolute -inset-1.5 bg-gradient-to-tr from-brand-primary/30 to-brand-teal/30 rounded-xl blur-md opacity-50" />
-                      {siteLogo ? (
-                        <img src={siteLogo} alt="Logo" className="h-10 w-auto relative object-contain" referrerPolicy="no-referrer" />
-                      ) : (
-                        <div className="p-2.5 bg-brand-primary rounded-xl text-white relative shadow-lg shadow-brand-primary/20">
-                          <Building2 size={20} />
-                        </div>
+                      {showNeuralLogo && (
+                        <motion.div 
+                          animate={{ 
+                            scale: [1, 1.2, 1],
+                            opacity: [0.2, 0.4, 0.2],
+                          }}
+                          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                          className="absolute -inset-2 rounded-xl blur-md pointer-events-none z-0"
+                          style={{ 
+                            backgroundColor: logoAuraColor,
+                            boxShadow: logoAuraColor.toLowerCase() === '#ffffff' ? '0 0 15px 2px rgba(0,0,0,0.05)' : 'none'
+                          }}
+                        />
                       )}
+                      <div className="relative z-10">
+                        {siteLogo ? (
+                          <img src={siteLogo} alt="Logo" className="h-10 w-auto relative object-contain drop-shadow-sm" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="p-2.5 bg-brand-primary rounded-xl text-white relative shadow-lg shadow-brand-primary/20">
+                            <Building2 size={20} />
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex flex-col">
                       <span className="font-black text-brand-text-main text-lg tracking-tight leading-none">{siteName || 'B2B2C Connect'}</span>
