@@ -25,6 +25,7 @@ import { KeywordManagerModal } from '../../../shared/components/KeywordManagerMo
 import BrandingSettings from '../../site/components/BrandingSettings';
 import { SiteSettingsManager } from './SiteSettingsManager';
 import { AdminNeuralHub } from './AdminNeuralHub';
+import { CostAnalysisDashboard } from './CostAnalysisDashboard';
 import { toast } from 'sonner';
 
 interface AdminDashboardProps {
@@ -191,6 +192,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'categories', label: isRtl ? 'الأقسام' : 'Categories', icon: ListTree },
     { id: 'site', label: isRtl ? 'إعدادات الموقع' : 'Site Settings', icon: Globe },
     { id: 'ai', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu },
+    { id: 'cost', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
     { id: 'settings', label: isRtl ? 'إعدادات النظام' : 'System Settings', icon: Settings },
   ];
 
@@ -435,6 +437,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               exit={{ opacity: 0, y: -20 }}
             >
               <AdminNeuralHub />
+            </motion.div>
+          )}
+
+          {activeTab === 'cost' && (
+            <motion.div
+              key="cost"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-6xl mx-auto"
+            >
+              <CostAnalysisDashboard />
             </motion.div>
           )}
 

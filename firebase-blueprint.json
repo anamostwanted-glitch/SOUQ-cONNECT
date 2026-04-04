@@ -220,6 +220,21 @@
         "marketTrends": { "type": "boolean" },
         "priceIntelligence": { "type": "boolean" }
       }
+    },
+    "UsageLog": {
+      "title": "UsageLog",
+      "description": "Logs for AI resource usage and cost tracking",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "feature": { "type": "string" },
+        "tokens": { "type": "integer" },
+        "estimatedCost": { "type": "number" },
+        "isCached": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "feature", "tokens", "createdAt"]
     }
   },
   "firestore": {
@@ -236,6 +251,7 @@
     "/searches/{searchId}": { "schema": "Search", "description": "User search history" },
     "/translation_cache/{cacheId}": { "schema": "TranslationCache", "description": "Cache for AI translations" },
     "/market_trends/{trendId}": { "schema": "MarketTrend", "description": "AI analyzed market trends" },
-    "/marketplace/{itemId}": { "schema": "MarketplaceItem", "description": "Marketplace listings" }
+    "/marketplace/{itemId}": { "schema": "MarketplaceItem", "description": "Marketplace listings" },
+    "/usage_logs/{logId}": { "schema": "UsageLog", "description": "AI usage and cost logs" }
   }
 }

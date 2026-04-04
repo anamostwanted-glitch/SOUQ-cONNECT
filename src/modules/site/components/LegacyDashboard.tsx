@@ -53,6 +53,7 @@ import { CategoryList } from '../../../shared/components/CategoryList';
 import { CategoryManagement } from '../../../shared/components/CategoryManagement';
 import { RequestSkeleton } from '../../../shared/components/Skeleton';
 import { AdminNeuralHub } from '../../admin/components/AdminNeuralHub';
+import { CostAnalysisDashboard } from '../../admin/components/CostAnalysisDashboard';
 import HelpCenter from './HelpCenter';
 import { 
   MessageSquare, 
@@ -137,7 +138,7 @@ import {
   suggestSupplierCategories,
   formatCategoryName,
   suggestCategoryMerges,
-  generateSupplierLogoImage,
+  generateSupplierLogo,
   suggestColorHarmony
 } from '../../../core/services/geminiService';
 import { createNotification } from '../../../core/services/notificationService';
@@ -940,10 +941,14 @@ const Dashboard: React.FC<DashboardProps> = ({
         const newOrder = arrayMove(sameParentCats, oldIndex, newIndex);
         
         // Update Firestore orders
-        for (let i = 0; i < newOrder.length; i++) {
-          if (newOrder[i].order !== i) {
-            await updateDoc(doc(db, 'categories', newOrder[i].id), { order: i });
+        try {
+          for (let i = 0; i < newOrder.length; i++) {
+            if (newOrder[i].order !== i) {
+              await updateDoc(doc(db, 'categories', newOrder[i].id), { order: i });
+            }
           }
+        } catch (error) {
+          console.error("Error reordering categories:", error);
         }
       }
     }
@@ -1108,7 +1113,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [activeRole, setActiveRole] = useState<UserProfile['role'] | null>(null);
   const [isCustomerMode, setIsCustomerMode] = useState(false);
-  const [adminTab, setAdminTab] = useState<'overview' | 'suppliers' | 'users' | 'categories' | 'chats' | 'moderation' | 'settings' | 'market-trends' | 'price-intelligence' | 'user-data' | 'marketing' | 'branding' | 'ai'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'suppliers' | 'users' | 'categories' | 'chats' | 'moderation' | 'settings' | 'market-trends' | 'price-intelligence' | 'user-data' | 'marketing' | 'branding' | 'ai' | 'cost'>('overview');
   const [userSearch, setUserSearch] = useState('');
   const [selectedAdminUser, setSelectedAdminUser] = useState<UserProfile | null>(null);
   
@@ -1223,7 +1228,10 @@ const Dashboard: React.FC<DashboardProps> = ({
       const recentChatsSnap = await getDocs(query(collection(db, 'chats'), orderBy('updatedAt', 'desc'), limit(20)));
       const chatSummaries = recentChatsSnap.docs.map(d => d.data().lastMessage).filter(Boolean).join('\n');
       
-      const analysis = await analyzeMarketTrends([], [chatSummaries], i18n.language);
+      const searchesSnap = await getDocs(query(collection(db, 'searches'), orderBy('createdAt', 'desc'), limit(50)));
+      const searches = searchesSnap.docs.map(d => d.data().query).filter(Boolean);
+      
+      const analysis = await analyzeMarketTrends(searches, [chatSummaries], i18n.language);
       
       await addDoc(collection(db, 'market_trends'), {
         titleAr: i18n.language === 'ar' ? 'تحليل اتجاهات السوق الجديد' : 'New Market Trends Analysis',
@@ -1791,6 +1799,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [chatSummaries, setChatSummaries] = useState<Record<string, string>>({});
   const [isSummarizing, setIsSummarizing] = useState<Record<string, boolean>>({});
   const [marketInsights, setMarketInsights] = useState<string>('');
+  const [marketSuggestions, setMarketSuggestions] = useState<string[]>([]);
   const [isAnalyzingMarket, setIsAnalyzingMarket] = useState(false);
   const [moderationAlerts, setModerationAlerts] = useState<any[]>([]);
 
@@ -1803,7 +1812,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         return `${data.senderName || 'User'}: ${data.text || '[Media]'}`;
       });
       
-      const summary = await summarizeChat(messages, i18n.language);
+      const summary = await summarizeChat(messages.join('\n'), i18n.language);
       setChatSummaries(prev => ({ ...prev, [chatId]: summary }));
     } catch (error) {
       console.error('Summarization error:', error);
@@ -1823,6 +1832,19 @@ const Dashboard: React.FC<DashboardProps> = ({
       
       const insights = await analyzeMarketTrends(searches, summaries, i18n.language);
       setMarketInsights(insights.analysis);
+      setMarketSuggestions(insights.suggestions || []);
+      
+      // Also save to Firestore so it's persistent and available in the Market Trends tab
+      await addDoc(collection(db, 'market_trends'), {
+        titleAr: i18n.language === 'ar' ? 'تحليل السوق والتوجهات' : 'Market Insights & Trends',
+        titleEn: 'Market Insights & Trends',
+        analysis: insights.analysis,
+        suggestions: insights.suggestions,
+        language: i18n.language,
+        createdAt: new Date().toISOString()
+      });
+      
+      toast.success(isRtl ? 'تم تحديث تحليل السوق بنجاح' : 'Market analysis updated successfully');
     } catch (error) {
       console.error('Market analysis error:', error);
     } finally {
@@ -1956,32 +1978,36 @@ const Dashboard: React.FC<DashboardProps> = ({
     if (profile.role === 'admin') {
       const qAllChats = query(collection(db, 'chats'), orderBy('updatedAt', 'desc'));
       unsubAllChats = onSnapshot(qAllChats, async (snap) => {
-        const chatsData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Chat));
-        setAllChats(chatsData);
+        try {
+          const chatsData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Chat));
+          setAllChats(chatsData);
 
-        // Fetch user info for archive
-        const userIds = new Set<string>();
-        chatsData.forEach(c => {
-          if (c.customerId && c.customerId !== 'system') userIds.add(c.customerId);
-          if (c.supplierId && c.supplierId !== 'everyone') userIds.add(c.supplierId);
-        });
+          // Fetch user info for archive
+          const userIds = new Set<string>();
+          chatsData.forEach(c => {
+            if (c.customerId && c.customerId !== 'system') userIds.add(c.customerId);
+            if (c.supplierId && c.supplierId !== 'everyone') userIds.add(c.supplierId);
+          });
 
-        const newUsers = { ...chatUsers };
-        let changed = false;
-        for (const uid of Array.from(userIds)) {
-          if (!newUsers[uid]) {
-            try {
-              const uSnap = await getDoc(doc(db, 'users', uid));
-              if (uSnap.exists()) {
-                newUsers[uid] = uSnap.data() as UserProfile;
-                changed = true;
+          const newUsers = { ...chatUsers };
+          let changed = false;
+          for (const uid of Array.from(userIds)) {
+            if (!newUsers[uid]) {
+              try {
+                const uSnap = await getDoc(doc(db, 'users', uid));
+                if (uSnap.exists()) {
+                  newUsers[uid] = uSnap.data() as UserProfile;
+                  changed = true;
+                }
+              } catch (error) {
+                handleFirestoreError(error, OperationType.GET, `users/${uid}`);
               }
-            } catch (error) {
-              handleFirestoreError(error, OperationType.GET, `users/${uid}`);
             }
           }
+          if (changed) setChatUsers(newUsers);
+        } catch (error) {
+          console.error('Error in onSnapshot callback for all chats:', error);
         }
-        if (changed) setChatUsers(newUsers);
       }, (error) => {
         handleFirestoreError(error, OperationType.LIST, 'chats');
       });
@@ -2296,11 +2322,15 @@ const Dashboard: React.FC<DashboardProps> = ({
     setCategories(prev => prev.filter(cat => cat.id !== id));
     
     try {
-      await deleteDoc(doc(db, 'categories', id));
+      // Soft delete: Update status instead of hard deleting
+      await updateDoc(doc(db, 'categories', id), {
+        status: 'deleted',
+        deletedAt: new Date().toISOString()
+      });
     } catch (error) {
       // Revert optimistic update
       setCategories(previousCategories);
-      handleFirestoreError(error, OperationType.DELETE, `categories/${id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `categories/${id}`);
     }
     setConfirmDeleteId(null);
   };
@@ -2606,10 +2636,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     setUploadError(null);
 
     try {
-      const base64Image = await generateSupplierLogoImage(companyName, categoryName, i18n.language);
+      const result = await generateSupplierLogo(companyName, categoryName, i18n.language);
       
       // Convert base64 to blob
-      const response = await fetch(base64Image);
+      const response = await fetch(result.logoUrl);
       const blob = await response.blob();
       
       const storageRef = ref(storage, `logos/${profile.uid}/ai_${Date.now()}.png`);
@@ -2655,10 +2685,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     setUploadError(null);
 
     try {
-      const base64Image = await generateSupplierLogoImage(companyName, categoryName, i18n.language);
+      const result = await generateSupplierLogo(companyName, categoryName, i18n.language);
       
       // Convert base64 to blob
-      const response = await fetch(base64Image);
+      const response = await fetch(result.logoUrl);
       const blob = await response.blob();
       
       const storageRef = ref(storage, `logos/${editingSupplier.uid}/ai_${Date.now()}.png`);
@@ -2987,9 +3017,9 @@ const Dashboard: React.FC<DashboardProps> = ({
         const offersQuery = query(collection(db, 'offers'), where('requestId', '==', docSnap.id));
         const offersSnap = await getDocs(offersQuery);
         offersSnap.forEach(offerSnap => {
-          deletePromises.push(deleteDoc(doc(db, 'offers', offerSnap.id)));
+          deletePromises.push(updateDoc(doc(db, 'offers', offerSnap.id), { status: 'deleted', deletedAt: new Date().toISOString() }));
         });
-        deletePromises.push(deleteDoc(doc(db, 'requests', docSnap.id)));
+        deletePromises.push(updateDoc(doc(db, 'requests', docSnap.id), { status: 'deleted', deletedAt: new Date().toISOString() }));
       }
 
       // Delete chats as customer
@@ -3013,9 +3043,9 @@ const Dashboard: React.FC<DashboardProps> = ({
               deletePromises.push(deleteObject(ref(storage, path)).catch(e => console.error('Error deleting message audio:', e)));
             } catch (e) {}
           }
-          deletePromises.push(deleteDoc(doc(db, `chats/${docSnap.id}/messages`, msgSnap.id)));
+          deletePromises.push(updateDoc(doc(db, `chats/${docSnap.id}/messages`, msgSnap.id), { status: 'deleted', deletedAt: new Date().toISOString() }));
         });
-        deletePromises.push(deleteDoc(doc(db, 'chats', docSnap.id)));
+        deletePromises.push(updateDoc(doc(db, 'chats', docSnap.id), { status: 'deleted', deletedAt: new Date().toISOString() }));
       }
 
       // Delete chats as supplier
@@ -3039,23 +3069,23 @@ const Dashboard: React.FC<DashboardProps> = ({
               deletePromises.push(deleteObject(ref(storage, path)).catch(e => console.error('Error deleting message audio:', e)));
             } catch (e) {}
           }
-          deletePromises.push(deleteDoc(doc(db, `chats/${docSnap.id}/messages`, msgSnap.id)));
+          deletePromises.push(updateDoc(doc(db, `chats/${docSnap.id}/messages`, msgSnap.id), { status: 'deleted', deletedAt: new Date().toISOString() }));
         });
-        deletePromises.push(deleteDoc(doc(db, 'chats', docSnap.id)));
+        deletePromises.push(updateDoc(doc(db, 'chats', docSnap.id), { status: 'deleted', deletedAt: new Date().toISOString() }));
       }
 
       // Delete offers as customer
       const offersQueryCustomer = query(collection(db, 'offers'), where('customerId', '==', uid));
       const offersSnapCustomer = await getDocs(offersQueryCustomer);
       offersSnapCustomer.forEach(docSnap => {
-        deletePromises.push(deleteDoc(doc(db, 'offers', docSnap.id)));
+        deletePromises.push(updateDoc(doc(db, 'offers', docSnap.id), { status: 'deleted', deletedAt: new Date().toISOString() }));
       });
 
       // Delete offers as supplier
       const offersQuerySupplier = query(collection(db, 'offers'), where('supplierId', '==', uid));
       const offersSnapSupplier = await getDocs(offersQuerySupplier);
       offersSnapSupplier.forEach(docSnap => {
-        deletePromises.push(deleteDoc(doc(db, 'offers', docSnap.id)));
+        deletePromises.push(updateDoc(doc(db, 'offers', docSnap.id), { status: 'deleted', deletedAt: new Date().toISOString() }));
       });
 
       // Delete user document and logo if exists
@@ -3074,9 +3104,15 @@ const Dashboard: React.FC<DashboardProps> = ({
           }
         }
       }
-      deletePromises.push(deleteDoc(doc(db, 'users', uid)));
+      deletePromises.push(updateDoc(doc(db, 'users', uid), { status: 'deleted', deletedAt: new Date().toISOString() }));
 
-      await Promise.all(deletePromises);
+      const results = await Promise.allSettled(deletePromises);
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        console.error("Some deletions failed:", failures);
+        // Throw the first error to be caught by the outer block
+        throw (failures[0] as PromiseRejectedResult).reason;
+      }
     } catch (error) {
       console.error("Error deleting user data:", error);
       throw error;
@@ -3313,6 +3349,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 { id: 'moderation', label: isRtl ? 'تنبيهات الإشراف' : 'Moderation Alerts', icon: ShieldAlert, badge: unresolvedAlerts },
                 { id: 'chats', label: isRtl ? 'أرشيف المحادثات' : 'Chat Archive', icon: MessageSquare },
                 { id: 'ai', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu },
+                { id: 'cost', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
                 { id: 'settings', label: isRtl ? 'إعدادات الموقع' : 'Site Settings', icon: Settings },
               ].map((item) => {
                 const Icon = item.icon;
@@ -3384,6 +3421,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   {adminTab === 'user-data' && (isRtl ? 'بيانات المستخدمين' : 'User Data')}
                   {adminTab === 'marketing' && (isRtl ? 'التسويق والانتشار' : 'Marketing & Growth')}
                   {adminTab === 'ai' && (isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub')}
+                  {adminTab === 'cost' && (isRtl ? 'تحليل التكاليف' : 'Cost Analysis')}
                   {adminTab === 'settings' && (isRtl ? 'إعدادات الموقع' : 'Site Settings')}
                 </h1>
               </div>
@@ -3527,14 +3565,29 @@ const Dashboard: React.FC<DashboardProps> = ({
                               </button>
                             </div>
 
-                            {marketInsights ? (
+                            {marketInsights || marketTrends.length > 0 ? (
                               <div className="bg-brand-background/50 rounded-3xl p-8 border border-brand-border/50 relative">
                                 <div className="absolute -left-1 top-8 bottom-8 w-1 bg-brand-success/20 rounded-r-full"></div>
                                 <div className="prose prose-brand max-w-none">
                                   <p className="text-brand-text-main whitespace-pre-wrap leading-relaxed text-sm md:text-base">
-                                    {marketInsights}
+                                    {marketInsights || marketTrends[0]?.analysis}
                                   </p>
                                 </div>
+                                {((marketInsights && marketSuggestions.length > 0) || (!marketInsights && marketTrends[0]?.suggestions && marketTrends[0].suggestions.length > 0)) && (
+                                  <div className="mt-6 pt-6 border-t border-brand-border/30">
+                                    <h4 className="text-xs font-black text-brand-text-muted uppercase tracking-widest mb-3 flex items-center gap-2">
+                                      <Sparkles size={14} className="text-brand-primary" />
+                                      {isRtl ? 'الفئات المقترحة' : 'Suggested Categories'}
+                                    </h4>
+                                    <div className="flex flex-wrap gap-2">
+                                      {(marketInsights ? marketSuggestions : marketTrends[0].suggestions).map((s, idx) => (
+                                        <span key={idx} className="px-3 py-1.5 bg-brand-primary/5 text-brand-primary rounded-xl text-xs font-bold border border-brand-primary/10">
+                                          {s}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <div className="text-center py-16 bg-brand-background/50 rounded-3xl border border-dashed border-brand-border">
@@ -5988,6 +6041,12 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
+        {adminTab === 'cost' && (
+          <div className="animate-fade-in">
+            <CostAnalysisDashboard />
+          </div>
+        )}
+
         {/* Merge Categories Modal */}
         <AnimatePresence>
           {showMergeModal && (
@@ -7562,28 +7621,32 @@ const OffersList: React.FC<{
       : query(collection(db, 'offers'), where('customerId', '==', customerId));
       
     const unsubOffers = onSnapshot(qOffers, async (snap) => {
-      const offersData = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as Offer))
-        .filter(o => o.requestId === requestId);
-      setOffers(offersData);
+      try {
+        const offersData = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as Offer))
+          .filter(o => o.requestId === requestId);
+        setOffers(offersData);
 
-      // Fetch supplier info for each offer
-      const newInfo = { ...suppliersInfo };
-      let changed = false;
-      for (const offer of offersData) {
-        if (!newInfo[offer.supplierId]) {
-          try {
-            const sSnap = await getDoc(doc(db, 'users', offer.supplierId));
-            if (sSnap.exists()) {
-              newInfo[offer.supplierId] = sSnap.data() as UserProfile;
-              changed = true;
+        // Fetch supplier info for each offer
+        const newInfo = { ...suppliersInfo };
+        let changed = false;
+        for (const offer of offersData) {
+          if (!newInfo[offer.supplierId]) {
+            try {
+              const sSnap = await getDoc(doc(db, 'users', offer.supplierId));
+              if (sSnap.exists()) {
+                newInfo[offer.supplierId] = sSnap.data() as UserProfile;
+                changed = true;
+              }
+            } catch (error) {
+              handleFirestoreError(error, OperationType.GET, `users/${offer.supplierId}`);
             }
-          } catch (error) {
-            handleFirestoreError(error, OperationType.GET, `users/${offer.supplierId}`);
           }
         }
+        if (changed) setSuppliersInfo(newInfo);
+      } catch (error) {
+        console.error('Error in onSnapshot callback for offers:', error);
       }
-      if (changed) setSuppliersInfo(newInfo);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'offers');
     });
@@ -7594,43 +7657,47 @@ const OffersList: React.FC<{
       : query(collection(db, 'chats'), where('customerId', '==', customerId));
       
     const unsubChats = onSnapshot(qChats, async (snap) => {
-      const allChatsData = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as Chat))
-        .filter(c => c.requestId === requestId);
-      
-      // Filter for 24 hours if not admin
-      let chatsData = allChatsData;
-      // We need to know if the current user is admin. Since profile is not directly in OffersList props, 
-      // we might need to pass it or check if we can access it. 
-      // Actually, we can check the profile from the parent context if we pass it.
-      // Let's assume we'll pass 'isAdmin' prop to OffersList.
-      if (!isAdmin) {
-        const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
-        chatsData = allChatsData.filter(chat => {
-          const updatedAt = chat.updatedAt ? new Date(chat.updatedAt).getTime() : 0;
-          return updatedAt >= twentyFourHoursAgo;
-        });
-      }
-      
-      setChats(chatsData);
+      try {
+        const allChatsData = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as Chat))
+          .filter(c => c.requestId === requestId);
+        
+        // Filter for 24 hours if not admin
+        let chatsData = allChatsData;
+        // We need to know if the current user is admin. Since profile is not directly in OffersList props, 
+        // we might need to pass it or check if we can access it. 
+        // Actually, we can check the profile from the parent context if we pass it.
+        // Let's assume we'll pass 'isAdmin' prop to OffersList.
+        if (!isAdmin) {
+          const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+          chatsData = allChatsData.filter(chat => {
+            const updatedAt = chat.updatedAt ? new Date(chat.updatedAt).getTime() : 0;
+            return updatedAt >= twentyFourHoursAgo;
+          });
+        }
+        
+        setChats(chatsData);
 
-      // Also fetch supplier info for chats that might not have offers
-      const newInfo = { ...suppliersInfo };
-      let changed = false;
-      for (const chat of chatsData) {
-        if (chat.supplierId !== 'everyone' && !newInfo[chat.supplierId]) {
-          try {
-            const sSnap = await getDoc(doc(db, 'users', chat.supplierId));
-            if (sSnap.exists()) {
-              newInfo[chat.supplierId] = sSnap.data() as UserProfile;
-              changed = true;
+        // Also fetch supplier info for chats that might not have offers
+        const newInfo = { ...suppliersInfo };
+        let changed = false;
+        for (const chat of chatsData) {
+          if (chat.supplierId !== 'everyone' && !newInfo[chat.supplierId]) {
+            try {
+              const sSnap = await getDoc(doc(db, 'users', chat.supplierId));
+              if (sSnap.exists()) {
+                newInfo[chat.supplierId] = sSnap.data() as UserProfile;
+                changed = true;
+              }
+            } catch (error) {
+              handleFirestoreError(error, OperationType.GET, `users/${chat.supplierId}`);
             }
-          } catch (error) {
-            handleFirestoreError(error, OperationType.GET, `users/${chat.supplierId}`);
           }
         }
+        if (changed) setSuppliersInfo(newInfo);
+      } catch (error) {
+        console.error('Error in onSnapshot callback for chats:', error);
       }
-      if (changed) setSuppliersInfo(newInfo);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'chats');
     });

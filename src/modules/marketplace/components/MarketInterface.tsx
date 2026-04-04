@@ -7,7 +7,7 @@ import {
   onSnapshot, 
   orderBy,
   getDocs,
-  deleteDoc,
+  updateDoc,
   doc
 } from 'firebase/firestore';
 import { db, auth } from '../../../core/firebase';
@@ -39,8 +39,7 @@ interface MarketInterfaceProps {
   viewMode?: 'admin' | 'supplier' | 'customer';
 }
 
-import { useScroll } from '../../../shared/contexts/ScrollContext';
-import { ScrollDirection } from '../../../shared/hooks/useScrollDirection';
+import { ScrollDirection, useScrollDirection } from '../../../shared/hooks/useScrollDirection';
 
 export const MarketInterface: React.FC<MarketInterfaceProps> = ({ 
   profile, 
@@ -51,7 +50,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
-  const { scrollDirection } = useScroll();
+  const scrollDirection = useScrollDirection();
   const [isMinimized, setIsMinimized] = useState(false);
   
   const [items, setItems] = useState<MarketplaceItem[]>([]);
@@ -119,10 +118,14 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const confirmDelete = async () => {
     if (!itemToDelete) return;
     try {
-      await deleteDoc(doc(db, 'marketplace', itemToDelete.id));
+      // Soft delete: Update status instead of hard deleting
+      await updateDoc(doc(db, 'marketplace', itemToDelete.id), {
+        status: 'deleted',
+        deletedAt: new Date().toISOString()
+      });
       setItemToDelete(null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `marketplace/${itemToDelete.id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `marketplace/${itemToDelete.id}`);
     }
   };
 
@@ -131,14 +134,14 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     : items.filter(item => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
-      item.title.toLowerCase().includes(searchLower) || 
-      item.description.toLowerCase().includes(searchLower) ||
+      (item.title?.toLowerCase() || '').includes(searchLower) || 
+      (item.description?.toLowerCase() || '').includes(searchLower) ||
       (item.titleAr && item.titleAr.toLowerCase().includes(searchLower)) ||
       (item.titleEn && item.titleEn.toLowerCase().includes(searchLower)) ||
       (item.descriptionAr && item.descriptionAr.toLowerCase().includes(searchLower)) ||
       (item.descriptionEn && item.descriptionEn.toLowerCase().includes(searchLower));
     
-    const matchesCategory = selectedCategory ? item.categories.includes(selectedCategory) : true;
+    const matchesCategory = selectedCategory ? (item.categories || []).includes(selectedCategory) : true;
     return matchesSearch && matchesCategory;
   });
 

@@ -42,39 +42,44 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
     );
 
     const unsubscribe = onSnapshot(q, async (snap) => {
-      const chatList = snap.docs.map(d => ({ id: d.id, ...d.data() } as Chat));
-      setChats(chatList);
-      setLoading(false);
+      try {
+        const chatList = snap.docs.map(d => ({ id: d.id, ...d.data() } as Chat));
+        setChats(chatList);
+        setLoading(false);
 
-      // Fetch other users' data
-      const userIds = Array.from(new Set(chatList.map((c: Chat) => 
-        profile.uid === c.customerId ? c.supplierId : c.customerId
-      )));
+        // Fetch other users' data
+        const userIds = Array.from(new Set(chatList.map((c: Chat) => 
+          profile.uid === c.customerId ? c.supplierId : c.customerId
+        )));
 
-      const newOtherUsers = { ...otherUsers };
-      let changed = false;
+        const newOtherUsers = { ...otherUsers };
+        let changed = false;
 
-      for (const id of userIds) {
-        if (!newOtherUsers[id]) {
-          try {
-            const uSnap = await getDoc(doc(db, 'users', id));
-            if (uSnap.exists()) {
-              newOtherUsers[id] = uSnap.data() as UserProfile;
-              changed = true;
-            } else {
+        for (const id of userIds) {
+          if (!newOtherUsers[id]) {
+            try {
+              const uSnap = await getDoc(doc(db, 'users', id));
+              if (uSnap.exists()) {
+                newOtherUsers[id] = uSnap.data() as UserProfile;
+                changed = true;
+              } else {
+                newOtherUsers[id] = { uid: id, name: 'User', role: 'customer' } as UserProfile;
+                changed = true;
+              }
+            } catch (error) {
+              console.error('Error fetching user for chat hub:', error);
               newOtherUsers[id] = { uid: id, name: 'User', role: 'customer' } as UserProfile;
               changed = true;
             }
-          } catch (error) {
-            console.error('Error fetching user for chat hub:', error);
-            newOtherUsers[id] = { uid: id, name: 'User', role: 'customer' } as UserProfile;
-            changed = true;
           }
         }
-      }
 
-      if (changed) {
-        setOtherUsers(newOtherUsers);
+        if (changed) {
+          setOtherUsers(newOtherUsers);
+        }
+      } catch (error) {
+        console.error('Error in onSnapshot callback for chat hub:', error);
+        setLoading(false);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'chats');

@@ -283,17 +283,17 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
     setImages(prev => prev.map(img => img.id === id ? { ...img, status, progress, error } : img));
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processFiles(e.dataTransfer.files);
+      await processFiles(e.dataTransfer.files);
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      processFiles(e.target.files);
+      await processFiles(e.target.files);
     }
   };
 

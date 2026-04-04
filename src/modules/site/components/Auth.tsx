@@ -90,6 +90,18 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
     
     try {
       setUploading(true);
+      
+      // Check if phone number exists in our database
+      const { query, where, getDocs, limit } = await import('firebase/firestore');
+      const q = query(collection(db, 'users'), where('phone', '==', phone), limit(1));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        setError(i18n.language === 'ar' ? 'رقم الهاتف غير مسجل لدينا' : 'Phone number not registered');
+        setUploading(false);
+        return;
+      }
+
       const appVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible'
       });
@@ -250,7 +262,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
               const newUserData = { ...emailData, uid: auth.currentUser!.uid, email: email.toLowerCase() };
               
               await setDoc(doc(db, 'users', auth.currentUser!.uid), newUserData);
-              await deleteDoc(doc(db, 'users', email.toLowerCase()));
+              await updateDoc(doc(db, 'users', email.toLowerCase()), { status: 'deleted', deletedAt: new Date().toISOString() });
               
               docSnap = await getDoc(doc(db, 'users', auth.currentUser!.uid));
             }
@@ -262,7 +274,23 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
         if (docSnap.exists()) {
           onAuthSuccess((docSnap.data() as UserProfile).role);
         } else {
-          onAuthSuccess('customer');
+          // Recreate missing user document
+          const newRole = (auth.currentUser!.email === 'anamostwanted@gmail.com') ? 'admin' : 'customer';
+          const newProfileData: any = {
+            uid: auth.currentUser!.uid,
+            email: auth.currentUser!.email || email,
+            name: auth.currentUser!.displayName || 'User',
+            role: newRole,
+            referralCode: auth.currentUser!.uid.substring(0, 6).toUpperCase(),
+            referralPoints: 0,
+            createdAt: new Date().toISOString()
+          };
+          try {
+            await setDoc(doc(db, 'users', auth.currentUser!.uid), newProfileData);
+          } catch (error) {
+            console.error("Failed to recreate missing user document:", error);
+          }
+          onAuthSuccess(newRole);
         }
       } else {
         setUploading(true);
@@ -373,6 +401,18 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
 
   const handleSocialSignIn = async (provider: GoogleAuthProvider | FacebookAuthProvider | OAuthProvider) => {
     setError('');
+    
+    if (!isLogin && role === 'supplier') {
+      if (!companyName || !phone || !location || !selectedCategoryId) {
+        setError(i18n.language === 'ar' ? 'يرجى تعبئة جميع تفاصيل المورد' : 'Please fill all supplier details');
+        return;
+      }
+      if (logoFile && logoFile.size > 500 * 1024) {
+        setError(i18n.language === 'ar' ? 'يجب أن يكون حجم الشعار أقل من 500 كيلوبايت' : 'Logo file size must be less than 500KB');
+        return;
+      }
+    }
+
     setUploading(true);
     try {
       const result = await signInWithPopup(auth, provider);
@@ -391,8 +431,8 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
       
       if (docSnap && docSnap.exists()) {
         assignedRole = (docSnap.data() as UserProfile).role;
-        // Force admin role for master email
-        if (user.email === 'anamostwanted@gmail.com') {
+        // Force admin role for master email if not supplier
+        if (user.email === 'anamostwanted@gmail.com' && assignedRole !== 'supplier') {
           assignedRole = 'admin';
         }
       } else if (user.email) {
@@ -407,9 +447,9 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
             delete extraData.email;
             delete extraData.role;
             
-            // Delete the old document since we are creating a new one with the correct UID
-            await deleteDoc(doc(db, 'users', user.email.toLowerCase()));
-          } else if (user.email === 'anamostwanted@gmail.com') {
+            // Soft delete the old document since we are creating a new one with the correct UID
+            await updateDoc(doc(db, 'users', user.email.toLowerCase()), { status: 'deleted', deletedAt: new Date().toISOString() });
+          } else if (user.email === 'anamostwanted@gmail.com' && role !== 'supplier') {
             assignedRole = 'admin';
           } else {
             // New user, use the currently selected role in the UI if we are on the register tab

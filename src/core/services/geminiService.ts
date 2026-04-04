@@ -1,11 +1,32 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Category, UserProfile, GeminiApiKey } from "../types";
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
+import { db, auth } from '../firebase';
 import { neuralCache } from '../utils/neuralCache';
 
 let cachedKeys: GeminiApiKey[] = [];
 let lastFetch = 0;
+const exhaustedKeys = new Map<string, number>(); // key -> expiry timestamp
+const EXHAUST_COOLDOWN = 5 * 60 * 1000; // 5 minutes cooldown for an exhausted key
+
+const COST_PER_1K_TOKENS = 0.000125; // Estimated cost for Gemini Flash
+
+const logUsage = async (feature: string, tokens: number, isCached: boolean = false) => {
+  try {
+    const user = auth.currentUser;
+    await addDoc(collection(db, 'usage_logs'), {
+      uid: user?.uid || 'anonymous',
+      email: user?.email || 'anonymous',
+      feature,
+      tokens,
+      estimatedCost: isCached ? 0 : (tokens / 1000) * COST_PER_1K_TOKENS,
+      isCached,
+      createdAt: new Date().toISOString()
+    });
+  } catch (e) {
+    console.error('Error logging AI usage:', e);
+  }
+};
 
 const fetchKeys = async () => {
   const now = Date.now();
@@ -25,39 +46,76 @@ const fetchKeys = async () => {
 
 const getApiKey = async () => {
   const activeKeys = await fetchKeys();
-  if (activeKeys.length > 0) {
-    // Simple random selection for load balancing
-    const selected = activeKeys[Math.floor(Math.random() * activeKeys.length)];
+  const now = Date.now();
+  
+  // Filter out keys that are currently marked as exhausted
+  const availableKeys = activeKeys.filter(k => {
+    const expiry = exhaustedKeys.get(k.key);
+    if (expiry && now < expiry) return false;
+    if (expiry && now >= expiry) {
+      exhaustedKeys.delete(k.key);
+    }
+    return true;
+  });
+
+  if (availableKeys.length > 0) {
+    // Simple random selection from available keys for load balancing
+    const selected = availableKeys[Math.floor(Math.random() * availableKeys.length)];
     return selected.key;
   }
-  return (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY;
+  
+  // Fallback to env key if no other keys are available and it's not exhausted
+  const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY;
+  if (envKey) {
+    const expiry = exhaustedKeys.get(envKey);
+    if (!expiry || now >= expiry) return envKey;
+  }
+  
+  return null;
 };
 
-async function retryWithBackoff<T>(fn: (apiKey?: string) => Promise<T>, retries = 3, delay = 1000): Promise<T> {
-  try {
-    return await fn();
-  } catch (error: any) {
-    const isQuotaError = 
-      error?.status === 429 || 
-      error?.error?.code === 429 ||
-      error?.message?.includes('quota') || 
-      error?.message?.includes('RESOURCE_EXHAUSTED') ||
-      error?.message?.includes('429');
-      
-    if (isQuotaError && retries > 0) {
-      console.warn(`Quota exceeded, retrying in ${delay}ms... (${retries} retries left)`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      // On quota error, we try to get a fresh key which might be different due to random selection
-      return retryWithBackoff(fn, retries - 1, delay * 2);
+async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, retries = 3, delay = 1000): Promise<T> {
+  let lastUsedKey: string | null = null;
+
+  const execute = async (currentRetries: number, currentDelay: number): Promise<T> => {
+    try {
+      const apiKey = await getApiKey();
+      lastUsedKey = apiKey;
+      return await fn(apiKey);
+    } catch (error: any) {
+      const errorString = JSON.stringify(error);
+      const isQuotaError = 
+        error?.status === 429 || 
+        error?.error?.code === 429 ||
+        error?.status === 'RESOURCE_EXHAUSTED' ||
+        error?.message?.includes('quota') || 
+        error?.message?.includes('RESOURCE_EXHAUSTED') ||
+        error?.message?.includes('429') ||
+        errorString.includes('429') ||
+        errorString.includes('RESOURCE_EXHAUSTED');
+        
+      if (isQuotaError) {
+        if (lastUsedKey) {
+          console.warn(`Key exhausted: ${lastUsedKey.substring(0, 8)}... Marking for cooldown.`);
+          exhaustedKeys.set(lastUsedKey, Date.now() + EXHAUST_COOLDOWN);
+        }
+
+        if (currentRetries > 0) {
+          console.warn(`Quota exceeded, retrying in ${currentDelay}ms with a potentially different key... (${currentRetries} retries left)`);
+          await new Promise(resolve => setTimeout(resolve, currentDelay));
+          return execute(currentRetries - 1, currentDelay * 2);
+        }
+      }
+      throw error;
     }
-    throw error;
-  }
+  };
+
+  return execute(retries, delay);
 }
 
 export const translateText = async (text: string, targetLanguage: string): Promise<string> => {
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return text;
       
       const ai = new GoogleGenAI({ apiKey });
@@ -65,6 +123,10 @@ export const translateText = async (text: string, targetLanguage: string): Promi
         model: "gemini-flash-latest",
         contents: `Translate the following text to ${targetLanguage}. Return ONLY the translated text.\n\n${text}`,
       });
+      
+      const tokens = (text.length + (response.text?.length || 0)) / 4; // Rough estimate
+      await logUsage('Translation', Math.ceil(tokens));
+      
       return response.text || text;
     });
   } catch (e) {
@@ -75,8 +137,7 @@ export const translateText = async (text: string, targetLanguage: string): Promi
 
 export const suggestColorHarmony = async (primaryColor: string): Promise<{ secondaryColor: string; reason: string }> => {
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return { secondaryColor: '#ffffff', reason: 'Default fallback' };
       
       const ai = new GoogleGenAI({ apiKey });
@@ -97,7 +158,10 @@ export const suggestColorHarmony = async (primaryColor: string): Promise<{ secon
       });
       
       try {
-        return JSON.parse(response.text || '{}');
+        const result = JSON.parse(response.text || '{}');
+        const tokens = (primaryColor.length + (response.text?.length || 0)) / 4;
+        await logUsage('Color Harmony', Math.ceil(tokens));
+        return result;
       } catch (e) {
         return { secondaryColor: '#ffffff', reason: 'Parsing failed' };
       }
@@ -113,10 +177,12 @@ export const analyzeNeuralPulseImage = async (base64Data: string, mimeType: stri
     // 1. Semantic Check (0 Tokens)
     const fingerprint = neuralCache.generateImageFingerprint(base64Data);
     const cached = neuralCache.get(fingerprint);
-    if (cached) return { ...cached, isCached: true };
+    if (cached) {
+      await logUsage('Neural Pulse Image', 0, true);
+      return { ...cached, isCached: true };
+    }
 
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return { found: false, details: 'AI Service Unavailable' };
       
       const ai = new GoogleGenAI({ apiKey });
@@ -145,6 +211,10 @@ export const analyzeNeuralPulseImage = async (base64Data: string, mimeType: stri
       });
       
       const result = JSON.parse(response.text || '{}');
+      
+      const tokens = (base64Data.length / 4 + (response.text?.length || 0)) / 4; // Rough estimate
+      await logUsage('Neural Pulse Image', Math.ceil(tokens));
+      
       // Store in Semantic Memory
       neuralCache.set(fingerprint, result);
       return result;
@@ -160,10 +230,12 @@ export const processNeuralPulseVoice = async (transcript: string): Promise<any> 
     // 1. Semantic Check (0 Tokens)
     const fingerprint = neuralCache.generateVoiceFingerprint(transcript);
     const cached = neuralCache.get(fingerprint);
-    if (cached) return { ...cached, isCached: true };
+    if (cached) {
+      await logUsage('Neural Pulse Voice', 0, true);
+      return { ...cached, isCached: true };
+    }
 
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return { success: false };
       
       const ai = new GoogleGenAI({ apiKey });
@@ -188,6 +260,10 @@ export const processNeuralPulseVoice = async (transcript: string): Promise<any> 
       });
       
       const result = JSON.parse(response.text || '{}');
+      
+      const tokens = (transcript.length + (response.text?.length || 0)) / 4; // Rough estimate
+      await logUsage('Neural Pulse Voice', Math.ceil(tokens));
+      
       // Store in Semantic Memory
       neuralCache.set(fingerprint, result);
       return result;
@@ -203,10 +279,12 @@ export const generateNeuralPulseGeoInsight = async (lat: number, lng: number, re
     // 1. Semantic Check (0 Tokens) - Bucketed location
     const fingerprint = neuralCache.generateGeoFingerprint(lat, lng, recentInterests);
     const cached = neuralCache.get(fingerprint);
-    if (cached) return { ...cached, isCached: true };
+    if (cached) {
+      await logUsage('Neural Pulse Geo', 0, true);
+      return { ...cached, isCached: true };
+    }
 
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return { hasInsight: false };
       
       const ai = new GoogleGenAI({ apiKey });
@@ -230,6 +308,10 @@ export const generateNeuralPulseGeoInsight = async (lat: number, lng: number, re
       });
       
       const result = JSON.parse(response.text || '{}');
+      
+      const tokens = (recentInterests.join(',').length + (response.text?.length || 0)) / 4; // Rough estimate
+      await logUsage('Neural Pulse Geo', Math.ceil(tokens));
+      
       // Store in Semantic Memory (expires in 1 hour for geo)
       neuralCache.set(fingerprint, result, 60 * 60 * 1000);
       return result;
@@ -242,8 +324,7 @@ export const generateNeuralPulseGeoInsight = async (lat: number, lng: number, re
 
 export const verifyDocument = async (base64Data: string, mimeType: string): Promise<any> => {
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return { isLegit: true, details: 'Verified (Offline Mode)' };
       
       const ai = new GoogleGenAI({ apiKey });
@@ -268,7 +349,10 @@ export const verifyDocument = async (base64Data: string, mimeType: string): Prom
           }
         }
       });
-      return JSON.parse(response.text || "{}");
+      const result = JSON.parse(response.text || "{}");
+      const tokens = (base64Data.length / 4 + (response.text?.length || 0)) / 4;
+      await logUsage('Document Verification', Math.ceil(tokens));
+      return result;
     });
   } catch (e) {
     console.error('Document verification failed:', e);
@@ -278,8 +362,7 @@ export const verifyDocument = async (base64Data: string, mimeType: string): Prom
 
 export const optimizeSupplierProfile = async (companyName: string, bio: string, keywords: string[], language: string): Promise<any> => {
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return { suggestedBio: bio, suggestedKeywords: keywords };
       
       const ai = new GoogleGenAI({ apiKey });
@@ -302,7 +385,10 @@ export const optimizeSupplierProfile = async (companyName: string, bio: string, 
           }
         }
       });
-      return JSON.parse(response.text || "{}");
+      const result = JSON.parse(response.text || "{}");
+      const tokens = (bio.length + keywords.join(',').length + (response.text?.length || 0)) / 4;
+      await logUsage('Profile Optimization', Math.ceil(tokens));
+      return result;
     });
   } catch (e) {
     console.error('Profile optimization failed:', e);
@@ -320,8 +406,7 @@ export const generateSupplierLogo = async (companyName: string, category: string
   };
   
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return fallback;
       
       const ai = new GoogleGenAI({ apiKey });
@@ -345,6 +430,9 @@ export const generateSupplierLogo = async (companyName: string, category: string
         }
       }
 
+      const tokens = (prompt.length + (response.text?.length || 0)) / 4;
+      await logUsage('Logo Generation', Math.ceil(tokens));
+
       return {
         logoUrl,
         bgColor: '#000000',
@@ -361,8 +449,7 @@ export const generateSupplierLogo = async (companyName: string, category: string
 
 export const getProfileInsights = async (profileData: any, language: string): Promise<any> => {
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return null;
       
       const ai = new GoogleGenAI({ apiKey });
@@ -388,7 +475,10 @@ export const getProfileInsights = async (profileData: any, language: string): Pr
           }
         }
       });
-      return JSON.parse(response.text || "{}");
+      const result = JSON.parse(response.text || "{}");
+      const tokens = (JSON.stringify(profileData).length + (response.text?.length || 0)) / 4;
+      await logUsage('Profile Insights', Math.ceil(tokens));
+      return result;
     });
   } catch (e) {
     console.error('Profile insights failed:', e);
@@ -398,8 +488,7 @@ export const getProfileInsights = async (profileData: any, language: string): Pr
 
 export const suggestSupplierCategories = async (profile: any, allCategories: Category[], language: string): Promise<string[]> => {
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return [];
       
       const ai = new GoogleGenAI({ apiKey });
@@ -428,8 +517,7 @@ export const generateKeywords = async (...args: any[]): Promise<string[]> => ['k
 export const generateSupplierProposal = async (...args: any[]): Promise<string> => 'Proposal';
 export const enhanceRequestDescription = async (description: string, language: string): Promise<string> => {
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return description;
       
       const ai = new GoogleGenAI({ apiKey });
@@ -464,8 +552,7 @@ export const categorizeProduct = async (query: string, categories: Category[]): 
   if (categories.length === 0) return defaultCat;
   
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return defaultCat;
       
       const ai = new GoogleGenAI({ apiKey });
@@ -493,8 +580,7 @@ export const matchSuppliers = async (query: string, suppliers: UserProfile[], ca
   if (suppliers.length === 0) return [];
   
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return [];
       
       const ai = new GoogleGenAI({ apiKey });
@@ -546,8 +632,7 @@ export const analyzeProductImage = async (base64Data: string, mimeType: string):
   };
   
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return fallback;
       
       const ai = new GoogleGenAI({ apiKey });
@@ -579,7 +664,10 @@ export const analyzeProductImage = async (base64Data: string, mimeType: string):
           }
         }
       });
-      return JSON.parse(response.text || "{}");
+      const result = JSON.parse(response.text || "{}");
+      const tokens = (base64Data.length / 4 + (response.text?.length || 0)) / 4;
+      await logUsage('Product Analysis', Math.ceil(tokens));
+      return result;
     });
   } catch (e) {
     console.error('Image analysis failed:', e);
@@ -591,8 +679,7 @@ export const parseVoiceRequest = async (transcript: string, language: string): P
   const fallback = { intent: 'search', query: transcript, productName: transcript };
   
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return fallback;
       
       const ai = new GoogleGenAI({ apiKey });
@@ -628,8 +715,7 @@ export const generateProductCopy = async (productName: string, features: string[
   const fallback = { title: productName, description: productName, highlights: [] };
   
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return fallback;
       
       const ai = new GoogleGenAI({ apiKey });
@@ -653,7 +739,10 @@ export const generateProductCopy = async (productName: string, features: string[
           }
         }
       });
-      return JSON.parse(response.text || "{}");
+      const result = JSON.parse(response.text || "{}");
+      const tokens = (productName.length + features.join(',').length + (response.text?.length || 0)) / 4;
+      await logUsage('Product Copy Generation', Math.ceil(tokens));
+      return result;
     });
   } catch (e) {
     console.error('Copy generation failed:', e);
@@ -665,8 +754,7 @@ export const enhanceProductImageDescription = async (base64Data: string, mimeTyp
   const fallback = { suggestions: [], caption: "Product image" };
   
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return fallback;
       
       const ai = new GoogleGenAI({ apiKey });
@@ -700,8 +788,7 @@ export const enhanceProductImageDescription = async (base64Data: string, mimeTyp
 
 export const generateAlternativeProductImage = async (base64Data: string, mimeType: string, productName: string, category: string, language: string): Promise<string | null> => {
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return null;
       
       const ai = new GoogleGenAI({ apiKey });
@@ -741,8 +828,7 @@ export const getAiAssistantResponse = async (query: string, context: any, langua
   const fallback = "I am an AI assistant. How can I help you?";
   
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return fallback;
       
       const ai = new GoogleGenAI({ apiKey });
@@ -767,7 +853,29 @@ export const moderateContent = async (...args: any[]) => ({ isSafe: true, reason
 export const translateAudio = async (...args: any[]) => "Translated audio text";
 export const negotiateOffer = async (...args: any[]) => ({ suggestedPrice: 100, reasoning: "Fair market value", shouldRespond: true, message: "Suggested offer" });
 export const getPriceIntelligence = async (...args: any[]) => ({ recommendedPrice: 100, minPrice: 80, maxPrice: 120, analysis: "Stable market" });
-export const summarizeChat = async (...args: any[]) => "Chat summary";
+export const summarizeChat = async (transcript: string, language: string): Promise<string> => {
+  const fallback = "Chat summary";
+  try {
+    return await retryWithBackoff(async (apiKey) => {
+      if (!apiKey) return fallback;
+      
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-flash-latest",
+        contents: `Summarize the following chat transcript in a concise way.
+        Transcript: ${transcript}
+        Language: ${language === 'ar' ? 'Arabic' : 'English'}
+        Return ONLY the summary text.`,
+      });
+      const tokens = (transcript.length + (response.text?.length || 0)) / 4;
+      await logUsage('Chat Summarization', Math.ceil(tokens));
+      return response.text || fallback;
+    });
+  } catch (e) {
+    console.error('Chat summarization failed:', e);
+    return fallback;
+  }
+};
 export const analyzeSentiment = async (...args: any[]) => ({ score: 5, sentiment: "positive" as const, summary: "Sentiment summary" });
 export const validatePhoneNumber = async (...args: any[]) => ({ isValid: true, formattedNumber: args[0], country: "Unknown" });
 export const generateBrandingSuggestions = async (...args: any[]) => ({ colors: ["#000000"], primaryColor: "#000000", secondaryColor: "#ffffff", fontFamily: "Inter", borderRadius: "md", enableGlassmorphism: true, slogan: "Quality first" });
@@ -776,10 +884,7 @@ export const semanticSearch = async (query: string, items: any[], language: stri
   if (items.length === 0) return [];
   
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
-      if (!apiKey) return [];
-      
+    return await retryWithBackoff(async (apiKey) => {
       const ai = new GoogleGenAI({ apiKey });
       const itemList = items.map(i => ({ id: i.id, name: i.name, description: i.description, category: i.category }));
       
@@ -801,7 +906,13 @@ export const semanticSearch = async (query: string, items: any[], language: stri
           }
         }
       }));
+
       const data = JSON.parse(response.text || "{}");
+      
+      // Log usage
+      const tokens = (query.length + JSON.stringify(itemList).length + JSON.stringify(data).length) / 4;
+      await logUsage('Semantic Search', Math.ceil(tokens));
+
       return data.results || [];
     });
   } catch (e) {
@@ -814,10 +925,7 @@ export const analyzeImageForSearch = async (base64Data: string, mimeType: string
   const fallback = { query: "Product from image", keywords: ["product"], category: "General", visualDescription: "A product image" };
   
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
-      if (!apiKey) return fallback;
-      
+    return await retryWithBackoff(async (apiKey) => {
       const ai = new GoogleGenAI({ apiKey });
       const response = await withTimeout(ai.models.generateContent({
         model: "gemini-flash-latest",
@@ -856,7 +964,13 @@ export const analyzeImageForSearch = async (base64Data: string, mimeType: string
         }
       }));
       
-      return JSON.parse(response.text || "{}");
+      const data = JSON.parse(response.text || "{}");
+
+      // Log usage
+      const tokens = (1000 + JSON.stringify(data).length) / 4; // Image estimation
+      await logUsage('Image Search Analysis', Math.ceil(tokens));
+
+      return data;
     });
   } catch (e) {
     console.error('Image analysis failed:', e);
@@ -869,7 +983,43 @@ export const getMarketTrends = async (...args: any[]): Promise<any> => ({ analys
 export const getPriceInsights = async (...args: any[]): Promise<any> => ({ recommendedPrice: 100, analysis: 'Stable market' });
 export const getSupplierInsights = async (...args: any[]): Promise<any> => ({ summaryAr: 'Summary', summaryEn: 'Summary' });
 export const generateSupplierLogoImage = generateSupplierLogo;
-export const analyzeMarketTrends = async (...args: any[]) => ({ analysis: 'Trends analysis', suggestions: [] });
+export const analyzeMarketTrends = async (searches: string[], summaries: string[], language: string): Promise<any> => {
+  const fallback = { analysis: 'Trends analysis', suggestions: [] };
+  try {
+    return await retryWithBackoff(async (apiKey) => {
+      if (!apiKey) return fallback;
+      
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-flash-latest",
+        contents: `Analyze the following marketplace activity to identify current trends and provide strategic insights.
+        Recent Searches: ${JSON.stringify(searches)}
+        Chat Summaries: ${JSON.stringify(summaries)}
+        Language: ${language === 'ar' ? 'Arabic' : 'English'}
+        Provide a detailed analysis of what products/services are trending, what's missing, and recommendations for the platform.
+        Return ONLY a JSON object with 'analysis' (string) and 'suggestions' (array of strings).`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              analysis: { type: Type.STRING },
+              suggestions: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["analysis", "suggestions"]
+          }
+        }
+      });
+      const result = JSON.parse(response.text || "{}");
+      const tokens = (searches.join(',').length + summaries.join(',').length + (response.text?.length || 0)) / 4;
+      await logUsage('Market Trends Analysis', Math.ceil(tokens));
+      return result;
+    });
+  } catch (e) {
+    console.error('Market analysis failed:', e);
+    return fallback;
+  }
+};
 export const generateNegotiationResponse = async (...args: any[]) => 'Response';
 export const extractKeywordsFromRequests = async (...args: any[]) => ['keyword'];
 export const formatCategoryName = async (...args: any[]) => ({ nameAr: args[0], nameEn: args[0] });
@@ -877,8 +1027,7 @@ export const suggestCategoryMerges = async (...args: any[]) => [];
 
 export const suggestMainCategories = async (language: string, categoryType: 'product' | 'service', existingCategories: string[]): Promise<string[]> => {
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return [];
       
       const ai = new GoogleGenAI({ apiKey });
@@ -894,7 +1043,10 @@ export const suggestMainCategories = async (language: string, categoryType: 'pro
           }
         }
       });
-      return JSON.parse(response.text || "[]");
+      const result = JSON.parse(response.text || "[]");
+      const tokens = (existingList.length + (response.text?.length || 0)) / 4;
+      await logUsage('Category Suggestion', Math.ceil(tokens));
+      return result;
     });
   } catch (e: any) {
     console.error('Main category suggestion failed:', e);
@@ -907,8 +1059,7 @@ export const suggestMainCategories = async (language: string, categoryType: 'pro
 
 export const suggestSubcategories = async (parentCategory: string, categoryType: 'product' | 'service', existingSubcategories: string[]): Promise<string[]> => {
   try {
-    return await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    return await retryWithBackoff(async (apiKey) => {
       if (!apiKey) return [];
       
       const ai = new GoogleGenAI({ apiKey });
@@ -924,7 +1075,10 @@ export const suggestSubcategories = async (parentCategory: string, categoryType:
           }
         }
       });
-      return JSON.parse(response.text || "[]");
+      const result = JSON.parse(response.text || "[]");
+      const tokens = (parentCategory.length + existingList.length + (response.text?.length || 0)) / 4;
+      await logUsage('Subcategory Suggestion', Math.ceil(tokens));
+      return result;
     });
   } catch (e: any) {
     console.error('Subcategory suggestion failed:', e);
@@ -943,14 +1097,14 @@ export const suggestNeuralCategories = async (productInfo: { title: string, desc
   const cacheKey = `${productInfo.title}|${productInfo.description}`;
   const cached = neuralCategoryCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < 300000) { // 5 minute cache
+    await logUsage('Neural Category Suggestion', 0, true);
     return cached.matches;
   }
 
   const categoryList = categories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn }));
   
   try {
-    const matches = await retryWithBackoff(async () => {
-      const apiKey = await getApiKey();
+    const matches = await retryWithBackoff(async (apiKey) => {
       if (!apiKey) throw new Error('No API Key available');
       
       const ai = new GoogleGenAI({ apiKey });
@@ -966,7 +1120,14 @@ export const suggestNeuralCategories = async (productInfo: { title: string, desc
           }
         }
       });
-      return JSON.parse(response.text || "[]");
+
+      const result = JSON.parse(response.text || "[]");
+
+      // Log usage
+      const tokens = (productInfo.title.length + productInfo.description.length + JSON.stringify(categoryList).length + JSON.stringify(result).length) / 4;
+      await logUsage('Neural Category Suggestion', Math.ceil(tokens));
+
+      return result;
     });
     
     neuralCategoryCache.set(cacheKey, { matches, timestamp: Date.now() });

@@ -31,27 +31,32 @@ export const VendorOffersList: React.FC<VendorOffersListProps> = ({ profile, onO
     );
 
     const unsubscribe = onSnapshot(q, async (snap) => {
-      const fetchedOffers: OfferWithRequest[] = [];
-      
-      for (const document of snap.docs) {
-        const offerData = { id: document.id, ...document.data() } as OfferWithRequest;
+      try {
+        const fetchedOffers: OfferWithRequest[] = [];
         
-        // Fetch associated request details
-        try {
-          const requestRef = doc(db, 'requests', offerData.requestId);
-          const requestSnap = await getDoc(requestRef);
-          if (requestSnap.exists()) {
-            offerData.requestDetails = { id: requestSnap.id, ...requestSnap.data() } as ProductRequest;
+        for (const document of snap.docs) {
+          const offerData = { id: document.id, ...document.data() } as OfferWithRequest;
+          
+          // Fetch associated request details
+          try {
+            const requestRef = doc(db, 'requests', offerData.requestId);
+            const requestSnap = await getDoc(requestRef);
+            if (requestSnap.exists()) {
+              offerData.requestDetails = { id: requestSnap.id, ...requestSnap.data() } as ProductRequest;
+            }
+          } catch (error) {
+            console.error("Error fetching request details for offer:", error);
           }
-        } catch (error) {
-          console.error("Error fetching request details for offer:", error);
+          
+          fetchedOffers.push(offerData);
         }
         
-        fetchedOffers.push(offerData);
+        setOffers(fetchedOffers);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error in onSnapshot callback for vendor offers:', error);
+        setLoading(false);
       }
-      
-      setOffers(fetchedOffers);
-      setLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'offers');
       setLoading(false);

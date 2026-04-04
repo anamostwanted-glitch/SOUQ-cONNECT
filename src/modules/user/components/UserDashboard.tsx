@@ -28,7 +28,7 @@ import {
   Bell,
   LogOut
 } from 'lucide-react';
-import { collection, query, where, orderBy, onSnapshot, documentId, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, documentId, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../../../core/firebase';
 import { toast } from 'sonner';
 import { UserProfile, AppFeatures, ProductRequest, MarketplaceItem } from '../../../core/types';
@@ -152,7 +152,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   const handleDeleteRequest = async (requestId: string) => {
     if (window.confirm(isRtl ? 'هل أنت متأكد من حذف هذا الطلب؟' : 'Are you sure you want to delete this request?')) {
       try {
-        await deleteDoc(doc(db, 'requests', requestId));
+        await updateDoc(doc(db, 'requests', requestId), {
+          status: 'deleted',
+          deletedAt: new Date().toISOString()
+        });
         toast.success(isRtl ? 'تم حذف الطلب بنجاح' : 'Request deleted successfully');
       } catch (error) {
         console.error('Error deleting request:', error);

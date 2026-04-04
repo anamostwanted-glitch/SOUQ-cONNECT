@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePersistedState } from '../../../shared/hooks/usePersistedState';
 import { motion, AnimatePresence } from 'motion/react';
-import { collection, addDoc, getDocs, doc, onSnapshot, query, where, orderBy, getDoc, setDoc, writeBatch, deleteDoc, updateDoc, arrayUnion, limit } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, onSnapshot, query, where, orderBy, getDoc, setDoc, writeBatch, updateDoc, arrayUnion, limit } from 'firebase/firestore';
 import { db, storage, auth } from '../../../core/firebase';
 import { UserProfile, Category, ProductRequest, Chat, AppFeatures } from '../../../core/types';
 import { UserRequestCard } from '../../user/components/UserRequestCard';
@@ -1113,9 +1113,16 @@ const Home: React.FC<HomeProps> = ({
                     onViewProfile={onViewProfile || (() => {})}
                     onDelete={async (id) => {
                       if (window.confirm(isRtl ? 'هل أنت متأكد من حذف هذا الطلب؟' : 'Are you sure you want to delete this request?')) {
-                        await deleteDoc(doc(db, 'requests', id));
-                        setLastRequest(null);
-                        setLastRequestId(null);
+                        try {
+                          await updateDoc(doc(db, 'requests', id), {
+                            status: 'deleted',
+                            deletedAt: new Date().toISOString()
+                          });
+                          setLastRequest(null);
+                          setLastRequestId(null);
+                        } catch (error) {
+                          console.error("Error deleting request:", error);
+                        }
                       }
                     }}
                   />

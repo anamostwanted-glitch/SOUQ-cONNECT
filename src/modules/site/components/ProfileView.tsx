@@ -21,7 +21,7 @@ import { storage } from '../../../core/firebase';
 import imageCompression from 'browser-image-compression';
 import { 
   translateText, verifyDocument, optimizeSupplierProfile, 
-  generateSupplierLogoImage, suggestSupplierCategories, getProfileInsights 
+  generateSupplierLogo, suggestSupplierCategories, getProfileInsights 
 } from '../../../core/services/geminiService';
 import { motion, AnimatePresence } from 'motion/react';
 import { HapticButton } from '../../../shared/components/HapticButton';
@@ -442,10 +442,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
     setUploadError(null);
 
     try {
-      const base64Image = await generateSupplierLogoImage(companyName, categoryName, i18n.language);
+      const result = await generateSupplierLogo(companyName, categoryName, i18n.language);
       
       // Convert base64 to blob
-      const response = await fetch(base64Image);
+      const response = await fetch(result.logoUrl);
       const blob = await response.blob();
       
       const storageRef = ref(storage, `logos/${profile.uid}/ai_${Date.now()}.png`);

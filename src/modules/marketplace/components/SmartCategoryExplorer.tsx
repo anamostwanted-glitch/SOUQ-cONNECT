@@ -99,18 +99,18 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ ca
     
     if (cafeKeywords.some(k => q.includes(k))) {
       return allSubs.filter(s => 
-        s.nameAr.includes('قهوة') || s.nameAr.includes('آلة') || s.nameEn.toLowerCase().includes('coffee') || s.nameEn.toLowerCase().includes('machine')
+        (s.nameAr || '').includes('قهوة') || (s.nameAr || '').includes('آلة') || (s.nameEn || '').toLowerCase().includes('coffee') || (s.nameEn || '').toLowerCase().includes('machine')
       ).slice(0, 6);
     }
 
     if (restaurantKeywords.some(k => q.includes(k))) {
       return allSubs.filter(s => 
-        s.nameAr.includes('مطبخ') || s.nameAr.includes('فرن') || s.nameEn.toLowerCase().includes('kitchen') || s.nameEn.toLowerCase().includes('oven')
+        (s.nameAr || '').includes('مطبخ') || (s.nameAr || '').includes('فرن') || (s.nameEn || '').toLowerCase().includes('kitchen') || (s.nameEn || '').toLowerCase().includes('oven')
       ).slice(0, 6);
     }
 
     return allSubs.filter(s => 
-      s.nameAr.includes(q) || s.nameEn.toLowerCase().includes(q)
+      (s.nameAr || '').includes(q) || (s.nameEn || '').toLowerCase().includes(q)
     ).slice(0, 8);
   }, [searchQuery, displayCategories]);
 

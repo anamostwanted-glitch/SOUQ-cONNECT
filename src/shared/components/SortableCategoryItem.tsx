@@ -5,7 +5,7 @@ import { GripVertical, ChevronRight, ChevronDown, Plus, Check, X, Trash2, Hash, 
 import { Category } from '../../core/types';
 import { handleFirestoreError, OperationType } from '../../core/utils/errorHandling';
 import { CategoryList } from './CategoryList';
-import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { translateText } from '../../core/services/geminiService';
 import { useTranslation } from 'react-i18next';
@@ -92,9 +92,12 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
 
   const handleDelete = async () => {
     try {
-      await deleteDoc(doc(db, 'categories', category.id));
+      await updateDoc(doc(db, 'categories', category.id), {
+        status: 'deleted',
+        deletedAt: new Date().toISOString()
+      });
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `categories/${category.id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`);
     }
   };
 

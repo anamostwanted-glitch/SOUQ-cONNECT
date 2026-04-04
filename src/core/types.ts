@@ -247,6 +247,17 @@ export interface ContactEvent {
   createdAt: string;
 }
 
+export interface UsageLog {
+  id: string;
+  uid: string;
+  email?: string;
+  feature: string;
+  tokens: number;
+  estimatedCost?: number;
+  isCached?: boolean;
+  createdAt: string;
+}
+
 export interface AppFeatures {
   marketplace: boolean;
   aiChat: boolean;

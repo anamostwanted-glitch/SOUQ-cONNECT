@@ -79,7 +79,7 @@ const BrandingSettings: React.FC<BrandingSettingsProps> = ({ onBack }) => {
         }
       }
     };
-    fetchBranding();
+    fetchBranding().catch(err => console.error('Error in fetchBranding:', err));
   }, []);
 
   const handleAiSuggest = async () => {

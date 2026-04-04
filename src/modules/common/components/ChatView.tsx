@@ -197,7 +197,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         const sender = m.senderId === profile?.uid ? (i18n.language === 'ar' ? 'أنا' : 'Me') : (senderNames[m.senderId] || '...');
         return `${sender}: ${m.text || (m.type === 'image' ? '[Image]' : '[Audio]')}`;
       });
-      const summary = await summarizeChat(messageTexts, i18n.language);
+      const summary = await summarizeChat(messageTexts.join('\n'), i18n.language);
       setChatSummary(summary);
     } catch (error) {
       console.error('Summarization error:', error);
@@ -316,63 +316,67 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
     if (!chatId) return;
 
     const unsubChat = onSnapshot(doc(db, 'chats', chatId), async (snap) => {
-      const chatData = snap.data() as any;
-      if (!chatData || !isMounted) return;
-      setChat(chatData);
-
-      // Check for other user typing
-      const otherId = profile?.uid === chatData.customerId ? chatData.supplierId : chatData.customerId;
-      if (chatData.typing && chatData.typing[otherId]) {
-        if (!otherUserTyping) {
-          soundService.play(SoundType.TYPING);
-        }
-        setOtherUserTyping(true);
-      } else {
-        setOtherUserTyping(false);
-      }
-      
       try {
-        if (chatData.requestId && !chatData.isCategoryChat && !chatData.requestId.startsWith('category_')) {
-          const reqSnap = await getDoc(doc(db, 'requests', chatData.requestId));
-          if (reqSnap.exists() && isMounted) {
-            const reqData = { id: reqSnap.id, ...reqSnap.data() } as ProductRequest;
-            setRequest(reqData);
-            
-            // Also fetch category name for the request
-            const catSnap = await getDoc(doc(db, 'categories', reqData.categoryId));
+        const chatData = snap.data() as any;
+        if (!chatData || !isMounted) return;
+        setChat(chatData);
+
+        // Check for other user typing
+        const otherId = profile?.uid === chatData.customerId ? chatData.supplierId : chatData.customerId;
+        if (chatData.typing && chatData.typing[otherId]) {
+          if (!otherUserTyping) {
+            soundService.play(SoundType.TYPING);
+          }
+          setOtherUserTyping(true);
+        } else {
+          setOtherUserTyping(false);
+        }
+        
+        try {
+          if (chatData.requestId && !chatData.isCategoryChat && !chatData.requestId.startsWith('category_')) {
+            const reqSnap = await getDoc(doc(db, 'requests', chatData.requestId));
+            if (reqSnap.exists() && isMounted) {
+              const reqData = { id: reqSnap.id, ...reqSnap.data() } as ProductRequest;
+              setRequest(reqData);
+              
+              // Also fetch category name for the request
+              const catSnap = await getDoc(doc(db, 'categories', reqData.categoryId));
+              if (catSnap.exists() && isMounted) {
+                const cat = catSnap.data();
+                setCategoryName(i18n.language === 'ar' ? cat.nameAr : cat.nameEn);
+              }
+            }
+          }
+
+          if (chatData.isCategoryChat) {
+            const catSnap = await getDoc(doc(db, 'categories', chatData.categoryId));
             if (catSnap.exists() && isMounted) {
               const cat = catSnap.data();
               setCategoryName(i18n.language === 'ar' ? cat.nameAr : cat.nameEn);
             }
-          }
-        }
-
-        if (chatData.isCategoryChat) {
-          const catSnap = await getDoc(doc(db, 'categories', chatData.categoryId));
-          if (catSnap.exists() && isMounted) {
-            const cat = catSnap.data();
-            setCategoryName(i18n.language === 'ar' ? cat.nameAr : cat.nameEn);
-          }
-        } else {
-          const otherId = profile?.uid === chatData.customerId ? chatData.supplierId : chatData.customerId;
-          try {
-            const userSnap = await getDoc(doc(db, 'users', otherId));
-            if (userSnap.exists() && isMounted) {
-              setOtherUser(userSnap.data() as UserProfile);
-            } else if (isMounted) {
-              setOtherUser({ uid: otherId, name: 'Customer', role: 'customer' } as UserProfile);
-            }
-          } catch (error: any) {
-            if (error.message?.includes('Missing or insufficient permissions') || error.code === 'permission-denied') {
-              // Fallback for protected customer profiles
-              if (isMounted) setOtherUser({ uid: otherId, name: 'Customer', role: 'customer' } as UserProfile);
-            } else {
-              throw error;
+          } else {
+            const otherId = profile?.uid === chatData.customerId ? chatData.supplierId : chatData.customerId;
+            try {
+              const userSnap = await getDoc(doc(db, 'users', otherId));
+              if (userSnap.exists() && isMounted) {
+                setOtherUser(userSnap.data() as UserProfile);
+              } else if (isMounted) {
+                setOtherUser({ uid: otherId, name: 'Customer', role: 'customer' } as UserProfile);
+              }
+            } catch (error: any) {
+              if (error.message?.includes('Missing or insufficient permissions') || error.code === 'permission-denied') {
+                // Fallback for protected customer profiles
+                if (isMounted) setOtherUser({ uid: otherId, name: 'Customer', role: 'customer' } as UserProfile);
+              } else {
+                throw error;
+              }
             }
           }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, `chats/${chatId} dependencies`);
         }
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, `chats/${chatId} dependencies`);
+        console.error('Error in onSnapshot callback for chat:', error);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, `chats/${chatId}`);
@@ -380,73 +384,77 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
 
     const q = query(collection(db, 'chats', chatId, 'messages'), orderBy('createdAt', 'asc'));
     const unsubMsgs = onSnapshot(q, { includeMetadataChanges: true }, async (snap) => {
-      const msgs = snap.docs.map(d => ({ 
-        id: d.id, 
-        ...d.data(),
-        pending: d.metadata.hasPendingWrites 
-      } as Message));
-      
-      // Play received sound if new message from other user
-      if (!isInitialLoad.current && msgs.length > 0) {
-        const lastMsg = msgs[msgs.length - 1];
-        if (lastMsg.id !== lastMessageId.current && lastMsg.senderId !== profile?.uid) {
-          soundService.play(SoundType.RECEIVED);
-        }
-      }
-      
-      if (msgs.length > 0) {
-        lastMessageId.current = msgs[msgs.length - 1].id;
-      }
-      isInitialLoad.current = false;
-
-      if (isMounted) setMessages(msgs);
-
-      // Mark messages as read
-      if (profile) {
-        const unreadMsgs = msgs.filter(m => m.senderId !== profile.uid && !m.read);
-        for (const m of unreadMsgs) {
-          try {
-            await updateDoc(doc(db, 'chats', chatId, 'messages', m.id), { read: true });
-          } catch (error) {
-            console.error("Error marking message as read:", error);
+      try {
+        const msgs = snap.docs.map(d => ({ 
+          id: d.id, 
+          ...d.data(),
+          pending: d.metadata.hasPendingWrites 
+        } as Message));
+        
+        // Play received sound if new message from other user
+        if (!isInitialLoad.current && msgs.length > 0) {
+          const lastMsg = msgs[msgs.length - 1];
+          if (lastMsg.id !== lastMessageId.current && lastMsg.senderId !== profile?.uid) {
+            soundService.play(SoundType.RECEIVED);
           }
         }
-      }
+        
+        if (msgs.length > 0) {
+          lastMessageId.current = msgs[msgs.length - 1].id;
+        }
+        isInitialLoad.current = false;
 
-      // Fetch sender names and photos
-      const uniqueSenderIds = Array.from(new Set(msgs.map(m => m.senderId)));
-      const newNames = { ...senderNames };
-      const newPhotos = { ...senderPhotos };
-      const newProfiles = { ...senderProfiles };
-      let changed = false;
+        if (isMounted) setMessages(msgs);
 
-      for (const id of uniqueSenderIds) {
-        if (!newNames[id] || !newPhotos[id] || !newProfiles[id]) {
-          try {
-            const uSnap = await getDoc(doc(db, 'users', id));
-            if (uSnap.exists()) {
-              const userData = uSnap.data() as UserProfile;
-              newNames[id] = userData.name;
-              newPhotos[id] = userData.logoUrl || '';
-              newProfiles[id] = userData;
-              changed = true;
-            }
-          } catch (error: any) {
-            if (error.message?.includes('Missing or insufficient permissions') || error.code === 'permission-denied') {
-              newNames[id] = 'Customer';
-              newPhotos[id] = '';
-              newProfiles[id] = { uid: id, name: 'Customer', role: 'customer' } as UserProfile;
-              changed = true;
-            } else {
-              handleFirestoreError(error, OperationType.GET, `users/${id}`);
+        // Mark messages as read
+        if (profile) {
+          const unreadMsgs = msgs.filter(m => m.senderId !== profile.uid && !m.read);
+          for (const m of unreadMsgs) {
+            try {
+              await updateDoc(doc(db, 'chats', chatId, 'messages', m.id), { read: true });
+            } catch (error) {
+              console.error("Error marking message as read:", error);
             }
           }
         }
-      }
-      if (changed && isMounted) {
-        setSenderNames(newNames);
-        setSenderPhotos(newPhotos);
-        setSenderProfiles(newProfiles);
+
+        // Fetch sender names and photos
+        const uniqueSenderIds = Array.from(new Set(msgs.map(m => m.senderId)));
+        const newNames = { ...senderNames };
+        const newPhotos = { ...senderPhotos };
+        const newProfiles = { ...senderProfiles };
+        let changed = false;
+
+        for (const id of uniqueSenderIds) {
+          if (!newNames[id] || !newPhotos[id] || !newProfiles[id]) {
+            try {
+              const uSnap = await getDoc(doc(db, 'users', id));
+              if (uSnap.exists()) {
+                const userData = uSnap.data() as UserProfile;
+                newNames[id] = userData.name;
+                newPhotos[id] = userData.logoUrl || '';
+                newProfiles[id] = userData;
+                changed = true;
+              }
+            } catch (error: any) {
+              if (error.message?.includes('Missing or insufficient permissions') || error.code === 'permission-denied') {
+                newNames[id] = 'Customer';
+                newPhotos[id] = '';
+                newProfiles[id] = { uid: id, name: 'Customer', role: 'customer' } as UserProfile;
+                changed = true;
+              } else {
+                handleFirestoreError(error, OperationType.GET, `users/${id}`);
+              }
+            }
+          }
+        }
+        if (changed && isMounted) {
+          setSenderNames(newNames);
+          setSenderPhotos(newPhotos);
+          setSenderProfiles(newProfiles);
+        }
+      } catch (error) {
+        console.error('Error in onSnapshot callback for messages:', error);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, `chats/${chatId}/messages`);

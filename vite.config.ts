@@ -49,4 +49,7 @@ export default defineConfig({
     host: '0.0.0.0',
     hmr: process.env.DISABLE_HMR !== 'true',
   },
+  define: {
+    'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY),
+  },
 });

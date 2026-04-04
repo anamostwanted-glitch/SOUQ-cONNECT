@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -8,6 +8,7 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  isRtl: boolean;
 }
 
 class ErrorBoundary extends Component<Props, State> {
@@ -15,35 +16,46 @@ class ErrorBoundary extends Component<Props, State> {
     super(props);
     this.state = {
       hasError: false,
-      error: null
+      error: null,
+      isRtl: document.documentElement.dir === 'rtl' || localStorage.getItem('i18nextLng') === 'ar'
     };
   }
 
   public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, isRtl: document.documentElement.dir === 'rtl' || localStorage.getItem('i18nextLng') === 'ar' };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
   }
 
+  private handleReset = () => {
+    this.setState({ hasError: false, error: null });
+    window.location.href = '/';
+  };
+
   public render() {
     if (this.state.hasError) {
-      let errorMessage = "Something went wrong.";
+      const { isRtl } = this.state;
+      let errorMessage = isRtl ? "حدث خطأ غير متوقع." : "Something went wrong.";
       let details = null;
 
       try {
         if (this.state.error?.message) {
           const parsed = JSON.parse(this.state.error.message);
           if (parsed.error && (parsed.error.includes('permission') || parsed.error.includes('insufficient'))) {
-            errorMessage = "You don't have permission to perform this action.";
+            errorMessage = isRtl 
+              ? "عذراً، ليس لديك صلاحية للقيام بهذا الإجراء." 
+              : "You don't have permission to perform this action.";
             details = (
-              <div className="mt-4 p-4 bg-brand-error/10 rounded-2xl text-xs font-mono text-brand-error overflow-auto max-h-40 border border-brand-error/20">
+              <div className="mt-4 p-4 bg-red-50 rounded-2xl text-xs font-mono text-red-600 overflow-auto max-h-40 border border-red-100 text-left" dir="ltr">
                 <p className="mb-1"><strong>Operation:</strong> {parsed.operationType}</p>
                 <p className="mb-1"><strong>Path:</strong> {parsed.path}</p>
                 <p><strong>Error:</strong> {parsed.error}</p>
               </div>
             );
+          } else {
+            errorMessage = parsed.error || errorMessage;
           }
         }
       } catch (e) {
@@ -52,21 +64,35 @@ class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-brand-background p-4 font-sans">
-          <div className="max-w-md w-full bg-white rounded-[2rem] shadow-2xl p-10 text-center border border-brand-border-light">
-            <div className="w-20 h-20 bg-brand-error/10 rounded-3xl flex items-center justify-center mx-auto mb-8 transform rotate-3">
-              <AlertCircle size={40} className="text-brand-error" />
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 font-sans" dir={isRtl ? 'rtl' : 'ltr'}>
+          <div className="max-w-md w-full bg-white rounded-[2rem] shadow-xl p-8 text-center border border-gray-100">
+            <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mx-auto mb-6 transform rotate-3">
+              <AlertCircle size={40} className="text-red-500" />
             </div>
-            <h2 className="text-3xl font-bold text-brand-text-main mb-3 tracking-tight">Oops!</h2>
-            <p className="text-brand-text-muted mb-8 leading-relaxed">{errorMessage}</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-3 tracking-tight">
+              {isRtl ? 'عذراً! حدث خطأ' : 'Oops! An error occurred'}
+            </h2>
+            <p className="text-gray-500 mb-8 leading-relaxed text-sm">
+              {errorMessage}
+            </p>
             {details}
-            <button
-              onClick={() => window.location.reload()}
-              className="w-full py-4 px-8 bg-brand-text-main hover:bg-black text-white font-bold rounded-2xl transition-all shadow-xl shadow-brand-border flex items-center justify-center gap-2 group"
-            >
-              <RefreshCw size={20} className="group-hover:rotate-180 transition-transform duration-500" />
-              Reload Application
-            </button>
+            
+            <div className="flex flex-col gap-3 mt-6">
+              <button
+                onClick={() => window.location.reload()}
+                className="w-full py-3 px-6 bg-black hover:bg-gray-800 text-white font-medium rounded-xl transition-all shadow-lg shadow-black/10 flex items-center justify-center gap-2 group"
+              >
+                <RefreshCw size={18} className="group-hover:rotate-180 transition-transform duration-500" />
+                {isRtl ? 'تحديث الصفحة' : 'Reload Page'}
+              </button>
+              <button
+                onClick={this.handleReset}
+                className="w-full py-3 px-6 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                <Home size={18} />
+                {isRtl ? 'العودة للرئيسية' : 'Back to Home'}
+              </button>
+            </div>
           </div>
         </div>
       );

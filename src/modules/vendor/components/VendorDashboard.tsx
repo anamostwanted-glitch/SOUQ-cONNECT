@@ -25,6 +25,7 @@ import { UserProfile, AppFeatures, ProductRequest } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { VendorRequestCard } from './VendorRequestCard';
 import { VendorOffersList } from './VendorOffersList';
+import { SubscriptionManager } from '../../../components/SubscriptionManager';
 import { ProfileSettings } from '../../user/components/ProfileSettings';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 
@@ -94,6 +95,7 @@ export const VendorDashboard: React.FC<VendorDashboardProps> = ({
     { id: 'offers', label: isRtl ? 'عروضي' : 'My Offers', icon: MessageSquare },
     { id: 'chats', label: isRtl ? 'المحادثات' : 'Chats', icon: MessageSquare },
     { id: 'analytics', label: isRtl ? 'تحليلات الذكاء الاصطناعي' : 'AI Analytics', icon: Sparkles },
+    { id: 'subscription', label: isRtl ? 'الاشتراك' : 'Subscription', icon: Zap },
     { id: 'settings', label: isRtl ? 'إعدادات المتجر' : 'Store Settings', icon: Settings },
   ];
 
@@ -510,6 +512,17 @@ export const VendorDashboard: React.FC<VendorDashboardProps> = ({
               exit={{ opacity: 0, x: -20 }}
             >
               <ProfileSettings profile={profile} />
+            </motion.div>
+          )}
+
+          {supplierTab === 'subscription' && (
+            <motion.div
+              key="subscription"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <SubscriptionManager isRtl={isRtl} />
             </motion.div>
           )}
         </AnimatePresence>

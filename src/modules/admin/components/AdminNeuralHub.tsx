@@ -90,7 +90,11 @@ export const AdminNeuralHub: React.FC = () => {
     await saveKeys(updatedKeys);
     
     // Automatically test the new key with the fresh list
-    testKey(id, newKey.trim(), updatedKeys);
+    try {
+      await testKey(id, newKey.trim(), updatedKeys);
+    } catch (error) {
+      console.error("Error auto-testing new key:", error);
+    }
   };
 
   const testKey = async (id: string, key: string, currentKeys?: GeminiApiKey[]) => {

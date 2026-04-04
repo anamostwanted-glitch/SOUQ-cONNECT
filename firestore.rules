@@ -65,7 +65,7 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      let allowedFields = ['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'coordinates', 'website', 'logoUrl', 'coverUrl', 'photoURL', 'categories', 'keywords', 'language', 'createdAt', 'lastActive', 'bio', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'following', 'referralCode', 'referralPoints', 'logoGenerationUsage', 'isOnline', 'averageResponseTime', 'notificationPreferences', 'branding', 'favoriteProducts', 'aiInsights', 'aiBio'];
+      let allowedFields = ['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'coordinates', 'website', 'logoUrl', 'coverUrl', 'photoURL', 'categories', 'keywords', 'language', 'createdAt', 'lastActive', 'bio', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'following', 'referralCode', 'referralPoints', 'logoGenerationUsage', 'isOnline', 'averageResponseTime', 'notificationPreferences', 'branding', 'favoriteProducts', 'aiInsights', 'aiBio', 'status', 'deletedAt'];
       return data.keys().hasAll(['uid', 'email', 'role']) &&
              data.keys().hasOnly(allowedFields) &&
              data.uid is string && data.uid.size() < 128 &&
@@ -101,7 +101,9 @@ service cloud.firestore {
              (!('branding' in data) || data.branding is map) &&
              (!('favoriteProducts' in data) || (data.favoriteProducts is list && data.favoriteProducts.size() < 1000)) &&
              (!('aiInsights' in data) || data.aiInsights is map) &&
-             (!('aiBio' in data) || data.aiBio is map);
+             (!('aiBio' in data) || data.aiBio is map) &&
+             (!('status' in data) || data.status in ['active', 'deleted', 'suspended', 'pending']) &&
+             (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
     }
 
     function roleUnchanged() {
@@ -129,11 +131,12 @@ service cloud.firestore {
         isAdmin() ||
         isValidReferralUpdate()
       );
-      allow delete: if isAdmin();
+      // Soft delete only: Prevent hard deletion of user accounts to maintain data integrity
+      allow delete: if false;
     }
 
     function isValidCategory(data) {
-      let allowedFields = ['id', 'nameAr', 'nameEn', 'parentId', 'order', 'keywords', 'suggestedKeywords', 'autoKeywords', 'defaultSupplierId', 'categoryType', 'createdAt'];
+      let allowedFields = ['id', 'nameAr', 'nameEn', 'parentId', 'order', 'keywords', 'suggestedKeywords', 'autoKeywords', 'defaultSupplierId', 'categoryType', 'createdAt', 'status', 'deletedAt'];
       return data.keys().hasAll(['nameAr', 'nameEn']) &&
              data.keys().hasOnly(allowedFields) &&
              data.nameAr is string && data.nameAr.size() < 128 &&
@@ -145,7 +148,9 @@ service cloud.firestore {
              (!('autoKeywords' in data) || (data.autoKeywords is list && data.autoKeywords.size() < 100)) &&
              (!('defaultSupplierId' in data) || data.defaultSupplierId is string) &&
              (!('categoryType' in data) || data.categoryType in ['product', 'service', 'main', 'sub']) &&
-             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() < 64));
+             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() < 64)) &&
+             (!('status' in data) || data.status in ['active', 'deleted']) &&
+             (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
     }
 
     match /categories/{categoryId} {
@@ -155,24 +160,25 @@ service cloud.firestore {
                        (isAuthenticated() && 
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['keywords', 'suggestedKeywords', 'autoKeywords']) &&
                         isValidCategory(request.resource.data));
-      allow delete: if isAdmin();
+      allow delete: if false; // Soft delete only
     }
 
     function isValidProductRequest(data) {
-      let allowedFields = ['customerId', 'customerName', 'supplierId', 'supplierName', 'productName', 'description', 'status', 'createdAt', 'type', 'imageUrl', 'attributes'];
+      let allowedFields = ['customerId', 'customerName', 'supplierId', 'supplierName', 'productName', 'description', 'status', 'createdAt', 'type', 'imageUrl', 'attributes', 'deletedAt'];
       return data.keys().hasAll(['customerId', 'supplierId', 'productName', 'status', 'createdAt', 'type']) &&
              data.keys().hasOnly(allowedFields) &&
              data.customerId is string &&
              data.supplierId is string &&
              data.productName is string && data.productName.size() < 256 &&
-             data.status in ['pending', 'accepted', 'rejected', 'completed'] &&
+             data.status in ['pending', 'accepted', 'rejected', 'completed', 'deleted'] &&
              data.type == 'visual_search_rfq' &&
              (!('createdAt' in data) || data.createdAt is timestamp) &&
              (!('customerName' in data) || (data.customerName is string && data.customerName.size() < 256)) &&
              (!('supplierName' in data) || (data.supplierName is string && data.supplierName.size() < 256)) &&
              (!('description' in data) || (data.description is string && data.description.size() < 5000)) &&
              (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 5000000)) &&
-             (!('attributes' in data) || data.attributes is map);
+             (!('attributes' in data) || data.attributes is map) &&
+             (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
     }
 
     match /product_requests/{requestId} {
@@ -187,16 +193,16 @@ service cloud.firestore {
         (resource.data.supplierId == request.auth.uid && isValidProductRequest(request.resource.data)) ||
         isAdmin()
       );
-      allow delete: if isAdmin() || (isAuthenticated() && resource.data.customerId == request.auth.uid);
+      allow delete: if false; // Soft delete only
     }
 
     function isValidRequest(data) {
-      let allowedFields = ['customerId', 'customerName', 'productName', 'status', 'createdAt', 'description', 'imageUrl', 'categoryId', 'categoryNameAr', 'categoryNameEn', 'location', 'offerCount', 'quantity', 'approvedSuppliers'];
+      let allowedFields = ['customerId', 'customerName', 'productName', 'status', 'createdAt', 'description', 'imageUrl', 'categoryId', 'categoryNameAr', 'categoryNameEn', 'location', 'offerCount', 'quantity', 'approvedSuppliers', 'deletedAt'];
       return data.keys().hasAll(['customerId', 'productName', 'status', 'createdAt']) &&
              data.keys().hasOnly(allowedFields) &&
              data.customerId is string &&
              data.productName is string && data.productName.size() < 256 &&
-             data.status in ['open', 'closed', 'cancelled'] &&
+             data.status in ['open', 'closed', 'cancelled', 'deleted'] &&
              (!('customerName' in data) || (data.customerName is string && data.customerName.size() < 256)) &&
              (!('categoryNameAr' in data) || (data.categoryNameAr is string && data.categoryNameAr.size() < 256)) &&
              (!('categoryNameEn' in data) || (data.categoryNameEn is string && data.categoryNameEn.size() < 256)) &&
@@ -207,7 +213,8 @@ service cloud.firestore {
              (!('location' in data) || (data.location is string && data.location.size() < 512)) &&
              (!('offerCount' in data) || data.offerCount is number) &&
              (!('quantity' in data) || (data.quantity is string && data.quantity.size() < 64)) &&
-             (!('approvedSuppliers' in data) || (data.approvedSuppliers is list && data.approvedSuppliers.size() < 50));
+             (!('approvedSuppliers' in data) || (data.approvedSuppliers is list && data.approvedSuppliers.size() < 50)) &&
+             (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
     }
 
     match /requests/{requestId} {
@@ -217,25 +224,26 @@ service cloud.firestore {
         (resource.data.customerId == request.auth.uid && isValidRequest(request.resource.data)) || 
         isAdmin()
       );
-      allow delete: if isAdmin() || (isAuthenticated() && resource != null && resource.data.customerId == request.auth.uid);
+      allow delete: if false; // Soft delete only
     }
 
     function isValidOffer(data) {
-      let allowedFields = ['requestId', 'supplierId', 'customerId', 'price', 'status', 'createdAt', 'message', 'notes', 'deliveryTime', 'supplierName', 'minPrice', 'autoNegotiate'];
+      let allowedFields = ['requestId', 'supplierId', 'customerId', 'price', 'status', 'createdAt', 'message', 'notes', 'deliveryTime', 'supplierName', 'minPrice', 'autoNegotiate', 'deletedAt'];
       return data.keys().hasAll(['requestId', 'supplierId', 'customerId', 'price', 'status', 'createdAt']) &&
              data.keys().hasOnly(allowedFields) &&
              data.requestId is string && data.requestId.size() < 128 &&
              data.supplierId is string && data.supplierId.size() < 128 &&
              data.customerId is string && data.customerId.size() < 128 &&
              data.price is number &&
-             data.status in ['pending', 'accepted', 'rejected', 'negotiating'] &&
+             data.status in ['pending', 'accepted', 'rejected', 'negotiating', 'deleted'] &&
              (!('message' in data) || (data.message is string && data.message.size() < 5000)) &&
              (!('notes' in data) || (data.notes is string && data.notes.size() < 5000)) &&
              (!('deliveryTime' in data) || (data.deliveryTime is string && data.deliveryTime.size() < 128)) &&
              (!('supplierName' in data) || (data.supplierName is string && data.supplierName.size() < 256)) &&
              (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() < 64)) &&
              (!('minPrice' in data) || data.minPrice is number) &&
-             (!('autoNegotiate' in data) || data.autoNegotiate is bool);
+             (!('autoNegotiate' in data) || data.autoNegotiate is bool) &&
+             (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
     }
 
     match /offers/{offerId} {
@@ -254,7 +262,7 @@ service cloud.firestore {
          get(/databases/$(database)/documents/requests/$(resource.data.requestId)).data.customerId == request.auth.uid && isValidOffer(request.resource.data)) ||
         isAdmin()
       );
-      allow delete: if isAdmin() || (isAuthenticated() && resource.data.supplierId == request.auth.uid);
+      allow delete: if false; // Soft delete only
     }
 
     function isValidChat(data) {
@@ -266,9 +274,10 @@ service cloud.firestore {
              (!('lastMessage' in data) || (data.lastMessage is string && data.lastMessage.size() < 5000)) &&
              (!('isCategoryChat' in data) || data.isCategoryChat is bool) &&
              (!('categoryId' in data) || (data.categoryId is string && data.categoryId.size() < 128)) &&
-             (!('status' in data) || data.status in ['active', 'closed']) &&
+             (!('status' in data) || data.status in ['active', 'closed', 'deleted']) &&
              (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5)) &&
-             (!('review' in data) || (data.review is string && data.review.size() < 2000));
+             (!('review' in data) || (data.review is string && data.review.size() < 2000)) &&
+             (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
     }
 
     match /chats/{chatId} {
@@ -289,7 +298,7 @@ service cloud.firestore {
         (resource.data.keys().contains('isCategoryChat') && resource.data.isCategoryChat == true) ||
         isAdmin()
       ) && isValidChat(request.resource.data);
-      allow delete: if isAdmin() || (isAuthenticated() && (resource.data.customerId == request.auth.uid || resource.data.supplierId == request.auth.uid));
+      allow delete: if false; // Soft delete only
 
       match /messages/{messageId} {
         allow read: if isAuthenticated() && (
@@ -304,7 +313,7 @@ service cloud.firestore {
            get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId == request.auth.uid) || 
           isAdmin()
         );
-        allow delete: if isAdmin();
+        allow delete: if false; // Soft delete only
       }
     }
 
@@ -490,7 +499,7 @@ service cloud.firestore {
     }
 
     function isValidMarketplaceItem(data) {
-      let allowedFields = ['sellerId', 'sellerName', 'sellerRole', 'title', 'titleAr', 'titleEn', 'description', 'descriptionAr', 'descriptionEn', 'price', 'currency', 'categories', 'images', 'status', 'location', 'createdAt', 'updatedAt', 'isVerifiedSupplier', 'phone', 'sellerPhone', 'isHighQuality', 'features', 'classification', 'views'];
+      let allowedFields = ['sellerId', 'sellerName', 'sellerRole', 'title', 'titleAr', 'titleEn', 'description', 'descriptionAr', 'descriptionEn', 'price', 'currency', 'categories', 'images', 'status', 'location', 'createdAt', 'updatedAt', 'isVerifiedSupplier', 'phone', 'sellerPhone', 'isHighQuality', 'features', 'classification', 'views', 'deletedAt'];
       return data.keys().hasAll(['sellerId', 'title', 'price', 'status', 'createdAt']) &&
              data.keys().hasOnly(allowedFields) &&
              data.sellerId is string &&
@@ -498,7 +507,7 @@ service cloud.firestore {
              (!('titleAr' in data) || (data.titleAr is string && data.titleAr.size() < 256)) &&
              (!('titleEn' in data) || (data.titleEn is string && data.titleEn.size() < 256)) &&
              data.price is number && data.price >= 0 &&
-             data.status in ['active', 'sold', 'hidden', 'draft'] &&
+             data.status in ['active', 'sold', 'hidden', 'draft', 'deleted'] &&
              (!('sellerName' in data) || (data.sellerName is string && data.sellerName.size() < 256)) &&
              (!('sellerRole' in data) || (data.sellerRole is string && data.sellerRole.size() < 128)) &&
              (!('description' in data) || (data.description is string && data.description.size() < 5000)) &&
@@ -515,7 +524,8 @@ service cloud.firestore {
              (!('isHighQuality' in data) || data.isHighQuality is bool) &&
              (!('features' in data) || (data.features is list && data.features.size() <= 20)) &&
              (!('classification' in data) || (data.classification is string && data.classification.size() < 128)) &&
-             (!('views' in data) || data.views is number);
+             (!('views' in data) || data.views is number) &&
+             (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
     }
 
     match /marketplace/{itemId} {
@@ -525,7 +535,7 @@ service cloud.firestore {
         (resource.data.sellerId == request.auth.uid && isValidMarketplaceItem(request.resource.data)) || 
         isAdmin()
       );
-      allow delete: if isAdmin() || (isAuthenticated() && resource.data.sellerId == request.auth.uid);
+      allow delete: if false; // Soft delete only
     }
 
     function isValidContactEvent(data) {
@@ -545,6 +555,22 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidContactEvent(request.resource.data);
       allow update: if isAdmin();
       allow delete: if isAdmin();
+    }
+
+    function isValidUsageLog(data) {
+      let allowedFields = ['uid', 'email', 'feature', 'tokens', 'estimatedCost', 'isCached', 'createdAt'];
+      return data.keys().hasAll(['uid', 'feature', 'tokens', 'createdAt']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.uid is string &&
+             data.feature is string &&
+             data.tokens is number &&
+             data.createdAt is string;
+    }
+
+    match /usage_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && isValidUsageLog(request.resource.data);
+      allow update, delete: if isAdmin();
     }
   }
 }

@@ -259,7 +259,11 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
         });
       });
       
-      await Promise.all(batchPromises);
+      const results = await Promise.allSettled(batchPromises);
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        throw (failures[0] as PromiseRejectedResult).reason;
+      }
       setSentToAllSuccess(true);
       soundService.play(SoundType.SENT);
       setTimeout(() => {
