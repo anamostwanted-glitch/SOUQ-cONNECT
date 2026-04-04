@@ -5,6 +5,7 @@ import { MarketplaceItem } from '../../../core/types';
 import { BlurImage } from '../../../shared/components/BlurImage';
 import { WhatsAppButton } from '../../../shared/components/WhatsAppButton';
 import { useTranslation } from 'react-i18next';
+import { auth } from '../../../core/firebase';
 
 interface ProductCardProps {
   item: MarketplaceItem;
@@ -179,7 +180,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <button 
             onClick={(e) => {
               e.stopPropagation();
-              onOpenChat(item.sellerId);
+              if (!auth.currentUser) return;
+              const chatId = [auth.currentUser.uid, item.sellerId].sort().join('_');
+              onOpenChat(chatId);
             }}
             className="w-9 h-9 rounded-full bg-brand-primary/10 text-brand-primary hover:bg-brand-primary hover:text-white flex items-center justify-center transition-colors"
             title={isRtl ? 'محادثة' : 'Chat'}

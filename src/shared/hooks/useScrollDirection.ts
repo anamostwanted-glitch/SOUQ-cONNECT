@@ -9,19 +9,32 @@ export function useScrollDirection(ref?: RefObject<HTMLElement>) {
   const [scrollDirection, setScrollDirection] = useState<ScrollDirection | null>(null);
 
   useEffect(() => {
-    const element = ref?.current || window;
-    let lastScrollY = ref?.current ? ref.current.scrollTop : window.pageYOffset;
+    // Try to find the scrollable element: provided ref > main tag > window
+    const element = ref?.current || document.querySelector('main') || window;
+    
+    const getScrollY = () => {
+      if (element === window) return window.pageYOffset;
+      if (element instanceof HTMLElement) return element.scrollTop;
+      return 0;
+    };
+
+    let lastScrollY = getScrollY();
     
     const updateScrollDirection = () => {
-      const scrollY = ref?.current ? ref.current.scrollTop : window.pageYOffset;
-      
-      // Only update if we've scrolled more than a threshold to avoid jitter
+      const scrollY = getScrollY();
       const diff = scrollY - lastScrollY;
-      if (Math.abs(diff) > 5) {
+      
+      // Threshold to avoid jitter
+      if (Math.abs(diff) > 10) {
         const direction = diff > 0 ? ScrollDirection.DOWN : ScrollDirection.UP;
-        if (direction !== scrollDirection) {
+        
+        // Always reset to UP if we are at the very top
+        if (scrollY <= 0) {
+          setScrollDirection(ScrollDirection.UP);
+        } else if (direction !== scrollDirection) {
           setScrollDirection(direction);
         }
+        
         lastScrollY = scrollY > 0 ? scrollY : 0;
       }
     };

@@ -287,7 +287,7 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
           initial={{ scale: 0.9, y: 20, opacity: 0 }}
           animate={{ scale: 1, y: 0, opacity: 1 }}
           exit={{ scale: 0.9, y: 20, opacity: 0 }}
-          className="relative w-full max-w-5xl bg-white dark:bg-gray-900 rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden border border-white/20 dark:border-gray-800/50 flex flex-col max-h-[calc(100dvh-2rem)] md:max-h-[90dvh]"
+          className="relative w-[95%] sm:w-full max-w-5xl bg-white dark:bg-gray-900 rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden border border-white/20 dark:border-gray-800/50 flex flex-col max-h-[90dvh]"
         >
           {/* Header */}
           <div className="p-4 md:p-6 border-b border-brand-border/50 flex items-center justify-between bg-brand-background/30 shrink-0">
@@ -404,7 +404,7 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
                     <img 
                       src={selectedImage!} 
                       alt="Analyzed" 
-                      className="w-full aspect-square object-cover rounded-[2.5rem] shadow-2xl border-4 border-white dark:border-gray-800" 
+                      className="w-full aspect-[4/5] object-cover rounded-[2.5rem] shadow-2xl border-4 border-white dark:border-gray-800" 
                     />
                     <div className="absolute top-4 right-4 bg-brand-primary/90 backdrop-blur-md text-white px-4 py-2 rounded-full text-xs font-black shadow-lg flex items-center gap-2">
                       <Sparkles size={14} />

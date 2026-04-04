@@ -68,6 +68,7 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
     logo?: string;
     text?: string;
     opacity?: number;
+    position?: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-right';
   }>({});
 
   useEffect(() => {
@@ -77,7 +78,8 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
         setWatermarkSettings({
           logo: data.watermarkUrl || data.watermarkLogoUrl,
           text: data.siteName || "B2B2C Connect",
-          opacity: data.watermarkOpacity || 0.5
+          opacity: data.watermarkOpacity ?? 0.7,
+          position: data.watermarkPosition || 'bottom-right'
         });
       }
     }, (error) => {
@@ -189,12 +191,16 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
   // Phone validation
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (formData.phone && formData.phone.length > 5) {
-        const result = await validatePhoneNumber(formData.phone, i18n.language);
-        setPhoneValidation(result);
-        if (result.isValid) {
-          setFormData(prev => ({ ...prev, phone: result.formattedNumber }));
+      try {
+        if (formData.phone && formData.phone.length > 5) {
+          const result = await validatePhoneNumber(formData.phone, i18n.language);
+          setPhoneValidation(result);
+          if (result.isValid) {
+            setFormData(prev => ({ ...prev, phone: result.formattedNumber }));
+          }
         }
+      } catch (error) {
+        console.error("Error validating phone number:", error);
       }
     }, 1000);
     return () => clearTimeout(timer);
@@ -290,6 +296,7 @@ export const MarketplaceAddProduct: React.FC<MarketplaceAddProductProps> = ({
                     watermarkLogo={watermarkSettings.logo}
                     watermarkText={watermarkSettings.text}
                     watermarkOpacity={watermarkSettings.opacity}
+                    watermarkPosition={watermarkSettings.position}
                   />
                   {uploadedImages.length > 0 && (
                     <div className="flex justify-end">

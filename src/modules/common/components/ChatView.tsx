@@ -409,49 +409,63 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         // Mark messages as read
         if (profile) {
           const unreadMsgs = msgs.filter(m => m.senderId !== profile.uid && !m.read);
-          for (const m of unreadMsgs) {
-            try {
-              await updateDoc(doc(db, 'chats', chatId, 'messages', m.id), { read: true });
-            } catch (error) {
-              console.error("Error marking message as read:", error);
-            }
+          if (unreadMsgs.length > 0) {
+            await Promise.all(unreadMsgs.map(m => 
+              updateDoc(doc(db, 'chats', chatId, 'messages', m.id), { read: true })
+                .catch(error => console.error("Error marking message as read:", error))
+            ));
           }
         }
 
-        // Fetch sender names and photos
-        const uniqueSenderIds = Array.from(new Set(msgs.map(m => m.senderId)));
-        const newNames = { ...senderNames };
-        const newPhotos = { ...senderPhotos };
-        const newProfiles = { ...senderProfiles };
-        let changed = false;
-
-        for (const id of uniqueSenderIds) {
-          if (!newNames[id] || !newPhotos[id] || !newProfiles[id]) {
+        // Fetch sender names and photos in parallel
+        const uniqueSenderIds = Array.from(new Set(msgs.map(m => m.senderId))).filter(id => id && id !== 'system');
+        const missingSenderIds = uniqueSenderIds.filter(id => !senderProfiles[id]);
+        
+        if (missingSenderIds.length > 0) {
+          const profilePromises = missingSenderIds.map(async (id) => {
             try {
               const uSnap = await getDoc(doc(db, 'users', id));
               if (uSnap.exists()) {
                 const userData = uSnap.data() as UserProfile;
-                newNames[id] = userData.name;
-                newPhotos[id] = userData.logoUrl || '';
-                newProfiles[id] = userData;
-                changed = true;
+                return { id, data: userData };
               }
+              return { id, data: { uid: id, name: 'Customer', role: 'customer' } as UserProfile };
             } catch (error: any) {
               if (error.message?.includes('Missing or insufficient permissions') || error.code === 'permission-denied') {
-                newNames[id] = 'Customer';
-                newPhotos[id] = '';
-                newProfiles[id] = { uid: id, name: 'Customer', role: 'customer' } as UserProfile;
-                changed = true;
-              } else {
-                handleFirestoreError(error, OperationType.GET, `users/${id}`);
+                return { id, data: { uid: id, name: 'Customer', role: 'customer' } as UserProfile };
               }
+              console.error('Error fetching user profile in ChatView:', id, error);
+              return { id, data: { uid: id, name: 'Customer', role: 'customer' } as UserProfile };
             }
+          });
+
+          const results = await Promise.all(profilePromises);
+          
+          if (isMounted) {
+            setSenderProfiles(prev => {
+              const updated = { ...prev };
+              results.forEach(res => {
+                updated[res.id] = res.data;
+              });
+              return updated;
+            });
+            
+            setSenderNames(prev => {
+              const updated = { ...prev };
+              results.forEach(res => {
+                updated[res.id] = res.data.name;
+              });
+              return updated;
+            });
+
+            setSenderPhotos(prev => {
+              const updated = { ...prev };
+              results.forEach(res => {
+                updated[res.id] = res.data.logoUrl || res.data.photoURL || '';
+              });
+              return updated;
+            });
           }
-        }
-        if (changed && isMounted) {
-          setSenderNames(newNames);
-          setSenderPhotos(newPhotos);
-          setSenderProfiles(newProfiles);
         }
       } catch (error) {
         console.error('Error in onSnapshot callback for messages:', error);
@@ -531,11 +545,16 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = async () => {
-        const base64Audio = (reader.result as string).split(',')[1];
-        const targetLang = i18n.language === 'ar' ? 'Arabic' : 'English';
-        const translation = await translateAudio(base64Audio, blob.type, targetLang);
-        setTranslatedMessages(prev => ({ ...prev, [messageId]: translation }));
-        setIsTranslating(prev => ({ ...prev, [messageId]: false }));
+        try {
+          const base64Audio = (reader.result as string).split(',')[1];
+          const targetLang = i18n.language === 'ar' ? 'Arabic' : 'English';
+          const translation = await translateAudio(base64Audio, blob.type, targetLang);
+          setTranslatedMessages(prev => ({ ...prev, [messageId]: translation }));
+          setIsTranslating(prev => ({ ...prev, [messageId]: false }));
+        } catch (error) {
+          console.error('Audio translation error in reader:', error);
+          setIsTranslating(prev => ({ ...prev, [messageId]: false }));
+        }
       };
     } catch (error) {
       console.error('Audio translation error:', error);
@@ -776,16 +795,16 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           return;
         }
 
-        const mimeType = mediaRecorder.current?.mimeType || 'audio/webm';
-        const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : 'webm';
-        const audioBlob = new Blob(audioChunks.current, { type: mimeType });
-        const audioFile = new File([audioBlob], `voice_${Date.now()}.${ext}`, { type: mimeType });
-        
-        const storageRef = ref(storage, `chats/${chatId}/${Date.now()}.${ext}`);
-        await uploadBytes(storageRef, audioFile);
-        const url = await getDownloadURL(storageRef);
-
         try {
+          const mimeType = mediaRecorder.current?.mimeType || 'audio/webm';
+          const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+          const audioBlob = new Blob(audioChunks.current, { type: mimeType });
+          const audioFile = new File([audioBlob], `voice_${Date.now()}.${ext}`, { type: mimeType });
+          
+          const storageRef = ref(storage, `chats/${chatId}/${Date.now()}.${ext}`);
+          await uploadBytes(storageRef, audioFile);
+          const url = await getDownloadURL(storageRef);
+
           await addDoc(collection(db, 'chats', chatId, 'messages'), {
             chatId,
             senderId: profile!.uid,
@@ -883,8 +902,9 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
     const logoUrl = watermarkLogoUrl || siteLogoUrl;
     if (!logoUrl) return file;
 
-    return new Promise(async (resolve) => {
-      let finalLogoUrl = logoUrl;
+    return new Promise((resolve) => {
+      const process = async () => {
+        let finalLogoUrl = logoUrl;
       let isObjectUrl = false;
 
       // Try to fetch the logo as a blob to avoid canvas tainting/CORS issues
@@ -1002,7 +1022,9 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         if (isObjectUrl) URL.revokeObjectURL(finalLogoUrl);
       };
       img.src = URL.createObjectURL(file);
-    });
+    };
+    process();
+  });
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

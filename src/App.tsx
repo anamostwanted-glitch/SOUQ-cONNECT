@@ -9,6 +9,7 @@ import Auth from './modules/site/components/Auth';
 import RoleSelection from './modules/site/components/RoleSelection';
 import { MarketInterface } from './modules/marketplace/components/MarketInterface';
 import { ChatHub } from './modules/common/components/ChatHub';
+import ChatView from './modules/common/components/ChatView';
 import Dashboard from './modules/site/components/Dashboard';
 import { ProfileView } from './modules/site/components/ProfileView';
 import { handleFirestoreError, OperationType } from './core/utils/errorHandling';
@@ -92,10 +93,21 @@ export default function App() {
           />
         );
       case 'chat':
+        if (activeChatId) {
+          return (
+            <ChatView 
+              chatId={activeChatId}
+              profile={profile}
+              features={features}
+              onBack={() => setActiveChatId(null)}
+              onViewProfile={(uid) => { /* handle profile view */ }}
+            />
+          );
+        }
         return (
           <ChatHub 
             profile={profile} 
-            onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+            onOpenChat={(id) => setActiveChatId(id)}
             onBack={() => setView('home')}
           />
         );

@@ -81,7 +81,7 @@ export async function generateAlternativeProductImage(base64Image: string, mimeT
 
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = base64Image.split(',')[1] || base64Image;
-    const prompt = `A professional, close-up photography of this product. Place it in the center of the picture on elegant interior design elements. Highlight its uses and applications. Product title: ${title || 'Product'}. Category: ${category || 'General'}. High quality, studio lighting, highly detailed.`;
+    const prompt = `A professional, close-up photography of this product. Place it in the center of the picture on elegant interior design elements. Highlight its uses and applications. Product title: ${title || 'Product'}. Category: ${category || 'General'}. High quality, studio lighting, highly detailed. IMPORTANT: Do not include any text, words, labels, or watermarks in the image. The image should be clean and professional.`;
 
     return await retryWithBackoff(async () => {
       const response = await ai.models.generateContent({

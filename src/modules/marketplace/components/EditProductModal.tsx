@@ -84,12 +84,12 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ item, onClos
   const glassClass = "bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-white/20 dark:border-slate-700/50 shadow-2xl";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className={`w-full max-w-2xl rounded-3xl overflow-hidden flex flex-col ${glassClass}`}
+        className={`w-[95%] sm:w-full max-w-2xl h-auto max-h-[90vh] rounded-[24px] sm:rounded-3xl overflow-hidden flex flex-col ${glassClass}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200/50 dark:border-slate-700/50">

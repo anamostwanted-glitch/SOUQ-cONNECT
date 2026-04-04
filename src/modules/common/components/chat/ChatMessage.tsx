@@ -14,7 +14,7 @@ interface AudioPlayerProps {
   isTranslating?: boolean;
 }
 
-export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, isOwn, onTranslate, translation, isTranslating }) => {
+export const AudioPlayer: React.FC<AudioPlayerProps> = React.memo(({ url, isOwn, onTranslate, translation, isTranslating }) => {
   const [playing, setPlaying] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [progress, setProgress] = useState(0);
@@ -150,7 +150,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, isOwn, onTranslat
       )}
     </div>
   );
-};
+});
 
 interface ChatMessageProps {
   msg: Message;
@@ -180,7 +180,7 @@ interface ChatMessageProps {
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({
+export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
   msg,
   index,
   messages,
@@ -610,4 +610,4 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     </motion.div>
   </div>
   );
-};
+});

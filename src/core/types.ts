@@ -285,6 +285,8 @@ export interface SiteSettings {
   primaryTextColor?: string;
   secondaryTextColor?: string;
   enableNeuralPulse?: boolean;
+  watermarkOpacity?: number;
+  watermarkPosition?: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-right';
 }
 
 export interface GeminiApiKey {

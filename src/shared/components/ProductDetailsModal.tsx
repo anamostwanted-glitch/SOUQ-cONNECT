@@ -130,19 +130,19 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="bg-white w-full max-w-5xl h-full sm:h-auto sm:max-h-[90vh] sm:rounded-[32px] overflow-hidden flex flex-col md:flex-row shadow-2xl relative"
+          className="bg-white w-[95%] sm:w-full max-w-5xl h-auto max-h-[90vh] sm:rounded-[32px] rounded-[24px] overflow-hidden flex flex-col md:flex-row shadow-2xl relative"
         >
           {/* Close Button (Mobile) */}
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 p-2 bg-white/20 backdrop-blur-md hover:bg-white/40 rounded-full text-white transition-all sm:hidden"
+            className="absolute top-4 right-4 z-10 p-2 bg-black/20 backdrop-blur-md hover:bg-black/40 rounded-full text-white transition-all md:hidden"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
 
           {/* Image Section */}
           <div className="w-full md:w-3/5 bg-slate-100 relative group aspect-[4/5] md:aspect-auto">
-            <div className="w-full h-full relative overflow-hidden">
+            <div className="w-full h-full relative overflow-hidden md:absolute md:inset-0">
               <AnimatePresence mode="wait">
                 <motion.img 
                   key={currentImageIndex}
@@ -202,7 +202,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           </div>
 
           {/* Content Section */}
-          <div className="w-full md:w-2/5 p-6 sm:p-10 overflow-y-auto flex flex-col">
+          <div className="w-full md:w-2/5 p-6 sm:p-10 overflow-y-auto flex flex-col flex-1 min-h-0">
             <div className="flex items-center justify-between mb-6">
               <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-xs font-bold uppercase tracking-widest">
                 {item.categories && item.categories.length > 0 ? item.categories[0] : ''}

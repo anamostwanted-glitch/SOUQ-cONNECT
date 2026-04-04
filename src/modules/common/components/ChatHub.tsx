@@ -11,7 +11,7 @@ import {
   getDoc
 } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
-import { UserProfile, Chat } from '../../../core/types';
+import { UserProfile, Chat, ProductRequest } from '../../../core/types';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { Search, MessageSquare, User, Clock, ChevronRight, Sparkles, Bot } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
@@ -31,6 +31,7 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [otherUsers, setOtherUsers] = useState<Record<string, UserProfile>>({});
+  const [requests, setRequests] = useState<Record<string, ProductRequest>>({});
 
   useEffect(() => {
     if (!profile) return;
@@ -47,35 +48,65 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
         setChats(chatList);
         setLoading(false);
 
-        // Fetch other users' data
+        // Fetch other users' data in parallel
         const userIds = Array.from(new Set(chatList.map((c: Chat) => 
           profile.uid === c.customerId ? c.supplierId : c.customerId
-        )));
+        ))).filter(id => id && id !== 'system' && id !== 'everyone');
 
-        const newOtherUsers = { ...otherUsers };
-        let changed = false;
-
-        for (const id of userIds) {
-          if (!newOtherUsers[id]) {
+        const missingUserIds = userIds.filter(id => !otherUsers[id]);
+        
+        if (missingUserIds.length > 0) {
+          const userPromises = missingUserIds.map(async (id) => {
             try {
               const uSnap = await getDoc(doc(db, 'users', id));
               if (uSnap.exists()) {
-                newOtherUsers[id] = uSnap.data() as UserProfile;
-                changed = true;
-              } else {
-                newOtherUsers[id] = { uid: id, name: 'User', role: 'customer' } as UserProfile;
-                changed = true;
+                return { id, data: uSnap.data() as UserProfile };
               }
+              return { id, data: { uid: id, name: 'User', role: 'customer' } as UserProfile };
             } catch (error) {
-              console.error('Error fetching user for chat hub:', error);
-              newOtherUsers[id] = { uid: id, name: 'User', role: 'customer' } as UserProfile;
-              changed = true;
+              console.error('Error fetching user for chat hub:', id, error);
+              return { id, data: { uid: id, name: 'User', role: 'customer' } as UserProfile };
             }
-          }
+          });
+
+          const results = await Promise.all(userPromises);
+          
+          setOtherUsers(prev => {
+            const updated = { ...prev };
+            results.forEach(res => {
+              updated[res.id] = res.data;
+            });
+            return updated;
+          });
         }
 
-        if (changed) {
-          setOtherUsers(newOtherUsers);
+        // Fetch requests data in parallel
+        const requestIds = Array.from(new Set(chatList.map(c => c.requestId)))
+          .filter(id => id && !id.startsWith('category_') && !requests[id]);
+
+        if (requestIds.length > 0) {
+          const requestPromises = requestIds.map(async (id) => {
+            try {
+              const rSnap = await getDoc(doc(db, 'requests', id!));
+              if (rSnap.exists()) {
+                return { id, data: { id: rSnap.id, ...rSnap.data() } as ProductRequest };
+              }
+              return null;
+            } catch (error) {
+              console.error('Error fetching request for chat hub:', id, error);
+              return null;
+            }
+          });
+
+          const results = await Promise.all(requestPromises);
+          
+          setRequests(prev => {
+            const updated = { ...prev };
+            results.forEach(res => {
+              if (res) updated[res.id!] = res.data;
+            });
+            return updated;
+          });
         }
       } catch (error) {
         console.error('Error in onSnapshot callback for chat hub:', error);
@@ -159,6 +190,7 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
                 const otherUser = otherUsers[otherId];
                 const displayName = otherUser?.companyName || otherUser?.name || '...';
                 const photoURL = otherUser?.logoUrl || otherUser?.photoURL;
+                const request = chat.requestId ? requests[chat.requestId] : null;
 
                 return (
                   <motion.div
@@ -200,6 +232,11 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
                             {formatDate(chat.updatedAt)}
                           </span>
                         </div>
+                        {request && (
+                          <p className="text-[10px] font-black text-brand-primary uppercase tracking-widest mb-1 truncate">
+                            {request.productName}
+                          </p>
+                        )}
                         <div className="flex items-center justify-between">
                           <p className="text-sm text-brand-text-muted truncate font-medium">
                             {chat.lastMessage || (isRtl ? 'ابدأ المحادثة...' : 'Start a conversation...')}

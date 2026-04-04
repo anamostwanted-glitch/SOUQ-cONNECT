@@ -10,26 +10,36 @@ interface ChatCardProps {
   chat: Chat;
   onOpen: () => void;
   activeRole: string;
+  otherUser?: UserProfile | null;
+  request?: ProductRequest | null;
 }
 
-const ChatCard: React.FC<ChatCardProps> = ({ chat, onOpen, activeRole }) => {
+const ChatCard: React.FC<ChatCardProps> = ({ chat, onOpen, activeRole, otherUser: initialOtherUser, request: initialRequest }) => {
   const { i18n } = useTranslation();
-  const [otherUser, setOtherUser] = useState<UserProfile | null>(null);
-  const [request, setRequest] = useState<ProductRequest | null>(null);
+  const [otherUser, setOtherUser] = useState<UserProfile | null>(initialOtherUser || null);
+  const [request, setRequest] = useState<ProductRequest | null>(initialRequest || null);
+
+  useEffect(() => {
+    if (initialOtherUser) setOtherUser(initialOtherUser);
+  }, [initialOtherUser]);
+
+  useEffect(() => {
+    if (initialRequest) setRequest(initialRequest);
+  }, [initialRequest]);
 
   useEffect(() => {
     const otherUserId = activeRole === 'supplier' ? chat.customerId : chat.supplierId;
-    if (otherUserId && otherUserId !== 'system' && otherUserId !== 'everyone') {
+    if (!otherUser && otherUserId && otherUserId !== 'system' && otherUserId !== 'everyone') {
       getDoc(doc(db, 'users', otherUserId)).then(snap => {
         if (snap.exists()) setOtherUser(snap.data() as UserProfile);
-      });
+      }).catch(error => console.error("Error fetching user in ChatCard:", error));
     }
-    if (chat.requestId && !chat.requestId.startsWith('category_')) {
+    if (!request && chat.requestId && !chat.requestId.startsWith('category_')) {
       getDoc(doc(db, 'requests', chat.requestId)).then(snap => {
         if (snap.exists()) setRequest({ id: snap.id, ...snap.data() } as ProductRequest);
-      });
+      }).catch(error => console.error("Error fetching request in ChatCard:", error));
     }
-  }, [chat, activeRole]);
+  }, [chat, activeRole, otherUser, request]);
 
   return (
     <motion.div 

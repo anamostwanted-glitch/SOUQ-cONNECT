@@ -796,7 +796,8 @@ export const generateAlternativeProductImage = async (base64Data: string, mimeTy
       Product: ${productName}
       Category: ${category}
       Style: High-end, studio lighting, clean background, 4:5 aspect ratio.
-      The output should be a professional product shot.`;
+      The output should be a professional product shot.
+      IMPORTANT: Do not include any text, words, labels, or watermarks in the image. The image should be clean and professional.`;
       
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-image",

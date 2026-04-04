@@ -51,17 +51,35 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const scrollDirection = useScrollDirection();
-  const [isMinimized, setIsMinimized] = useState(false);
+  const isMinimized = scrollDirection === ScrollDirection.DOWN;
   
-  const [items, setItems] = useState<MarketplaceItem[]>([]);
-
-  useEffect(() => {
-    if (scrollDirection === ScrollDirection.DOWN) {
-      setIsMinimized(true);
-    } else if (scrollDirection === ScrollDirection.UP) {
-      setIsMinimized(false);
+  // Header animation variants
+  const headerVariants = {
+    visible: { 
+      y: 0, 
+      opacity: 1,
+      scale: 1,
+      filter: 'blur(0px)',
+      transition: { 
+        type: 'spring' as const, 
+        stiffness: 300, 
+        damping: 30 
+      }
+    },
+    minimized: { 
+      y: -75, 
+      opacity: 0.95,
+      scale: 0.96,
+      filter: 'blur(1px)',
+      transition: { 
+        type: 'spring' as const, 
+        stiffness: 250, 
+        damping: 35 
+      }
     }
-  }, [scrollDirection]);
+  };
+
+  const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -145,118 +163,189 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     return matchesSearch && matchesCategory;
   });
 
-  const glassClass = "bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 shadow-sm";
+  const glassClass = "bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-700/50 shadow-lg shadow-black/5";
+  const ribbonClass = "bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-white/30 dark:border-slate-700/50 shadow-xl shadow-brand-primary/5";
 
   return (
-    <div className="min-h-screen bg-brand-background pb-24">
-      {/* Floating Header & Search */}
-      <div className={`sticky top-0 z-40 ${glassClass} border-b border-white/10 transition-all duration-300 ${isMinimized ? '-translate-y-full' : 'translate-y-0'}`}>
-        <div className={`max-w-7xl mx-auto px-4 transition-all duration-300 ${isMinimized ? 'py-2 opacity-0' : 'py-4 md:py-6 opacity-100'}`}>
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className={`w-full md:w-auto flex items-center justify-between transition-all duration-300 ${isMinimized ? 'opacity-0 h-0 overflow-hidden mb-0' : 'opacity-100 h-auto mb-2 md:mb-0'}`}>
-              <h1 className="text-2xl md:text-3xl font-black text-brand-text-main tracking-tight">
-                {isRtl ? 'السوق الذكي' : 'Smart Market'}
-              </h1>
-              
-              {/* Mobile Add Button */}
-              {profile && effectiveRole !== 'customer' && (
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="md:hidden w-10 h-10 rounded-full bg-brand-primary text-white flex items-center justify-center shadow-lg"
-                >
-                  <Plus size={20} />
-                </button>
-              )}
-            </div>
-
-            <div className={`w-full md:w-1/2 flex items-center gap-2 transition-all duration-300 ${isMinimized ? 'md:w-full' : ''}`}>
-              <div className="relative flex-1">
-                <Search className={`absolute ${isRtl ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 text-brand-text-muted`} size={20} />
-                <input
-                  type="text"
-                  placeholder={isRtl ? 'ابحث عن منتجات، موردين...' : 'Search products, suppliers...'}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full bg-white/50 dark:bg-slate-800/50 border border-white/30 dark:border-slate-700 rounded-2xl py-3 ${isRtl ? 'pr-12 pl-12' : 'pl-12 pr-12'} focus:outline-none focus:ring-2 focus:ring-brand-primary/50 text-brand-text-main placeholder-brand-text-muted backdrop-blur-md transition-all`}
+    <div className="min-h-screen bg-brand-background pb-32">
+      {/* Smart Glass Ribbon Header - The Breathing Ribbon */}
+      <motion.div 
+        initial="visible"
+        animate={isMinimized ? 'minimized' : 'visible'}
+        variants={headerVariants}
+        className="sticky top-0 z-50 pt-4 md:pt-6"
+      >
+        <div className="max-w-7xl mx-auto px-4">
+          <motion.div 
+            layout
+            className={`relative overflow-hidden rounded-[2rem] ${glassClass} transition-all duration-500 ${isMinimized ? 'py-2 px-4 shadow-sm' : 'p-4 md:p-6 shadow-xl'}`}
+          >
+            {/* Breathing Glow Effect */}
+            <AnimatePresence>
+              {isMinimized && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: [0.2, 0.5, 0.2] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute inset-0 bg-gradient-to-r from-brand-primary/5 via-brand-teal/5 to-brand-primary/5 pointer-events-none"
                 />
-                <div className={`absolute ${isRtl ? 'left-4' : 'right-4'} top-1/2 -translate-y-1/2 flex items-center gap-2`}>
-                  {loading && (
-                    <Sparkles className="w-4 h-4 text-brand-primary animate-pulse" />
-                  )}
-                  {searchTerm && (
-                    <button 
-                      onClick={() => setSearchTerm('')}
-                      className="text-brand-text-muted hover:text-brand-text-main"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              {/* Desktop Add Button */}
-              {profile && effectiveRole !== 'customer' && (
-                <HapticButton
-                  onClick={() => setShowAddModal(true)}
-                  className="hidden md:flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5"
-                >
-                  <Plus size={20} />
-                  <span>{isRtl ? 'إضافة منتج' : 'Add Product'}</span>
-                </HapticButton>
               )}
-            </div>
-          </div>
+            </AnimatePresence>
 
-          {/* Tabs for Vendors */}
-          {profile && effectiveRole !== 'customer' && (
-            <div className="mt-6 flex items-center gap-4 border-b border-slate-200 dark:border-slate-700">
-              <button
-                onClick={() => setActiveTab('discover')}
-                className={`pb-3 px-2 text-sm font-bold transition-colors relative ${
-                  activeTab === 'discover' ? 'text-brand-primary' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-                }`}
-              >
-                {isRtl ? 'اكتشف' : 'Discover'}
-                {activeTab === 'discover' && (
-                  <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('myshop')}
-                className={`pb-3 px-2 text-sm font-bold transition-colors relative ${
-                  activeTab === 'myshop' ? 'text-brand-primary' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-                }`}
-              >
-                {isRtl ? 'متجري' : 'My Shop'}
-                {activeTab === 'myshop' && (
-                  <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* Categories Horizontal Scroll */}
-          <div className="mt-4 flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
-            <HapticButton 
-              onClick={() => setShowSmartCategories(true)}
-              className="shrink-0 px-6 py-3 rounded-full text-sm font-bold transition-all border-2 bg-gradient-to-r from-brand-primary to-brand-teal text-white border-transparent shadow-lg shadow-brand-primary/20 flex items-center gap-2"
-            >
-              <Sparkles size={18} />
-              {isRtl ? 'المستكشف الذكي للفئات' : 'Smart Category Explorer'}
-            </HapticButton>
-            
-            {selectedCategory && (
-              <HapticButton
-                onClick={() => setSelectedCategory(null)}
-                className="shrink-0 px-5 py-3 rounded-full text-sm font-bold bg-white/50 dark:bg-slate-800/50 text-brand-text-main hover:bg-white/80 dark:hover:bg-slate-700/80 backdrop-blur-md border border-brand-border/50 flex items-center gap-2"
-              >
-                <X size={16} />
-                {isRtl ? 'إلغاء الفلتر' : 'Clear Filter'}
-              </HapticButton>
+            {/* Minimal Indicator for Minimized State */}
+            {isMinimized && (
+              <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand-primary/20 rounded-full" />
             )}
-          </div>
+
+            {/* Top Row: Title & Search & Add */}
+            <div className={`flex flex-col md:flex-row gap-4 items-center justify-between transition-all duration-500 ${isMinimized ? 'scale-95' : 'scale-100'}`}>
+              <AnimatePresence mode="wait">
+                {!isMinimized && (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="w-full md:w-auto flex items-center justify-between"
+                  >
+                    <h1 className="text-2xl md:text-3xl font-black text-brand-text-main tracking-tight flex items-center gap-2">
+                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-brand-primary to-brand-teal">
+                        {isRtl ? 'السوق الذكي' : 'Smart Market'}
+                      </span>
+                      <div className="w-2 h-2 rounded-full bg-brand-primary animate-pulse" />
+                    </h1>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <motion.div 
+                layout
+                className={`w-full flex items-center gap-2 transition-all duration-500 ${isMinimized ? 'md:w-full mt-2' : 'md:w-2/3 lg:w-1/2'}`}
+              >
+                {/* Search Bar with Integrated AI & Visual Search */}
+                <motion.div 
+                  layout
+                  className="relative flex-1 group"
+                >
+                  <div className={`absolute ${isRtl ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 transition-colors duration-300 group-focus-within:text-brand-primary text-brand-text-muted`}>
+                    <Search size={isMinimized ? 16 : 20} />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={isMinimized ? (isRtl ? 'ابحث...' : 'Search...') : (isRtl ? 'ابحث بذكاء عن منتجات...' : 'Search smartly for products...')}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`w-full bg-white/40 dark:bg-slate-800/40 border border-white/40 dark:border-slate-700/50 rounded-2xl ${isMinimized ? 'py-2 text-sm' : 'py-3.5'} ${isRtl ? 'pr-12 pl-24' : 'pl-12 pr-24'} focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-brand-text-main placeholder-brand-text-muted/60 backdrop-blur-md transition-all duration-300 hover:bg-white/60 dark:hover:bg-slate-800/60`}
+                  />
+                  
+                  {/* Integrated Actions */}
+                  <div className={`absolute ${isRtl ? 'left-2' : 'right-2'} top-1/2 -translate-y-1/2 flex items-center gap-1`}>
+                    <HapticButton
+                      onClick={() => setShowVisualSearch(true)}
+                      className={`${isMinimized ? 'p-1' : 'p-2'} text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all`}
+                      title={isRtl ? 'بحث بصري' : 'Visual Search'}
+                    >
+                      <Camera size={isMinimized ? 16 : 20} />
+                    </HapticButton>
+                    <div className="w-px h-6 bg-brand-border/30 mx-1" />
+                    <HapticButton
+                      onClick={() => setShowSmartCategories(true)}
+                      className={`${isMinimized ? 'p-1' : 'p-2'} text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all relative group/ai`}
+                      title={isRtl ? 'المستكشف الذكي' : 'Smart Explorer'}
+                    >
+                      <Sparkles size={isMinimized ? 16 : 20} className="group-hover/ai:scale-110 transition-transform" />
+                      {!isMinimized && <span className="absolute -top-1 -right-1 w-2 h-2 bg-brand-teal rounded-full animate-ping" />}
+                    </HapticButton>
+                  </div>
+                </motion.div>
+                
+                {/* Desktop Add Button - Integrated into Ribbon */}
+                {profile && effectiveRole !== 'customer' && !isMinimized && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className="hidden md:block"
+                  >
+                    <HapticButton
+                      onClick={() => setShowAddModal(true)}
+                      className="flex items-center gap-2 px-6 py-3.5 bg-brand-primary text-white rounded-2xl font-bold shadow-lg shadow-brand-primary/20 hover:shadow-xl hover:shadow-brand-primary/30 transition-all hover:-translate-y-0.5"
+                    >
+                      <Plus size={20} />
+                      <span>{isRtl ? 'إضافة' : 'Add'}</span>
+                    </HapticButton>
+                  </motion.div>
+                )}
+              </motion.div>
+            </div>
+
+            {/* Bottom Row: Tabs & Categories (Hidden when minimized) */}
+            <AnimatePresence>
+              {!isMinimized && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-6 space-y-4 overflow-hidden"
+                >
+                  {/* Segmented Control Tabs */}
+                  {profile && effectiveRole !== 'customer' && (
+                    <div className="flex p-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-xl w-fit">
+                      <button
+                        onClick={() => setActiveTab('discover')}
+                        className={`px-6 py-2 rounded-lg text-sm font-bold transition-all relative ${
+                          activeTab === 'discover' 
+                            ? 'text-brand-primary bg-white dark:bg-slate-700 shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+                        }`}
+                      >
+                        {isRtl ? 'اكتشف' : 'Discover'}
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('myshop')}
+                        className={`px-6 py-2 rounded-lg text-sm font-bold transition-all relative ${
+                          activeTab === 'myshop' 
+                            ? 'text-brand-primary bg-white dark:bg-slate-700 shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+                        }`}
+                      >
+                        {isRtl ? 'متجري' : 'My Shop'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Categories Horizontal Scroll */}
+                  <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+                    {selectedCategory && (
+                      <HapticButton
+                        onClick={() => setSelectedCategory(null)}
+                        className="shrink-0 px-5 py-2.5 rounded-full text-xs font-bold bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 flex items-center gap-2"
+                      >
+                        <X size={14} />
+                        {isRtl ? 'إلغاء الفلتر' : 'Clear Filter'}
+                      </HapticButton>
+                    )}
+                    
+                    {categories.map(cat => (
+                      <HapticButton
+                        key={cat.id}
+                        onClick={() => setSelectedCategory(cat.id)}
+                        className={`shrink-0 px-5 py-2.5 rounded-full text-xs font-bold transition-all border ${
+                          selectedCategory === cat.id
+                            ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
+                            : 'bg-white/40 dark:bg-slate-800/40 text-brand-text-muted border-white/30 dark:border-slate-700/50 hover:bg-white/60 dark:hover:bg-slate-700/60'
+                        }`}
+                      >
+                        {isRtl ? cat.nameAr : cat.nameEn}
+                      </HapticButton>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Product Grid */}
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -350,6 +439,23 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
         )}
       </div>
 
+      {/* Mobile Floating Action Button (FAB) for Add Product */}
+      {profile && effectiveRole !== 'customer' && (
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="fixed bottom-24 right-6 z-50 md:hidden"
+        >
+          <HapticButton
+            onClick={() => setShowAddModal(true)}
+            className="w-16 h-16 rounded-full bg-gradient-to-br from-brand-primary to-brand-teal text-white flex items-center justify-center shadow-2xl shadow-brand-primary/40 border-4 border-white/20"
+          >
+            <Plus size={32} />
+          </HapticButton>
+        </motion.div>
+      )}
+
+
       {/* Smart Upload Modal */}
       <AnimatePresence>
         {showAddModal && (
@@ -368,7 +474,11 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           <ProductDetailsModal
             item={selectedItem}
             onClose={() => setSelectedItem(null)}
-            onContactSeller={() => onOpenChat(selectedItem.sellerId)}
+            onContactSeller={() => {
+              if (!auth.currentUser) return;
+              const chatId = [auth.currentUser.uid, selectedItem.sellerId].sort().join('_');
+              onOpenChat(chatId);
+            }}
             onViewProfile={onViewProfile}
           />
         )}

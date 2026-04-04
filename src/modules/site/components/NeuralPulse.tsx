@@ -122,13 +122,19 @@ export const NeuralPulse: React.FC<NeuralPulseProps> = ({ onAction }) => {
     // For this demo, we simulate a transcript after a short delay
     setIsProcessing(true);
     setTimeout(async () => {
-      const mockTranscript = isRtl 
-        ? "أريد شراء 500 وحدة من كابلات النحاس عالية الجودة بميزانية 5000 دولار" 
-        : "I want to buy 500 units of high quality copper cables with a budget of 5000 dollars";
-      
-      const result = await processNeuralPulseVoice(mockTranscript);
-      setInsight({ type: 'voice', ...result, transcript: mockTranscript });
-      setIsProcessing(false);
+      try {
+        const mockTranscript = isRtl 
+          ? "أريد شراء 500 وحدة من كابلات النحاس عالية الجودة بميزانية 5000 دولار" 
+          : "I want to buy 500 units of high quality copper cables with a budget of 5000 dollars";
+        
+        const result = await processNeuralPulseVoice(mockTranscript);
+        setInsight({ type: 'voice', ...result, transcript: mockTranscript });
+        setIsProcessing(false);
+      } catch (error) {
+        console.error("Error in voice pulse simulation:", error);
+        toast.error(isRtl ? 'فشل معالجة الصوت' : 'Voice processing failed');
+        setIsProcessing(false);
+      }
     }, 3000);
   };
 

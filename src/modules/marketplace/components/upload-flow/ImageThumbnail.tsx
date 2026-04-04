@@ -7,6 +7,7 @@ export type UploadStatus = 'idle' | 'compressing' | 'processing' | 'analyzing' |
 export interface ImageFile {
   id: string;
   file: File;
+  originalFile?: File;
   previewUrl: string;
   status: UploadStatus;
   progress: number;

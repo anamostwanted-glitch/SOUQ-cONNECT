@@ -41,6 +41,8 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [watermarkUrl, setWatermarkUrl] = useState<string | undefined>();
+  const [watermarkOpacity, setWatermarkOpacity] = useState(0.7);
+  const [watermarkPosition, setWatermarkPosition] = useState<'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-right'>('bottom-right');
   const [aiQuotaExhausted, setAiQuotaExhausted] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -49,6 +51,8 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
       if (snap.exists()) {
         const data = snap.data();
         setWatermarkUrl(data.watermarkUrl || data.watermarkLogoUrl);
+        setWatermarkOpacity(data.watermarkOpacity ?? 0.7);
+        setWatermarkPosition(data.watermarkPosition || 'bottom-right');
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'settings/site');
@@ -122,43 +126,48 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
       const mainImage = images.find(img => img.isMain) || images[0];
       
       const reader = new FileReader();
-      reader.readAsDataURL(mainImage.file);
+      reader.readAsDataURL(mainImage.originalFile || mainImage.file);
       reader.onloadend = async () => {
-        const base64data = reader.result as string;
-        const catName = categories.find(c => c.id === selectedCategories[0])?.nameEn || selectedCategories[0];
-        
         try {
-          const newImageDataUrl = await generateAlternativeProductImage(base64data, mainImage.file.type, title, catName);
+          const base64data = reader.result as string;
+          const catName = categories.find(c => c.id === selectedCategories[0])?.nameEn || selectedCategories[0];
           
-          if (newImageDataUrl) {
-            const res = await fetch(newImageDataUrl);
-            const blob = await res.blob();
-            const file = new File([blob], `ai-generated-${Date.now()}.png`, { type: 'image/png' });
+          try {
+            const newImageDataUrl = await generateAlternativeProductImage(base64data, mainImage.file.type, title, catName);
             
-            // Process to 4:5 and add watermark
-            const processedFile = await processImageTo4x5WithWatermark(file, watermarkUrl, true);
-            
-            const newImage: ImageFile = {
-              id: `img-ai-${Date.now()}`,
-              file: processedFile,
-              previewUrl: URL.createObjectURL(processedFile),
-              status: 'success',
-              progress: 100,
-              isMain: false,
-            };
-            
-            setImages(prev => [...prev, newImage]);
-          } else {
-            setErrorMessage(isRtl ? 'فشل توليد الصورة. حاول مرة أخرى.' : 'Failed to generate image. Try again.');
+            if (newImageDataUrl) {
+              const res = await fetch(newImageDataUrl);
+              const blob = await res.blob();
+              const file = new File([blob], `ai-generated-${Date.now()}.png`, { type: 'image/png' });
+              
+              // Process to 4:5 and add watermark
+              const processedFile = await processImageTo4x5WithWatermark(file, watermarkUrl, true, watermarkOpacity, watermarkPosition);
+              
+              const newImage: ImageFile = {
+                id: `img-ai-${Date.now()}`,
+                file: processedFile,
+                previewUrl: URL.createObjectURL(processedFile),
+                status: 'success',
+                progress: 100,
+                isMain: false,
+              };
+              
+              setImages(prev => [...prev, newImage]);
+            } else {
+              setErrorMessage(isRtl ? 'فشل توليد الصورة. حاول مرة أخرى.' : 'Failed to generate image. Try again.');
+            }
+          } catch (error: any) {
+            if (error.message === 'QUOTA_EXHAUSTED') {
+              setAiQuotaExhausted(true);
+              setErrorMessage(isRtl ? 'تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI Quota exhausted. Please try again later.');
+            } else {
+              setErrorMessage(isRtl ? 'حدث خطأ أثناء توليد الصورة.' : 'Error generating image.');
+            }
+          } finally {
+            setIsGeneratingImage(false);
           }
-        } catch (error: any) {
-          if (error.message === 'QUOTA_EXHAUSTED') {
-            setAiQuotaExhausted(true);
-            setErrorMessage(isRtl ? 'تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI Quota exhausted. Please try again later.');
-          } else {
-            setErrorMessage(isRtl ? 'حدث خطأ أثناء توليد الصورة.' : 'Error generating image.');
-          }
-        } finally {
+        } catch (error) {
+          console.error("Error in reader.onloadend:", error);
           setIsGeneratingImage(false);
         }
       };
@@ -185,97 +194,128 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
       return;
     }
 
-    const newImages: ImageFile[] = Array.from(files).map((file, index) => ({
-      id: `img-${Date.now()}-${index}`,
-      file,
-      previewUrl: URL.createObjectURL(file),
-      status: 'idle',
-      progress: 0,
-      isMain: images.length === 0 && index === 0, // First image is main if none exist
-    }));
+    try {
+      const newImages: ImageFile[] = Array.from(files).map((file, index) => ({
+        id: `img-${Date.now()}-${index}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        status: 'idle',
+        progress: 0,
+        isMain: images.length === 0 && index === 0, // First image is main if none exist
+      }));
 
-    const wasEmpty = images.length === 0;
-    setImages(prev => [...prev, ...newImages]);
+      const wasEmpty = images.length === 0;
+      setImages(prev => [...prev, ...newImages]);
 
-    // Process each image sequentially or in parallel based on network
-    for (let i = 0; i < newImages.length; i++) {
-      const img = newImages[i];
-      const isMain = wasEmpty && i === 0;
-      await processSingleImage(img.id, img.file, isMain);
+      // Process each image sequentially or in parallel based on network
+      for (let i = 0; i < newImages.length; i++) {
+        const img = newImages[i];
+        const isMain = wasEmpty && i === 0;
+        await processSingleImage(img.id, img.file, isMain);
+      }
+    } catch (error) {
+      console.error('Error processing files:', error);
+      setErrorMessage(isRtl ? 'حدث خطأ أثناء معالجة الملفات' : 'Error processing files');
     }
   };
 
   const processSingleImage = async (id: string, file: File, isMain: boolean = false) => {
-    // 1. Compress
-    updateImageStatus(id, 'compressing');
-    const compressedFile = await compressImage(file, networkStatus);
-    
-    // 2. Process to 4:5 and add watermark
-    updateImageStatus(id, 'processing');
-    const processedFile = await processImageTo4x5WithWatermark(compressedFile, watermarkUrl, false);
-    
-    // Update the file reference to the processed one
-    setImages(prev => prev.map(img => img.id === id ? { ...img, file: processedFile, previewUrl: URL.createObjectURL(processedFile) } : img));
-    
-    // 3. Analyze if it's the main image and we don't have suggestions yet
-    if (isMain && !aiSuggestion && !isAnalyzing && !aiQuotaExhausted) {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    try {
+      // 1. Compress
+      updateImageStatus(id, 'compressing');
+      const compressedFile = await compressImage(file, networkStatus);
       
-      debounceTimer.current = setTimeout(async () => {
-        updateImageStatus(id, 'analyzing');
-        setIsAnalyzing(true);
-        
-        const reader = new FileReader();
-        reader.readAsDataURL(processedFile);
-        reader.onloadend = async () => {
-          const base64data = reader.result as string;
-          try {
-            const suggestion = await analyzeProductImage(base64data, processedFile.type);
-            
-            if (suggestion) {
-              setAiSuggestion(suggestion);
-              
-              // Set title and description based on current language, fallback to other if empty
-              const suggestedTitle = isRtl 
-                ? (suggestion.productNameAr || suggestion.productNameEn) 
-                : (suggestion.productNameEn || suggestion.productNameAr);
-              
-              const suggestedDesc = isRtl 
-                ? (suggestion.descriptionAr || suggestion.descriptionEn) 
-                : (suggestion.descriptionEn || suggestion.descriptionAr);
+      // Store compressed but unwatermarked file for AI
+      setImages(prev => prev.map(img => img.id === id ? { ...img, originalFile: compressedFile } : img));
 
-              // Only set if currently empty to avoid overwriting user edits
-              if (!title) setTitle(suggestedTitle || '');
-              if (!description) setDescription(suggestedDesc || '');
-              
-              // Store bilingual content for later use
-              setBilingualContent({
-                titleAr: suggestion.productNameAr || '',
-                titleEn: suggestion.productNameEn || '',
-                descriptionAr: suggestion.descriptionAr || '',
-                descriptionEn: suggestion.descriptionEn || '',
-                keywordsAr: suggestion.keywordsAr || [],
-                keywordsEn: suggestion.keywordsEn || []
-              });
-              
-              const cat = categories.find(c => c.nameEn.toLowerCase() === suggestion.category?.toLowerCase());
-              if (cat && selectedCategories.length === 0) setSelectedCategories([cat.id]);
-              if (!price) setPrice(suggestion.priceEstimate?.toString() || '');
-              setIsHighQuality(suggestion.isHighQuality);
-              if (features.length === 0) setFeatures(suggestion.features || []);
-            }
-          } catch (error: any) {
-            if (error.message === 'QUOTA_EXHAUSTED') {
-              setAiQuotaExhausted(true);
-            }
-          } finally {
+      // 2. Process to 4:5 and add watermark
+      updateImageStatus(id, 'processing');
+      const processedFile = await processImageTo4x5WithWatermark(compressedFile, watermarkUrl, false, watermarkOpacity, watermarkPosition);
+      
+      // Update the file reference to the processed one
+      setImages(prev => prev.map(img => img.id === id ? { ...img, file: processedFile, previewUrl: URL.createObjectURL(processedFile) } : img));
+      
+      // 3. Analyze if it's the main image and we don't have suggestions yet
+      if (isMain && !aiSuggestion && !isAnalyzing && !aiQuotaExhausted) {
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        
+        debounceTimer.current = setTimeout(async () => {
+          try {
+            updateImageStatus(id, 'analyzing');
+            setIsAnalyzing(true);
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(compressedFile); // Use compressed but unwatermarked for analysis
+            reader.onloadend = async () => {
+              try {
+                const base64data = reader.result as string;
+                try {
+                  const suggestion = await analyzeProductImage(base64data, processedFile.type);
+                  
+                  if (suggestion) {
+                    setAiSuggestion(suggestion);
+                    
+                    // Set title and description based on current language, fallback to other if empty
+                    const suggestedTitle = isRtl 
+                      ? (suggestion.productNameAr || suggestion.productNameEn) 
+                      : (suggestion.productNameEn || suggestion.productNameAr);
+                    
+                    const suggestedDesc = isRtl 
+                      ? (suggestion.descriptionAr || suggestion.descriptionEn) 
+                      : (suggestion.descriptionEn || suggestion.descriptionAr);
+  
+                    // Only set if currently empty to avoid overwriting user edits
+                    if (!title) setTitle(suggestedTitle || '');
+                    if (!description) setDescription(suggestedDesc || '');
+                    
+                    // Store bilingual content for later use
+                    setBilingualContent({
+                      titleAr: suggestion.productNameAr || '',
+                      titleEn: suggestion.productNameEn || '',
+                      descriptionAr: suggestion.descriptionAr || '',
+                      descriptionEn: suggestion.descriptionEn || '',
+                      keywordsAr: suggestion.keywordsAr || [],
+                      keywordsEn: suggestion.keywordsEn || []
+                    });
+                    
+                    const cat = categories.find(c => c.nameEn.toLowerCase() === suggestion.category?.toLowerCase());
+                    if (cat && selectedCategories.length === 0) setSelectedCategories([cat.id]);
+                    if (!price) setPrice(suggestion.priceEstimate?.toString() || '');
+                    setIsHighQuality(suggestion.isHighQuality);
+                    if (features.length === 0) setFeatures(suggestion.features || []);
+                  }
+                } catch (error: any) {
+                  if (error.message === 'QUOTA_EXHAUSTED') {
+                    setAiQuotaExhausted(true);
+                  }
+                  console.error('AI Analysis error:', error);
+                } finally {
+                  setIsAnalyzing(false);
+                  updateImageStatus(id, 'success'); // Ready to upload
+                }
+              } catch (error) {
+                console.error("Error in reader.onloadend analyzeProductImage:", error);
+                setIsAnalyzing(false);
+                updateImageStatus(id, 'error', 0, 'Error in analysis');
+              }
+            };
+            reader.onerror = (error) => {
+              console.error('FileReader error:', error);
+              updateImageStatus(id, 'error', 0, 'Error reading file');
+              setIsAnalyzing(false);
+            };
+          } catch (error) {
+            console.error('Error in analysis timeout:', error);
             setIsAnalyzing(false);
-            updateImageStatus(id, 'success'); // Ready to upload
+            updateImageStatus(id, 'error', 0, 'Error in analysis');
           }
-        };
-      }, 1000); // 1 second debounce
-    } else {
-      updateImageStatus(id, 'success'); // Ready to upload
+        }, 1500);
+      } else {
+        updateImageStatus(id, 'success'); // Ready to upload
+      }
+    } catch (error) {
+      console.error(`Error processing image ${id}:`, error);
+      updateImageStatus(id, 'error', 0, isRtl ? 'خطأ في معالجة الصورة' : 'Error processing image');
     }
   };
 
@@ -286,14 +326,22 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      await processFiles(e.dataTransfer.files);
+    try {
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        await processFiles(e.dataTransfer.files);
+      }
+    } catch (error) {
+      console.error('Error in handleDrop:', error);
     }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      await processFiles(e.target.files);
+    try {
+      if (e.target.files && e.target.files.length > 0) {
+        await processFiles(e.target.files);
+      }
+    } catch (error) {
+      console.error('Error in handleFileSelect:', error);
     }
   };
 
@@ -444,7 +492,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           onClick={(e) => e.stopPropagation()}
-          className={`w-full max-w-4xl h-full sm:h-[90vh] sm:rounded-3xl overflow-hidden flex flex-col ${glassClass}`}
+          className={`w-[95%] sm:w-full max-w-4xl h-auto max-h-[90vh] sm:rounded-3xl rounded-[24px] overflow-hidden flex flex-col ${glassClass}`}
         >
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200/50 dark:border-slate-700/50">

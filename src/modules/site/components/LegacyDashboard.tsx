@@ -2151,13 +2151,18 @@ const Dashboard: React.FC<DashboardProps> = ({
       try {
         const reader = new FileReader();
         reader.onloadend = async () => {
-          const base64Url = reader.result as string;
-          await setDoc(doc(db, 'settings', 'site'), {
-            logoUrl: base64Url,
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-          setSiteLogo(base64Url);
-          setLogoUploadError(i18n.language === 'ar' ? 'تم استخدام وضع التوافق للرفع.' : 'Using compatibility mode for upload.');
+          try {
+            const base64Url = reader.result as string;
+            await setDoc(doc(db, 'settings', 'site'), {
+              logoUrl: base64Url,
+              updatedAt: new Date().toISOString()
+            }, { merge: true });
+            setSiteLogo(base64Url);
+            setLogoUploadError(i18n.language === 'ar' ? 'تم استخدام وضع التوافق للرفع.' : 'Using compatibility mode for upload.');
+          } catch (error) {
+            console.error('Error in fallback logo upload:', error);
+            setLogoUploadError(i18n.language === 'ar' ? 'فشل تحميل الشعار في وضع التوافق' : 'Failed to upload logo in compatibility mode');
+          }
         };
         reader.readAsDataURL(file);
       } catch (fallbackErr) {

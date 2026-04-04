@@ -28,7 +28,10 @@ export const SiteSettingsManager: React.FC = () => {
     logoAuraColor: '#1b97a7',
     showNeuralLogo: true,
     primaryTextColor: '#ffffff',
-    secondaryTextColor: '#94a3b8'
+    secondaryTextColor: '#94a3b8',
+    watermarkUrl: '',
+    watermarkOpacity: 0.7,
+    watermarkPosition: 'bottom-right'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -72,7 +75,7 @@ export const SiteSettingsManager: React.FC = () => {
       await setDoc(doc(db, 'settings', 'site'), {
         ...settings,
         lastUpdated: new Date().toISOString()
-      });
+      }, { merge: true });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (error) {
@@ -469,6 +472,45 @@ export const SiteSettingsManager: React.FC = () => {
                 onChange={(e) => setSettings({ ...settings, watermarkUrl: e.target.value })}
                 className="w-full bg-brand-background border-brand-border rounded-xl p-3 text-brand-text-main focus:ring-2 focus:ring-brand-primary/20 transition-all"
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-brand-text-muted flex items-center gap-2">
+                <Sparkles size={14} />
+                {isRtl ? 'شفافية العلامة المائية' : 'Watermark Opacity'}
+              </label>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.1"
+                  value={settings.watermarkOpacity || 0.7}
+                  onChange={(e) => setSettings({ ...settings, watermarkOpacity: parseFloat(e.target.value) })}
+                  className="flex-1 h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
+                />
+                <span className="text-xs font-mono font-bold text-brand-primary w-12 text-center">
+                  {Math.round((settings.watermarkOpacity || 0.7) * 100)}%
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-brand-text-muted flex items-center gap-2">
+                <Layout size={14} />
+                {isRtl ? 'موقع العلامة المائية' : 'Watermark Position'}
+              </label>
+              <select
+                value={settings.watermarkPosition || 'bottom-right'}
+                onChange={(e) => setSettings({ ...settings, watermarkPosition: e.target.value as any })}
+                className="w-full bg-brand-background border-brand-border rounded-xl p-3 text-brand-text-main focus:ring-2 focus:ring-brand-primary/20 transition-all"
+              >
+                <option value="top-left">Top Left</option>
+                <option value="top-right">Top Right</option>
+                <option value="center">Center</option>
+                <option value="bottom-left">Bottom Left</option>
+                <option value="bottom-right">Bottom Right</option>
+              </select>
             </div>
           </div>
         </div>
