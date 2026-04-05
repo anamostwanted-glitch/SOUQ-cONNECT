@@ -41,6 +41,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [watermarkUrl, setWatermarkUrl] = useState<string | undefined>();
+  const [watermarkText, setWatermarkText] = useState('B2B2C Connect');
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.7);
   const [watermarkPosition, setWatermarkPosition] = useState<'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-right'>('bottom-right');
   const [aiQuotaExhausted, setAiQuotaExhausted] = useState(false);
@@ -51,6 +52,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
       if (snap.exists()) {
         const data = snap.data();
         setWatermarkUrl(data.watermarkUrl || data.watermarkLogoUrl);
+        setWatermarkText(data.siteName || 'B2B2C Connect');
         setWatermarkOpacity(data.watermarkOpacity ?? 0.7);
         setWatermarkPosition(data.watermarkPosition || 'bottom-right');
       }
@@ -141,7 +143,8 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
               const file = new File([blob], `ai-generated-${Date.now()}.png`, { type: 'image/png' });
               
               // Process to 4:5 and add watermark
-              const processedFile = await processImageTo4x5WithWatermark(file, watermarkUrl, true, watermarkOpacity, watermarkPosition);
+              const processedBlob = await processImageTo4x5WithWatermark(file, watermarkUrl, watermarkText, watermarkOpacity, watermarkPosition);
+              const processedFile = new File([processedBlob], `ai-generated-${Date.now()}.png`, { type: 'image/png' });
               
               const newImage: ImageFile = {
                 id: `img-ai-${Date.now()}`,
@@ -230,7 +233,8 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
 
       // 2. Process to 4:5 and add watermark
       updateImageStatus(id, 'processing');
-      const processedFile = await processImageTo4x5WithWatermark(compressedFile, watermarkUrl, false, watermarkOpacity, watermarkPosition);
+      const processedBlob = await processImageTo4x5WithWatermark(compressedFile, watermarkUrl, watermarkText, watermarkOpacity, watermarkPosition);
+      const processedFile = new File([processedBlob], file.name, { type: 'image/jpeg' });
       
       // Update the file reference to the processed one
       setImages(prev => prev.map(img => img.id === id ? { ...img, file: processedFile, previewUrl: URL.createObjectURL(processedFile) } : img));
@@ -323,6 +327,25 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
     setImages(prev => prev.map(img => img.id === id ? { ...img, status, progress, error } : img));
   };
 
+  const applyAiSuggestion = () => {
+    if (!aiSuggestion) return;
+    setTitle(isRtl ? aiSuggestion.productNameAr : aiSuggestion.productNameEn);
+    setDescription(isRtl ? aiSuggestion.descriptionAr : aiSuggestion.descriptionEn);
+    setPrice(aiSuggestion.priceEstimate.toString());
+    setClassification(aiSuggestion.category);
+    setFeatures(aiSuggestion.features);
+    setIsHighQuality(aiSuggestion.isHighQuality);
+    setBilingualContent({
+      titleAr: aiSuggestion.productNameAr,
+      titleEn: aiSuggestion.productNameEn,
+      descriptionAr: aiSuggestion.descriptionAr,
+      descriptionEn: aiSuggestion.descriptionEn,
+      keywordsAr: aiSuggestion.keywordsAr,
+      keywordsEn: aiSuggestion.keywordsEn
+    });
+    setAiSuggestion(null);
+  };
+
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -373,9 +396,14 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
           reject(error);
         },
         async () => {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          updateImageStatus(img.id, 'success', 100);
-          resolve(downloadURL);
+          try {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            updateImageStatus(img.id, 'success', 100);
+            resolve(downloadURL);
+          } catch (error) {
+            updateImageStatus(img.id, 'error', 0, error instanceof Error ? error.message : 'Upload failed');
+            reject(error);
+          }
         }
       );
     });
@@ -492,32 +520,77 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           onClick={(e) => e.stopPropagation()}
-          className={`w-[95%] sm:w-full max-w-4xl h-auto max-h-[90vh] sm:rounded-3xl rounded-[24px] overflow-hidden flex flex-col ${glassClass}`}
+          className={`w-full sm:w-[95%] md:w-full max-w-5xl h-full sm:h-auto max-h-screen sm:max-h-[90vh] sm:rounded-3xl rounded-t-[32px] overflow-hidden flex flex-col ${glassClass} relative`}
         >
+        {/* Mobile Pull Bar */}
+        <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mt-3 mb-1 sm:hidden" />
+
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200/50 dark:border-slate-700/50">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-              {isRtl ? 'إضافة منتج جديد' : 'Add New Product'}
-            </h2>
-            {!isOnline && (
-              <span className="flex items-center gap-1 text-xs font-bold bg-red-500/10 text-red-500 px-2 py-1 rounded-full">
-                <WifiOff size={12} /> {isRtl ? 'غير متصل' : 'Offline'}
-              </span>
-            )}
-            {isOnline && networkStatus !== '4g' && (
-              <span className="flex items-center gap-1 text-xs font-bold bg-amber-500/10 text-amber-500 px-2 py-1 rounded-full">
-                <Wifi size={12} /> {networkStatus.toUpperCase()}
-              </span>
-            )}
+        <div className="flex items-center justify-between p-4 sm:p-8 border-b border-slate-200/50 dark:border-slate-700/50">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                {isRtl ? 'إضافة منتج ذكي' : 'Smart Product Upload'}
+              </h2>
+              <div className="flex gap-1.5">
+                {!isOnline && (
+                  <span className="flex items-center gap-1 text-[10px] font-black bg-red-500/10 text-red-500 px-2.5 py-1 rounded-full uppercase tracking-widest">
+                    <WifiOff size={10} /> {isRtl ? 'أوفلاين' : 'Offline'}
+                  </span>
+                )}
+                {isOnline && networkStatus !== '4g' && (
+                  <span className="flex items-center gap-1 text-[10px] font-black bg-amber-500/10 text-amber-500 px-2.5 py-1 rounded-full uppercase tracking-widest">
+                    <Wifi size={10} /> {networkStatus.toUpperCase()}
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 font-medium mt-1">
+              {isRtl ? 'مدعوم بتقنيات الذكاء الاصطناعي العصبية' : 'Powered by Neural AI Technologies'}
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
-            <X size={20} className="text-slate-600 dark:text-slate-300" />
+          <button onClick={onClose} className="p-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-2xl transition-all hover:rotate-90">
+            <X size={24} className="text-slate-600 dark:text-slate-300" />
           </button>
         </div>
 
+        {/* AI Suggestion Banner */}
+        <AnimatePresence>
+          {aiSuggestion && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="bg-brand-primary/5 border-b border-brand-primary/10 overflow-hidden"
+            >
+              <div className="px-6 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-brand-primary/10 rounded-xl text-brand-primary relative">
+                    <Sparkles size={18} className="animate-pulse" />
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-brand-warning rounded-full animate-ping" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-brand-primary uppercase tracking-widest">
+                      {isRtl ? 'اقتراح الذكاء الاصطناعي جاهز' : 'AI Suggestion Ready'}
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-medium">
+                      {isRtl ? 'تم تحليل الصورة وتوليد البيانات تلقائياً' : 'Image analyzed and data generated automatically'}
+                    </p>
+                  </div>
+                </div>
+                <HapticButton 
+                  onClick={applyAiSuggestion}
+                  className="px-4 py-1.5 bg-brand-primary text-white rounded-lg text-xs font-bold shadow-lg shadow-brand-primary/20 hover:scale-105 transition-transform"
+                >
+                  {isRtl ? 'تطبيق البيانات' : 'Apply Data'}
+                </HapticButton>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col md:flex-row gap-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col md:flex-row gap-8">
           
           {/* Error Message */}
           <AnimatePresence>
@@ -677,274 +750,244 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
             </div>
           </div>
 
-          {/* Right Side: Form & AI Suggestions */}
-          <div className="w-full md:w-1/2 flex flex-col">
-            <form id="product-form" onSubmit={handleSubmit} className="space-y-4">
-              
-              {/* AI Suggestion Banner */}
-              <AnimatePresence>
-                {aiSuggestion && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 border border-brand-primary/20 rounded-2xl p-4 mb-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center shrink-0">
-                        <Sparkles size={16} />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-brand-primary mb-1">
-                          {isRtl ? 'تم التعبئة بواسطة الذكاء الاصطناعي' : 'Auto-filled by AI'}
-                        </h4>
-                        <p className="text-xs text-slate-600 dark:text-slate-300">
-                          {isRtl 
-                            ? 'قمنا بتحليل الصورة واقتراح هذه التفاصيل. يمكنك تعديلها كما تشاء.' 
-                            : 'We analyzed the image and suggested these details. Feel free to edit them.'}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
+          {/* Right Side: Form Details */}
+          <div className="w-full md:w-1/2 flex flex-col gap-8">
+            
+            {/* Basic Info Section */}
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-1 h-4 bg-brand-primary rounded-full" />
+                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                  {isRtl ? 'المعلومات الأساسية' : 'Basic Information'}
+                </h3>
+              </div>
 
-                {aiQuotaExhausted && !aiSuggestion && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
-                        <AlertCircle size={16} />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-amber-600 mb-1">
-                          {isRtl ? 'ميزات الذكاء الاصطناعي محدودة حالياً' : 'AI Features Currently Limited'}
-                        </h4>
-                        <p className="text-xs text-slate-600 dark:text-slate-300">
-                          {isRtl 
-                            ? 'تم استنفاد حصة الاستخدام المجانية للذكاء الاصطناعي. يمكنك الاستمرار في إدخال تفاصيل المنتج يدوياً.' 
-                            : 'Free AI usage quota has been reached. You can still enter product details manually.'}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {isRtl ? 'اسم المنتج' : 'Product Title'}
-                </label>
-                <div className="relative">
+              <div className="space-y-4">
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors">
+                    <Tag size={18} />
+                  </div>
                   <input 
-                    required
                     type="text" 
-                    value={title || ''}
+                    placeholder={isRtl ? 'عنوان المنتج (مثال: آيفون 15 برو)' : 'Product Title (e.g. iPhone 15 Pro)'}
+                    value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-primary/50 outline-none"
-                    placeholder={isRtl ? 'مثال: حذاء رياضي نايك' : 'e.g., Nike Running Shoes'}
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
                   />
-                  {isAnalyzing && (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                      <Loader2 size={16} className="animate-spin text-brand-primary" />
-                      <span className="text-[10px] font-bold text-brand-primary animate-pulse">
-                        {isRtl ? 'جاري التحليل...' : 'Analyzing...'}
-                      </span>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="relative group flex-1">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors">
+                      <span className="font-bold text-sm">{t('currency')}</span>
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    {isRtl ? 'السعر' : 'Price'}
-                  </label>
-                  <div className="relative">
                     <input 
-                      required
                       type="number" 
-                      value={price || ''}
+                      placeholder={isRtl ? 'السعر' : 'Price'}
+                      value={price}
                       onChange={(e) => setPrice(e.target.value)}
-                      className={`w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-3 ${isRtl ? 'pl-4 pr-10' : 'pr-4 pl-10'} focus:ring-2 focus:ring-brand-primary/50 outline-none`}
-                      placeholder="0.00"
-                    />
-                    <span className={`absolute top-1/2 -translate-y-1/2 ${isRtl ? 'right-4' : 'left-4'} text-slate-400 font-bold`}>
-                      {t('currency')}
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    {isRtl ? 'الفئة' : 'Category'}
-                  </label>
-                  <AINeuralCategorySelector 
-                    categories={categories}
-                    selectedCategoryIds={selectedCategories}
-                    onSelect={setSelectedCategories}
-                    productInfo={{
-                      title,
-                      description,
-                      imageUrl: images[0]?.previewUrl
-                    }}
-                    isRtl={isRtl}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {isRtl ? 'الوصف' : 'Description'}
-                </label>
-                <textarea 
-                  required
-                  rows={4}
-                  value={description || ''}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-primary/50 outline-none resize-none"
-                  placeholder={isRtl ? 'اكتب وصفاً جذاباً لمنتجك...' : 'Write an appealing description...'}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    {isRtl ? 'رقم الهاتف' : 'Phone Number'}
-                  </label>
-                  <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input 
-                      type="tel" 
-                      value={phone || ''}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className={`w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-3 ${isRtl ? 'pl-4 pr-10' : 'pr-4 pl-10'} focus:ring-2 focus:ring-brand-primary/50 outline-none`}
-                      placeholder="+966..."
+                      className="w-full pl-14 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
                     />
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    {isRtl ? 'الموقع' : 'Location'}
-                  </label>
-                  <div className="relative">
-                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <div className="relative group flex-1">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors">
+                      <Sparkles size={18} />
+                    </div>
                     <input 
                       type="text" 
-                      value={location || ''}
-                      onChange={(e) => setLocation(e.target.value)}
-                      className={`w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-3 ${isRtl ? 'pl-12 pr-10' : 'pr-12 pl-10'} focus:ring-2 focus:ring-brand-primary/50 outline-none`}
-                      placeholder={isRtl ? 'المدينة، الدولة' : 'City, Country'}
+                      placeholder={isRtl ? 'التصنيف (مثال: إلكترونيات)' : 'Classification (e.g. Electronics)'}
+                      value={classification}
+                      onChange={(e) => setClassification(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
                     />
-                    <button 
-                      type="button"
-                      onClick={handleGetLocation}
-                      className={`absolute top-1/2 -translate-y-1/2 ${isRtl ? 'left-2' : 'right-2'} p-2 text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors`}
-                    >
-                      {isLocating ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} />}
-                    </button>
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {isRtl ? 'التصنيف' : 'Classification'}
-                </label>
+            {/* Category Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-1 h-4 bg-brand-primary rounded-full" />
+                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                  {isRtl ? 'الفئات الذكية' : 'Smart Categories'}
+                </h3>
+              </div>
+              <AINeuralCategorySelector 
+                categories={categories}
+                selectedCategoryIds={selectedCategories}
+                onSelect={setSelectedCategories}
+                productInfo={{
+                  title,
+                  description,
+                  imageUrl: images[0]?.previewUrl
+                }}
+                isRtl={isRtl}
+              />
+            </div>
+
+            {/* Features Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-1 h-4 bg-brand-primary rounded-full" />
+                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                  {isRtl ? 'المميزات والخصائص' : 'Features & Specs'}
+                </h3>
+              </div>
+              
+              <div className="flex flex-wrap gap-2 mb-3">
+                {features.map((feature, idx) => (
+                  <motion.span 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    key={idx} 
+                    className="px-3 py-1.5 bg-brand-primary/10 text-brand-primary rounded-xl text-xs font-bold flex items-center gap-2 border border-brand-primary/20"
+                  >
+                    {feature}
+                    <button onClick={() => setFeatures(features.filter((_, i) => i !== idx))} className="hover:text-red-500">
+                      <X size={12} />
+                    </button>
+                  </motion.span>
+                ))}
+              </div>
+
+              <div className="relative group">
                 <input 
                   type="text" 
-                  value={classification}
-                  onChange={(e) => setClassification(e.target.value)}
-                  className="w-full bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-primary/50 outline-none"
-                  placeholder={isRtl ? 'جديد، مستعمل، إلخ...' : 'New, Used, etc...'}
+                  placeholder={isRtl ? 'أضف ميزة (مثال: مقاوم للماء)' : 'Add feature (e.g. Waterproof)'}
+                  value={featureInput}
+                  onChange={(e) => setFeatureInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && featureInput.trim()) {
+                      e.preventDefault();
+                      setFeatures([...features, featureInput.trim()]);
+                      setFeatureInput('');
+                    }
+                  }}
+                  className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-medium text-slate-900 dark:text-white"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {isRtl ? 'المميزات' : 'Features'}
-                </label>
-                <div className="flex gap-2 mb-2">
-                  <input 
-                    type="text" 
-                    value={featureInput}
-                    onChange={(e) => setFeatureInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
-                    className="flex-1 bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-brand-primary/50 outline-none"
-                    placeholder={isRtl ? 'أضف ميزة...' : 'Add a feature...'}
-                  />
-                  <button 
-                    type="button"
-                    onClick={addFeature}
-                    className="p-2 bg-brand-primary text-white rounded-xl hover:bg-brand-primary-hover transition-colors"
-                  >
-                    <Plus size={20} />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {features.map((feature, index) => (
-                    <span key={index} className="flex items-center gap-1 px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-xs font-bold">
-                      {feature}
-                      <button type="button" onClick={() => removeFeature(index)} className="hover:text-red-500">
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-4 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
-                <div className="p-2 bg-brand-primary/10 rounded-xl text-brand-primary">
-                  <Sparkles size={20} />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-sm font-bold text-slate-800 dark:text-white">
-                    {isRtl ? 'منتج عالي الجودة' : 'High Quality Product'}
-                  </h4>
-                  <p className="text-[10px] text-slate-500">
-                    {isRtl ? 'سيظهر هذا المنتج في قسم المنتجات المميزة' : 'This product will appear in the featured products section'}
-                  </p>
-                </div>
-                <button 
-                  type="button"
-                  onClick={() => setIsHighQuality(!isHighQuality)}
-                  className={`w-12 h-6 rounded-full transition-colors relative ${isHighQuality ? 'bg-brand-primary' : 'bg-slate-300'}`}
+                <HapticButton 
+                  onClick={() => {
+                    if (featureInput.trim()) {
+                      setFeatures([...features, featureInput.trim()]);
+                      setFeatureInput('');
+                    }
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-brand-primary text-white rounded-xl shadow-lg"
                 >
-                  <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${isHighQuality ? 'translate-x-6' : ''}`} />
+                  <Plus size={20} />
+                </HapticButton>
+              </div>
+            </div>
+
+            {/* Description Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-1 h-4 bg-brand-primary rounded-full" />
+                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                  {isRtl ? 'وصف المنتج' : 'Product Description'}
+                </h3>
+              </div>
+              <textarea 
+                placeholder={isRtl ? 'اكتب وصفاً تفصيلياً للمنتج...' : 'Write a detailed description...'}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-medium text-slate-900 dark:text-white resize-none"
+              />
+            </div>
+
+            {/* Contact & Location Section */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors">
+                  <MapPin size={18} />
+                </div>
+                <input 
+                  type="text" 
+                  placeholder={isRtl ? 'الموقع' : 'Location'}
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-full pl-12 pr-12 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-medium text-slate-900 dark:text-white"
+                />
+                <button 
+                  onClick={handleGetLocation}
+                  disabled={isLocating}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-primary hover:scale-110 transition-transform disabled:opacity-50"
+                >
+                  {isLocating ? <Loader2 size={18} className="animate-spin" /> : <MapPin size={18} />}
                 </button>
               </div>
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors">
+                  <Phone size={18} />
+                </div>
+                <input 
+                  type="tel" 
+                  placeholder={isRtl ? 'رقم الهاتف' : 'Phone Number'}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-medium text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
 
-            </form>
+            {/* Quality Toggle */}
+            <label className="flex items-center justify-between p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl cursor-pointer group hover:bg-emerald-500/10 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500">
+                  <CheckCircle size={20} />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-emerald-600 uppercase tracking-wider">
+                    {isRtl ? 'منتج عالي الجودة' : 'High Quality Product'}
+                  </p>
+                  <p className="text-[10px] text-emerald-600/70 font-medium">
+                    {isRtl ? 'سيظهر المنتج في قسم العروض المميزة' : 'Product will appear in featured section'}
+                  </p>
+                </div>
+              </div>
+              <input 
+                type="checkbox" 
+                checked={isHighQuality} 
+                onChange={(e) => setIsHighQuality(e.target.checked)}
+                className="w-5 h-5 rounded border-emerald-500 text-emerald-500 focus:ring-emerald-500"
+              />
+            </label>
+
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-4 sm:p-6 border-t border-slate-200/50 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50/50 dark:bg-slate-800/50">
-          <button 
-            type="button"
-            onClick={onClose}
-            className="px-6 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-          >
-            {isRtl ? 'إلغاء' : 'Cancel'}
-          </button>
-          <HapticButton 
-            form="product-form"
-            type="submit"
-            disabled={isSubmitting || images.length === 0 || images.some(img => img.status !== 'success')}
-            className="px-8 py-3 bg-brand-primary text-white rounded-xl font-bold shadow-lg shadow-brand-primary/30 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                {isRtl ? 'جاري النشر...' : 'Publishing...'}
-              </>
-            ) : (
-              <>
-                <CheckCircle size={18} />
-                {isRtl ? 'نشر المنتج' : 'Publish Product'}
-              </>
-            )}
-          </HapticButton>
+        <div className="p-4 sm:p-8 border-t border-slate-200/50 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="text-xs text-slate-500 font-medium">
+            {isRtl ? 'بالضغط على نشر، أنت توافق على شروط الاستخدام' : 'By clicking publish, you agree to our terms of service'}
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+            <HapticButton 
+              onClick={onClose}
+              className="flex-1 sm:flex-none px-8 py-4 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-all"
+            >
+              {isRtl ? 'إلغاء' : 'Cancel'}
+            </HapticButton>
+            <HapticButton 
+              onClick={handleSubmit}
+              disabled={isSubmitting || images.length === 0}
+              className="flex-1 sm:flex-none px-12 py-4 bg-brand-primary text-white rounded-2xl font-black shadow-xl shadow-brand-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" />
+                  {isRtl ? 'جاري النشر...' : 'Publishing...'}
+                </>
+              ) : (
+                <>
+                  <Sparkles size={20} />
+                  {isRtl ? 'نشر المنتج الآن' : 'Publish Product Now'}
+                </>
+              )}
+            </HapticButton>
+          </div>
         </div>
       </motion.div>
     </div>

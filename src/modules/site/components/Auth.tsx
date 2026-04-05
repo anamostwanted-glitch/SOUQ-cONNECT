@@ -221,7 +221,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
     const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
       setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'categories');
+      handleFirestoreError(error, OperationType.LIST, 'categories', false);
     });
     return unsub;
   }, []);

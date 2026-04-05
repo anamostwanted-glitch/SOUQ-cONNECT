@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Camera, Sparkles, ChevronRight, X, Coffee, Monitor, Sofa, Shirt, Wrench, Car, Utensils, ShoppingBag, Package, Box, Layers } from 'lucide-react';
+import { Search, Camera, Sparkles, ChevronRight, X, Coffee, Monitor, Sofa, Shirt, Wrench, Car, Utensils, ShoppingBag, Package, Box, Layers, BrainCircuit, Wand2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { Category as FireCategory } from '../../../core/types';
+import { suggestCategoriesFromQuery } from '../../../core/services/geminiService';
 
 // --- Types ---
 interface Subcategory {
@@ -59,6 +60,9 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ ca
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<DisplayCategory | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [aiThinking, setAiThinking] = useState(false);
+  const [smartResults, setSmartResults] = useState<Subcategory[]>([]);
+  const [isAiSearching, setIsAiSearching] = useState(false);
 
   // Process real categories into DisplayCategory format
   const displayCategories = useMemo(() => {
@@ -85,42 +89,89 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ ca
     });
   }, [categories]);
 
-  // AI Semantic Search Logic
-  const aiSuggestions = useMemo(() => {
-    if (searchQuery.length < 2) return [];
+  // AI Semantic Search Logic (Local + Simulated AI)
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSmartResults([]);
+      return;
+    }
+
     const q = searchQuery.toLowerCase();
-    
-    // Flatten all subcategories for searching
-    const allSubs = displayCategories.flatMap(c => c.subcategories);
-    
-    // Semantic mapping (can be expanded)
-    const cafeKeywords = ['مقهى', 'قهوة', 'cafe', 'coffee', 'باريستا', 'barista'];
-    const restaurantKeywords = ['مطعم', 'restaurant', 'أكل', 'food', 'مطبخ', 'kitchen'];
-    
-    if (cafeKeywords.some(k => q.includes(k))) {
-      return allSubs.filter(s => 
-        (s.nameAr || '').includes('قهوة') || (s.nameAr || '').includes('آلة') || (s.nameEn || '').toLowerCase().includes('coffee') || (s.nameEn || '').toLowerCase().includes('machine')
-      ).slice(0, 6);
-    }
+    setIsSearching(true);
+    setAiThinking(true);
 
-    if (restaurantKeywords.some(k => q.includes(k))) {
-      return allSubs.filter(s => 
-        (s.nameAr || '').includes('مطبخ') || (s.nameAr || '').includes('فرن') || (s.nameEn || '').toLowerCase().includes('kitchen') || (s.nameEn || '').toLowerCase().includes('oven')
-      ).slice(0, 6);
-    }
+    const timer = setTimeout(() => {
+      // Flatten all subcategories for searching
+      const allSubs = displayCategories.flatMap(c => c.subcategories);
+      
+      // Semantic mapping
+      const cafeKeywords = ['مقهى', 'قهوة', 'cafe', 'coffee', 'باريستا', 'barista', 'تجهيز', 'setup'];
+      const restaurantKeywords = ['مطعم', 'restaurant', 'أكل', 'food', 'مطبخ', 'kitchen', 'فرن', 'oven'];
+      const techKeywords = ['تقنية', 'كمبيوتر', 'جوال', 'tech', 'computer', 'mobile', 'برمجة', 'coding'];
+      const fashionKeywords = ['ملابس', 'موضة', 'أزياء', 'fashion', 'clothes', 'لبس', 'dress'];
 
-    return allSubs.filter(s => 
-      (s.nameAr || '').includes(q) || (s.nameEn || '').toLowerCase().includes(q)
-    ).slice(0, 8);
+      let results: Subcategory[] = [];
+
+      if (cafeKeywords.some(k => q.includes(k))) {
+        results = allSubs.filter(s => 
+          (s.nameAr || '').includes('قهوة') || (s.nameAr || '').includes('آلة') || (s.nameAr || '').includes('باريستا') ||
+          (s.nameEn || '').toLowerCase().includes('coffee') || (s.nameEn || '').toLowerCase().includes('machine') || (s.nameEn || '').toLowerCase().includes('barista')
+        );
+      } else if (restaurantKeywords.some(k => q.includes(k))) {
+        results = allSubs.filter(s => 
+          (s.nameAr || '').includes('مطبخ') || (s.nameAr || '').includes('فرن') || (s.nameAr || '').includes('طباخ') ||
+          (s.nameEn || '').toLowerCase().includes('kitchen') || (s.nameEn || '').toLowerCase().includes('oven') || (s.nameEn || '').toLowerCase().includes('cook')
+        );
+      } else if (techKeywords.some(k => q.includes(k))) {
+        results = allSubs.filter(s => 
+          (s.nameAr || '').includes('تقنية') || (s.nameAr || '').includes('حاسوب') || (s.nameAr || '').includes('هاتف') ||
+          (s.nameEn || '').toLowerCase().includes('tech') || (s.nameEn || '').toLowerCase().includes('computer') || (s.nameEn || '').toLowerCase().includes('phone')
+        );
+      } else if (fashionKeywords.some(k => q.includes(k))) {
+        results = allSubs.filter(s => 
+          (s.nameAr || '').includes('ملابس') || (s.nameAr || '').includes('أزياء') || (s.nameAr || '').includes('فستان') ||
+          (s.nameEn || '').toLowerCase().includes('clothes') || (s.nameEn || '').toLowerCase().includes('fashion') || (s.nameEn || '').toLowerCase().includes('dress')
+        );
+      } else {
+        results = allSubs.filter(s => 
+          (s.nameAr || '').includes(q) || (s.nameEn || '').toLowerCase().includes(q)
+        );
+      }
+
+      setSmartResults(results.slice(0, 8));
+      setIsSearching(false);
+      setAiThinking(false);
+    }, 600);
+
+    return () => clearTimeout(timer);
   }, [searchQuery, displayCategories]);
 
-  useEffect(() => {
-    if (searchQuery.length > 2) {
-      setIsSearching(true);
-      const timer = setTimeout(() => setIsSearching(false), 500);
-      return () => clearTimeout(timer);
+  const handleAiSearch = async () => {
+    if (searchQuery.length < 3) return;
+    
+    setIsAiSearching(true);
+    setAiThinking(true);
+    
+    try {
+      const matchedIds = await suggestCategoriesFromQuery(searchQuery, categories, i18n.language);
+      
+      // Map matched IDs to subcategories
+      const matchedSubs = categories
+        .filter(c => matchedIds.includes(c.id))
+        .map(c => ({
+          id: c.id,
+          nameAr: c.nameAr,
+          nameEn: c.nameEn
+        }));
+        
+      setSmartResults(matchedSubs);
+    } catch (error) {
+      console.error('AI Search failed:', error);
+    } finally {
+      setIsAiSearching(false);
+      setAiThinking(false);
     }
-  }, [searchQuery]);
+  };
 
   return (
     <div className="relative w-full h-full bg-brand-background overflow-hidden flex flex-col rounded-[2rem] border border-brand-border/50 shadow-xl">
@@ -128,8 +179,16 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ ca
       <div className="px-4 pt-6 pb-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl z-20 sticky top-0 border-b border-brand-border/50">
         <div className="relative flex items-center">
           <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-            {isSearching ? (
-              <Sparkles className="w-5 h-5 text-brand-primary animate-pulse" />
+            {aiThinking ? (
+              <motion.div
+                animate={{ 
+                  scale: [1, 1.2, 1],
+                  opacity: [0.5, 1, 0.5]
+                }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                <Sparkles className="w-5 h-5 text-brand-primary" />
+              </motion.div>
             ) : (
               <Search className="w-5 h-5 text-brand-text-muted" />
             )}
@@ -138,15 +197,46 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ ca
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAiSearch()}
             placeholder={isRtl ? "ما الذي تبحث عنه؟ (مثال: أريد تجهيز مقهى)" : "What are you looking for? (e.g., Cafe setup)"}
-            className={`w-full bg-brand-surface border-none rounded-2xl py-4 ${isRtl ? 'pr-4 pl-12' : 'pl-12 pr-4'} text-sm font-medium text-brand-text-main focus:ring-2 focus:ring-brand-primary/50 transition-all shadow-inner`}
+            className={`w-full bg-brand-surface border-none rounded-2xl py-4 ${isRtl ? 'pr-4 pl-28' : 'pl-12 pr-28'} text-sm font-medium text-brand-text-main focus:ring-2 focus:ring-brand-primary/50 transition-all shadow-inner`}
           />
-          <HapticButton 
-            onClick={onVisualSearch}
-            className="absolute inset-y-2 right-2 w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary hover:bg-brand-primary hover:text-white transition-colors"
-          >
-            <Camera className="w-5 h-5" />
-          </HapticButton>
+          
+          {/* Neural Pulse Glow when typing */}
+          <AnimatePresence>
+            {searchQuery.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 rounded-2xl ring-2 ring-brand-primary/20 pointer-events-none"
+              />
+            )}
+          </AnimatePresence>
+
+          <div className={`absolute inset-y-2 ${isRtl ? 'left-2' : 'right-2'} flex items-center gap-1`}>
+            <HapticButton 
+              onClick={handleAiSearch}
+              disabled={searchQuery.length < 3 || isAiSearching}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                searchQuery.length >= 3 
+                  ? 'bg-brand-teal text-white shadow-lg shadow-brand-teal/20' 
+                  : 'bg-brand-surface text-brand-text-muted opacity-50'
+              }`}
+            >
+              {isAiSearching ? (
+                <BrainCircuit className="w-5 h-5 animate-spin" />
+              ) : (
+                <Wand2 className="w-5 h-5" />
+              )}
+            </HapticButton>
+            <HapticButton 
+              onClick={onVisualSearch}
+              className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary hover:bg-brand-primary hover:text-white transition-colors"
+            >
+              <Camera className="w-5 h-5" />
+            </HapticButton>
+          </div>
         </div>
       </div>
 
@@ -166,22 +256,38 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ ca
                 <h3 className="text-sm font-bold text-brand-text-main">
                   {isRtl ? 'اقتراحات الذكاء الاصطناعي' : 'AI Suggestions'}
                 </h3>
+                {aiThinking && (
+                  <motion.div 
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                    className="text-[10px] text-brand-teal font-medium"
+                  >
+                    {isRtl ? 'جاري التحليل...' : 'Analyzing...'}
+                  </motion.div>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
-                {aiSuggestions.length > 0 ? (
-                  aiSuggestions.map(sub => (
-                    <HapticButton
+                {smartResults.length > 0 ? (
+                  smartResults.map((sub, idx) => (
+                    <motion.div
                       key={sub.id}
-                      onClick={() => onSelectCategory?.(sub.id)}
-                      className="px-4 py-2 bg-brand-teal/10 text-brand-teal rounded-full text-xs font-bold border border-brand-teal/20 hover:bg-brand-teal hover:text-white transition-all"
+                      initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
                     >
-                      {isRtl ? sub.nameAr : sub.nameEn}
-                    </HapticButton>
+                      <HapticButton
+                        onClick={() => onSelectCategory?.(sub.id)}
+                        className="px-4 py-2 bg-brand-teal/10 text-brand-teal rounded-full text-xs font-bold border border-brand-teal/20 hover:bg-brand-teal hover:text-white transition-all flex items-center gap-2"
+                      >
+                        <Sparkles size={12} />
+                        {isRtl ? sub.nameAr : sub.nameEn}
+                      </HapticButton>
+                    </motion.div>
                   ))
                 ) : (
                   !isSearching && (
-                    <p className="text-xs text-brand-text-muted">
-                      {isRtl ? 'لم نجد نتائج مطابقة' : 'No matching results found'}
+                    <p className="text-xs text-brand-text-muted px-2 py-4 italic">
+                      {isRtl ? 'لم نجد نتائج مطابقة، جرب كلمات أخرى' : 'No matching results found, try different keywords'}
                     </p>
                   )
                 )}

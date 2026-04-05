@@ -45,6 +45,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Negotiation error:', error);
+      // Optionally show a user-friendly error message here
     } finally {
       setIsNegotiating(false);
     }
@@ -68,6 +69,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       }
     } catch (error) {
       console.error("Error updating auto-negotiate:", error);
+      // Use handleFirestoreError if applicable, or just log it
     }
   };
 

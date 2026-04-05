@@ -92,6 +92,11 @@ const Home: React.FC<HomeProps> = ({
   const [ctaButtonEn, setCtaButtonEn] = useState('');
   const [logoScale, setLogoScale] = useState(1);
   const [logoAuraColor, setLogoAuraColor] = useState('#1b97a7');
+  const [logoAuraBlur, setLogoAuraBlur] = useState(20);
+  const [logoAuraSpread, setLogoAuraSpread] = useState(1.2);
+  const [logoAuraOpacity, setLogoAuraOpacity] = useState(0.4);
+  const [logoAuraStyle, setLogoAuraStyle] = useState<'solid' | 'gradient' | 'pulse' | 'mesh'>('solid');
+  const [logoAuraSharpness, setLogoAuraSharpness] = useState(50);
   const [showNeuralLogo, setShowNeuralLogo] = useState(true);
   const [primaryTextColor, setPrimaryTextColor] = useState('#ffffff');
   const [secondaryTextColor, setSecondaryTextColor] = useState('#94a3b8');
@@ -113,6 +118,23 @@ const Home: React.FC<HomeProps> = ({
   };
 
   useEffect(() => {
+    const handlePreview = (e: any) => {
+      const data = e.detail;
+      if (data.logoAuraColor !== undefined) setLogoAuraColor(data.logoAuraColor);
+      if (data.logoAuraBlur !== undefined) setLogoAuraBlur(data.logoAuraBlur);
+      if (data.logoAuraSpread !== undefined) setLogoAuraSpread(data.logoAuraSpread);
+      if (data.logoAuraOpacity !== undefined) setLogoAuraOpacity(data.logoAuraOpacity);
+      if (data.logoAuraStyle !== undefined) setLogoAuraStyle(data.logoAuraStyle);
+      if (data.logoAuraSharpness !== undefined) setLogoAuraSharpness(data.logoAuraSharpness);
+      if (data.logoScale !== undefined) setLogoScale(data.logoScale);
+      if (data.showNeuralLogo !== undefined) setShowNeuralLogo(data.showNeuralLogo);
+      if (data.enableNeuralPulse !== undefined) setEnableNeuralPulse(data.enableNeuralPulse);
+    };
+    window.addEventListener('site-settings-preview', handlePreview);
+    return () => window.removeEventListener('site-settings-preview', handlePreview);
+  }, []);
+
+  useEffect(() => {
     const unsubSettings = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -128,13 +150,18 @@ const Home: React.FC<HomeProps> = ({
         setCtaButtonEn(data.ctaButtonEn || '');
         setLogoScale(data.logoScale ?? 1);
         setLogoAuraColor(data.logoAuraColor || '#1b97a7');
+        setLogoAuraBlur(data.logoAuraBlur ?? 20);
+        setLogoAuraSpread(data.logoAuraSpread ?? 1.2);
+        setLogoAuraOpacity(data.logoAuraOpacity ?? 0.4);
+        setLogoAuraStyle(data.logoAuraStyle || 'solid');
+        setLogoAuraSharpness(data.logoAuraSharpness ?? 50);
         setShowNeuralLogo(data.showNeuralLogo ?? true);
         setPrimaryTextColor(data.primaryTextColor || '#ffffff');
         setSecondaryTextColor(data.secondaryTextColor || '#94a3b8');
         setEnableNeuralPulse(data.enableNeuralPulse ?? true);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'settings/site');
+      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
     });
     return () => unsubSettings();
   }, []);
@@ -151,10 +178,10 @@ const Home: React.FC<HomeProps> = ({
         });
         setCategories(sorted);
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'categories');
+        handleFirestoreError(error, OperationType.LIST, 'categories', false);
       }
     };
-    fetchCategories();
+    fetchCategories().catch(err => console.error("Unhandled fetchCategories error:", err));
   }, []);
 
   const getCategoryIcon = (categoryName: string) => {
@@ -186,13 +213,6 @@ const Home: React.FC<HomeProps> = ({
       setAiStatus(i18n.language === 'ar' ? 'جاري الاستماع...' : 'Listening...');
     };
 
-    recognition.onerror = (event: any) => {
-      setVoiceError(i18n.language === 'ar' ? 'حدث خطأ أثناء التعرف على الصوت' : 'An error occurred during speech recognition');
-      setTimeout(() => setVoiceError(null), 3000);
-      setIsListening(false);
-      setAiStatus('');
-    };
-
     recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
       setSearchQuery(transcript);
@@ -208,7 +228,7 @@ const Home: React.FC<HomeProps> = ({
           setShowDraftArea(true);
         }
       } catch (error) {
-        console.error(error);
+        console.error('Voice parsing error:', error);
       } finally {
         setAiStatus('');
       }
@@ -216,6 +236,8 @@ const Home: React.FC<HomeProps> = ({
 
     recognition.onerror = (event: any) => {
       console.error('Speech recognition error', event.error);
+      setVoiceError(i18n.language === 'ar' ? 'حدث خطأ أثناء التعرف على الصوت' : 'An error occurred during speech recognition');
+      setTimeout(() => setVoiceError(null), 3000);
       setIsListening(false);
       setAiStatus('');
     };
@@ -414,12 +436,16 @@ const Home: React.FC<HomeProps> = ({
       if (!categoryId && currentCategories.length > 0) {
         // Try to find a category that matches the search query manually if AI fails or returns null
         const searchWords = trimmedQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-        const manualMatch = currentCategories.find(c => 
-          c.nameAr.includes(trimmedQuery) || 
-          c.nameEn.toLowerCase().includes(trimmedQuery.toLowerCase()) ||
-          searchWords.some(w => c.nameAr.includes(w) || c.nameEn.toLowerCase().includes(w)) ||
-          c.keywords?.some(kw => kw.toLowerCase().includes(trimmedQuery.toLowerCase()) || searchWords.some(w => kw.toLowerCase().includes(w)))
-        );
+        const manualMatch = currentCategories.find(c => {
+          const nameAr = c.nameAr || '';
+          const nameEn = c.nameEn || '';
+          const keywords = c.keywords || [];
+          
+          return nameAr.includes(trimmedQuery) || 
+            nameEn.toLowerCase().includes(trimmedQuery.toLowerCase()) ||
+            searchWords.some(w => nameAr.includes(w) || nameEn.toLowerCase().includes(w)) ||
+            keywords.some(kw => kw.toLowerCase().includes(trimmedQuery.toLowerCase()) || searchWords.some(w => kw.toLowerCase().includes(w)));
+        });
         
         // If still no match, use the first category as a last resort to prevent blocking the user
         categoryId = manualMatch ? manualMatch.id : currentCategories[0].id;
@@ -629,7 +655,7 @@ const Home: React.FC<HomeProps> = ({
             setAiStatus('');
           }, 5000);
         } catch (error) {
-          console.error('Firestore error:', error);
+          handleFirestoreError(error, OperationType.WRITE, 'requests');
           setAiStatus(i18n.language === 'ar' ? 'حدث خطأ أثناء حفظ الطلب. يرجى المحاولة مرة أخرى.' : 'Error saving request. Please try again.');
           setTimeout(() => setAiStatus(''), 5000);
         }
@@ -676,10 +702,31 @@ const Home: React.FC<HomeProps> = ({
               onClick={() => setIsVisualSearchOpen(true)}
             >
               {/* Spinning Neural Glow (Visible on Hover) */}
-              <div 
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-48 md:h-48 opacity-0 group-hover:opacity-40 animate-[spin_3s_linear_infinite] rounded-full blur-xl transition-opacity duration-500 pointer-events-none" 
+              <motion.div 
+                animate={logoAuraStyle === 'pulse' ? {
+                  scale: [1, logoAuraSpread, 1],
+                  opacity: [logoAuraOpacity * 0.5, logoAuraOpacity, logoAuraOpacity * 0.5],
+                } : logoAuraStyle === 'mesh' ? {
+                  scale: [1, 1.1, 1],
+                  rotate: [0, 90, 180, 270, 360],
+                  borderRadius: ["40% 60% 70% 30% / 40% 50% 60% 50%", "60% 40% 30% 70% / 50% 60% 40% 60%", "40% 60% 70% 30% / 40% 50% 60% 50%"]
+                } : { 
+                  scale: [1, 1.05, 1],
+                  opacity: [logoAuraOpacity * 0.8, logoAuraOpacity, logoAuraOpacity * 0.8],
+                }}
+                transition={{ 
+                  duration: logoAuraStyle === 'pulse' ? 3 : 8, 
+                  repeat: Infinity, 
+                  ease: "easeInOut" 
+                }}
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-48 md:h-48 opacity-0 group-hover:opacity-40 rounded-full pointer-events-none" 
                 style={{ 
-                  background: `linear-gradient(to right, transparent, ${logoAuraColor}, transparent)`,
+                  backgroundColor: logoAuraStyle === 'solid' ? logoAuraColor : 'transparent',
+                  backgroundImage: logoAuraStyle === 'gradient' ? `radial-gradient(circle, ${logoAuraColor} 0%, transparent 70%)` : 
+                                   logoAuraStyle === 'mesh' ? `conic-gradient(from 0deg, ${logoAuraColor}, ${logoAuraColor}88, ${logoAuraColor}44, ${logoAuraColor}88, ${logoAuraColor})` : 'none',
+                  filter: `blur(${logoAuraBlur}px) contrast(${100 + (logoAuraSharpness - 50) * 2}%)`,
+                  opacity: logoAuraOpacity,
+                  transform: `scale(${logoAuraSpread})`,
                   boxShadow: logoAuraColor.toLowerCase() === '#ffffff' ? '0 0 30px 5px rgba(0,0,0,0.05)' : 'none'
                 }}
               />
@@ -778,55 +825,101 @@ const Home: React.FC<HomeProps> = ({
             className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20"
             ref={requestsRef}
           >
-        {/* Hero Section */}
-        <div className="text-center mb-16 md:mb-24 relative">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
-          >
-            {/* Neural Brand Crown */}
-            {showNeuralLogo && (
+            {/* Hero Section */}
+            <div className="text-center mb-16 md:mb-24 relative">
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
+              >
+                {/* Neural Brand Crown */}
+                {showNeuralLogo && (
               <div className="flex justify-center mb-12 relative group">
                 {/* Dynamic Aura Effect */}
                 <motion.div 
-                  animate={{ 
+                  animate={logoAuraStyle === 'pulse' ? {
+                    scale: [1, logoAuraSpread, 1],
+                    opacity: [logoAuraOpacity * 0.5, logoAuraOpacity, logoAuraOpacity * 0.5],
+                  } : logoAuraStyle === 'mesh' ? {
                     scale: [1, 1.1, 1],
-                    opacity: [0.3, 0.6, 0.3],
+                    rotate: [0, 90, 180, 270, 360],
+                    borderRadius: ["40% 60% 70% 30% / 40% 50% 60% 50%", "60% 40% 30% 70% / 50% 60% 40% 60%", "40% 60% 70% 30% / 40% 50% 60% 50%"]
+                  } : { 
+                    scale: [1, 1.05, 1],
+                    opacity: [logoAuraOpacity * 0.8, logoAuraOpacity, logoAuraOpacity * 0.8],
                   }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 md:w-64 md:h-64 rounded-full blur-[60px] pointer-events-none z-0"
+                  transition={{ 
+                    duration: logoAuraStyle === 'pulse' ? 3 : 8, 
+                    repeat: Infinity, 
+                    ease: "easeInOut" 
+                  }}
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 md:w-64 md:h-64 rounded-full pointer-events-none z-0"
                   style={{ 
-                    backgroundColor: logoAuraColor,
+                    backgroundColor: logoAuraStyle === 'solid' ? logoAuraColor : 'transparent',
+                    backgroundImage: logoAuraStyle === 'gradient' ? `radial-gradient(circle, ${logoAuraColor} 0%, transparent 70%)` : 
+                                     logoAuraStyle === 'mesh' ? `conic-gradient(from 0deg, ${logoAuraColor}, ${logoAuraColor}88, ${logoAuraColor}44, ${logoAuraColor}88, ${logoAuraColor})` : 'none',
+                    filter: `blur(${logoAuraBlur}px) contrast(${100 + (logoAuraSharpness - 50) * 2}%)`,
+                    opacity: logoAuraOpacity,
+                    transform: `scale(${logoAuraSpread})`,
                     boxShadow: logoAuraColor.toLowerCase() === '#ffffff' ? '0 0 40px 10px rgba(0,0,0,0.05)' : 'none'
                   }}
                 />
                 
                 {/* Logo Container with Scale */}
                 <div 
-                  className="relative z-10 transition-all duration-500 ease-out group-hover:scale-105"
-                  style={{ transform: `scale(${logoScale})` }}
+                  className="relative z-10 transition-all duration-700 ease-[0.23,1,0.32,1] group-hover:scale-110"
+                  style={{ 
+                    transform: `scale(${logoScale})`,
+                    filter: 'drop-shadow(0 20px 50px rgba(0,0,0,0.2)) drop-shadow(0 10px 15px rgba(0,0,0,0.1))'
+                  }}
                 >
                   {logoUrl ? (
-                    <img 
-                      src={logoUrl} 
-                      alt={siteName || "Logo"} 
-                      className="h-20 md:h-28 w-auto object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.15)]"
-                      referrerPolicy="no-referrer"
-                    />
+                    <div className="relative group/logo">
+                      {/* High-End Glass Reflection Overlay */}
+                      <div className="absolute inset-0 opacity-0 group-hover/logo:opacity-100 transition-opacity duration-1000 z-20 pointer-events-none overflow-hidden rounded-xl">
+                        <motion.div 
+                          animate={{ 
+                            left: ['-100%', '200%'],
+                            top: ['-100%', '200%']
+                          }}
+                          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", repeatDelay: 1 }}
+                          className="absolute w-full h-[200%] bg-gradient-to-br from-transparent via-white/40 to-transparent -rotate-45"
+                        />
+                      </div>
+
+                      <img 
+                        src={logoUrl} 
+                        alt={siteName || "Logo"} 
+                        className="h-24 md:h-32 w-auto object-contain relative z-10"
+                        style={{ 
+                          imageRendering: 'auto' as any,
+                          WebkitPrintColorAdjust: 'exact'
+                        } as any}
+                        referrerPolicy="no-referrer"
+                      />
+                      
+                      {/* Subtle Inner Glow for HD look */}
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-white/5 to-transparent opacity-0 group-hover/logo:opacity-100 transition-opacity duration-500 z-15" />
+                    </div>
                   ) : (
-                    <div className="flex items-center gap-4 text-brand-primary drop-shadow-xl">
-                      <SparklesIcon size={64} strokeWidth={1.5} />
-                      <span className="text-5xl font-black tracking-tighter">{siteName || 'DEIF'}</span>
+                    <div className="flex items-center gap-4 text-brand-primary drop-shadow-2xl">
+                      <SparklesIcon size={72} strokeWidth={1} className="animate-pulse" />
+                      <span className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-br from-brand-primary to-brand-teal">
+                        {siteName || 'DEIF'}
+                      </span>
                     </div>
                   )}
                   
-                  {/* AI Pulse Ring */}
-                  <div 
-                    className="absolute -inset-4 rounded-full border border-brand-primary/20 animate-ping opacity-0 group-hover:opacity-100 transition-opacity duration-700"
+                  {/* Advanced AI Pulse Ring */}
+                  <motion.div 
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      opacity: [0, 0.3, 0]
+                    }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                    className="absolute -inset-8 rounded-full border-2 border-brand-primary/30 pointer-events-none"
                     style={{ 
-                      borderColor: `${logoAuraColor}33`,
-                      boxShadow: logoAuraColor.toLowerCase() === '#ffffff' ? '0 0 10px 1px rgba(0,0,0,0.05)' : 'none'
+                      borderColor: `${logoAuraColor}44`,
                     }}
                   />
                 </div>
@@ -856,8 +949,9 @@ const Home: React.FC<HomeProps> = ({
                 : (heroDescriptionEn || 'The first platform combining AI power with a vast network of trusted suppliers to fulfill all your needs with a single click.')}
             </p>
           </motion.div>
+        </div>
 
-          {/* Search Bar Container */}
+        {/* Search Bar Container */}
           <motion.div 
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
@@ -931,7 +1025,7 @@ const Home: React.FC<HomeProps> = ({
               </div>
             </div>
           </motion.div>
-        </div>
+        </motion.div>
 
         {/* 3. Conditional Content (Suggested Text & Image Preview) */}
         <AnimatePresence mode="wait">
@@ -1275,7 +1369,6 @@ const Home: React.FC<HomeProps> = ({
             </div>
           </motion.div>
         )}
-        </motion.div>
       </div>
     )}
 

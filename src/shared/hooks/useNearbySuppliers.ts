@@ -95,7 +95,7 @@ export function useNearbySuppliers(profile: UserProfile | null) {
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        checkNearbySuppliers(latitude, longitude);
+        checkNearbySuppliers(latitude, longitude).catch(err => console.error("Unhandled checkNearbySuppliers error:", err));
       },
       (error) => {
         console.error("Geolocation watch error:", error);

@@ -46,15 +46,20 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({ isOpen, onClose, mes
       
       // Fetch other user profiles
       const chatsWithUsers = await Promise.all(uniqueChats.map(async (chat) => {
-        if (chat.isCategoryChat) return chat;
-        const otherUserId = chat.customerId === profile.uid ? chat.supplierId : chat.customerId;
-        if (otherUserId) {
-          const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', otherUserId)));
-          if (!userDoc.empty) {
-            return { ...chat, otherUser: userDoc.docs[0].data() as UserProfile };
+        try {
+          if (chat.isCategoryChat) return chat;
+          const otherUserId = chat.customerId === profile.uid ? chat.supplierId : chat.customerId;
+          if (otherUserId) {
+            const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', otherUserId)));
+            if (!userDoc.empty) {
+              return { ...chat, otherUser: userDoc.docs[0].data() as UserProfile };
+            }
           }
+          return chat;
+        } catch (error) {
+          console.error('Error fetching user for forward modal:', error);
+          return chat;
         }
-        return chat;
       }));
       
       setChats(chatsWithUsers);
@@ -67,8 +72,8 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({ isOpen, onClose, mes
     if (!profile || selectedChats.length === 0) return;
     setIsForwarding(true);
     try {
-      for (const chatId of selectedChats) {
-        await addDoc(collection(db, 'chats', chatId, 'messages'), {
+      const forwardPromises = selectedChats.map(chatId => 
+        addDoc(collection(db, 'chats', chatId, 'messages'), {
           chatId,
           senderId: profile.uid,
           text: message.text || null,
@@ -80,8 +85,9 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({ isOpen, onClose, mes
           createdAt: new Date().toISOString(),
           read: false,
           isForwarded: true
-        });
-      }
+        })
+      );
+      await Promise.all(forwardPromises);
       onClose();
     } catch (error) {
       console.error('Error forwarding message:', error);

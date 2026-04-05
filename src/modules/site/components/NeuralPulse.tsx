@@ -104,14 +104,28 @@ export const NeuralPulse: React.FC<NeuralPulseProps> = ({ onAction }) => {
     try {
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(',')[1];
-        const result = await analyzeNeuralPulseImage(base64, file.type);
-        setInsight({ type: 'vision', ...result });
+        try {
+          const base64 = (reader.result as string).split(',')[1];
+          const result = await analyzeNeuralPulseImage(base64, file.type);
+          setInsight({ type: 'vision', ...result });
+        } catch (aiError: any) {
+          console.error("Neural Pulse Vision AI Error:", aiError);
+          if (aiError.message?.includes('429') || aiError.message?.includes('quota')) {
+            toast.error(isRtl ? 'تم تجاوز حد الاستخدام للذكاء الاصطناعي' : 'AI quota exceeded');
+          } else {
+            toast.error(isRtl ? 'فشل تحليل الصورة بالذكاء الاصطناعي' : 'AI image analysis failed');
+          }
+        } finally {
+          setIsProcessing(false);
+        }
+      };
+      reader.onerror = () => {
+        toast.error(isRtl ? 'فشل قراءة الملف' : 'Failed to read file');
         setIsProcessing(false);
       };
       reader.readAsDataURL(file);
     } catch (error) {
-      toast.error(isRtl ? 'فشل تحليل الصورة' : 'Image analysis failed');
+      toast.error(isRtl ? 'فشل تحميل الصورة' : 'Image upload failed');
       setIsProcessing(false);
     }
   };

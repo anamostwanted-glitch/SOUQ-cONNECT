@@ -379,7 +379,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         console.error('Error in onSnapshot callback for chat:', error);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `chats/${chatId}`);
+      handleFirestoreError(error, OperationType.GET, `chats/${chatId}`, false);
     });
 
     const q = query(collection(db, 'chats', chatId, 'messages'), orderBy('createdAt', 'asc'));
@@ -471,7 +471,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         console.error('Error in onSnapshot callback for messages:', error);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, `chats/${chatId}/messages`);
+      handleFirestoreError(error, OperationType.LIST, `chats/${chatId}/messages`, false);
     });
 
     return () => {
@@ -767,7 +767,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       }
     };
 
-    processSend();
+    processSend().catch(err => console.error("Unhandled processSend error:", err));
   };
 
   const startRecording = async () => {

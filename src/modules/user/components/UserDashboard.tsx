@@ -121,7 +121,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       }
     };
 
-    fetchFavorites();
+    fetchFavorites().catch(err => console.error("Unhandled fetchFavorites error:", err));
   }, [activeTab, profile?.favoriteProducts]);
   // Fetch user requests
   useEffect(() => {
@@ -142,7 +142,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       setRequests(reqs);
       setIsLoadingRequests(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'requests');
+      handleFirestoreError(error, OperationType.GET, 'requests', false);
       setIsLoadingRequests(false);
     });
 

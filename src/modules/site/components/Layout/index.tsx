@@ -64,7 +64,24 @@ export const Layout: React.FC<LayoutProps> = ({
   const [siteLogo, setSiteLogo] = useState('');
   const [siteName, setSiteName] = useState('');
   const [logoAuraColor, setLogoAuraColor] = useState('#1b97a7');
+  const [logoAuraBlur, setLogoAuraBlur] = useState(20);
+  const [logoAuraSpread, setLogoAuraSpread] = useState(1.2);
+  const [logoAuraOpacity, setLogoAuraOpacity] = useState(0.4);
+  const [logoAuraStyle, setLogoAuraStyle] = useState<'solid' | 'gradient' | 'pulse' | 'mesh'>('solid');
+  const [logoAuraSharpness, setLogoAuraSharpness] = useState(50);
+  const [logoScale, setLogoScale] = useState(1);
   const [showNeuralLogo, setShowNeuralLogo] = useState(true);
+
+  // Header specific settings
+  const [headerLogoAuraColor, setHeaderLogoAuraColor] = useState('#1b97a7');
+  const [headerLogoAuraBlur, setHeaderLogoAuraBlur] = useState(20);
+  const [headerLogoAuraSpread, setHeaderLogoAuraSpread] = useState(1.2);
+  const [headerLogoAuraOpacity, setHeaderLogoAuraOpacity] = useState(0.4);
+  const [headerLogoAuraStyle, setHeaderLogoAuraStyle] = useState<'solid' | 'gradient' | 'pulse' | 'mesh'>('solid');
+  const [headerLogoAuraSharpness, setHeaderLogoAuraSharpness] = useState(50);
+  const [headerLogoScale, setHeaderLogoScale] = useState(1);
+  const [headerShowNeuralLogo, setHeaderShowNeuralLogo] = useState(true);
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
@@ -137,7 +154,7 @@ export const Layout: React.FC<LayoutProps> = ({
     const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
       setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'categories');
+      handleFirestoreError(error, OperationType.LIST, 'categories', false);
     });
     return () => unsub();
   }, []);
@@ -150,10 +167,38 @@ export const Layout: React.FC<LayoutProps> = ({
     const unsub = onSnapshot(query(collection(db, 'users'), where('role', '==', 'supplier')), (snap) => {
       setAllSuppliers(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'users (suppliers)');
+      handleFirestoreError(error, OperationType.LIST, 'users (suppliers)', false);
     });
     return () => unsub();
   }, [auth.currentUser]);
+
+  useEffect(() => {
+    const handlePreview = (e: any) => {
+      const data = e.detail;
+      if (data.logoUrl !== undefined) setSiteLogo(data.logoUrl);
+      if (data.siteName !== undefined) setSiteName(data.siteName);
+      if (data.logoAuraColor !== undefined) setLogoAuraColor(data.logoAuraColor);
+      if (data.logoAuraBlur !== undefined) setLogoAuraBlur(data.logoAuraBlur);
+      if (data.logoAuraSpread !== undefined) setLogoAuraSpread(data.logoAuraSpread);
+      if (data.logoAuraOpacity !== undefined) setLogoAuraOpacity(data.logoAuraOpacity);
+      if (data.logoAuraStyle !== undefined) setLogoAuraStyle(data.logoAuraStyle);
+      if (data.logoAuraSharpness !== undefined) setLogoAuraSharpness(data.logoAuraSharpness);
+      if (data.logoScale !== undefined) setLogoScale(data.logoScale);
+      if (data.showNeuralLogo !== undefined) setShowNeuralLogo(data.showNeuralLogo);
+
+      // Header specific preview
+      if (data.headerLogoAuraColor !== undefined) setHeaderLogoAuraColor(data.headerLogoAuraColor);
+      if (data.headerLogoAuraBlur !== undefined) setHeaderLogoAuraBlur(data.headerLogoAuraBlur);
+      if (data.headerLogoAuraSpread !== undefined) setHeaderLogoAuraSpread(data.headerLogoAuraSpread);
+      if (data.headerLogoAuraOpacity !== undefined) setHeaderLogoAuraOpacity(data.headerLogoAuraOpacity);
+      if (data.headerLogoAuraStyle !== undefined) setHeaderLogoAuraStyle(data.headerLogoAuraStyle);
+      if (data.headerLogoAuraSharpness !== undefined) setHeaderLogoAuraSharpness(data.headerLogoAuraSharpness);
+      if (data.headerLogoScale !== undefined) setHeaderLogoScale(data.headerLogoScale);
+      if (data.headerShowNeuralLogo !== undefined) setHeaderShowNeuralLogo(data.headerShowNeuralLogo);
+    };
+    window.addEventListener('site-settings-preview', handlePreview);
+    return () => window.removeEventListener('site-settings-preview', handlePreview);
+  }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
@@ -162,10 +207,26 @@ export const Layout: React.FC<LayoutProps> = ({
         setSiteLogo(data.logoUrl || '');
         setSiteName(data.siteName || '');
         setLogoAuraColor(data.logoAuraColor || '#1b97a7');
+        setLogoAuraBlur(data.logoAuraBlur ?? 20);
+        setLogoAuraSpread(data.logoAuraSpread ?? 1.2);
+        setLogoAuraOpacity(data.logoAuraOpacity ?? 0.4);
+        setLogoAuraStyle(data.logoAuraStyle || 'solid');
+        setLogoAuraSharpness(data.logoAuraSharpness ?? 50);
+        setLogoScale(data.logoScale ?? 1);
         setShowNeuralLogo(data.showNeuralLogo ?? true);
+
+        // Header specific
+        setHeaderLogoAuraColor(data.headerLogoAuraColor || data.logoAuraColor || '#1b97a7');
+        setHeaderLogoAuraBlur(data.headerLogoAuraBlur ?? data.logoAuraBlur ?? 20);
+        setHeaderLogoAuraSpread(data.headerLogoAuraSpread ?? data.logoAuraSpread ?? 1.2);
+        setHeaderLogoAuraOpacity(data.headerLogoAuraOpacity ?? data.logoAuraOpacity ?? 0.4);
+        setHeaderLogoAuraStyle(data.headerLogoAuraStyle || data.logoAuraStyle || 'solid');
+        setHeaderLogoAuraSharpness(data.headerLogoAuraSharpness ?? data.logoAuraSharpness ?? 50);
+        setHeaderLogoScale(data.headerLogoScale ?? data.logoScale ?? 1);
+        setHeaderShowNeuralLogo(data.headerShowNeuralLogo ?? data.showNeuralLogo ?? true);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'settings/site');
+      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
     });
     return () => unsub();
   }, []);
@@ -191,7 +252,7 @@ export const Layout: React.FC<LayoutProps> = ({
       isInitialNotifLoad.current = false;
       setNotifications(notifs);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'notifications');
+      handleFirestoreError(error, OperationType.LIST, 'notifications', false);
     });
     return () => unsub();
   }, [profile]);
@@ -210,7 +271,7 @@ export const Layout: React.FC<LayoutProps> = ({
     try {
       await updateDoc(doc(db, 'notifications', id), { read: true });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `notifications/${id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `notifications/${id}`, false);
     }
   };
 
@@ -248,8 +309,14 @@ export const Layout: React.FC<LayoutProps> = ({
         <Header 
           siteLogo={siteLogo}
           siteName={siteName}
-          logoAuraColor={logoAuraColor}
-          showNeuralLogo={showNeuralLogo}
+          logoAuraColor={headerLogoAuraColor}
+          logoAuraBlur={headerLogoAuraBlur}
+          logoAuraSpread={headerLogoAuraSpread}
+          logoAuraOpacity={headerLogoAuraOpacity}
+          logoAuraStyle={headerLogoAuraStyle}
+          logoAuraSharpness={headerLogoAuraSharpness}
+          logoScale={headerLogoScale}
+          showNeuralLogo={headerShowNeuralLogo}
           currentView={currentView}
           setView={setView}
           supplierTab={supplierTab}
@@ -322,8 +389,14 @@ export const Layout: React.FC<LayoutProps> = ({
         toggleLanguage={toggleLanguage}
         siteLogo={siteLogo}
         siteName={siteName}
-        logoAuraColor={logoAuraColor}
-        showNeuralLogo={showNeuralLogo}
+        logoAuraColor={headerLogoAuraColor}
+        logoAuraBlur={headerLogoAuraBlur}
+        logoAuraSpread={headerLogoAuraSpread}
+        logoAuraOpacity={headerLogoAuraOpacity}
+        logoAuraStyle={headerLogoAuraStyle}
+        logoAuraSharpness={headerLogoAuraSharpness}
+        logoScale={headerLogoScale}
+        showNeuralLogo={headerShowNeuralLogo}
         onPrefetch={onPrefetch}
         onVisualSearch={() => setIsAIHubOpen(true)}
         onOpenHelpCenter={() => setShowHelpCenter(true)}

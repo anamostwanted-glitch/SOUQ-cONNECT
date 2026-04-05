@@ -98,7 +98,7 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setBranding(prev => ({ ...prev, ...siteDoc.data().branding }));
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'settings/site');
+      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
     });
 
     return () => unsubscribeGlobal();
@@ -118,7 +118,7 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
           }
         }, (error) => {
-          handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+          handleFirestoreError(error, OperationType.GET, `users/${user.uid}`, false);
         });
       } else {
         if (unsubscribeUser) {

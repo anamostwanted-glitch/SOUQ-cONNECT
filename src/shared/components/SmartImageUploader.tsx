@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { analyzeProductImage, generateAlternativeProductImage } from '../../core/services/geminiService';
+import { processImageTo4x5WithWatermark } from '../../core/utils/imageManipulation';
 import { HapticButton } from './HapticButton';
 
 interface UploadingImage {
@@ -29,12 +30,14 @@ interface UploadingImage {
   progress: number;
   error?: string;
   aiData?: {
-    productName: string;
-    description: string;
+    productNameAr: string;
+    productNameEn: string;
+    descriptionAr: string;
+    descriptionEn: string;
     category: string;
     features: string[];
     isHighQuality: boolean;
-    classification: string;
+    classification?: string;
   };
   finalUrl?: string;
 }
@@ -46,6 +49,7 @@ interface SmartImageUploaderProps {
   watermarkLogo?: string;
   watermarkOpacity?: number;
   watermarkPosition?: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-right';
+  watermarkScale?: number;
 }
 
 export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
@@ -54,7 +58,8 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
   watermarkText = "B2B2C Connect",
   watermarkLogo,
   watermarkOpacity = 0.5,
-  watermarkPosition = 'bottom-right'
+  watermarkPosition = 'bottom-right',
+  watermarkScale = 1
 }) => {
   const { t, i18n } = useTranslation();
   const [images, setImages] = useState<UploadingImage[]>([]);
@@ -90,7 +95,7 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
       
       // 2. Watermarking
       setImages(prev => prev.map(img => img.id === uploadingImg.id ? { ...img, originalFile: compressedFile, progress: 40 } : img));
-      const watermarkedBlob = await applyWatermark(compressedFile, watermarkText, watermarkOpacity, watermarkLogo, watermarkPosition);
+      const watermarkedBlob = await processImageTo4x5WithWatermark(compressedFile, watermarkLogo, watermarkText, watermarkOpacity, watermarkPosition, watermarkScale);
       
       // 3. AI Analysis (only for the first image or if not analyzed)
       setImages(prev => prev.map(img => img.id === uploadingImg.id ? { ...img, status: 'analyzing' as const, progress: 60 } : img));
@@ -139,7 +144,10 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
       });
       
       const base64 = await base64Promise;
-      const productName = uploadingImg.aiData?.productName || 'Product';
+      const isAr = i18n.language.startsWith('ar');
+      const productName = isAr 
+        ? (uploadingImg.aiData?.productNameAr || uploadingImg.aiData?.productNameEn || 'Product')
+        : (uploadingImg.aiData?.productNameEn || uploadingImg.aiData?.productNameAr || 'Product');
       const category = uploadingImg.aiData?.category || 'General';
 
       const newImageUrl = await generateAlternativeProductImage(base64, uploadingImg.file.type, productName, category, i18n.language);
@@ -149,7 +157,7 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
         const blob = await res.blob();
         
         // Apply watermark to the AI generated image
-        const watermarkedAiBlob = await applyWatermark(blob, watermarkText, watermarkOpacity, watermarkLogo, watermarkPosition);
+        const watermarkedAiBlob = await processImageTo4x5WithWatermark(blob, watermarkLogo, watermarkText, watermarkOpacity, watermarkPosition, watermarkScale);
         const watermarkedAiUrl = URL.createObjectURL(watermarkedAiBlob);
         const newFile = new File([watermarkedAiBlob], `enhanced_${uploadingImg.file.name}`, { type: 'image/png' });
         
@@ -176,151 +184,6 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
       console.error("Error generating alternative image:", error);
       setImages(prev => prev.map(img => img.id === uploadingImg.id ? { ...img, status: 'error' as const, error: 'Failed to generate' } : img));
     }
-  };
-
-  const applyWatermark = (file: File | Blob, text: string, opacity: number, logo?: string, position: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-right' = 'bottom-right'): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-      img.src = objectUrl;
-      img.onload = async () => {
-        try {
-          URL.revokeObjectURL(objectUrl);
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          if (!ctx) return reject(new Error("Canvas context failed"));
-
-          // Set 4:5 Aspect Ratio (Portrait)
-          const targetWidth = img.width;
-          const targetHeight = (img.width * 5) / 4;
-          
-          canvas.width = targetWidth;
-          canvas.height = targetHeight;
-
-          // Draw background (white)
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-          // Center crop the image
-          const imgAspect = img.width / img.height;
-          const targetAspect = 4 / 5;
-          
-          let drawWidth, drawHeight, offsetX, offsetY;
-          
-          if (imgAspect > targetAspect) {
-            drawHeight = targetHeight;
-            drawWidth = img.width * (targetHeight / img.height);
-            offsetX = (targetWidth - drawWidth) / 2;
-            offsetY = 0;
-          } else {
-            drawWidth = targetWidth;
-            drawHeight = img.height * (targetWidth / img.width);
-            offsetX = 0;
-            offsetY = (targetHeight - drawHeight) / 2;
-          }
-
-          ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-
-          // Apply Watermark
-          const drawWatermark = async () => {
-            if (logo) {
-              try {
-                const logoImg = new Image();
-                if (!logo.startsWith('data:')) {
-                  logoImg.crossOrigin = 'anonymous';
-                }
-                await new Promise((res, rej) => {
-                  logoImg.onload = res;
-                  logoImg.onerror = rej;
-                  logoImg.src = logo;
-                });
-
-                const logoSize = canvas.width * 0.15;
-                const padding = 20;
-                ctx.globalAlpha = opacity;
-                
-                let x = canvas.width - logoSize - padding;
-                let y = canvas.height - logoSize - padding;
-
-                if (position === 'top-left') {
-                  x = padding;
-                  y = padding;
-                } else if (position === 'top-right') {
-                  x = canvas.width - logoSize - padding;
-                  y = padding;
-                } else if (position === 'center') {
-                  x = (canvas.width - logoSize) / 2;
-                  y = (canvas.height - logoSize) / 2;
-                } else if (position === 'bottom-left') {
-                  x = padding;
-                  y = canvas.height - logoSize - padding;
-                }
-
-                ctx.drawImage(logoImg, x, y, logoSize, logoSize);
-                ctx.globalAlpha = 1.0;
-                return;
-              } catch (e) {
-                console.error("Failed to load watermark logo, falling back to text", e);
-              }
-            }
-
-            // Fallback to text
-            ctx.globalAlpha = opacity;
-            const fontSize = Math.floor(canvas.width / 20);
-            ctx.font = `bold ${fontSize}px sans-serif`;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'bottom';
-            
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-            ctx.shadowBlur = 10;
-            
-            let x = canvas.width - 20;
-            let y = canvas.height - 20;
-
-            if (position === 'top-left') {
-              ctx.textAlign = 'left';
-              ctx.textBaseline = 'top';
-              x = 20;
-              y = 20;
-            } else if (position === 'top-right') {
-              ctx.textAlign = 'right';
-              ctx.textBaseline = 'top';
-              x = canvas.width - 20;
-              y = 20;
-            } else if (position === 'center') {
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              x = canvas.width / 2;
-              y = canvas.height / 2;
-            } else if (position === 'bottom-left') {
-              ctx.textAlign = 'left';
-              ctx.textBaseline = 'bottom';
-              x = 20;
-              y = canvas.height - 20;
-            }
-
-            ctx.fillText(text, x, y);
-            ctx.globalAlpha = 1.0;
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
-          };
-
-          await drawWatermark();
-
-          canvas.toBlob((blob) => {
-            if (blob) resolve(blob);
-            else reject(new Error("Blob conversion failed"));
-          }, 'image/jpeg', 0.9);
-        } catch (err) {
-          reject(err);
-        }
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        reject(new Error("Failed to load image"));
-      };
-    });
   };
 
   const handleFiles = (files: FileList | null) => {

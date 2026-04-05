@@ -31,7 +31,7 @@ export const NotificationsLog: React.FC<NotificationsLogProps> = ({ onBack }) =>
       setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() } as Notification)));
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'notifications');
+      handleFirestoreError(error, OperationType.LIST, 'notifications', false);
       setLoading(false);
     });
     return () => unsub();

@@ -71,6 +71,7 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
       }
     } catch (error) {
       console.error("Error getting price insight:", error);
+      // Optionally handle with handleFirestoreError
     } finally {
       setIsAnalyzingPrice(false);
     }
@@ -98,6 +99,7 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
       onClose();
     } catch (error) {
       console.error("Error sending quote:", error);
+      // Error is likely handled in onSendQuote, but good to have here too
     } finally {
       setIsSendingQuote(false);
     }

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { auth, db } from '../../../core/firebase';
+import { auth, db, storage } from '../../../core/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { UserProfile, BrandingPreferences } from '../../../core/types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Palette, Layout, Type, Sparkles, Save, RotateCcw, ChevronLeft, Wand2, Loader2 } from 'lucide-react';
+import { Palette, Layout, Type, Sparkles, Save, RotateCcw, ChevronLeft, Wand2, Loader2, Upload, Image as ImageIcon, X } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { useBranding } from '../../../core/providers/BrandingProvider';
 import { generateBrandingSuggestions, generateSupplierLogo } from '../../../core/services/geminiService';
@@ -23,6 +24,7 @@ const DEFAULT_BRANDING: BrandingPreferences = {
 
 const BrandingSettings: React.FC<BrandingSettingsProps> = ({ onBack }) => {
   const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
   const { branding: globalBranding, updateBranding } = useBranding();
   const [branding, setBranding] = useState<BrandingPreferences>(globalBranding || DEFAULT_BRANDING);
   const [savedBranding, setSavedBranding] = useState<BrandingPreferences>(globalBranding || DEFAULT_BRANDING);
@@ -112,6 +114,43 @@ const BrandingSettings: React.FC<BrandingSettingsProps> = ({ onBack }) => {
   };
 
   const [isLogoLoading, setIsLogoLoading] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingWatermark, setIsUploadingWatermark] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'watermark') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage(i18n.language === 'ar' ? 'حجم الملف كبير جداً (الحد الأقصى 2 ميجابايت)' : 'File too large (max 2MB)');
+      return;
+    }
+
+    if (type === 'logo') setIsUploadingLogo(true);
+    else setIsUploadingWatermark(true);
+
+    try {
+      const storageRef = ref(storage, `site/${type}_${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      
+      if (type === 'logo') {
+        // Update both settings/site logoUrl and branding if needed
+        await setDoc(doc(db, 'settings', 'site'), { logoUrl: url }, { merge: true });
+      } else {
+        await setDoc(doc(db, 'settings', 'site'), { watermarkUrl: url }, { merge: true });
+      }
+      
+      setMessage(i18n.language === 'ar' ? 'تم رفع الملف بنجاح' : 'File uploaded successfully');
+    } catch (error) {
+      console.error(`Error uploading ${type}:`, error);
+      setMessage(i18n.language === 'ar' ? 'فشل رفع الملف' : 'Failed to upload file');
+    } finally {
+      if (type === 'logo') setIsUploadingLogo(false);
+      else setIsUploadingWatermark(false);
+    }
+  };
+
   const handleGenerateLogo = async () => {
     if (!userProfile?.companyName) {
       setMessage(i18n.language === 'ar' ? 'يرجى إكمال ملفك الشخصي وإضافة اسم الشركة أولاً' : 'Please complete your profile and add company name first');
@@ -281,6 +320,48 @@ const BrandingSettings: React.FC<BrandingSettingsProps> = ({ onBack }) => {
                 )}
                 {i18n.language === 'ar' ? 'اقتراح شعار' : 'Suggest Logo'}
               </button>
+            </div>
+          </section>
+
+          {/* Assets Section */}
+          <section className="bg-brand-surface p-6 rounded-3xl border border-brand-border shadow-sm">
+            <div className="flex items-center gap-2 mb-6 text-brand-primary">
+              <ImageIcon size={20} />
+              <h2 className="font-bold">{i18n.language === 'ar' ? 'الأصول البصرية' : 'Visual Assets'}</h2>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Logo Upload */}
+              <div className="flex items-center gap-4 p-4 bg-brand-background rounded-2xl border border-brand-border group">
+                <div className="w-16 h-16 rounded-xl bg-brand-surface border border-brand-border flex items-center justify-center overflow-hidden relative">
+                  <ImageIcon size={24} className="text-brand-text-muted/20" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold text-brand-text-main">{isRtl ? 'شعار الموقع' : 'Site Logo'}</h4>
+                  <p className="text-[10px] text-brand-text-muted mb-3">{isRtl ? 'يظهر في الهيدر وصفحات التحميل' : 'Appears in header and loading pages'}</p>
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary/20 transition-all">
+                    {isUploadingLogo ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                    {isRtl ? 'رفع الشعار' : 'Upload Logo'}
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} disabled={isUploadingLogo} />
+                  </label>
+                </div>
+              </div>
+
+              {/* Watermark Upload */}
+              <div className="flex items-center gap-4 p-4 bg-brand-background rounded-2xl border border-brand-border group">
+                <div className="w-16 h-16 rounded-xl bg-brand-surface border border-brand-border flex items-center justify-center overflow-hidden relative">
+                  <Sparkles size={24} className="text-brand-text-muted/20" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold text-brand-text-main">{isRtl ? 'العلامة المائية' : 'Watermark'}</h4>
+                  <p className="text-[10px] text-brand-text-muted mb-3">{isRtl ? 'تظهر كخلفية فنية في التطبيق' : 'Appears as artistic background'}</p>
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-brand-secondary/10 text-brand-secondary rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-brand-secondary/20 transition-all">
+                    {isUploadingWatermark ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                    {isRtl ? 'رفع العلامة' : 'Upload Watermark'}
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'watermark')} disabled={isUploadingWatermark} />
+                  </label>
+                </div>
+              </div>
             </div>
           </section>
 

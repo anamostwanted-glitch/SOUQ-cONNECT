@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { UserProfile, Category, AppFeatures, MarketplaceItem } from '../../../core/types';
 import { db, auth } from '../../../core/firebase';
-import { doc, getDoc, collection, getDocs, updateDoc, arrayUnion, arrayRemove, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, updateDoc, arrayUnion, arrayRemove, query, where, increment } from 'firebase/firestore';
 import { verifyBeforeUpdateEmail } from 'firebase/auth';
 import { NotificationSettings } from '../../../shared/components/NotificationSettings';
 import { CustomerProfileLayout, SupplierProfileLayout, AdminProfileLayout } from './ProfileLayouts';
+import { ProductDetailsModal } from '../../../shared/components/ProductDetailsModal';
 import { 
   User, Building2, Phone, Mail, Globe, MapPin, Tag, ArrowLeft, Edit2, 
   Check, X, Save, Camera, UserPlus, UserMinus, Sparkles, ShieldCheck, 
@@ -92,6 +93,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
   const [isGeneratingLogo, setIsGeneratingLogo] = useState(false);
   const [generatedLogoPreview, setGeneratedLogoPreview] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -252,22 +254,40 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
     
     // Optimistic UI update
     const previousState = isFollowing;
+    const previousCount = profile.followersCount || 0;
+    
     setIsFollowing(!previousState);
+    setProfile({
+      ...profile,
+      followersCount: previousState ? Math.max(0, previousCount - 1) : previousCount + 1
+    });
     
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
+      const targetRef = doc(db, 'users', profile.uid);
+      
       if (previousState) {
         await updateDoc(userRef, {
           following: arrayRemove(profile.uid)
+        });
+        await updateDoc(targetRef, {
+          followersCount: increment(-1)
         });
       } else {
         await updateDoc(userRef, {
           following: arrayUnion(profile.uid)
         });
+        await updateDoc(targetRef, {
+          followersCount: increment(1)
+        });
       }
     } catch (error) {
       // Revert on failure
       setIsFollowing(previousState);
+      setProfile({
+        ...profile,
+        followersCount: previousCount
+      });
       handleFirestoreError(error, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
     }
   };
@@ -703,7 +723,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
     getCategoryIcon, getCategoryProductCount, getAICategoryDescription,
     handleCategoryClick,
     isChangingEmail, setIsChangingEmail, newEmail, setNewEmail,
-    emailChangeStatus, emailChangeMessage, handleEmailChange
+    emailChangeStatus, emailChangeMessage, handleEmailChange,
+    onViewProduct: setSelectedItem
   };
 
   return (
@@ -711,6 +732,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
       {profile.role === 'customer' && <CustomerProfileLayout {...layoutProps} />}
       {profile.role === 'supplier' && <SupplierProfileLayout {...layoutProps} />}
       {profile.role === 'admin' && <AdminProfileLayout {...layoutProps} />}
+      
+      <AnimatePresence>
+        {selectedItem && (
+          <ProductDetailsModal
+            item={selectedItem}
+            onClose={() => setSelectedItem(null)}
+            onContactSeller={() => {
+              setSelectedItem(null);
+            }}
+            onViewProfile={(uid) => {
+              if (uid === userId) {
+                setSelectedItem(null);
+              } else {
+                // Navigate to another profile if needed
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
       
       {/* Generated Logo Preview Modal */}
         {/* Generated Logo Preview Modal */}

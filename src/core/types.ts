@@ -42,7 +42,12 @@ export interface UserProfile {
   verificationDocUrl?: string;
   isVerified?: boolean;
   verificationDetails?: string;
+  verificationExpiryDate?: string;
+  trustScore?: number;
+  followersCount?: number;
+  followingCount?: number;
   logoGenerationUsage?: { count: number; month: string };
+  followers?: string[];
   following?: string[];
   isOnline?: boolean;
   averageResponseTime?: number;
@@ -285,8 +290,40 @@ export interface SiteSettings {
   primaryTextColor?: string;
   secondaryTextColor?: string;
   enableNeuralPulse?: boolean;
+  enableOrbitalRings?: boolean;
+  enableShimmerEffect?: boolean;
+  animationSpeed?: 'slow' | 'normal' | 'fast';
+  loaderCenterText?: string;
+  loaderStatusTextAr?: string;
+  loaderStatusTextEn?: string;
+  loaderFooterTextAr?: string;
+  loaderFooterTextEn?: string;
   watermarkOpacity?: number;
   watermarkPosition?: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-right';
+  watermarkScale?: number;
+  logoAuraBlur?: number;
+  logoAuraSpread?: number;
+  logoAuraOpacity?: number;
+  logoAuraStyle?: 'solid' | 'gradient' | 'pulse' | 'mesh';
+  logoAuraSharpness?: number;
+
+  // New Loading Screen Settings
+  loaderBackgroundStyle?: 'solid' | 'gradient' | 'mesh' | 'animated';
+  loaderBackgroundColor?: string;
+  loaderProgressBarColor?: string;
+  loaderLogoShape?: 'square' | 'circle' | 'squircle';
+  loaderLogoAnimation?: 'none' | 'bounce' | 'rotate' | 'scale' | 'float';
+  loaderLogoUrl?: string;
+
+  // Header specific settings
+  headerLogoScale?: number;
+  headerLogoAuraColor?: string;
+  headerShowNeuralLogo?: boolean;
+  headerLogoAuraBlur?: number;
+  headerLogoAuraSpread?: number;
+  headerLogoAuraOpacity?: number;
+  headerLogoAuraStyle?: 'solid' | 'gradient' | 'pulse' | 'mesh';
+  headerLogoAuraSharpness?: number;
 }
 
 export interface GeminiApiKey {

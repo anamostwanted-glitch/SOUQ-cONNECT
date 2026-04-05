@@ -6,6 +6,7 @@ import {
   Star, Building2, Sparkles, Package, Trash2
 } from 'lucide-react';
 import { doc, updateDoc, collection, query, where, getDocs, addDoc, getDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { db } from '../../../core/firebase';
 import { ProductRequest, UserProfile } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
@@ -66,7 +67,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
   // Fetch suppliers for this request
   useEffect(() => {
     if (suppliers.length === 0) {
-      fetchSuppliers();
+      fetchSuppliers().catch(err => console.error("Unhandled fetchSuppliers error:", err));
     }
   }, []);
 
@@ -90,7 +91,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
       
       setSuppliers(relevantSuppliers);
     } catch (error) {
-      console.error("Error fetching suppliers:", error);
+      handleFirestoreError(error, OperationType.LIST, 'users (suppliers)', false);
     }
   };
 
@@ -121,7 +122,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
         onOpenChat(newChat.id);
       }
     } catch (error) {
-      console.error("Error starting chat:", error);
+      handleFirestoreError(error, OperationType.WRITE, 'chats', false);
     } finally {
       setChatLoading(false);
     }
@@ -143,7 +144,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
         request.pinnedSupplierIds = newPinned;
       }
     } catch (error) {
-      console.error("Error pinning supplier:", error);
+      handleFirestoreError(error, OperationType.UPDATE, `requests/${request.id}`, false);
     }
   };
 
@@ -153,7 +154,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
       // Call AI service to suggest more suppliers
       // This is a mock implementation based on the legacy dashboard
       await new Promise(resolve => setTimeout(resolve, 1500));
-      fetchSuppliers(); // Refresh the list
+      fetchSuppliers().catch(err => console.error("Unhandled fetchSuppliers error in handleSuggestMoreSuppliers:", err)); // Refresh the list
     } catch (error) {
       console.error("Error suggesting suppliers:", error);
     } finally {

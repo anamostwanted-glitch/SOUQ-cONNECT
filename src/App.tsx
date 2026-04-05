@@ -14,6 +14,8 @@ import Dashboard from './modules/site/components/Dashboard';
 import { ProfileView } from './modules/site/components/ProfileView';
 import { handleFirestoreError, OperationType } from './core/utils/errorHandling';
 
+import { PageLoader } from './shared/components/PageLoader';
+
 export default function App() {
   const [currentView, setView] = useState('home');
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -27,6 +29,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<UserRole>('customer');
   const [uiStyle, setUiStyle] = useState<'classic' | 'minimal'>('classic');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [supplierTab, setSupplierTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
 
@@ -45,7 +48,7 @@ export default function App() {
           }
           setLoading(false);
         }, (error) => {
-          handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+          handleFirestoreError(error, OperationType.GET, `users/${user.uid}`, false);
           setLoading(false);
         });
       } else {
@@ -53,6 +56,9 @@ export default function App() {
         setLoading(false);
         if (unsubscribeUser) unsubscribeUser();
       }
+    }, (error) => {
+      console.error("Auth state change error:", error);
+      setLoading(false);
     });
 
     return () => {
@@ -62,7 +68,7 @@ export default function App() {
   }, []);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-brand-background">Loading...</div>;
+    return <PageLoader />;
   }
 
   const renderView = () => {
@@ -73,7 +79,7 @@ export default function App() {
             profile={profile} 
             onNavigate={setView} 
             onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
-            onViewProfile={(uid) => { /* handle profile view */ }}
+            onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
             viewMode={viewMode as any}
             uiStyle={uiStyle}
           />
@@ -88,7 +94,7 @@ export default function App() {
             profile={profile} 
             features={features}
             onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
-            onViewProfile={(uid) => { /* handle profile view */ }}
+            onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
             viewMode={viewMode as any}
           />
         );
@@ -120,13 +126,23 @@ export default function App() {
             supplierTab={supplierTab}
             setSupplierTab={setSupplierTab}
             onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
-            onViewProfile={(uid) => { /* handle profile view */ }}
+            onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
             viewMode={viewMode as any}
             uiStyle={uiStyle}
           />
         );
       case 'profile':
-        return <ProfileView profile={profile} features={features} onBack={() => setView('home')} />;
+        return (
+          <ProfileView 
+            userId={selectedProfileId || profile?.uid} 
+            profile={selectedProfileId ? null : profile} 
+            features={features} 
+            onBack={() => {
+              setSelectedProfileId(null);
+              setView('home');
+            }} 
+          />
+        );
       default:
         return <Home profile={profile} onNavigate={setView} viewMode={viewMode as any} uiStyle={uiStyle} />;
     }

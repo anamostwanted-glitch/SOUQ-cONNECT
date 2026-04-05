@@ -10,6 +10,12 @@ interface HeaderProps {
   siteLogo: string;
   siteName: string;
   logoAuraColor?: string;
+  logoAuraBlur?: number;
+  logoAuraSpread?: number;
+  logoAuraOpacity?: number;
+  logoAuraStyle?: 'solid' | 'gradient' | 'pulse' | 'mesh';
+  logoAuraSharpness?: number;
+  logoScale?: number;
   showNeuralLogo?: boolean;
   currentView: string;
   setView: (view: any) => void;
@@ -40,6 +46,12 @@ export const Header: React.FC<HeaderProps> = ({
   siteLogo,
   siteName,
   logoAuraColor = '#1b97a7',
+  logoAuraBlur = 20,
+  logoAuraSpread = 1.2,
+  logoAuraOpacity = 0.4,
+  logoAuraStyle = 'solid',
+  logoAuraSharpness = 50,
+  logoScale = 1,
   showNeuralLogo = true,
   currentView,
   setView,
@@ -79,14 +91,30 @@ export const Header: React.FC<HeaderProps> = ({
           >
             {showNeuralLogo && (
               <motion.div 
-                animate={{ 
-                  scale: [1, 1.2, 1],
-                  opacity: [0.2, 0.4, 0.2],
+                animate={logoAuraStyle === 'pulse' ? {
+                  scale: [1, logoAuraSpread, 1],
+                  opacity: [logoAuraOpacity * 0.5, logoAuraOpacity, logoAuraOpacity * 0.5],
+                } : logoAuraStyle === 'mesh' ? {
+                  scale: [1, 1.1, 1],
+                  rotate: [0, 90, 180, 270, 360],
+                  borderRadius: ["40% 60% 70% 30% / 40% 50% 60% 50%", "60% 40% 30% 70% / 50% 60% 40% 60%", "40% 60% 70% 30% / 40% 50% 60% 50%"]
+                } : { 
+                  scale: [1, 1.05, 1],
+                  opacity: [logoAuraOpacity * 0.8, logoAuraOpacity, logoAuraOpacity * 0.8],
                 }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute inset-0 rounded-full blur-xl pointer-events-none z-0"
+                transition={{ 
+                  duration: logoAuraStyle === 'pulse' ? 3 : 8, 
+                  repeat: Infinity, 
+                  ease: "easeInOut" 
+                }}
+                className="absolute inset-0 rounded-full pointer-events-none z-0"
                 style={{ 
-                  backgroundColor: logoAuraColor,
+                  backgroundColor: logoAuraStyle === 'solid' ? logoAuraColor : 'transparent',
+                  backgroundImage: logoAuraStyle === 'gradient' ? `radial-gradient(circle, ${logoAuraColor} 0%, transparent 70%)` : 
+                                   logoAuraStyle === 'mesh' ? `conic-gradient(from 0deg, ${logoAuraColor}, ${logoAuraColor}88, ${logoAuraColor}44, ${logoAuraColor}88, ${logoAuraColor})` : 'none',
+                  filter: `blur(${logoAuraBlur}px) contrast(${100 + (logoAuraSharpness - 50) * 2}%)`,
+                  opacity: logoAuraOpacity,
+                  transform: `scale(${logoAuraSpread})`,
                   boxShadow: logoAuraColor.toLowerCase() === '#ffffff' ? '0 0 20px 2px rgba(0,0,0,0.05)' : 'none'
                 }}
               />
@@ -97,6 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
                   src={siteLogo} 
                   alt="Logo" 
                   className="h-10 w-auto object-contain drop-shadow-sm" 
+                  style={{ transform: `scale(${logoScale})` }}
                   referrerPolicy="no-referrer" 
                 />
               ) : (

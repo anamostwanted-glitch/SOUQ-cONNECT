@@ -8,9 +8,10 @@ import {
   MessageSquare, Heart, Share2, MoreHorizontal, Settings, Activity,
   ShoppingBag, Star, TrendingUp, Award, RefreshCw, Lightbulb,
   LayoutDashboard, Package, Bookmark, Receipt, BarChart2,
-  Hammer, Zap, Droplets, Wrench, Briefcase, Cpu, Layers, Monitor, ChevronRight, Plus
+  Hammer, Zap, Droplets, Wrench, Briefcase, Cpu, Layers, Monitor, ChevronRight, Plus, Users
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { SupplierStorefront } from '../../vendor/components/SupplierStorefront';
 import { Avatar, AvatarFallback, AvatarImage } from "../../../shared/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../shared/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../../shared/components/ui/card";
@@ -226,7 +227,7 @@ export const SupplierProfileLayout = (props: any) => {
     handleOptimizeProfile, isOptimizing, onBack, t, i18n, supplierProducts,
     handleGenerateAILogo, isGeneratingLogo, isVerifying, handleVerifyDocument, verificationError,
     categories, editCategories, handleCategoryToggle, isSuggestingCategories, handleSuggestCategories,
-    activeCategoryTab, setActiveCategoryTab
+    activeCategoryTab, setActiveCategoryTab, onViewProduct, handleFollow, isFollowing
   } = props;
   const isRtl = i18n.language === 'ar';
 
@@ -331,8 +332,16 @@ export const SupplierProfileLayout = (props: any) => {
                     </Badge>
                   )}
                   <Badge variant="outline" className="bg-brand-surface border-brand-border text-brand-text-muted font-medium px-3 py-1">
+                    <Users size={14} className="mr-1 rtl:ml-1 rtl:mr-0 inline-block text-brand-primary" />
+                    {profile.followersCount || 0} {isRtl ? 'متابع' : 'Followers'}
+                  </Badge>
+                  <Badge variant="outline" className="bg-brand-surface border-brand-border text-brand-text-muted font-medium px-3 py-1">
                     <Star size={14} className="mr-1 rtl:ml-1 rtl:mr-0 inline-block text-brand-warning" />
                     4.8 (120)
+                  </Badge>
+                  <Badge variant="outline" className="bg-brand-primary/10 border-brand-primary/20 text-brand-primary font-black px-3 py-1 animate-pulse">
+                    <ShoppingBag size={14} className="mr-1 rtl:ml-1 rtl:mr-0 inline-block" />
+                    {isRtl ? 'متجر نشط' : 'Active Store'}
                   </Badge>
                 </div>
               </div>
@@ -382,9 +391,16 @@ export const SupplierProfileLayout = (props: any) => {
                       <MessageSquare size={18} />
                       {isRtl ? 'مراسلة' : 'Message'}
                     </HapticButton>
-                    <HapticButton className="flex-1 py-3 bg-brand-surface text-brand-text-main border border-brand-border rounded-xl font-bold shadow-sm hover:border-brand-primary/30 hover:shadow-md transition-all flex items-center justify-center gap-2">
-                      <UserPlus size={18} />
-                      {isRtl ? 'متابعة' : 'Follow'}
+                    <HapticButton 
+                      onClick={handleFollow}
+                      className={`flex-1 py-3 rounded-xl font-bold shadow-sm transition-all flex items-center justify-center gap-2 ${
+                        isFollowing 
+                          ? 'bg-brand-surface text-brand-text-muted border border-brand-border' 
+                          : 'bg-brand-surface text-brand-text-main border border-brand-border hover:border-brand-primary/30'
+                      }`}
+                    >
+                      {isFollowing ? <UserMinus size={18} /> : <UserPlus size={18} />}
+                      {isFollowing ? (isRtl ? 'إلغاء المتابعة' : 'Following') : (isRtl ? 'متابعة' : 'Follow')}
                     </HapticButton>
                   </div>
                 )}
@@ -412,106 +428,105 @@ export const SupplierProfileLayout = (props: any) => {
 
             {/* Main Content Area */}
             <div className="flex-1 w-full mt-8 md:mt-24">
-              {/* AI Bio Section */}
-              <div className="bg-brand-surface/50 backdrop-blur-sm rounded-[2.5rem] p-8 border border-brand-border shadow-sm mb-8 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-brand-primary/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
-                
-                <div className="flex justify-between items-start mb-4 relative z-10">
-                  <h3 className="text-lg font-black text-brand-text-main flex items-center gap-2">
-                    <FileText size={20} className="text-brand-primary" />
-                    {isRtl ? 'نبذة عن الشركة' : 'About Company'}
-                  </h3>
-                  {isOwner && isEditing && (
-                    <HapticButton 
-                      onClick={handleOptimizeProfile}
-                      disabled={isOptimizing}
-                      className="px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-xl text-xs font-bold hover:bg-brand-primary/20 transition-colors flex items-center gap-2"
-                    >
-                      {isOptimizing ? <RefreshCw size={14} className="animate-spin" /> : <Wand2 size={14} />}
-                      {isRtl ? 'تحسين بالذكاء الاصطناعي' : 'Optimize with AI'}
-                    </HapticButton>
-                  )}
-                </div>
-
-                {isEditing ? (
-                  <textarea 
-                    value={editBio} 
-                    onChange={e => setEditBio(e.target.value)}
-                    className="w-full h-32 bg-brand-background border border-brand-border rounded-2xl p-4 text-sm text-brand-text-main focus:ring-2 focus:ring-brand-primary/50 outline-none resize-none shadow-inner relative z-10"
-                    placeholder={isRtl ? 'اكتب نبذة عن شركتك...' : 'Write about your company...'}
-                  />
-                ) : (
-                  <p className="text-sm text-brand-text-muted leading-relaxed relative z-10">
-                    {profile.bio || (isRtl ? 'لم يتم إضافة نبذة بعد.' : 'No bio added yet.')}
-                  </p>
-                )}
-              </div>
-
-              {/* Categories Section */}
-              {isEditing && (
-                <div className="bg-brand-surface/50 backdrop-blur-sm rounded-[2.5rem] p-8 border border-brand-border shadow-sm mb-8 relative z-10">
-                  <h3 className="text-lg font-black text-brand-text-main flex items-center gap-2 mb-6">
-                    <Layers size={20} className="text-brand-primary" />
-                    {isRtl ? 'فئات المنتجات' : 'Product Categories'}
-                  </h3>
-                  <AICategorySelector
-                    categories={categories}
-                    selectedCategoryIds={editCategories}
-                    onChange={props.setEditCategories}
-                    isRtl={isRtl}
-                  />
-                </div>
-              )}
-
               {/* Swipeable Tabs */}
-              <Tabs defaultValue="portfolio" className="w-full">
+              <Tabs defaultValue="store" className="w-full">
                 <TabsList className="w-full justify-start bg-transparent border-b border-brand-border rounded-none p-0 h-auto overflow-x-auto flex-nowrap hide-scrollbar mb-8">
-                  <TabsTrigger value="portfolio" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-brand-primary data-[state=active]:text-brand-primary rounded-none px-6 py-4 text-sm font-bold text-brand-text-muted hover:text-brand-text-main transition-colors whitespace-nowrap">
-                    <Package size={16} className="mr-2 rtl:ml-2 rtl:mr-0 inline-block" />
-                    {isRtl ? 'المنتجات والأعمال' : 'Products & Portfolio'}
+                  <TabsTrigger value="store" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-brand-primary data-[state=active]:text-brand-primary rounded-none px-6 py-4 text-sm font-bold text-brand-text-muted hover:text-brand-text-main transition-colors whitespace-nowrap">
+                    <ShoppingBag size={16} className="mr-2 rtl:ml-2 rtl:mr-0 inline-block" />
+                    {isRtl ? 'المتجر' : 'Store'}
                   </TabsTrigger>
-                  <TabsTrigger value="offers" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-brand-primary data-[state=active]:text-brand-primary rounded-none px-6 py-4 text-sm font-bold text-brand-text-muted hover:text-brand-text-main transition-colors whitespace-nowrap">
-                    <Receipt size={16} className="mr-2 rtl:ml-2 rtl:mr-0 inline-block" />
-                    {isRtl ? 'العروض النشطة' : 'Active Offers'}
+                  <TabsTrigger value="about" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-brand-primary data-[state=active]:text-brand-primary rounded-none px-6 py-4 text-sm font-bold text-brand-text-muted hover:text-brand-text-main transition-colors whitespace-nowrap">
+                    <Building2 size={16} className="mr-2 rtl:ml-2 rtl:mr-0 inline-block" />
+                    {isRtl ? 'عن المورد' : 'About'}
                   </TabsTrigger>
                   <TabsTrigger value="reviews" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-brand-primary data-[state=active]:text-brand-primary rounded-none px-6 py-4 text-sm font-bold text-brand-text-muted hover:text-brand-text-main transition-colors whitespace-nowrap">
                     <Star size={16} className="mr-2 rtl:ml-2 rtl:mr-0 inline-block" />
                     {isRtl ? 'التقييمات' : 'Reviews'}
                   </TabsTrigger>
+                  {isOwner && (
+                    <TabsTrigger value="settings" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-brand-primary data-[state=active]:text-brand-primary rounded-none px-6 py-4 text-sm font-bold text-brand-text-muted hover:text-brand-text-main transition-colors whitespace-nowrap">
+                      <Settings size={16} className="mr-2 rtl:ml-2 rtl:mr-0 inline-block" />
+                      {isRtl ? 'الإعدادات' : 'Settings'}
+                    </TabsTrigger>
+                  )}
                 </TabsList>
 
-                <TabsContent value="portfolio" className="outline-none">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {supplierProducts && supplierProducts.length > 0 ? (
-                      supplierProducts.map((product: MarketplaceItem) => (
-                        <div key={product.id} className="aspect-square bg-brand-surface rounded-2xl border border-brand-border overflow-hidden group relative cursor-pointer">
-                          <img src={product.images?.[0] || 'https://picsum.photos/seed/product/400/400'} alt={product.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                            <h4 className="text-white font-bold text-sm truncate">{product.title}</h4>
-                            <p className="text-white/80 text-xs font-medium">{product.price} {product.currency}</p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="col-span-full text-center py-20 bg-brand-surface rounded-[2.5rem] border border-brand-border border-dashed">
-                        <Package size={48} className="mx-auto text-brand-text-muted/30 mb-4" />
-                        <p className="text-brand-text-muted font-medium">{isRtl ? 'لا توجد منتجات بعد' : 'No products yet'}</p>
-                      </div>
-                    )}
-                  </div>
+                <TabsContent value="store" className="outline-none">
+                  <SupplierStorefront 
+                    supplier={profile} 
+                    isOwner={isOwner} 
+                    onViewProduct={onViewProduct} 
+                  />
                 </TabsContent>
 
-                <TabsContent value="offers" className="outline-none">
-                  <div className="text-center py-20 bg-brand-surface rounded-[2.5rem] border border-brand-border border-dashed">
-                    <Receipt size={48} className="mx-auto text-brand-text-muted/30 mb-4" />
-                    <p className="text-brand-text-muted font-medium">{isRtl ? 'لا توجد عروض نشطة' : 'No active offers'}</p>
+                <TabsContent value="about" className="outline-none">
+                  {/* AI Bio Section */}
+                  <div className="bg-brand-surface/50 backdrop-blur-sm rounded-[2.5rem] p-8 border border-brand-border shadow-sm mb-8 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-brand-primary/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+                    
+                    <div className="flex justify-between items-start mb-4 relative z-10">
+                      <h3 className="text-lg font-black text-brand-text-main flex items-center gap-2">
+                        <FileText size={20} className="text-brand-primary" />
+                        {isRtl ? 'نبذة عن الشركة' : 'About Company'}
+                      </h3>
+                      {isOwner && isEditing && (
+                        <HapticButton 
+                          onClick={handleOptimizeProfile}
+                          disabled={isOptimizing}
+                          className="px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-xl text-xs font-bold hover:bg-brand-primary/20 transition-colors flex items-center gap-2"
+                        >
+                          {isOptimizing ? <RefreshCw size={14} className="animate-spin" /> : <Wand2 size={14} />}
+                          {isRtl ? 'تحسين بالذكاء الاصطناعي' : 'Optimize with AI'}
+                        </HapticButton>
+                      )}
+                    </div>
+
+                    {isEditing ? (
+                      <textarea 
+                        value={editBio} 
+                        onChange={e => setEditBio(e.target.value)}
+                        className="w-full h-32 bg-brand-background border border-brand-border rounded-2xl p-4 text-sm text-brand-text-main focus:ring-2 focus:ring-brand-primary/50 outline-none resize-none shadow-inner relative z-10"
+                        placeholder={isRtl ? 'اكتب نبذة عن شركتك...' : 'Write about your company...'}
+                      />
+                    ) : (
+                      <p className="text-sm text-brand-text-muted leading-relaxed relative z-10">
+                        {profile.bio || (isRtl ? 'لم يتم إضافة نبذة بعد.' : 'No bio added yet.')}
+                      </p>
+                    )}
                   </div>
+
+                  {/* Categories Section */}
+                  {isEditing && (
+                    <div className="bg-brand-surface/50 backdrop-blur-sm rounded-[2.5rem] p-8 border border-brand-border shadow-sm mb-8 relative z-10">
+                      <h3 className="text-lg font-black text-brand-text-main flex items-center gap-2 mb-6">
+                        <Layers size={20} className="text-brand-primary" />
+                        {isRtl ? 'فئات المنتجات' : 'Product Categories'}
+                      </h3>
+                      <AICategorySelector
+                        categories={categories}
+                        selectedCategoryIds={editCategories}
+                        onChange={props.setEditCategories}
+                        isRtl={isRtl}
+                      />
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="reviews" className="outline-none">
                   <div className="text-center py-20 bg-brand-surface rounded-[2.5rem] border border-brand-border border-dashed">
                     <Star size={48} className="mx-auto text-brand-text-muted/30 mb-4" />
                     <p className="text-brand-text-muted font-medium">{isRtl ? 'لا توجد تقييمات بعد' : 'No reviews yet'}</p>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="settings" className="outline-none">
+                  <div className="bg-brand-surface rounded-[2.5rem] p-8 border border-brand-border shadow-sm">
+                    <h3 className="text-lg font-bold text-brand-text-main mb-6">{isRtl ? 'إعدادات الحساب' : 'Account Settings'}</h3>
+                    {isOwner && (
+                      <div className="space-y-8">
+                        <NotificationSettings profile={profile} onUpdateProfile={() => {}} />
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>

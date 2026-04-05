@@ -32,11 +32,9 @@ export default function Dashboard({
   // Routing based on effective role
   if (effectiveRole === 'admin' || effectiveRole === 'manager' || effectiveRole === 'supervisor') {
     return (
-      <LegacyDashboard
+      <AdminDashboard
         profile={profile}
         features={features}
-        supplierTab={supplierTab}
-        setSupplierTab={setSupplierTab}
         onOpenChat={onOpenChat}
         onViewProfile={onViewProfile}
       />

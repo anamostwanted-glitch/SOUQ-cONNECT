@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MessageCircle, ShieldCheck, Star, MapPin, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { MessageCircle, ShieldCheck, Star, MapPin, MoreVertical, Edit2, Trash2, User, Building2, TrendingUp, ShoppingBag } from 'lucide-react';
 import { MarketplaceItem } from '../../../core/types';
 import { BlurImage } from '../../../shared/components/BlurImage';
 import { WhatsAppButton } from '../../../shared/components/WhatsAppButton';
@@ -11,6 +11,7 @@ interface ProductCardProps {
   item: MarketplaceItem;
   onOpenChat: (sellerId: string) => void;
   onViewDetails: (item: MarketplaceItem) => void;
+  onViewProfile?: (uid: string) => void;
   isOwner?: boolean;
   onEdit?: (item: MarketplaceItem) => void;
   onDelete?: (item: MarketplaceItem) => void;
@@ -21,6 +22,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   item,
   onOpenChat,
   onViewDetails,
+  onViewProfile,
   isOwner,
   onEdit,
   onDelete,
@@ -51,7 +53,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9 }}
       whileHover={{ y: -4 }}
-      className={`relative rounded-3xl overflow-hidden cursor-pointer group ${glassClass}`}
+      className={`relative rounded-3xl overflow-hidden cursor-pointer group ${glassClass} ${
+        item.sellerRole === 'supplier' 
+          ? 'ring-2 ring-brand-primary/20 hover:ring-brand-primary/40' 
+          : 'ring-1 ring-brand-border/50 hover:ring-brand-secondary/30'
+      }`}
       onClick={() => onViewDetails(item)}
     >
       {/* Image Section (4:5 Aspect Ratio) */}
@@ -65,16 +71,27 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Top Badges */}
         <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-10">
           <div className="flex flex-col gap-2">
+            {item.sellerRole === 'supplier' ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-brand-primary/90 backdrop-blur-md text-white text-[10px] font-black shadow-xl border border-white/20 uppercase tracking-wider">
+                <Building2 size={12} />
+                {isRtl ? 'مورد معتمد' : 'Verified Supplier'}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-brand-secondary/90 backdrop-blur-md text-white text-[10px] font-black shadow-xl border border-white/20 uppercase tracking-wider">
+                <User size={12} />
+                {isRtl ? 'بائع مجتمعي' : 'Community Seller'}
+              </span>
+            )}
             {item.isHighQuality && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/90 backdrop-blur-md text-white text-xs font-bold shadow-lg">
-                <Star size={12} className="fill-current" />
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/90 backdrop-blur-md text-white text-[10px] font-black shadow-lg uppercase tracking-wider">
+                <Star size={10} className="fill-current" />
                 HQ
               </span>
             )}
-            {item.isVerifiedSupplier && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-500/90 backdrop-blur-md text-white text-xs font-bold shadow-lg">
-                <ShieldCheck size={12} />
-                {isRtl ? 'موثق' : 'Verified'}
+            {(item.views || 0) > 5 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-500/90 backdrop-blur-md text-white text-[10px] font-black shadow-lg uppercase tracking-wider">
+                <TrendingUp size={10} />
+                {isRtl ? 'رائج' : 'Trending'}
               </span>
             )}
           </div>
@@ -167,16 +184,38 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
       {/* Quick Actions Bar */}
       <div className="p-3 flex items-center justify-between gap-2 bg-white/40 dark:bg-slate-900/40">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div 
+          className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewProfile?.(item.sellerId);
+          }}
+        >
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-inner">
             {(item.sellerName || 'S').charAt(0).toUpperCase()}
           </div>
-          <span className="text-sm font-medium text-brand-text-main truncate">
+          <span className="text-sm font-medium text-brand-text-main truncate flex items-center gap-1">
             {item.sellerName || (isRtl ? 'بائع' : 'Seller')}
+            {item.sellerRole === 'supplier' && (
+              <ShieldCheck size={12} className="text-brand-primary fill-brand-primary/10" />
+            )}
           </span>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {item.sellerRole === 'supplier' && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewProfile?.(item.sellerId);
+              }}
+              className="px-3 py-1.5 bg-brand-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary-hover transition-all shadow-sm flex items-center gap-1.5"
+            >
+              <ShoppingBag size={12} />
+              {isRtl ? 'المتجر' : 'Store'}
+            </button>
+          )}
+          
           <button 
             onClick={(e) => {
               e.stopPropagation();

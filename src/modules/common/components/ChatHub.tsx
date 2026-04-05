@@ -65,6 +65,7 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
               return { id, data: { uid: id, name: 'User', role: 'customer' } as UserProfile };
             } catch (error) {
               console.error('Error fetching user for chat hub:', id, error);
+              handleFirestoreError(error, OperationType.GET, `users/${id}`, false);
               return { id, data: { uid: id, name: 'User', role: 'customer' } as UserProfile };
             }
           });
@@ -94,6 +95,7 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
               return null;
             } catch (error) {
               console.error('Error fetching request for chat hub:', id, error);
+              handleFirestoreError(error, OperationType.GET, `requests/${id}`, false);
               return null;
             }
           });
@@ -113,7 +115,7 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
         setLoading(false);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'chats');
+      handleFirestoreError(error, OperationType.LIST, 'chats', false);
       setLoading(false);
     });
 
