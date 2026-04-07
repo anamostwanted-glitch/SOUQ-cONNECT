@@ -21,7 +21,7 @@ export const getResponseText = (response: any): string => {
 
 const COST_PER_1K_TOKENS = 0.000125; // Estimated cost for Gemini Flash
 
-const callAiJson = async (contents: any, schema: any, model: string = "gemini-1.5-flash") => {
+export const callAiJson = async (contents: any, schema: any, model: string = "gemini-1.5-flash") => {
   return retryWithBackoff(async (apiKey) => {
     const response = await fetch('/api/ai-json', {
       method: 'POST',

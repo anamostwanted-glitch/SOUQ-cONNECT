@@ -16,7 +16,8 @@ import {
   Bell,
   Building2,
   ShieldCheck,
-  Smartphone
+  Smartphone,
+  Activity
 } from 'lucide-react';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { UserProfile, AppFeatures } from '../../../../core/types';
