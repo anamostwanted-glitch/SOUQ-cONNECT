@@ -73,7 +73,7 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
       });
       setIsEditing(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`, false);
     }
   };
 
@@ -97,7 +97,7 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
         deletedAt: new Date().toISOString()
       });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`, false);
     }
   };
 

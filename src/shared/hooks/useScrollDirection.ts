@@ -13,7 +13,7 @@ export function useScrollDirection(ref?: RefObject<HTMLElement>) {
     const element = ref?.current || document.querySelector('main') || window;
     
     const getScrollY = () => {
-      if (element === window) return window.pageYOffset;
+      if (element === window) return window.scrollY;
       if (element instanceof HTMLElement) return element.scrollTop;
       return 0;
     };

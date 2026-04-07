@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X as CloseIcon, Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sun, Moon, Globe, LogOut, Bot, ArrowRight, Sparkles, MessageSquare, BookOpen } from 'lucide-react';
+import { X as CloseIcon, Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sun, Moon, Globe, LogOut, Bot, ArrowRight, Sparkles, MessageSquare, BookOpen, Zap, LayoutGrid } from 'lucide-react';
 import { UserProfile, AppFeatures } from '../../../../core/types';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { signOut } from 'firebase/auth';
@@ -187,10 +187,9 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                 <nav className="flex-1 flex flex-col gap-1.5 overflow-y-auto custom-scrollbar pr-1">
                   {[
                     { id: 'home', label: t('home'), icon: HomeIcon, view: 'home' },
-                    { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard, view: 'dashboard', tab: 'dashboard' },
+                    { id: 'dashboard', label: isRtl ? 'مركز نكسوس' : 'Nexus Center', icon: LayoutGrid, view: 'dashboard', tab: 'dashboard' },
+                    { id: 'nexus', label: isRtl ? 'مكافآت النكسوس' : 'Nexus Rewards', icon: Zap, view: 'nexus' },
                     { id: 'marketing', label: isRtl ? 'التسويق والنمو' : 'Marketing & Growth', icon: Megaphone, view: 'dashboard', tab: 'marketing', condition: profile && viewMode !== 'admin' },
-                    {id: 'marketplace', label: t('marketplace'), icon: ShoppingBag, view: 'marketplace', condition: features.marketplace},
-                    {id: 'profile', label: t('profile'), icon: User, view: 'profile'},
                     {id: 'help', label: isRtl ? 'مركز المساعدة' : 'Help Center', icon: BookOpen, action: onOpenHelpCenter},
                   ].map((item) => {
                     if (item.condition === false) return null;

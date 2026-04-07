@@ -58,7 +58,7 @@ export const VendorOffersList: React.FC<VendorOffersListProps> = ({ profile, onO
         setLoading(false);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'offers');
+      handleFirestoreError(error, OperationType.LIST, 'offers', false);
       setLoading(false);
     });
 
@@ -163,7 +163,7 @@ export const VendorOffersList: React.FC<VendorOffersListProps> = ({ profile, onO
                     onOpenChat(snap.docs[0].id);
                   }
                 };
-                findAndOpenChat();
+                findAndOpenChat().catch(err => console.error("Failed to open chat from offer:", err));
               }}
               className="px-4 py-2 bg-brand-primary/10 text-brand-primary text-xs font-bold rounded-xl hover:bg-brand-primary/20 transition-colors flex items-center gap-2"
             >

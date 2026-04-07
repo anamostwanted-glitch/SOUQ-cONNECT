@@ -33,7 +33,7 @@ export const MarketingManager: React.FC<MarketingManagerProps> = ({ allUsers, is
       });
     } catch (e) {
       console.error("Reset failed:", e);
-      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}`);
+      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}`, false);
     } finally {
       setResetting(null);
     }

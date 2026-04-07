@@ -154,9 +154,12 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
       // Call AI service to suggest more suppliers
       // This is a mock implementation based on the legacy dashboard
       await new Promise(resolve => setTimeout(resolve, 1500));
-      fetchSuppliers().catch(err => console.error("Unhandled fetchSuppliers error in handleSuggestMoreSuppliers:", err)); // Refresh the list
+      fetchSuppliers().catch(err => {
+        console.error("Unhandled fetchSuppliers error in handleSuggestMoreSuppliers:", err);
+        handleFirestoreError(err, OperationType.LIST, 'users (suppliers)', false);
+      }); // Refresh the list
     } catch (error) {
-      console.error("Error suggesting suppliers:", error);
+      handleFirestoreError(error, OperationType.WRITE, 'ai/suggestions', false);
     } finally {
       setIsSuggestingMore(false);
     }

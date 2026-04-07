@@ -30,7 +30,7 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({ prof
       });
       onUpdateProfile({ ...profile, notificationPreferences: newPrefs });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${auth.currentUser.uid}`, false);
     }
   };
 

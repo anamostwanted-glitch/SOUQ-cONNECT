@@ -65,7 +65,7 @@ export const RatingModal: React.FC<RatingModalProps> = ({
       onRateSuccess(ratingValue, reviewText);
       onClose();
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `chats/${chat.id} or users/${otherUser.uid}`);
+      handleFirestoreError(error, OperationType.WRITE, `chats/${chat.id} or users/${otherUser.uid}`, false);
     } finally {
       setIsSubmittingRating(false);
     }

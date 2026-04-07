@@ -41,7 +41,7 @@ export const NotificationsLog: React.FC<NotificationsLogProps> = ({ onBack }) =>
     try {
       await updateDoc(doc(db, 'notifications', id), { read: true });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `notifications/${id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `notifications/${id}`, false);
     }
   };
 
@@ -56,7 +56,7 @@ export const NotificationsLog: React.FC<NotificationsLogProps> = ({ onBack }) =>
       });
       await batch.commit();
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'notifications');
+      handleFirestoreError(error, OperationType.WRITE, 'notifications', false);
     }
   };
 

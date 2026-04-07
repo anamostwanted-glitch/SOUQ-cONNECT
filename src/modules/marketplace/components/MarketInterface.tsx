@@ -9,9 +9,11 @@ import {
   getDocs,
   updateDoc,
   doc,
-  limit
+  limit,
+  writeBatch
 } from 'firebase/firestore';
-import { db, auth } from '../../../core/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, auth, storage } from '../../../core/firebase';
 import { MarketplaceItem, UserProfile, Category, AppFeatures, MarketTrend } from '../../../core/types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -26,8 +28,29 @@ import {
   Heart,
   TrendingUp,
   Star,
-  ShoppingBag
+  ShoppingBag,
+  Zap,
+  BrainCircuit,
+  Shield,
+  ShieldCheck,
+  Package,
+  MapPin,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical,
+  Edit2,
+  Trash2,
+  LayoutGrid,
+  List,
+  ArrowLeft,
+  Mic,
+  Database,
+  Wallet
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { Skeleton } from '../../../shared/components/Skeleton';
 import { HapticButton } from '../../../shared/components/HapticButton';
@@ -37,6 +60,12 @@ import { SmartUploadModal } from './upload-flow/SmartUploadModal';
 import { EditProductModal } from './EditProductModal';
 import { SmartCategoryExplorer } from './SmartCategoryExplorer';
 import { VisualSearchModal } from '../../../shared/components/search/VisualSearchModal';
+import { NeuralPulseBar } from './NeuralPulseBar';
+import { SupplierMosaic } from './SupplierMosaic';
+import { SupplierPulseHorizon } from './SupplierPulseHorizon';
+import { SupplierNebulaLayout } from './SupplierNebulaLayout';
+import { NeuralEconomyHub } from './NeuralEconomyHub';
+import { ProductDiscoveryCanvas } from './ProductDiscoveryCanvas';
 
 interface MarketInterfaceProps {
   profile: UserProfile | null;
@@ -47,6 +76,86 @@ interface MarketInterfaceProps {
 }
 
 import { ScrollDirection, useScrollDirection } from '../../../shared/hooks/useScrollDirection';
+
+const BroadcastBox = ({ t, i18n, allUsers, size = 'default' }: { t: any, i18n: any, allUsers: UserProfile[], size?: 'default' | 'compact' }) => {
+  const [message, setMessage] = useState('');
+  const [title, setTitle] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+
+  const handleSend = async () => {
+    if (!message.trim() || !title.trim()) return;
+    setIsSending(true);
+    try {
+      let fileUrl = '';
+      if (file) {
+        const storageRef = ref(storage, `broadcasts/${Date.now()}_${file.name}`);
+        const uploadTask = await uploadBytes(storageRef, file);
+        fileUrl = await getDownloadURL(uploadTask.ref);
+      }
+
+      const batch = writeBatch(db);
+      allUsers.forEach(user => {
+        const notifRef = doc(collection(db, 'notifications'));
+        batch.set(notifRef, {
+          userId: user.uid,
+          titleAr: title,
+          titleEn: title,
+          bodyAr: message,
+          bodyEn: message,
+          link: fileUrl || '',
+          actionType: 'general',
+          read: false,
+          createdAt: new Date().toISOString()
+        });
+      });
+      await batch.commit();
+      setMessage('');
+      setTitle('');
+      setFile(null);
+      toast.success(i18n.language === 'ar' ? 'تم إرسال الإشعار بنجاح' : 'Notification sent successfully');
+    } catch (error) {
+      console.error(error);
+      toast.error(i18n.language === 'ar' ? 'حدث خطأ أثناء الإرسال' : 'Error sending notification');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <div className={`bg-white dark:bg-slate-800 ${size === 'compact' ? 'p-4' : 'p-6'} rounded-[2rem] border border-brand-border shadow-sm`}>
+      <h3 className={`${size === 'compact' ? 'text-md' : 'text-lg'} font-black text-brand-text-main mb-4`}>{i18n.language === 'ar' ? 'إرسال إشعار جماعي' : 'Broadcast Notification'}</h3>
+      <input 
+        type="text"
+        value={title}
+        onChange={e => setTitle(e.target.value)}
+        placeholder={i18n.language === 'ar' ? 'العنوان' : 'Title'}
+        className={`w-full px-4 ${size === 'compact' ? 'py-2' : 'py-2.5'} bg-brand-surface border border-brand-border rounded-xl mb-3 text-sm`}
+      />
+      <textarea 
+        value={message}
+        onChange={e => setMessage(e.target.value)}
+        placeholder={i18n.language === 'ar' ? 'الرسالة' : 'Message'}
+        className={`w-full px-4 ${size === 'compact' ? 'py-2' : 'py-2.5'} bg-brand-surface border border-brand-border rounded-xl mb-3 text-sm`}
+        rows={size === 'compact' ? 2 : 3}
+      />
+      <div className="mb-3">
+        <input 
+          type="file"
+          onChange={e => setFile(e.target.files?.[0] || null)}
+          className="w-full text-xs text-brand-text-muted file:mr-2 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-brand-primary/10 file:text-brand-primary hover:file:bg-brand-primary/20"
+        />
+      </div>
+      <HapticButton
+        onClick={handleSend}
+        disabled={isSending}
+        className={`w-full bg-brand-primary text-white ${size === 'compact' ? 'py-2' : 'py-2.5'} rounded-xl font-bold text-sm hover:bg-brand-primary-hover transition-all shadow-lg shadow-brand-primary/20 disabled:opacity-50`}
+      >
+        {isSending ? (i18n.language === 'ar' ? 'جاري الإرسال...' : 'Sending...') : (i18n.language === 'ar' ? 'إرسال' : 'Send')}
+      </HapticButton>
+    </div>
+  );
+};
 
 export const MarketInterface: React.FC<MarketInterfaceProps> = ({ 
   profile, 
@@ -96,18 +205,44 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSmartCategories, setShowSmartCategories] = useState(false);
   const [showVisualSearch, setShowVisualSearch] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  const [showAdminHub, setShowAdminHub] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [visualSearchResults, setVisualSearchResults] = useState<MarketplaceItem[] | null>(null);
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
   const [activeTab, setActiveTab] = useState<'discover' | 'myshop'>('discover');
+  const [supplierLayout, setSupplierLayout] = useState<'mosaic' | 'horizon' | 'nebula'>('nebula');
+  const [showEconomyHub, setShowEconomyHub] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<MarketplaceItem | null>(null);
   const [editingItem, setEditingItem] = useState<MarketplaceItem | null>(null);
   const [sellerTypeFilter, setSellerTypeFilter] = useState<'all' | 'supplier' | 'customer' | 'followed'>('all');
   const [categoryClicks, setCategoryClicks] = useState<Record<string, number>>({});
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([]);
   const [smartInsight, setSmartInsight] = useState<{ ar: string; en: string } | null>(null);
+  const [neuralPulse, setNeuralPulse] = useState<{ ar: string; en: string } | null>(null);
+  const [isNeuralPulseLoading, setIsNeuralPulseLoading] = useState(false);
+  const [showPulseBar, setShowPulseBar] = useState(true);
+  const [viewStyle, setViewStyle] = useState<'grid' | 'canvas'>('canvas');
+  const [restoreBtnPos, setRestoreBtnPos] = useState(() => {
+    const saved = localStorage.getItem('pulse_restore_pos');
+    return saved ? JSON.parse(saved) : { x: 0, y: 0 };
+  });
   
   const effectiveRole = viewMode || profile?.role;
   const isAdmin = effectiveRole === 'admin';
+  const isSupplier = effectiveRole === 'supplier';
+  const isCustomer = effectiveRole === 'customer';
+
+  // Reset view state when role changes (for admin testing)
+  useEffect(() => {
+    if (isCustomer) {
+      setActiveTab('discover');
+      setShowAdminHub(false);
+      setShowEconomyHub(false);
+    } else if (isSupplier) {
+      setShowAdminHub(false);
+    }
+  }, [effectiveRole, isCustomer, isSupplier]);
 
   useEffect(() => {
     const q = activeTab === 'myshop' && auth.currentUser
@@ -160,7 +295,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
         });
         setCategories(sorted);
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'categories');
+        handleFirestoreError(error, OperationType.LIST, 'categories', false);
       }
     };
 
@@ -175,6 +310,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     };
     
     const fetchSuppliers = async () => {
+      if (!auth.currentUser) return;
       try {
         const q = query(collection(db, 'users'), where('role', '==', 'supplier'), limit(10));
         const snap = await getDocs(q);
@@ -188,6 +324,90 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     fetchCategories().catch(err => console.error("Unhandled fetchCategories error:", err));
     fetchTrends().catch(err => console.error("Unhandled fetchTrends error:", err));
     fetchSuppliers().catch(err => console.error("Unhandled fetchSuppliers error:", err));
+
+    // Fetch Neural Pulse Insights
+    const fetchNeuralPulse = async () => {
+      setIsNeuralPulseLoading(true);
+      try {
+        // Analyze current items to generate dynamic insights
+        const categoryCounts: Record<string, number> = {};
+        let totalViews = 0;
+        let mostExpensiveItem: MarketplaceItem | null = null;
+        let newestItem: MarketplaceItem | null = null;
+
+        items.forEach(item => {
+          if (item.categories?.[0]) {
+            categoryCounts[item.categories[0]] = (categoryCounts[item.categories[0]] || 0) + 1;
+          }
+          totalViews += (item.views || 0);
+          if (!mostExpensiveItem || item.price > mostExpensiveItem.price) mostExpensiveItem = item;
+          if (!newestItem || new Date(item.createdAt) > new Date(newestItem.createdAt)) newestItem = item;
+        });
+
+        // Special case for empty market
+        if (items.length === 0) {
+          const emptyInsights = [
+            { ar: 'السوق جديد وهادئ.. كن أول من يضيف منتجاً اليوم!', en: 'The market is new and quiet.. Be the first to add a product today!' },
+            { ar: 'نصيحة: إضافة صور واضحة تزيد من فرص البيع بنسبة 50%.', en: 'Tip: Adding clear photos increases sales chances by 50%.' },
+            { ar: 'ابدأ تجارتك الآن بضغطة زر واحدة من قائمة الإجراءات.', en: 'Start your trade now with a single click from the actions menu.' }
+          ];
+          const randomEmpty = emptyInsights[Math.floor(Math.random() * emptyInsights.length)];
+          setNeuralPulse(randomEmpty);
+          setIsNeuralPulseLoading(false);
+          return;
+        }
+
+        const topCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'General';
+        
+        // Randomly pick one of several insight types
+        const insightType = Math.floor(Math.random() * 6);
+        let ar = '', en = '';
+
+        switch (insightType) {
+          case 0:
+            ar = `الذكاء الاصطناعي يلاحظ نشاطاً كبيراً في فئة ${topCategory}. تم تسجيل ${totalViews} مشاهدة للمنتجات مؤخراً.`;
+            en = `AI observes high activity in the ${topCategory} category. ${totalViews} product views recorded recently.`;
+            break;
+          case 1:
+            ar = `تحليل السوق: فئة ${topCategory} هي الأكثر طلباً اليوم. ننصح البائعين بتحديث مخزونهم.`;
+            en = `Market Analysis: ${topCategory} is the most requested today. We advise sellers to update their stock.`;
+            break;
+          case 2:
+            if (newestItem) {
+              ar = `منتج جديد مميز: ${isRtl ? newestItem.titleAr : newestItem.titleEn} متوفر الآن في السوق.`;
+              en = `Featured New Arrival: ${isRtl ? newestItem.titleAr : newestItem.titleEn} is now available in the market.`;
+            } else {
+              ar = `السوق يشهد استقراراً في الأسعار مع زيادة في عدد المتسوقين النشطين.`;
+              en = `The market is seeing price stability with an increase in active shoppers.`;
+            }
+            break;
+          case 3:
+            ar = `نصيحة ذكية: المنتجات ذات الصور الواضحة والوصف التفصيلي تحصل على تفاعل أعلى بنسبة 40%.`;
+            en = `Smart Tip: Products with clear photos and detailed descriptions get 40% higher engagement.`;
+            break;
+          case 4:
+            ar = `تنبيه التوجهات: هناك زيادة بنسبة 15% في البحث عن منتجات مستدامة هذا الأسبوع.`;
+            en = `Trend Alert: There's a 15% increase in searches for sustainable products this week.`;
+            break;
+          case 5:
+            ar = `رؤية الذكاء: الوقت الحالي هو الأنسب لعرض المنتجات الموسمية لزيادة المبيعات.`;
+            en = `AI Insight: Now is the best time to list seasonal products to maximize sales.`;
+            break;
+          default:
+            ar = `الذكاء الاصطناعي يراقب السوق لضمان أفضل تجربة تسوق لك.`;
+            en = `AI is monitoring the market to ensure the best shopping experience for you.`;
+        }
+        
+        setNeuralPulse({ ar, en });
+        setIsNeuralPulseLoading(false);
+      } catch (error) {
+        setIsNeuralPulseLoading(false);
+      }
+    };
+
+    if (items.length >= 0) {
+      fetchNeuralPulse().catch(err => console.error("Neural Pulse fetch failed:", err));
+    }
 
     return () => unsubscribe();
   }, [activeTab]);
@@ -206,8 +426,28 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
       });
       setItemToDelete(null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `marketplace/${itemToDelete.id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `marketplace/${itemToDelete.id}`, false);
     }
+  };
+
+  const handleVoiceSearch = () => {
+    if (!('webkitSpeechRecognition' in window)) {
+      toast.error(isRtl ? 'متصفحك لا يدعم البحث الصوتي' : 'Your browser does not support voice search');
+      return;
+    }
+
+    setIsListening(true);
+    const recognition = new (window as any).webkitSpeechRecognition();
+    recognition.lang = isRtl ? 'ar-SA' : 'en-US';
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setSearchTerm(transcript);
+      setIsListening(false);
+      toast.success(isRtl ? `تبحث عن: ${transcript}` : `Searching for: ${transcript}`);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognition.start();
   };
 
   const handleCategoryClick = (categoryId: string) => {
@@ -329,8 +569,19 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     .sort((a, b) => (b.views || 0) - (a.views || 0))
     .slice(0, 8);
 
-  const glassClass = "bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-700/50 shadow-lg shadow-black/5";
-  const ribbonClass = "bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-white/30 dark:border-slate-700/50 shadow-xl shadow-brand-primary/5";
+  const glassClass = "bg-white/60 dark:bg-slate-900/60 backdrop-blur-3xl border border-white/30 dark:border-slate-700/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]";
+  const ribbonClass = "bg-white/80 dark:bg-slate-800/80 backdrop-blur-2xl border border-white/40 dark:border-slate-700/60 shadow-2xl shadow-brand-primary/10";
+
+  const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'light') => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      const patterns = {
+        light: [10],
+        medium: [20],
+        heavy: [40]
+      };
+      navigator.vibrate(patterns[type]);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-brand-background pb-32">
@@ -361,290 +612,256 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Smart Glass Ribbon Header - The Breathing Ribbon */}
-      <motion.div 
-        initial="visible"
-        animate={isMinimized ? 'minimized' : 'visible'}
-        variants={headerVariants}
-        className="sticky top-0 z-50 pt-4 md:pt-6"
-      >
-        <div className="max-w-7xl mx-auto px-4">
-          <motion.div 
-            layout
-            className={`relative overflow-hidden rounded-[2rem] ${glassClass} transition-all duration-500 ${isMinimized ? 'py-2 px-4 shadow-sm' : 'p-4 md:p-6 shadow-xl'}`}
+      {/* Neural Pulse 2.0 - Smart Floating Bar (Primary Interface) */}
+      <AnimatePresence>
+        {showPulseBar && (
+          <NeuralPulseBar
+            isRtl={isRtl}
+            neuralPulse={neuralPulse}
+            isMinimized={isMinimized}
+            onClose={() => setShowPulseBar(false)}
+            onVoiceSearch={handleVoiceSearch}
+            onVisualSearch={() => setShowVisualSearch(true)}
+            onSmartExplorer={() => setShowSmartCategories(true)}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            isListening={isListening}
+            sellerTypeFilter={sellerTypeFilter}
+            setSellerTypeFilter={setSellerTypeFilter}
+            categories={categories}
+            activeCategory={selectedCategory}
+            setActiveCategory={setSelectedCategory}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            isAdmin={isAdmin}
+            isSupplier={isSupplier}
+            showAdminHub={showAdminHub}
+            setShowAdminHub={setShowAdminHub}
+            onAddProduct={() => setShowAddModal(true)}
+            onOpenEconomyHub={() => setShowEconomyHub(true)}
+            profile={profile}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Restore Bar Trigger (if hidden) */}
+      <AnimatePresence>
+        {!showPulseBar && (
+          <motion.div
+            drag
+            dragMomentum={false}
+            dragElastic={0.1}
+            dragConstraints={{ 
+              top: 0, 
+              left: isRtl ? -window.innerWidth + 100 : 0, 
+              right: isRtl ? 0 : window.innerWidth - 100, 
+              bottom: window.innerHeight - 100 
+            }}
+            onDragEnd={(_, info) => {
+              const newPos = { x: restoreBtnPos.x + info.offset.x, y: restoreBtnPos.y + info.offset.y };
+              setRestoreBtnPos(newPos);
+              localStorage.setItem('pulse_restore_pos', JSON.stringify(newPos));
+            }}
+            initial={restoreBtnPos}
+            animate={restoreBtnPos}
+            exit={{ opacity: 0, scale: 0.5 }}
+            className={`fixed ${isRtl ? 'right-6' : 'left-6'} top-6 z-[60] hidden md:block`}
           >
-            {/* Breathing Glow Effect */}
-            <AnimatePresence>
-              {isMinimized && (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: [0.2, 0.5, 0.2] }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute inset-0 bg-gradient-to-r from-brand-primary/5 via-brand-teal/5 to-brand-primary/5 pointer-events-none"
-                />
-              )}
-            </AnimatePresence>
-
-            {/* Minimal Indicator for Minimized State */}
-            {isMinimized && (
-              <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-brand-primary/20 rounded-full" />
-            )}
-
-            {/* Top Row: Title & Search & Add */}
-            <div className={`flex flex-col md:flex-row gap-4 items-center justify-between transition-all duration-500 ${isMinimized ? 'scale-95' : 'scale-100'}`}>
-              <AnimatePresence mode="wait">
-                {!isMinimized && (
-                  <motion.div 
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="w-full md:w-auto flex items-center justify-between"
-                  >
-                    <h1 className="text-2xl md:text-3xl font-black text-brand-text-main tracking-tight flex items-center gap-2">
-                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-brand-primary to-brand-teal">
-                        {isRtl ? 'السوق الذكي' : 'Smart Market'}
-                      </span>
-                      <div className="w-2 h-2 rounded-full bg-brand-primary animate-pulse" />
-                    </h1>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <motion.div 
-                layout
-                className={`w-full flex items-center gap-2 transition-all duration-500 ${isMinimized ? 'md:w-full mt-2' : 'md:w-2/3 lg:w-1/2'}`}
-              >
-                {/* Search Bar with Integrated AI & Visual Search */}
-                <motion.div 
-                  layout
-                  className="relative flex-1 group"
-                >
-                  <div className={`absolute ${isRtl ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 transition-colors duration-300 group-focus-within:text-brand-primary text-brand-text-muted`}>
-                    <Search size={isMinimized ? 16 : 20} />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder={
-                      isMinimized 
-                        ? (isRtl ? 'ابحث...' : 'Search...') 
-                        : searchTerm 
-                          ? searchTerm 
-                          : topCategoryData 
-                            ? (isRtl ? `ابحث عن ${topCategoryData.nameAr}...` : `Search for ${topCategoryData.nameEn}...`)
-                            : (isRtl ? 'ابحث بذكاء عن منتجات...' : 'Search smartly for products...')
-                    }
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className={`w-full bg-white/40 dark:bg-slate-800/40 border border-white/40 dark:border-slate-700/50 rounded-2xl ${isMinimized ? 'py-2 text-sm' : 'py-3.5'} ${isRtl ? 'pr-12 pl-24' : 'pl-12 pr-24'} focus:outline-none focus:ring-2 focus:ring-brand-primary/30 text-brand-text-main placeholder-brand-text-muted/60 backdrop-blur-md transition-all duration-300 hover:bg-white/60 dark:hover:bg-slate-800/60`}
-                  />
-                  
-                  {/* Integrated Actions */}
-                  <div className={`absolute ${isRtl ? 'left-2' : 'right-2'} top-1/2 -translate-y-1/2 flex items-center gap-1`}>
-                    <HapticButton
-                      onClick={() => setShowVisualSearch(true)}
-                      className={`${isMinimized ? 'p-1' : 'p-2'} text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all`}
-                      title={isRtl ? 'بحث بصري' : 'Visual Search'}
-                    >
-                      <Camera size={isMinimized ? 16 : 20} />
-                    </HapticButton>
-                    <div className="w-px h-6 bg-brand-border/30 mx-1" />
-                    <HapticButton
-                      onClick={() => setShowSmartCategories(true)}
-                      className={`${isMinimized ? 'p-1' : 'p-2'} text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all relative group/ai`}
-                      title={isRtl ? 'المستكشف الذكي' : 'Smart Explorer'}
-                    >
-                      <Sparkles size={isMinimized ? 16 : 20} className="group-hover/ai:scale-110 transition-transform" />
-                      {!isMinimized && <span className="absolute -top-1 -right-1 w-2 h-2 bg-brand-teal rounded-full animate-ping" />}
-                    </HapticButton>
-                  </div>
-                </motion.div>
-                
-                {/* Add Button - Integrated into Ribbon */}
-                {profile && !isMinimized && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className="flex items-center"
-                  >
-                    <HapticButton
-                      onClick={() => setShowAddModal(true)}
-                      className="flex items-center gap-2 px-4 md:px-6 py-2.5 md:py-3.5 bg-brand-primary text-white rounded-2xl font-bold shadow-lg shadow-brand-primary/20 hover:shadow-xl hover:shadow-brand-primary/30 transition-all hover:-translate-y-0.5"
-                    >
-                      <Plus size={20} />
-                      <span className="hidden sm:inline">{isRtl ? 'إضافة منتج' : 'Add Product'}</span>
-                      <span className="sm:hidden">{isRtl ? 'إضافة' : 'Add'}</span>
-                    </HapticButton>
-                  </motion.div>
-                )}
-              </motion.div>
-            </div>
-
-            {/* Bottom Row: Tabs & Categories (Hidden when minimized) */}
-            <AnimatePresence>
-              {!isMinimized && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mt-6 space-y-4 overflow-hidden"
-                >
-                  {/* Segmented Control Tabs */}
-                  {profile && (
-                    <div className="flex p-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-xl w-fit">
-                      <button
-                        onClick={() => setActiveTab('discover')}
-                        className={`px-6 py-2 rounded-lg text-sm font-bold transition-all relative ${
-                          activeTab === 'discover' 
-                            ? 'text-brand-primary bg-white dark:bg-slate-700 shadow-sm' 
-                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-                        }`}
-                      >
-                        {isRtl ? 'اكتشف' : 'Discover'}
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('myshop')}
-                        className={`px-6 py-2 rounded-lg text-sm font-bold transition-all relative ${
-                          activeTab === 'myshop' 
-                            ? 'text-brand-primary bg-white dark:bg-slate-700 shadow-sm' 
-                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-                        }`}
-                      >
-                        {isRtl ? 'متجري' : 'My Shop'}
-                      </button>
-                      <button
-                        onClick={() => setSellerTypeFilter('supplier')}
-                        className={`px-6 py-2 rounded-lg text-sm font-bold transition-all relative ${
-                          sellerTypeFilter === 'supplier' 
-                            ? 'text-brand-primary bg-white dark:bg-slate-700 shadow-sm' 
-                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-                        }`}
-                      >
-                        {isRtl ? 'متاجر الموردين' : 'Supplier Stores'}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Seller Type Filter */}
-                  <div className="space-y-2">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                      {isRtl ? 'نوع البائع' : 'Seller Type'}
-                    </h4>
-                    <div className="flex p-1.5 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md rounded-[1.5rem] w-full md:w-fit border border-white/40 dark:border-slate-700/50 shadow-lg">
-                      {[
-                        { id: 'all', label: isRtl ? 'الكل' : 'All', icon: Filter, color: 'bg-slate-500' },
-                        { id: 'supplier', label: isRtl ? 'الموردين' : 'Suppliers', icon: Building2, color: 'bg-brand-primary' },
-                        { id: 'customer', label: isRtl ? 'المجتمع' : 'Community', icon: User, color: 'bg-brand-secondary' },
-                        { id: 'followed', label: isRtl ? 'المتابَعين' : 'Following', icon: Heart, color: 'bg-red-500' }
-                      ].map((type) => (
-                        <button
-                          key={type.id}
-                          onClick={() => setSellerTypeFilter(type.id as any)}
-                          className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-[1.25rem] text-xs font-black transition-all duration-500 relative ${
-                            sellerTypeFilter === type.id 
-                              ? `text-white ${type.color} shadow-lg shadow-black/10 scale-[1.05] z-10` 
-                              : 'text-slate-500 hover:text-brand-primary hover:bg-white/50 dark:hover:bg-slate-700/50'
-                          }`}
-                        >
-                          <type.icon size={14} className={sellerTypeFilter === type.id ? 'animate-pulse' : ''} />
-                          {type.label}
-                          {sellerTypeFilter === type.id && (
-                            <motion.div 
-                              layoutId="activeFilter"
-                              className="absolute inset-0 rounded-[1.25rem] ring-2 ring-white/20 pointer-events-none"
-                            />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Personalized Welcome Banner */}
-                  {topCategoryData && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-brand-primary/10 to-brand-teal/10 border border-brand-primary/10"
-                    >
-                      <div className="relative z-10 flex items-center justify-between">
-                        <div className="max-w-[70%]">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Sparkles size={16} className="text-brand-primary" />
-                            <span className="text-[10px] font-black uppercase tracking-wider text-brand-primary">
-                              {isRtl ? 'اكتشاف ذكي' : 'Smart Discovery'}
-                            </span>
-                          </div>
-                          <h2 className="text-xl font-black text-slate-900 dark:text-white mb-1">
-                            {isRtl 
-                              ? `هل تبحث عن ${topCategoryData.nameAr}؟` 
-                              : `Looking for ${topCategoryData.nameEn}?`}
-                          </h2>
-                          <p className="text-slate-500 text-xs font-medium mb-4">
-                            {isRtl 
-                              ? 'لقد اخترنا لك أفضل العروض بناءً على اهتماماتك الأخيرة.' 
-                              : "We've picked the best deals based on your recent interests."}
-                          </p>
-                          <HapticButton
-                            onClick={() => setSelectedCategory(topCategoryData.id)}
-                            className="px-4 py-2 bg-brand-primary text-white rounded-xl text-xs font-black shadow-lg shadow-brand-primary/20"
-                          >
-                            {isRtl ? 'استكشف الآن' : 'Explore Now'}
-                          </HapticButton>
-                        </div>
-                        <div className="w-24 h-24 rounded-full bg-brand-primary/5 flex items-center justify-center">
-                          <Sparkles size={48} className="text-brand-primary/20" />
-                        </div>
-                      </div>
-                      {/* Decorative background elements */}
-                      <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-brand-primary/5 rounded-full blur-3xl" />
-                      <div className="absolute -left-10 -top-10 w-40 h-40 bg-brand-teal/5 rounded-full blur-3xl" />
-                    </motion.div>
-                  )}
-
-                  {/* Categories Horizontal Scroll */}
-                  <div className="space-y-2">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                      {isRtl ? 'الفئات' : 'Categories'}
-                    </h4>
-                    <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
-                    {selectedCategory && (
-                      <HapticButton
-                        onClick={() => setSelectedCategory(null)}
-                        className="shrink-0 px-5 py-2.5 rounded-full text-xs font-bold bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 flex items-center gap-2"
-                      >
-                        <X size={14} />
-                        {isRtl ? 'إلغاء الفلتر' : 'Clear Filter'}
-                      </HapticButton>
-                    )}
-                    
-                    {categories.map(cat => (
-                      <HapticButton
-                        key={cat.id}
-                        onClick={() => handleCategoryClick(cat.id)}
-                        className={`shrink-0 px-5 py-2.5 rounded-full text-xs font-bold transition-all border ${
-                          selectedCategory === cat.id
-                            ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20'
-                            : 'bg-white/40 dark:bg-slate-800/40 text-brand-text-muted border-white/30 dark:border-slate-700/50 hover:bg-white/60 dark:hover:bg-slate-700/60'
-                        }`}
-                      >
-                        {isRtl ? cat.nameAr : cat.nameEn}
-                        {profile?.categories?.includes(cat.id) && (
-                          <div className={`w-1 h-1 bg-brand-teal rounded-full ${isRtl ? 'mr-1' : 'ml-1'}`} />
-                        )}
-                      </HapticButton>
-                    ))}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <HapticButton
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => setShowPulseBar(true)}
+              className="w-12 h-12 bg-brand-primary text-white rounded-2xl shadow-xl flex items-center justify-center hover:scale-110 transition-transform cursor-grab active:cursor-grabbing"
+            >
+              <BrainCircuit size={24} className="animate-pulse" />
+            </HapticButton>
           </motion.div>
-        </div>
-      </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Product Grid */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 pt-24 md:pt-32 pb-8">
+        {/* Hero Search Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-12"
+        >
+          <div className="relative p-8 md:p-12 rounded-[3rem] bg-gradient-to-br from-brand-primary/5 via-white to-brand-teal/5 border border-brand-border/50 overflow-hidden group">
+            {/* Background Decorative Elements */}
+            <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-96 h-96 bg-brand-primary/10 rounded-full blur-[100px] pointer-events-none" />
+            <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-96 h-96 bg-brand-teal/10 rounded-full blur-[100px] pointer-events-none" />
+            
+            <div className="relative z-10 max-w-3xl mx-auto text-center">
+              <motion.div
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-primary/10 text-brand-primary text-xs font-black uppercase tracking-widest mb-6"
+              >
+                <Sparkles size={14} className="animate-pulse" />
+                {isRtl ? 'اكتشف الأفضل في السوق' : 'Discover the Best in Market'}
+              </motion.div>
+              
+              <h1 className="text-3xl md:text-5xl font-black text-brand-text-main mb-6 leading-tight">
+                {isRtl ? 'ابحث عن منتجاتك المفضلة' : 'Find Your Favorite Products'}
+                <span className="text-brand-primary">.</span>
+              </h1>
+              
+              <div className="relative group/search max-w-2xl mx-auto">
+                <div className="absolute -inset-1 bg-gradient-to-r from-brand-primary/20 to-brand-teal/20 rounded-2xl blur opacity-25 group-focus-within/search:opacity-100 transition-opacity duration-500" />
+                <div className="relative flex items-center bg-white dark:bg-slate-900 border border-brand-border rounded-2xl p-2 shadow-xl">
+                  <div className="pl-4 text-brand-text-muted">
+                    <Search size={20} />
+                  </div>
+                  <input 
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder={isRtl ? 'ابحث عن منتجات، موردين، أو فئات...' : 'Search for products, suppliers, or categories...'}
+                    className="flex-1 bg-transparent border-none focus:ring-0 text-sm md:text-base font-bold text-brand-text-main placeholder-brand-text-muted/50 py-3 px-2"
+                  />
+                  <div className="flex items-center gap-1 pr-1">
+                    <HapticButton
+                      onClick={handleVoiceSearch}
+                      className={`p-2.5 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-brand-primary/10 text-brand-text-muted hover:text-brand-primary'}`}
+                    >
+                      <Mic size={18} />
+                    </HapticButton>
+                    <HapticButton
+                      onClick={() => setShowVisualSearch(true)}
+                      className="p-2.5 rounded-xl hover:bg-brand-primary/10 text-brand-text-muted hover:text-brand-primary transition-all"
+                    >
+                      <Camera size={18} />
+                    </HapticButton>
+                    <HapticButton
+                      className="hidden sm:flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-xl font-black text-sm hover:bg-brand-primary-hover transition-all shadow-lg shadow-brand-primary/20"
+                    >
+                      {isRtl ? 'بحث' : 'Search'}
+                    </HapticButton>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-8 flex flex-wrap justify-center gap-3">
+                <p className="w-full text-xs font-bold text-brand-text-muted uppercase tracking-widest mb-1">
+                  {isRtl ? 'عمليات بحث شائعة' : 'Popular Searches'}
+                </p>
+                {['iPhone 15', 'MacBook Air', 'Nike Air Max', 'Sony PS5'].map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => setSearchTerm(tag)}
+                    className="px-4 py-2 rounded-xl bg-white/50 dark:bg-slate-800/50 border border-brand-border hover:border-brand-primary hover:text-brand-primary text-xs font-bold transition-all"
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Admin Hub Integration */}
+        {isAdmin && showAdminHub && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="space-y-8 mb-12"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <BroadcastBox t={t} i18n={i18n} allUsers={suppliers} size="compact" />
+              <div className={`p-6 rounded-[2rem] ${glassClass} flex flex-col justify-center items-center text-center`}>
+                <div className="w-16 h-16 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary mb-4">
+                  <Database size={32} />
+                </div>
+                <h3 className="text-lg font-black text-brand-text-main mb-2">{isRtl ? 'إدارة البيانات' : 'Data Management'}</h3>
+                <p className="text-sm text-brand-text-muted mb-6">{isRtl ? 'تصدير وتحليل بيانات المستخدمين والموردين' : 'Export and analyze user and supplier data'}</p>
+                <HapticButton className="px-8 py-3 bg-brand-primary text-white rounded-xl font-bold shadow-lg shadow-brand-primary/20">
+                  {isRtl ? 'فتح الدليل' : 'Open Directory'}
+                </HapticButton>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Role-Specific Intelligent Dashboard */}
+        {profile && (isAdmin || isSupplier) && !selectedCategory && searchTerm === '' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-12 grid grid-cols-1 lg:grid-cols-3 gap-6"
+          >
+            {/* Market Health (Admin) or Store Stats (Supplier) */}
+            <div className={`lg:col-span-2 p-8 rounded-[2.5rem] ${glassClass} relative overflow-hidden group`}>
+              <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
+                {isAdmin ? <Shield size={120} /> : <TrendingUp size={120} />}
+              </div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                    {isAdmin ? <ShieldCheck size={24} /> : <TrendingUp size={24} />}
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white">
+                      {isAdmin 
+                        ? (isRtl ? 'نظرة عامة على النظام' : 'System Overview') 
+                        : (isRtl ? 'أداء متجرك' : 'Store Performance')}
+                    </h2>
+                    <p className="text-slate-500 text-sm font-medium">
+                      {isAdmin 
+                        ? (isRtl ? 'تحليلات الذكاء الاصطناعي لصحة السوق' : 'AI Analytics for Market Health') 
+                        : (isRtl ? 'رؤى ذكية لزيادة مبيعاتك' : 'Smart insights to boost your sales')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {[
+                    { label: isRtl ? 'المنتجات النشطة' : 'Active Items', value: items.length, icon: Package, color: 'text-blue-500' },
+                    { label: isRtl ? 'الموردين' : 'Suppliers', value: suppliers.length, icon: Building2, color: 'text-brand-primary' },
+                    { label: isRtl ? 'المشاهدات' : 'Total Views', value: items.reduce((acc, i) => acc + (i.views || 0), 0), icon: Star, color: 'text-amber-500' },
+                    { label: isRtl ? 'النمو' : 'Growth', value: '+12%', icon: TrendingUp, color: 'text-emerald-500' }
+                  ].map((stat, idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-white/40 dark:bg-slate-800/40 border border-white/40 dark:border-slate-700/50">
+                      <stat.icon size={16} className={`${stat.color} mb-2`} />
+                      <div className="text-xl font-black text-slate-900 dark:text-white">{stat.value}</div>
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Smart AI Recommendation Card */}
+            <div className="p-8 rounded-[2.5rem] bg-gradient-to-br from-brand-primary to-brand-teal text-white relative overflow-hidden shadow-2xl shadow-brand-primary/20">
+              <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
+              <div className="relative z-10 h-full flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles size={20} className="text-white/80" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/80">AI Strategy</span>
+                  </div>
+                  <h3 className="text-xl font-black mb-3 leading-tight">
+                    {isAdmin 
+                      ? (isRtl ? 'استراتيجية المنصة' : 'Platform Strategy')
+                      : (isRtl ? 'استراتيجية النمو المقترحة' : 'Suggested Growth Strategy')}
+                  </h3>
+                  <p className="text-white/80 text-sm font-medium leading-relaxed">
+                    {isAdmin
+                      ? (isRtl 
+                          ? 'تحليل الذكاء الاصطناعي يشير إلى استقرار عالي في المعاملات هذا الأسبوع.' 
+                          : 'AI analysis indicates high transaction stability this week.')
+                      : (isRtl 
+                          ? 'بناءً على تحليلاتنا، ننصحك بالتركيز على فئة الإلكترونيات هذا الأسبوع لزيادة الوصول.' 
+                          : 'Based on our analytics, we recommend focusing on the Electronics category this week to maximize reach.')}
+                  </p>
+                </div>
+                <HapticButton className="mt-6 w-full py-3 bg-white text-brand-primary rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl">
+                  {isRtl ? 'عرض التفاصيل' : 'View Details'}
+                </HapticButton>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Recommended for You Section */}
         {recommendedItems.length > 0 && !selectedCategory && searchTerm === '' && sellerTypeFilter === 'all' && (
           <motion.div 
@@ -780,67 +997,35 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           </motion.div>
         )}
 
-        {/* Supplier Stores Section */}
+        {/* Intelligent Supplier Display Section */}
         {suppliers.length > 0 && !selectedCategory && searchTerm === '' && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-12"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-                  <Building2 size={20} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                    {isRtl ? 'متاجر الموردين الموثوقة' : 'Trusted Supplier Stores'}
-                  </h2>
-                  <p className="text-slate-500 text-xs font-medium">
-                    {isRtl ? 'تصفح متاجر الموردين المعتمدين لدينا' : 'Browse our verified supplier stores'}
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
-              {suppliers.map((supplier) => (
-                <motion.div 
-                  key={supplier.uid} 
-                  whileHover={{ y: -4 }}
-                  onClick={() => onViewProfile(supplier.uid)}
-                  className={`w-64 shrink-0 p-6 rounded-[2.5rem] ${glassClass} cursor-pointer group relative overflow-hidden`}
-                >
-                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <Building2 size={80} />
-                  </div>
-                  <div className="relative z-10 flex flex-col items-center text-center space-y-4">
-                    <div className="w-20 h-20 rounded-[1.5rem] bg-brand-surface border-2 border-brand-primary/20 p-1 group-hover:border-brand-primary transition-colors">
-                      <img 
-                        src={supplier.logoUrl || 'https://picsum.photos/seed/logo/100/100'} 
-                        alt={supplier.companyName}
-                        className="w-full h-full object-cover rounded-[1.2rem]"
-                      />
-                    </div>
-                    <div>
-                      <h3 className="font-black text-brand-text-main line-clamp-1 group-hover:text-brand-primary transition-colors">
-                        {isRtl ? supplier.companyName : (supplier.companyName || supplier.name)}
-                      </h3>
-                      <div className="flex items-center justify-center gap-1 mt-1">
-                        <Star size={12} className="text-brand-warning fill-brand-warning" />
-                        <span className="text-[10px] font-bold text-brand-text-muted">4.9</span>
-                        <span className="mx-1 text-brand-border">•</span>
-                        <span className="text-[10px] font-bold text-brand-text-muted">{supplier.followersCount || 0} {isRtl ? 'متابع' : 'Followers'}</span>
-                      </div>
-                    </div>
-                    <HapticButton className="w-full py-2.5 bg-brand-primary/10 text-brand-primary rounded-xl text-[10px] font-black uppercase tracking-widest group-hover:bg-brand-primary group-hover:text-white transition-all">
-                      {isRtl ? 'زيارة المتجر' : 'Visit Store'}
-                    </HapticButton>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
+          supplierLayout === 'mosaic' ? (
+            <SupplierMosaic 
+              suppliers={suppliers} 
+              isRtl={isRtl} 
+              onViewProfile={onViewProfile}
+              onOpenChat={onOpenChat}
+              profile={profile}
+            />
+          ) : supplierLayout === 'horizon' ? (
+            <SupplierPulseHorizon 
+              suppliers={suppliers} 
+              isRtl={isRtl} 
+              onViewProfile={onViewProfile}
+              onOpenChat={onOpenChat}
+              onToggleLayout={() => setSupplierLayout('nebula')}
+              profile={profile}
+            />
+          ) : (
+            <SupplierNebulaLayout 
+              suppliers={suppliers} 
+              isRtl={isRtl} 
+              onViewProfile={onViewProfile}
+              onOpenChat={onOpenChat}
+              onToggleLayout={() => setSupplierLayout('mosaic')}
+              profile={profile}
+            />
+          )
         )}
 
         {/* Recently Viewed Section */}
@@ -922,6 +1107,29 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           )}
         </AnimatePresence>
 
+        {/* View Toggle */}
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white">
+            {isRtl ? 'اكتشف المنتجات' : 'Discover Products'}
+          </h2>
+          <div className="flex items-center gap-2 bg-brand-surface p-1 rounded-xl border border-brand-border">
+            <button
+              onClick={() => setViewStyle('canvas')}
+              className={`p-2 rounded-lg transition-colors ${viewStyle === 'canvas' ? 'bg-brand-primary text-white' : 'text-brand-text-muted hover:text-brand-primary'}`}
+              title={isRtl ? 'عرض اللوحة' : 'Canvas View'}
+            >
+              <LayoutGrid size={20} />
+            </button>
+            <button
+              onClick={() => setViewStyle('grid')}
+              className={`p-2 rounded-lg transition-colors ${viewStyle === 'grid' ? 'bg-brand-primary text-white' : 'text-brand-text-muted hover:text-brand-primary'}`}
+              title={isRtl ? 'عرض الشبكة' : 'Grid View'}
+            >
+              <List size={20} />
+            </button>
+          </div>
+        </div>
+
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
             {[...Array(10)].map((_, i) => (
@@ -939,26 +1147,46 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
             ))}
           </div>
         ) : filteredItems.length > 0 ? (
-          <motion.div 
-            layout
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"
-          >
-            <AnimatePresence>
-              {filteredItems.map(item => (
-                <ProductCard 
-                  key={item.id} 
-                  item={item} 
-                  onOpenChat={onOpenChat}
-                  onViewDetails={() => handleViewProduct(item)}
-                  onViewProfile={onViewProfile}
-                  isOwner={profile?.uid === item.sellerId}
-                  isAdmin={isAdmin}
-                  onDelete={handleDelete}
-                  onEdit={(item) => setEditingItem(item)}
-                />
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          viewStyle === 'canvas' ? (
+            <ProductDiscoveryCanvas 
+              items={filteredItems} 
+              categories={categories}
+              onSelectItem={setSelectedItem}
+              onLike={(id) => {
+                // Implement like logic if needed
+              }}
+              onShare={(item) => {
+                if (navigator.share) {
+                  navigator.share({
+                    title: isRtl ? item.titleAr : item.titleEn,
+                    text: isRtl ? item.descriptionAr : item.descriptionEn,
+                    url: window.location.href,
+                  });
+                }
+              }}
+            />
+          ) : (
+            <motion.div 
+              layout
+              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"
+            >
+              <AnimatePresence>
+                {filteredItems.map(item => (
+                  <ProductCard 
+                    key={item.id} 
+                    item={item} 
+                    onOpenChat={onOpenChat}
+                    onViewDetails={() => handleViewProduct(item)}
+                    onViewProfile={onViewProfile}
+                    isOwner={profile?.uid === item.sellerId}
+                    isAdmin={isAdmin}
+                    onDelete={handleDelete}
+                    onEdit={(item) => setEditingItem(item)}
+                  />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          )
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className={`w-24 h-24 rounded-full ${glassClass} flex items-center justify-center mb-6`}>
@@ -975,23 +1203,6 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           </div>
         )}
       </div>
-
-      {/* Mobile Floating Action Button (FAB) for Add Product */}
-      {profile && (
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="fixed bottom-32 right-6 z-[60] md:hidden"
-        >
-          <HapticButton
-            onClick={() => setShowAddModal(true)}
-            className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-teal text-white flex items-center justify-center shadow-2xl shadow-brand-primary/40 border-2 border-white/20 backdrop-blur-md"
-          >
-            <Plus size={28} />
-          </HapticButton>
-        </motion.div>
-      )}
-
 
       {/* Smart Upload Modal */}
       <AnimatePresence>
@@ -1057,7 +1268,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                   {isRtl ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button 
-                  onClick={confirmDelete}
+                  onClick={() => confirmDelete().catch(err => console.error("Delete confirmation failed:", err))}
                   className="flex-1 py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 transition-colors"
                 >
                   {isRtl ? 'حذف' : 'Delete'}
@@ -1108,6 +1319,16 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+      <AnimatePresence>
+        {showEconomyHub && (
+          <NeuralEconomyHub 
+            profile={profile} 
+            isRtl={isRtl} 
+            onClose={() => setShowEconomyHub(false)} 
+          />
+        )}
+      </AnimatePresence>
+
       {/* Mobile Floating Action Button (FAB) */}
       <AnimatePresence>
         {profile && isMinimized && (

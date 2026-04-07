@@ -6,7 +6,7 @@ import { db, storage } from '../../../core/firebase';
 import { SiteSettings } from '../../../core/types';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { HapticButton } from '../../../shared/components/HapticButton';
-import { Save, Loader2, Globe, Layout, Type, Search, MousePointer2, Image as ImageIcon, Sparkles, Zap, Palette, Wand2, Upload, X, Eye, Building2 } from 'lucide-react';
+import { Save, Loader2, Globe, Layout, Type, Search, MousePointer2, Image as ImageIcon, Sparkles, Zap, Palette, Wand2, Upload, X, Eye, Building2, User, Bell, MessageSquare, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { suggestColorHarmony } from '../../../core/services/geminiService';
 import { toast } from 'sonner';
@@ -53,7 +53,22 @@ export const SiteSettingsManager: React.FC = () => {
     loaderBackgroundColor: '#0f172a',
     loaderProgressBarColor: '#1b97a7',
     loaderLogoShape: 'squircle',
-    loaderLogoAnimation: 'float'
+    loaderLogoAnimation: 'float',
+    gridSettings: {
+      mobileCols: 2,
+      webCols: 4,
+      aiAutoPilot: true
+    },
+    neuralNav: {
+      enabled: false,
+      showProfile: true,
+      showNotifications: true,
+      showMessages: true,
+      showAiHub: true,
+      showVisualSearch: true,
+      pulseSpeed: 'normal',
+      themeColor: '#1b97a7'
+    }
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1317,29 +1332,235 @@ export const SiteSettingsManager: React.FC = () => {
             </div>
           </div>
         </div>
-lassName="text-xs font-mono font-bold text-brand-primary w-12 text-center">
-                  {Math.round((settings.watermarkScale || 1) * 100)}%
-                </span>
+
+        {/* Adaptive Neural Grid Settings */}
+        <div className="bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border space-y-8 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+          
+          <div className="flex items-center justify-between pb-6 border-b border-brand-border">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary">
+                <Layout size={24} />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-brand-text-main uppercase tracking-tight">
+                  {isRtl ? 'الشبكة العصبية التكيفية' : 'Adaptive Neural Grid'}
+                </h2>
+                <p className="text-xs font-bold text-brand-text-muted uppercase tracking-widest mt-1">
+                  {isRtl ? 'تحكم في كثافة عرض المنتجات' : 'Control product display density'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-brand-text-muted uppercase tracking-widest">
+                {isRtl ? 'الطيار الآلي (AI)' : 'AI Auto-Pilot'}
+              </span>
+              <button
+                onClick={() => setSettings({
+                  ...settings,
+                  gridSettings: { ...settings.gridSettings, aiAutoPilot: !settings.gridSettings?.aiAutoPilot } as any
+                })}
+                className={`relative w-14 h-8 rounded-full transition-colors ${
+                  settings.gridSettings?.aiAutoPilot ? 'bg-brand-primary' : 'bg-brand-border'
+                }`}
+              >
+                <motion.div
+                  className="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm flex items-center justify-center"
+                  animate={{ x: settings.gridSettings?.aiAutoPilot ? 24 : 0 }}
+                >
+                  {settings.gridSettings?.aiAutoPilot && <Sparkles size={12} className="text-brand-primary" />}
+                </motion.div>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            {/* Mobile Columns */}
+            <div className="space-y-4">
+              <label className="text-sm font-black text-brand-text-main uppercase tracking-widest flex items-center justify-between">
+                <span>{isRtl ? 'أعمدة الموبايل' : 'Mobile Columns'}</span>
+                <span className="text-brand-primary">{settings.gridSettings?.mobileCols || 2}</span>
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="3"
+                step="1"
+                value={settings.gridSettings?.mobileCols || 2}
+                onChange={(e) => setSettings({
+                  ...settings,
+                  gridSettings: { ...settings.gridSettings, mobileCols: parseInt(e.target.value) } as any
+                })}
+                className="w-full accent-brand-primary h-2 bg-brand-border rounded-lg appearance-none cursor-pointer"
+                disabled={settings.gridSettings?.aiAutoPilot}
+              />
+              <div className="flex justify-between text-[10px] text-brand-text-muted font-bold uppercase">
+                <span>1</span>
+                <span>2</span>
+                <span>3</span>
               </div>
             </div>
 
-            {/* Watermark Position */}
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-brand-text-muted flex items-center gap-2">
-                <Layout size={14} />
-                {isRtl ? 'موقع العلامة المائية' : 'Watermark Position'}
+            {/* Web Columns */}
+            <div className="space-y-4">
+              <label className="text-sm font-black text-brand-text-main uppercase tracking-widest flex items-center justify-between">
+                <span>{isRtl ? 'أعمدة الويب' : 'Web Columns'}</span>
+                <span className="text-brand-primary">{settings.gridSettings?.webCols || 4}</span>
               </label>
-              <select
-                value={settings.watermarkPosition || 'bottom-right'}
-                onChange={(e) => setSettings({ ...settings, watermarkPosition: e.target.value as any })}
-                className="w-full bg-brand-background border-brand-border rounded-xl p-3 text-brand-text-main focus:ring-2 focus:ring-brand-primary/20 transition-all"
+              <input
+                type="range"
+                min="3"
+                max="6"
+                step="1"
+                value={settings.gridSettings?.webCols || 4}
+                onChange={(e) => setSettings({
+                  ...settings,
+                  gridSettings: { ...settings.gridSettings, webCols: parseInt(e.target.value) } as any
+                })}
+                className="w-full accent-brand-primary h-2 bg-brand-border rounded-lg appearance-none cursor-pointer"
+                disabled={settings.gridSettings?.aiAutoPilot}
+              />
+              <div className="flex justify-between text-[10px] text-brand-text-muted font-bold uppercase">
+                <span>3</span>
+                <span>4</span>
+                <span>5</span>
+                <span>6</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Neural Navigation Settings */}
+        <div className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-brand-primary/5 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-brand-primary/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-12 relative z-10">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-black text-brand-text-main mb-3 tracking-tight flex items-center gap-4">
+                <div className="w-12 h-12 bg-brand-primary/10 rounded-2xl flex items-center justify-center">
+                  <Zap className="text-brand-primary" size={24} />
+                </div>
+                {isRtl ? 'إعدادات الملاحة العصبية' : 'Neural Navigation Settings'}
+              </h2>
+              <p className="text-brand-text-muted font-medium max-w-2xl">
+                {isRtl 
+                  ? 'تحكم في نظام الملاحة العائم والفقاعات العصبية الذكية.' 
+                  : 'Control the floating navigation system and smart neural bubbles.'}
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-4 bg-brand-background/50 backdrop-blur-xl p-4 rounded-3xl border border-brand-border">
+              <span className="text-sm font-black text-brand-text-main uppercase tracking-widest">
+                {isRtl ? 'تفعيل النظام' : 'Enable System'}
+              </span>
+              <button
+                onClick={() => setSettings({
+                  ...settings,
+                  neuralNav: { ...settings.neuralNav, enabled: !settings.neuralNav?.enabled } as any
+                })}
+                className={`relative w-14 h-8 rounded-full transition-colors ${
+                  settings.neuralNav?.enabled ? 'bg-brand-primary' : 'bg-brand-border'
+                }`}
               >
-                <option value="top-left">Top Left</option>
-                <option value="top-right">Top Right</option>
-                <option value="center">Center</option>
-                <option value="bottom-left">Bottom Left</option>
-                <option value="bottom-right">Bottom Right</option>
-              </select>
+                <motion.div
+                  className="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm flex items-center justify-center"
+                  animate={{ x: settings.neuralNav?.enabled ? 24 : 0 }}
+                >
+                  {settings.neuralNav?.enabled && <Sparkles size={12} className="text-brand-primary" />}
+                </motion.div>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
+            {[
+              { id: 'showProfile', label: isRtl ? 'البروفايل' : 'Profile', icon: User },
+              { id: 'showNotifications', label: isRtl ? 'الإشعارات' : 'Notifications', icon: Bell },
+              { id: 'showMessages', label: isRtl ? 'الرسائل' : 'Messages', icon: MessageSquare },
+              { id: 'showAiHub', label: isRtl ? 'المساعد الذكي' : 'AI Hub', icon: Bot },
+              { id: 'showVisualSearch', label: isRtl ? 'البحث البصري' : 'Visual Search', icon: Search },
+            ].map((bubble) => (
+              <div key={bubble.id} className="bg-brand-background/40 backdrop-blur-md p-6 rounded-3xl border border-brand-border hover:border-brand-primary/30 transition-all group/bubble">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary group-hover/bubble:scale-110 transition-transform">
+                    <bubble.icon size={20} />
+                  </div>
+                  <button
+                    onClick={() => setSettings({
+                      ...settings,
+                      neuralNav: { ...settings.neuralNav, [bubble.id]: !settings.neuralNav?.[bubble.id as keyof typeof settings.neuralNav] } as any
+                    })}
+                    className={`relative w-10 h-6 rounded-full transition-colors ${
+                      settings.neuralNav?.[bubble.id as keyof typeof settings.neuralNav] ? 'bg-brand-primary' : 'bg-brand-border'
+                    }`}
+                  >
+                    <motion.div
+                      className="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-sm"
+                      animate={{ x: settings.neuralNav?.[bubble.id as keyof typeof settings.neuralNav] ? 16 : 0 }}
+                    />
+                  </button>
+                </div>
+                <span className="text-sm font-black text-brand-text-main uppercase tracking-widest">{bubble.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 p-6 bg-brand-primary/5 rounded-3xl border border-brand-primary/10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-brand-primary/20 rounded-full flex items-center justify-center animate-pulse">
+                  <Zap size={20} className="text-brand-primary" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-brand-text-main uppercase tracking-widest">{isRtl ? 'سرعة النبض العصبي' : 'Neural Pulse Speed'}</h4>
+                  <p className="text-xs text-brand-text-muted font-bold">{isRtl ? 'تحكم في وتيرة تموجات الفقاعات' : 'Control the pace of bubble ripples'}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {['slow', 'normal', 'fast'].map((speed) => (
+                  <button
+                    key={speed}
+                    onClick={() => setSettings({
+                      ...settings,
+                      neuralNav: { ...settings.neuralNav, pulseSpeed: speed } as any
+                    })}
+                    className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                      settings.neuralNav?.pulseSpeed === speed 
+                        ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20' 
+                        : 'bg-brand-background text-brand-text-muted border border-brand-border hover:border-brand-primary/30'
+                    }`}
+                  >
+                    {isRtl ? (speed === 'slow' ? 'بطيء' : speed === 'normal' ? 'عادي' : 'سريع') : speed}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 p-6 bg-brand-background/40 rounded-3xl border border-brand-border">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-brand-primary/10 rounded-full flex items-center justify-center">
+                  <Palette size={20} className="text-brand-primary" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-brand-text-main uppercase tracking-widest">{isRtl ? 'لون السمة العصبي' : 'Neural Theme Color'}</h4>
+                  <p className="text-xs text-brand-text-muted font-bold">{isRtl ? 'اختر اللون الأساسي للنبضات والفقاعات' : 'Choose the primary color for pulses and bubbles'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <input
+                  type="color"
+                  value={settings.neuralNav?.themeColor || '#1b97a7'}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    neuralNav: { ...settings.neuralNav, themeColor: e.target.value } as any
+                  })}
+                  className="w-12 h-12 rounded-xl border-2 border-brand-border cursor-pointer bg-transparent overflow-hidden"
+                />
+                <span className="text-xs font-mono font-bold text-brand-text-muted uppercase">{settings.neuralNav?.themeColor || '#1b97a7'}</span>
+              </div>
             </div>
           </div>
         </div>

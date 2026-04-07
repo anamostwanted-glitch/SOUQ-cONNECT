@@ -55,7 +55,7 @@ export const BroadcastBox: React.FC<BroadcastBoxProps> = ({ t, i18n, allUsers, s
       toast.success(i18n.language === 'ar' ? 'تم إرسال الإشعار بنجاح' : 'Notification sent successfully');
     } catch (error) {
       console.error(error);
-      handleFirestoreError(error, OperationType.WRITE, 'notifications');
+      handleFirestoreError(error, OperationType.WRITE, 'notifications', false);
       toast.error(i18n.language === 'ar' ? 'حدث خطأ أثناء الإرسال' : 'Error sending notification');
     } finally {
       setIsSending(false);

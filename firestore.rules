@@ -51,10 +51,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isMasterAdmin() || (
-        isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'manager', 'supervisor']
+      return isAuthenticated() && (
+        (request.auth.token.email == 'anamostwanted@gmail.com' && request.auth.token.email_verified == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') in ['admin', 'manager', 'supervisor'])
       );
     }
 
@@ -117,17 +117,27 @@ service cloud.firestore {
 
     function isValidReferralUpdate() {
       let oldPoints = ('referralPoints' in resource.data) ? resource.data.referralPoints : 0;
+      let newPoints = ('referralPoints' in request.resource.data) ? request.resource.data.referralPoints : 0;
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['referralPoints']) &&
-             request.resource.data.referralPoints == oldPoints + 10;
+             (newPoints == oldPoints + 10 || newPoints == 0);
     }
 
     match /users/{userId} {
       // PII Protection: Only owner or admin can read full profile.
       // Suppliers are public so customers can find them.
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || (resource != null && 'role' in resource.data && resource.data.role == 'supplier'));
-      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin()) && isValidUser(request.resource.data) && (request.resource.data.role != 'admin' || isMasterAdmin() || isAdmin());
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        isAdmin() || 
+        resource.data.role == 'supplier'
+      );
+      allow create: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        isAdmin()
+      ) && isValidUser(request.resource.data);
+      
       allow update: if isAuthenticated() && (
-        (request.auth.uid == userId && isValidUser(request.resource.data) && (roleUnchanged() || isMasterAdmin() || isAdmin())) || 
+        (request.auth.uid == userId && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin()) && 
+         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['referralPoints', 'role']) || isAdmin())) || 
         isAdmin() ||
         isValidReferralUpdate()
       );
@@ -564,13 +574,50 @@ service cloud.firestore {
              data.uid is string &&
              data.feature is string &&
              data.tokens is number &&
-             data.createdAt is string;
+             data.createdAt is string &&
+             (!('email' in data) || data.email is string) &&
+             (!('estimatedCost' in data) || data.estimatedCost is number) &&
+             (!('isCached' in data) || data.isCached is bool);
     }
 
     match /usage_logs/{logId} {
       allow read: if isAdmin();
       allow create: if isAuthenticated() && isValidUsageLog(request.resource.data);
       allow update, delete: if isAdmin();
+    }
+
+    function isValidWithdrawalRequest(data) {
+      let allowedFields = [
+        'userId', 'userName', 'userEmail', 'points', 'amount', 'status', 'createdAt', 
+        'processedAt', 'adminNotes', 'fraudScore', 'fraudAnalysis', 'fraudStatus', 'fraudRecommendations'
+      ];
+      return data.keys().hasAll(['userId', 'points', 'amount', 'status', 'createdAt']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.userId is string &&
+             data.points is number && data.points >= 0 &&
+             data.amount is number && data.amount >= 0 &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.createdAt is string &&
+             (!('userName' in data) || data.userName is string) &&
+             (!('userEmail' in data) || data.userEmail is string) &&
+             (!('processedAt' in data) || data.processedAt is string) &&
+             (!('adminNotes' in data) || data.adminNotes is string) &&
+             (!('fraudScore' in data) || data.fraudScore is number) &&
+             (!('fraudAnalysis' in data) || data.fraudAnalysis is string) &&
+             (!('fraudStatus' in data) || data.fraudStatus in ['safe', 'suspicious', 'high_risk']) &&
+             (!('fraudRecommendations' in data) || data.fraudRecommendations is list);
+    }
+
+    match /withdrawal_requests/{requestId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidWithdrawalRequest(request.resource.data);
+      allow update: if isAdmin() && isValidWithdrawalRequest(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Connection Test Rule
+    match /test/connection {
+      allow read: if true;
     }
   }
 }

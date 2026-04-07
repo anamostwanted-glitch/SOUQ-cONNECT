@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { User as UserIcon, Mail, Phone, MapPin, Save, Camera, Cpu, Zap, BookOpen, FileText, ShieldCheck, Lock, Sparkles } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { db, storage } from '../../../core/firebase';
 import { UserProfile } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
@@ -49,7 +50,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
       const url = await getDownloadURL(storageRef);
       setEditLogoUrl(url);
     } catch (error) {
-      console.error("Error uploading photo:", error);
+      handleFirestoreError(error, OperationType.WRITE, `users/${profile.uid}/photo`, false);
     } finally {
       setIsUploading(false);
     }
@@ -72,7 +73,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
-      console.error("Error saving profile:", error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}`, false);
     } finally {
       setIsSaving(false);
     }

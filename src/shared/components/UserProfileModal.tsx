@@ -48,7 +48,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
           const snap = await getDocs(collection(db, 'categories'));
           setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
         } catch (error) {
-          handleFirestoreError(error, OperationType.LIST, 'categories');
+          handleFirestoreError(error, OperationType.LIST, 'categories', false);
         }
       };
       fetchCategories();

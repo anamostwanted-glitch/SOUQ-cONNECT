@@ -31,11 +31,11 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     <div className="relative" ref={notifRef}>
       <HapticButton 
         onClick={() => setIsOpen(!isOpen)}
-        className="hidden md:flex w-10 h-10 items-center justify-center hover:bg-brand-surface rounded-xl transition-all relative text-brand-text-muted hover:text-brand-primary border border-transparent hover:border-brand-border"
+        className="flex w-9 h-9 items-center justify-center hover:bg-brand-surface rounded-full transition-all relative text-brand-text-muted hover:text-brand-primary border border-transparent hover:border-brand-border"
       >
-        <Bell size={20} />
+        <Bell size={18} />
         {unreadCount > 0 && (
-          <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-brand-error rounded-full border-2 border-brand-surface"></span>
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-error rounded-full border-2 border-brand-surface"></span>
         )}
       </HapticButton>
 

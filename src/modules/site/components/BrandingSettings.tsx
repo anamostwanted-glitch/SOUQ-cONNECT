@@ -62,7 +62,7 @@ const BrandingSettings: React.FC<BrandingSettingsProps> = ({ onBack }) => {
           }
         }
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, 'settings/site');
+        handleFirestoreError(error, OperationType.GET, 'settings/site', false);
       }
       
       // Still fetch user profile for AI suggestions
@@ -192,7 +192,7 @@ const BrandingSettings: React.FC<BrandingSettingsProps> = ({ onBack }) => {
       setSavedBranding(branding);
       setMessage(i18n.language === 'ar' ? 'تم حفظ الإعدادات بنجاح' : 'Settings saved successfully');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'settings/site');
+      handleFirestoreError(error, OperationType.UPDATE, 'settings/site', false);
       setMessage(i18n.language === 'ar' ? 'حدث خطأ أثناء الحفظ' : 'Error saving settings');
     } finally {
       setSaving(false);

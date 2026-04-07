@@ -28,7 +28,8 @@ import {
   Plus,
   BarChart3,
   AlertTriangle,
-  Bell
+  Bell,
+  X
 } from 'lucide-react';
 import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
@@ -45,6 +46,9 @@ import { MarketingManager } from './MarketingManager';
 import { UserDataManager } from './UserDataManager';
 import { BroadcastBox } from './BroadcastBox';
 import { ChatArchiveManager } from './ChatArchiveManager';
+import { NexusManager } from './NexusManager';
+import { AIPredictivePulse } from './AIPredictivePulse';
+import { NeuralSearch } from './NeuralSearch';
 import { MergeCategoryModal } from './MergeCategoryModal';
 import { CreateUserModal } from './CreateUserModal';
 import { SupplyDemandAnalyzer } from './SupplyDemandAnalyzer';
@@ -73,11 +77,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [requests, setRequests] = useState<ProductRequest[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategoryForKeywords, setSelectedCategoryForKeywords] = useState<Category | null>(null);
   const [isSuggestingMerges, setIsSuggestingMerges] = useState(false);
   const [mergeSuggestions, setMergeSuggestions] = useState<any[]>([]);
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+  const [searchFilters, setSearchFilters] = useState<any>(null);
   const [activeCategoryTab, setActiveCategoryTab] = useState<'product' | 'service'>('product');
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
@@ -255,14 +261,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       handleFirestoreError(error, OperationType.LIST, 'categories', false);
     });
 
+    const unsubscribeWithdrawals = onSnapshot(collection(db, 'withdrawal_requests'), (snap) => {
+      const fetchedWithdrawals: any[] = [];
+      snap.forEach(doc => fetchedWithdrawals.push({ id: doc.id, ...doc.data() }));
+      setWithdrawals(fetchedWithdrawals);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'withdrawal_requests', false);
+    });
+
     setLoading(false);
 
     return () => {
       unsubscribeUsers();
       unsubscribeRequests();
       unsubscribeCategories();
+      unsubscribeWithdrawals();
     };
   }, []);
+
+  const handleNeuralSearchNavigate = (tab: string) => {
+    const tabMap: { [key: string]: string } = {
+      'users': 'users',
+      'requests': 'requests',
+      'categories': 'categories',
+      'withdrawals': 'nexus',
+      'suppliers': 'users',
+      'ambassadors': 'users',
+      'statistics': 'overview'
+    };
+    const targetTab = tabMap[tab.toLowerCase()] || 'overview';
+    setActiveTab(targetTab);
+  };
+
+  const handleNeuralSearchFilter = (target: string, filters: any) => {
+    setSearchFilters({ target, ...filters });
+    handleNeuralSearchNavigate(target);
+  };
 
   const handleUpdateRole = async (uid: string, newRole: string) => {
     try {
@@ -386,6 +420,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'site', label: isRtl ? 'إعدادات الواجهة' : 'Interface Settings', icon: Zap },
     { id: 'ai', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu },
     { id: 'cost', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
+    { id: 'nexus', label: isRtl ? 'نمو النكسوس' : 'Nexus Growth', icon: Zap, isNew: true },
     { id: 'gap-analysis', label: isRtl ? 'تحليل الفجوة' : 'Gap Analysis', icon: BarChart3, isNew: true },
     { id: 'settings', label: isRtl ? 'الهوية البصرية' : 'Brand Identity', icon: Palette },
   ];
@@ -393,6 +428,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const totalSuppliers = users.filter(u => u.role === 'supplier').length;
   const totalCustomers = users.filter(u => u.role === 'customer').length;
   const openRequests = requests.filter(r => r.status === 'open').length;
+
+  const filteredUsers = users.filter(user => {
+    if (!searchFilters || searchFilters.target !== 'users') return true;
+    
+    const { role, searchString } = searchFilters;
+    
+    if (role && user.role !== role) return false;
+    if (searchString) {
+      const s = searchString.toLowerCase();
+      return (
+        user.name?.toLowerCase().includes(s) ||
+        user.email?.toLowerCase().includes(s) ||
+        user.companyName?.toLowerCase().includes(s)
+      );
+    }
+    return true;
+  });
 
   return (
     <div className={`flex flex-col md:flex-row min-h-screen bg-brand-background ${isRtl ? 'font-arabic' : ''}`}>
@@ -440,6 +492,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-brand-background p-4 md:p-8">
+        {/* Top Neural Bar */}
+        <div className="max-w-6xl mx-auto mb-8 flex items-center justify-between gap-4">
+          <NeuralSearch 
+            onNavigate={handleNeuralSearchNavigate}
+            onFilter={handleNeuralSearchFilter}
+            availableTabs={tabs.map(t => t.id)}
+          />
+          
+          <div className="flex items-center gap-3">
+            <button className="p-2.5 bg-brand-surface border border-brand-border rounded-xl text-brand-text-muted hover:text-brand-primary transition-colors relative">
+              <Bell size={20} />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-brand-primary rounded-full border-2 border-brand-surface" />
+            </button>
+            <div className="flex items-center gap-3 pl-3 border-l border-brand-border">
+              <div className="text-right hidden sm:block">
+                <div className="text-xs font-black text-brand-text-main">{profile.name}</div>
+                <div className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">Admin</div>
+              </div>
+              <img 
+                src={profile.photoURL || `https://ui-avatars.com/api/?name=${profile.name}&background=random`} 
+                alt={profile.name}
+                className="w-10 h-10 rounded-xl border border-brand-border object-cover"
+              />
+            </div>
+          </div>
+        </div>
+
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div
@@ -449,6 +528,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               exit={{ opacity: 0, y: -20 }}
               className="space-y-8 max-w-6xl mx-auto"
             >
+              <AIPredictivePulse 
+                systemData={{
+                  userCount: users.length,
+                  requestCount: requests.length,
+                  withdrawalCount: withdrawals.length,
+                  activeSuppliers: users.filter(u => u.role === 'supplier').length
+                }}
+              />
+
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-3xl font-black text-brand-text-main">
@@ -545,6 +633,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {isRtl ? 'إدارة الصلاحيات وتوثيق الحسابات' : 'Manage roles and verify accounts'}
                   </p>
                 </div>
+                
+                {searchFilters && searchFilters.target === 'users' && (
+                  <button
+                    onClick={() => setSearchFilters(null)}
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary border border-brand-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary/20 transition-all"
+                  >
+                    <X size={14} />
+                    {isRtl ? 'مسح الفلاتر' : 'Clear Filters'}
+                  </button>
+                )}
+
                 <button
                   onClick={handleCheckExpirations}
                   disabled={isCheckingExpirations}
@@ -576,7 +675,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-brand-border">
-                      {users.map(user => (
+                      {filteredUsers.map(user => (
                         <tr key={user.uid} className="hover:bg-brand-background/30 transition-colors group">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-3">
@@ -941,6 +1040,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               className="max-w-6xl mx-auto"
             >
               <CostAnalysisDashboard />
+            </motion.div>
+          )}
+
+          {activeTab === 'nexus' && (
+            <motion.div
+              key="nexus"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <NexusManager />
             </motion.div>
           )}
 

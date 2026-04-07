@@ -24,9 +24,20 @@ export const processImageTo4x5WithWatermark = async (
           return;
         }
 
-        // Set 4:5 Aspect Ratio (Portrait)
-        const targetWidth = img.width;
-        const targetHeight = (img.width * 5) / 4;
+        // Set 4:5 Aspect Ratio (Portrait) with a maximum size for mobile compatibility
+        const MAX_DIMENSION = 2048;
+        let targetWidth = img.width;
+        let targetHeight = (img.width * 5) / 4;
+
+        if (targetWidth > MAX_DIMENSION || targetHeight > MAX_DIMENSION) {
+          if (targetWidth > targetHeight) {
+            targetWidth = MAX_DIMENSION;
+            targetHeight = (MAX_DIMENSION * 5) / 4;
+          } else {
+            targetHeight = MAX_DIMENSION;
+            targetWidth = (MAX_DIMENSION * 4) / 5;
+          }
+        }
         
         canvas.width = targetWidth;
         canvas.height = targetHeight;

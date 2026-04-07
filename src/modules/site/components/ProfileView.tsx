@@ -288,7 +288,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
         ...profile,
         followersCount: previousCount
       });
-      handleFirestoreError(error, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${auth.currentUser.uid}`, false);
     }
   };
 
@@ -596,7 +596,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
       setProfile({ ...profile, ...updateData });
       setIsEditing(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}`, false);
     } finally {
       setIsSaving(false);
     }

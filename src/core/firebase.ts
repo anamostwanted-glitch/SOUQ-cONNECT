@@ -8,13 +8,18 @@ console.log('Firebase Config:', firebaseConfig);
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Use the named database if provided, otherwise default to '(default)'
+const databaseId = firebaseConfig.firestoreDatabaseId || '(default)';
+export const db = getFirestore(app, databaseId);
+
+console.log(`Firestore initialized with database ID: ${databaseId}`);
 
 // Enable offline persistence
 /*
 enableMultiTabIndexedDbPersistence(db).catch((err) => {
   if (err.code === 'failed-precondition') {
-    console.warn('Multiple tabs open, persistence can only be enabled in one tab at a a time.');
+    console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
   } else if (err.code === 'unimplemented') {
     console.warn('The current browser does not support all of the features required to enable persistence');
   }
@@ -27,14 +32,18 @@ export { firebaseConfig };
 // Validate Connection to Firestore
 async function testConnection() {
   try {
+    // Try to get a document from the server to verify connection
     await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration. The client is offline.");
+    console.log('Firestore connection verified successfully.');
+  } catch (error: any) {
+    console.error("Firestore connection test failed:", error);
+    if (error.code === 'unavailable') {
+      console.error("The Firestore backend is unreachable. This could be a network issue or an incorrect database ID.");
+    } else if (error.code === 'permission-denied') {
+      console.error("Permission denied. Check your Firestore security rules.");
     }
-    // Skip logging for other errors, as this is simply a connection test.
   }
 }
-testConnection();
+testConnection().catch(err => console.error("Critical: Firestore testConnection failed unexpectedly:", err));
 
 export default app;

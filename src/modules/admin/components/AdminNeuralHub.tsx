@@ -29,7 +29,6 @@ import {
   Key
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
-import { GoogleGenAI } from "@google/genai";
 import { toast } from 'sonner';
 
 export const AdminNeuralHub: React.FC = () => {
@@ -51,7 +50,7 @@ export const AdminNeuralHub: React.FC = () => {
       }
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'settings/gemini_config');
+      handleFirestoreError(error, OperationType.GET, 'settings/gemini_config', false);
       setLoading(false);
     });
 
@@ -103,14 +102,20 @@ export const AdminNeuralHub: React.FC = () => {
     const keysToMap = currentKeys || keys;
     
     try {
-      const ai = new GoogleGenAI({ apiKey: key });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: "test",
+      const response = await fetch('/api/test-ai-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key })
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Test failed');
+      }
+
+      const data = await response.json();
       const latency = Date.now() - startTime;
-      const isSuccess = !!response.text;
+      const isSuccess = data.success;
 
       const updatedKeys = keysToMap.map(k => {
         if (k.id === id) {
@@ -119,7 +124,7 @@ export const AdminNeuralHub: React.FC = () => {
             status: isSuccess ? 'active' : 'error' as any,
             latency,
             lastTested: new Date().toISOString(),
-            modelType: 'Gemini 3 Flash'
+            modelType: 'Gemini 1.5 Flash'
           };
         }
         return k;
@@ -136,12 +141,7 @@ export const AdminNeuralHub: React.FC = () => {
     } catch (error: any) {
       console.error('Test error:', error);
       
-      // Handle 404 NOT_FOUND which often means model not found or key selection needed
-      if (error?.error?.code === 404 || error?.message?.includes('Requested entity was not found')) {
-        toast.error(isRtl ? 'المحرك غير موجود أو المفتاح غير صالح' : 'Model not found or invalid key');
-      } else {
-        toast.error(isRtl ? 'خطأ في المفتاح أو الصلاحية' : 'Invalid key or permissions');
-      }
+      toast.error(isRtl ? 'خطأ في المفتاح أو الصلاحية' : 'Invalid key or permissions');
 
       const updatedKeys = keysToMap.map(k => {
         if (k.id === id) {

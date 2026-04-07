@@ -15,6 +15,7 @@ import { HapticButton } from '../../../shared/components/HapticButton';
 import { Badge } from "../../../shared/components/ui/badge";
 import { Card, CardContent } from "../../../shared/components/ui/card";
 import { toast } from 'sonner';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 
 interface SupplierStorefrontProps {
   supplier: UserProfile;
@@ -43,6 +44,9 @@ export const SupplierStorefront: React.FC<SupplierStorefrontProps> = ({ supplier
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MarketplaceItem));
       setProducts(items);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, `marketplace/${supplier.uid}`, false);
       setLoading(false);
     });
 

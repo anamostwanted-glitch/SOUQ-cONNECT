@@ -15,6 +15,7 @@ import { useBranding } from '../../../../core/providers/BrandingProvider';
 import { PremiumVisualSearchModal } from '../../../../shared/components/PremiumVisualSearchModal';
 import { NotificationModal } from '../../../../shared/components/NotificationModal';
 import { HapticButton } from '../../../../shared/components/HapticButton';
+import { NeuralPulse } from '../NeuralPulse';
 
 import { AIActionHub } from './AIActionHub';
 import { Header } from './Header';
@@ -81,6 +82,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const [headerLogoAuraSharpness, setHeaderLogoAuraSharpness] = useState(50);
   const [headerLogoScale, setHeaderLogoScale] = useState(1);
   const [headerShowNeuralLogo, setHeaderShowNeuralLogo] = useState(true);
+  const [enableNeuralPulse, setEnableNeuralPulse] = useState(true);
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -195,6 +197,7 @@ export const Layout: React.FC<LayoutProps> = ({
       if (data.headerLogoAuraSharpness !== undefined) setHeaderLogoAuraSharpness(data.headerLogoAuraSharpness);
       if (data.headerLogoScale !== undefined) setHeaderLogoScale(data.headerLogoScale);
       if (data.headerShowNeuralLogo !== undefined) setHeaderShowNeuralLogo(data.headerShowNeuralLogo);
+      if (data.enableNeuralPulse !== undefined) setEnableNeuralPulse(data.enableNeuralPulse);
     };
     window.addEventListener('site-settings-preview', handlePreview);
     return () => window.removeEventListener('site-settings-preview', handlePreview);
@@ -224,6 +227,7 @@ export const Layout: React.FC<LayoutProps> = ({
         setHeaderLogoAuraSharpness(data.headerLogoAuraSharpness ?? data.logoAuraSharpness ?? 50);
         setHeaderLogoScale(data.headerLogoScale ?? data.logoScale ?? 1);
         setHeaderShowNeuralLogo(data.headerShowNeuralLogo ?? data.showNeuralLogo ?? true);
+        setEnableNeuralPulse(data.enableNeuralPulse ?? true);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'settings/site', false);
@@ -305,7 +309,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className={`viewport-height flex flex-col bg-brand-background text-brand-text-main font-sans ${isRtl ? 'font-arabic' : ''} transition-colors duration-300 overflow-hidden`}>
-      <div className="safe-top bg-brand-background z-50">
+      <div className="z-50">
         <Header 
           siteLogo={siteLogo}
           siteName={siteName}
@@ -360,7 +364,18 @@ export const Layout: React.FC<LayoutProps> = ({
             </p>
           </div>
           <button 
-            onClick={() => sendEmailVerification(auth.currentUser!)}
+            onClick={() => {
+              if (auth.currentUser) {
+                sendEmailVerification(auth.currentUser)
+                  .then(() => {
+                    soundService.play(SoundType.SUCCESS);
+                  })
+                  .catch(err => {
+                    console.error("Email verification error:", err);
+                    handleFirestoreError(err, OperationType.WRITE, 'auth/email-verification', false);
+                  });
+              }
+            }}
             className="text-sm font-bold text-brand-warning hover:underline"
           >
             {isRtl ? 'إعادة إرسال الرابط' : 'Resend verification link'}
@@ -368,7 +383,7 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       )}
 
-      <main ref={mainRef} className={`flex-1 overflow-y-auto no-scrollbar relative ${currentView !== 'chat' ? 'pb-28 md:pb-0' : ''}`}>
+      <main ref={mainRef} className={`flex-1 overflow-y-auto no-scrollbar relative pt-20 ${currentView !== 'chat' ? 'pb-28 md:pb-0' : ''}`}>
         {children}
       </main>
 
@@ -426,7 +441,7 @@ export const Layout: React.FC<LayoutProps> = ({
             initial={{ opacity: 0, scale: 0.5, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.5, y: 20 }}
-            className="fixed bottom-32 right-6 z-40"
+            className={`fixed bottom-56 md:bottom-32 ${isRtl ? 'left-6' : 'right-6'} z-40`}
           >
             <HapticButton
               onClick={() => mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -498,6 +513,8 @@ export const Layout: React.FC<LayoutProps> = ({
           />
         )}
       </AnimatePresence>
+
+      {enableNeuralPulse && <NeuralPulse />}
     </div>
   );
 };

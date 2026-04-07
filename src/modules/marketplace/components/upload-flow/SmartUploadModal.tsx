@@ -8,6 +8,7 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '../../../../core/firebase';
 import { UserProfile, MarketplaceItem } from '../../../../core/types';
 import { HapticButton } from '../../../../shared/components/HapticButton';
+import { toast } from 'sonner';
 
 import { ImageFile, UploadStatus } from './ImageThumbnail';
 import { DraggableGrid } from './DraggableGrid';
@@ -57,7 +58,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
         setWatermarkPosition(data.watermarkPosition || 'bottom-right');
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'settings/site');
+      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
     });
     return () => unsub();
   }, []);
@@ -129,6 +130,11 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
       
       const reader = new FileReader();
       reader.readAsDataURL(mainImage.originalFile || mainImage.file);
+      reader.onerror = (error) => {
+        console.error("FileReader error:", error);
+        setErrorMessage(isRtl ? 'فشل قراءة الملف' : 'Error reading file');
+        setIsGeneratingImage(false);
+      };
       reader.onloadend = async () => {
         try {
           const base64data = reader.result as string;
@@ -222,6 +228,94 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
     }
   };
 
+  const retryAnalysis = async (id: string) => {
+    const img = images.find(i => i.id === id);
+    if (!img || isAnalyzing) return;
+    
+    // Use originalFile if available, otherwise compressed file
+    const fileToAnalyze = img.originalFile || img.file;
+    await analyzeSpecificImage(id, fileToAnalyze);
+  };
+
+  const analyzeSpecificImage = async (id: string, file: File) => {
+    try {
+      updateImageStatus(id, 'analyzing');
+      setIsAnalyzing(true);
+      setErrorMessage(null);
+      
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = async () => {
+        try {
+          const base64data = reader.result as string;
+          console.log('Manual AI analysis started for image:', id);
+          const suggestion = await analyzeProductImage(base64data, file.type);
+          
+          if (suggestion) {
+            console.log('Manual AI suggestion received:', suggestion);
+            setAiSuggestion(suggestion);
+            
+            // Set title and description if empty
+            const suggestedTitle = isRtl 
+              ? (suggestion.productNameAr || suggestion.productNameEn) 
+              : (suggestion.productNameEn || suggestion.productNameAr);
+            
+            const suggestedDesc = isRtl 
+              ? (suggestion.descriptionAr || suggestion.descriptionEn) 
+              : (suggestion.descriptionEn || suggestion.descriptionAr);
+
+            if (!title) setTitle(suggestedTitle || '');
+            if (!description) setDescription(suggestedDesc || '');
+            
+            setBilingualContent({
+              titleAr: suggestion.productNameAr || '',
+              titleEn: suggestion.productNameEn || '',
+              descriptionAr: suggestion.descriptionAr || '',
+              descriptionEn: suggestion.descriptionEn || '',
+              keywordsAr: suggestion.keywordsAr || [],
+              keywordsEn: suggestion.keywordsEn || []
+            });
+            
+            const cat = categories.find(c => c.nameEn.toLowerCase() === suggestion.category?.toLowerCase());
+            if (cat && selectedCategories.length === 0) setSelectedCategories([cat.id]);
+            if (!price) setPrice(suggestion.priceEstimate?.toString() || '');
+            setIsHighQuality(suggestion.isHighQuality);
+            if (features.length === 0) setFeatures(suggestion.features || []);
+            
+            toast.success(isRtl ? 'تم تحليل المنتج بنجاح' : 'Product analyzed successfully');
+            updateImageStatus(id, 'success');
+          } else {
+            setErrorMessage(isRtl ? 'لم يتمكن الذكاء الاصطناعي من تحليل الصورة.' : 'AI could not analyze the image.');
+            updateImageStatus(id, 'error', 0, 'AI analysis failed');
+          }
+        } catch (error: any) {
+          if (error.message === 'QUOTA_EXHAUSTED') {
+            setAiQuotaExhausted(true);
+            setErrorMessage(isRtl ? 'تم استنفاد حصة الذكاء الاصطناعي.' : 'AI Quota exhausted.');
+          } else if (error.message === 'MISSING_API_KEY') {
+            setErrorMessage(isRtl ? 'مفتاح الذكاء الاصطناعي مفقود.' : 'AI API Key missing.');
+          } else {
+            setErrorMessage(isRtl ? 'فشل تحليل الصورة.' : 'Image analysis failed.');
+          }
+          console.error('AI Analysis error:', error);
+          updateImageStatus(id, 'error', 0, error.message || 'Analysis error');
+        } finally {
+          setIsAnalyzing(false);
+        }
+      };
+      reader.onerror = (error) => {
+        console.error('FileReader error in analyzeSpecificImage:', error);
+        setErrorMessage(isRtl ? 'خطأ في قراءة ملف الصورة.' : 'Error reading image file.');
+        updateImageStatus(id, 'error', 0, 'Error reading file');
+        setIsAnalyzing(false);
+      };
+    } catch (error) {
+      console.error('Error in analyzeSpecificImage:', error);
+      setIsAnalyzing(false);
+      updateImageStatus(id, 'error', 0, 'Analysis initialization error');
+    }
+  };
+
   const processSingleImage = async (id: string, file: File, isMain: boolean = false) => {
     try {
       // 1. Compress
@@ -254,9 +348,11 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
               try {
                 const base64data = reader.result as string;
                 try {
+                  console.log('Starting AI analysis for image:', id);
                   const suggestion = await analyzeProductImage(base64data, processedFile.type);
                   
                   if (suggestion) {
+                    console.log('AI suggestion received:', suggestion);
                     setAiSuggestion(suggestion);
                     
                     // Set title and description based on current language, fallback to other if empty
@@ -287,10 +383,17 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                     if (!price) setPrice(suggestion.priceEstimate?.toString() || '');
                     setIsHighQuality(suggestion.isHighQuality);
                     if (features.length === 0) setFeatures(suggestion.features || []);
+                  } else {
+                    console.warn('AI analysis returned no suggestion');
                   }
                 } catch (error: any) {
                   if (error.message === 'QUOTA_EXHAUSTED') {
                     setAiQuotaExhausted(true);
+                    setErrorMessage(isRtl ? 'تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI Quota exhausted. Please try again later.');
+                  } else if (error.message === 'MISSING_API_KEY') {
+                    setErrorMessage(isRtl ? 'مفتاح الذكاء الاصطناعي مفقود. يرجى ضبطه في الإعدادات.' : 'AI API Key is missing. Please set it in settings.');
+                  } else {
+                    setErrorMessage(isRtl ? 'فشل تحليل الصورة بالذكاء الاصطناعي.' : 'AI image analysis failed.');
                   }
                   console.error('AI Analysis error:', error);
                 } finally {
@@ -500,7 +603,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
 
       onAdd();
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'marketplace');
+      handleFirestoreError(error, OperationType.CREATE, 'marketplace', false);
       setIsSubmitting(false);
     }
   };
@@ -705,15 +808,31 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
             </div>
 
             {/* Draggable Grid */}
-            <DraggableGrid 
-              images={images} 
-              setImages={setImages} 
-              onRemove={removeImage} 
-              onRetry={(id) => {
-                const img = images.find(i => i.id === id);
-                if (img) processSingleImage(id, img.file);
-              }}
-            />
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  {isRtl ? 'إدارة الصور' : 'Manage Images'}
+                </h4>
+                {images.length > 0 && !aiSuggestion && !isAnalyzing && (
+                  <button 
+                    onClick={() => retryAnalysis(images.find(img => img.isMain)?.id || images[0].id)}
+                    className="text-[10px] font-black text-brand-primary uppercase tracking-widest flex items-center gap-1 hover:underline"
+                  >
+                    <Sparkles size={10} />
+                    {isRtl ? 'إعادة التحليل الذكي' : 'Retry AI Analysis'}
+                  </button>
+                )}
+              </div>
+              <DraggableGrid 
+                images={images} 
+                setImages={setImages} 
+                onRemove={removeImage} 
+                onRetry={(id) => {
+                  const img = images.find(i => i.id === id);
+                  if (img) processSingleImage(id, img.file);
+                }}
+              />
+            </div>
 
             {/* AI Image Generation Button */}
             <div className="mt-4">

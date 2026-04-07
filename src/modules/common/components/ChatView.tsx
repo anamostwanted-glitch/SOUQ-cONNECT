@@ -22,7 +22,7 @@ import { UserProfile, Message, Chat, ProductRequest, Quote, QuoteItem, Offer, Ap
 import { translateText, generateSmartReplies, moderateContent, translateAudio, negotiateOffer, getPriceIntelligence, summarizeChat, analyzeSentiment } from '../../../core/services/geminiService';
 import { createNotification } from '../../../core/services/notificationService';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Mic, Square, ArrowLeft, User as UserIcon, Play, Pause, MessageSquare, Image as ImageIcon, Upload, Tag, Phone, X, ZoomIn, Sparkles as SparklesIcon, Check, CheckCheck, FileText, PlusCircle, Trash2, Download, Printer, Star, Bot, MapPin, Reply, CheckCircle, Settings, Clock, SmilePlus, Search, MoreVertical, Copy, Forward, Pin } from 'lucide-react';
+import { Send, Mic, Square, ArrowLeft, User as UserIcon, Play, Pause, MessageSquare, Image as ImageIcon, Upload, Tag, Phone, X, ZoomIn, Sparkles as SparklesIcon, Check, CheckCheck, FileText, PlusCircle, Trash2, Download, Printer, Star, Bot, MapPin, Reply, CheckCircle, Settings, Clock, SmilePlus, Search, MoreVertical, Copy, Forward, Pin, ShieldCheck, BrainCircuit, Sparkles, Info, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { soundService, SoundType } from '../../../core/utils/soundService';
 import { Virtuoso } from 'react-virtuoso';
@@ -164,6 +164,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       console.error('Error deleting message:', error);
     }
   };
+  const isRtl = i18n.language === 'ar';
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [chatSummary, setChatSummary] = useState<string | null>(null);
   const [isAnalyzingSentiment, setIsAnalyzingSentiment] = useState(false);
@@ -173,6 +174,45 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [isNegotiating, setIsNegotiating] = useState(false);
   const [isModerating, setIsModerating] = useState(false);
+  const [showSmartActions, setShowSmartActions] = useState(false);
+  const [suggestedActions, setSuggestedActions] = useState<{ id: string; label: string; icon: any; action: () => void }[]>([]);
+  const [isContextMinimized, setIsContextMinimized] = useState(false);
+
+  // Chameleon Action Bar Logic
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg.senderId === profile?.uid) {
+      setSuggestedActions([]);
+      return;
+    }
+
+    const text = lastMsg.text?.toLowerCase() || '';
+    const newActions: { id: string; label: string; icon: any; action: () => void }[] = [];
+
+    if (profile?.role === 'supplier') {
+      if (text.includes('سعر') || text.includes('بكم') || text.includes('price') || text.includes('how much')) {
+        newActions.push({
+          id: 'send-quote',
+          label: isRtl ? 'إرسال عرض سعر' : 'Send Quote',
+          icon: FileText,
+          action: () => setShowQuoteModal(true)
+        });
+      }
+      if (text.includes('اتفقنا') || text.includes('تمام') || text.includes('deal') || text.includes('ok')) {
+        newActions.push({
+          id: 'confirm-deal',
+          label: isRtl ? 'تأكيد الاتفاق' : 'Confirm Deal',
+          icon: CheckCircle2,
+          action: () => {
+            handleSend(undefined, isRtl ? 'تم التأكيد، سأقوم بتجهيز الطلب الآن.' : 'Confirmed, I will prepare the order now.').catch(err => console.error("Confirm deal error:", err));
+          }
+        });
+      }
+    }
+
+    setSuggestedActions(newActions);
+  }, [messages, profile, isRtl]);
   const [negotiationCustomerMessage, setNegotiationCustomerMessage] = useState('');
   
   // Watermark Settings
@@ -187,6 +227,55 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMessageId = useRef<string | null>(null);
   const isInitialLoad = useRef(true);
+
+  useEffect(() => {
+    // Chameleon Action Bar Logic: Suggest actions based on context
+    const analyzeContext = () => {
+      if (!messages.length || !profile) return;
+      
+      const lastMessage = messages[messages.length - 1];
+      const newActions: { id: string; label: string; icon: any; action: () => void }[] = [];
+      
+      // If last message mentions price, money, or budget
+      const priceKeywords = ['سعر', 'كم', 'بكم', 'فلوس', 'ميزانية', 'price', 'how much', 'cost', 'budget'];
+      if (lastMessage.text && priceKeywords.some(k => lastMessage.text!.toLowerCase().includes(k))) {
+        newActions.push({
+          id: 'negotiate',
+          label: isRtl ? 'تفاوض الآن' : 'Negotiate',
+          icon: Sparkles,
+          action: () => setShowNegotiationModal(true)
+        });
+      }
+      
+      // If last message is an image
+      if (lastMessage.type === 'image') {
+        newActions.push({
+          id: 'analyze-image',
+          label: isRtl ? 'تحليل الصورة' : 'Analyze Image',
+          icon: BrainCircuit,
+          action: () => { /* Logic to analyze image with Gemini */ }
+        });
+      }
+      
+      // If conversation is long (more than 10 messages)
+      if (messages.length > 10) {
+        newActions.push({
+          id: 'summarize',
+          label: isRtl ? 'لخص لي' : 'Summarize',
+          icon: FileText,
+          action: () => handleSummarizeChat().catch(err => console.error("Summarize error:", err))
+        });
+      }
+
+      setSuggestedActions(newActions.slice(0, 2)); // Limit to 2 actions
+      
+      // Auto-hide actions after 10 seconds
+      const timer = setTimeout(() => setSuggestedActions([]), 10000);
+      return () => clearTimeout(timer);
+    };
+
+    analyzeContext();
+  }, [messages, profile, isRtl]);
 
   const handleSummarizeChat = async () => {
     if (!messages.length) return;
@@ -293,7 +382,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       }
     };
 
-    checkNegotiation();
+    checkNegotiation().catch(err => console.error("Negotiation check error:", err));
   }, [messages, profile, chat, chatId, i18n.language]);
 
   useEffect(() => {
@@ -373,7 +462,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
             }
           }
         } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `chats/${chatId} dependencies`);
+          handleFirestoreError(error, OperationType.GET, `chats/${chatId} dependencies`, false);
         }
       } catch (error) {
         console.error('Error in onSnapshot callback for chat:', error);
@@ -527,7 +616,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       }
     };
 
-    generateReplies();
+    generateReplies().catch(err => console.error("Generate replies error:", err));
   }, [messages, profile, isExpired, i18n.language]);
 
   const handleTranslateAudio = async (messageId: string, audioUrl: string) => {
@@ -604,7 +693,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       soundService.play(SoundType.SENT);
       setShowQuoteModal(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `chats/${chatId}/messages`);
+      handleFirestoreError(error, OperationType.WRITE, `chats/${chatId}/messages`, false);
     }
   };
 
@@ -636,7 +725,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         });
         soundService.play(SoundType.SENT);
       } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, `chats/${chatId}/messages`);
+        handleFirestoreError(error, OperationType.WRITE, `chats/${chatId}/messages`, false);
       } finally {
         setIsSendingLocation(false);
       }
@@ -680,12 +769,13 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
     }, 3000);
   };
 
-  const handleSend = async (e?: React.FormEvent) => {
+  const handleSend = async (e?: React.FormEvent, overrideText?: string) => {
     e?.preventDefault();
-    if (!inputText.trim() || !profile) return;
+    const textToSend = overrideText || inputText;
+    if (!textToSend.trim() || !profile) return;
 
-    const text = inputText;
-    setInputText('');
+    const text = textToSend;
+    if (!overrideText) setInputText('');
     setSmartReplies([]);
     setIsGeneratingReplies(false);
     generationIdRef.current++;
@@ -761,7 +851,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           navigator.vibrate(50);
         }
       } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, `chats/${chatId}`);
+        handleFirestoreError(error, OperationType.WRITE, `chats/${chatId}`, false);
       } finally {
         setIsModerating(false);
       }
@@ -820,7 +910,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           });
           soundService.play(SoundType.SENT);
         } catch (error) {
-          handleFirestoreError(error, OperationType.WRITE, `chats/${chatId}`);
+          handleFirestoreError(error, OperationType.WRITE, `chats/${chatId}`, false);
         }
       };
 
@@ -1113,13 +1203,15 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
 
   return (
     <div className="flex flex-col fixed inset-0 top-[73px] bg-brand-background z-20">
-      {/* Chat Header */}
-      {/* Header */}
-      <div className="bg-brand-surface/95 backdrop-blur-xl border-b border-brand-border-light px-3 md:px-6 py-3 flex items-center justify-between shadow-sm z-30">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-3 -ml-2 hover:bg-brand-surface rounded-full text-brand-text-muted transition-colors">
-            <ArrowLeft size={24} className={i18n.language === 'ar' ? 'rotate-180' : ''} />
-          </button>
+      {/* Luxury Smart Header */}
+      <div className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-brand-border/30 px-4 py-3 flex items-center justify-between gap-3 shadow-sm">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <HapticButton 
+            onClick={onBack}
+            className="p-2 -ml-2 text-slate-400 hover:text-brand-primary hover:bg-brand-primary/10 rounded-full transition-all"
+          >
+            <ChevronLeft size={24} className={isRtl ? 'rotate-180' : ''} />
+          </HapticButton>
           
           <div 
             onClick={() => {
@@ -1128,144 +1220,244 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                 else setShowUserProfileModal(true);
               }
             }}
-            className={`flex items-center gap-3 ${!chat?.isCategoryChat ? 'cursor-pointer group' : ''}`}
+            className={`relative ${!chat?.isCategoryChat ? 'cursor-pointer group' : ''}`}
           >
-            <div className="relative">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-brand-primary/20 rounded-full flex items-center justify-center text-brand-primary overflow-hidden border-2 border-brand-surface shadow-sm group-hover:border-brand-primary/20 transition-all">
-                {chat?.isCategoryChat ? (
-                  <MessageSquare size={20} />
-                ) : otherUser?.logoUrl ? (
-                  <img src={otherUser.logoUrl} alt={otherUser.companyName || otherUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
-                ) : (
-                  <UserIcon size={20} />
-                )}
-              </div>
-              {/* Online indicator */}
-              {!chat?.isCategoryChat && otherUser && (
-                <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-2 border-brand-surface rounded-full ${
-                  otherUser.lastActive && new Date().getTime() - new Date(otherUser.lastActive).getTime() < 5 * 60 * 1000
-                    ? 'bg-brand-success shadow-[0_0_8px_rgba(16,185,129,0.5)]' 
-                    : 'bg-brand-border'
-                }`}></div>
+            <div className="w-11 h-11 rounded-2xl overflow-hidden border-2 border-white dark:border-slate-800 shadow-md transition-transform group-hover:scale-105 bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+              {chat?.isCategoryChat ? (
+                <MessageSquare size={20} />
+              ) : otherUser?.photoURL || otherUser?.logoUrl ? (
+                <img 
+                  src={otherUser?.photoURL || otherUser?.logoUrl} 
+                  alt={otherUser?.name}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <UserIcon size={20} />
               )}
             </div>
-            
-            <div className="flex flex-col">
-              <h3 className="font-bold text-base text-brand-text-main group-hover:text-brand-primary transition-colors line-clamp-1">
-                {chat?.isCategoryChat ? categoryName : (otherUser?.companyName || otherUser?.name || '...')}
-              </h3>
-              <div className="flex items-center gap-2">
-                {otherUserTyping ? (
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex gap-0.5">
-                      <span className="w-1 h-1 bg-brand-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                      <span className="w-1 h-1 bg-brand-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                      <span className="w-1 h-1 bg-brand-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                    </div>
-                    <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">
-                      {i18n.language === 'ar' ? 'جاري الكتابة...' : 'Typing...'}
-                    </span>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-xs text-brand-text-muted font-medium">
-                      {chat?.isCategoryChat 
-                        ? (i18n.language === 'ar' ? 'غرفة دردشة عامة' : 'Public Chat Room')
-                        : (otherUser?.role === 'admin' ? (i18n.language === 'ar' ? 'مدير النظام' : 'Admin') : otherUser?.role === 'customer' ? (i18n.language === 'ar' ? 'عميل' : 'Customer') : (i18n.language === 'ar' ? 'مورد' : 'Supplier'))}
-                    </p>
-                    {!chat?.isCategoryChat && otherUser?.rating && otherUser?.reviewCount ? (
-                      <span className="flex items-center gap-0.5 text-[10px] font-bold text-brand-warning bg-brand-warning/10 px-1.5 py-0.5 rounded-md">
-                        <Star size={10} className="fill-brand-warning" />
-                        {otherUser.rating.toFixed(1)}
-                        <span className="text-brand-text-muted font-normal ml-0.5">
-                          ({otherUser.reviewCount})
-                        </span>
-                      </span>
-                    ) : null}
-                  </>
-                )}
+            {otherUserTyping && (
+              <div className="absolute -bottom-1 -right-1 bg-brand-primary text-white p-1 rounded-full border-2 border-white dark:border-slate-900 animate-bounce">
+                <div className="flex gap-0.5">
+                  <span className="w-1 h-1 bg-white rounded-full animate-pulse"></span>
+                  <span className="w-1 h-1 bg-white rounded-full animate-pulse delay-75"></span>
+                  <span className="w-1 h-1 bg-white rounded-full animate-pulse delay-150"></span>
+                </div>
               </div>
+            )}
+            {!otherUserTyping && otherUser?.isOnline && (
+              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-brand-success rounded-full border-2 border-white dark:border-slate-900 shadow-sm"></div>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-black text-slate-900 dark:text-white truncate text-base tracking-tight">
+                {chat?.isCategoryChat ? categoryName : (otherUser?.name || (isRtl ? 'بائع' : 'Seller'))}
+              </h3>
+              {otherUser?.role === 'supplier' && (
+                <div className="bg-brand-primary/10 text-brand-primary p-0.5 rounded-md">
+                  <ShieldCheck size={12} />
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              {otherUserTyping ? (
+                <span className="text-[10px] font-bold text-brand-primary animate-pulse uppercase tracking-widest">
+                  {isRtl ? 'يكتب الآن...' : 'Typing...'}
+                </span>
+              ) : (
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${otherUser?.isOnline ? 'text-brand-success' : 'text-slate-400'}`}>
+                  {otherUser?.isOnline ? (isRtl ? 'متصل الآن' : 'Online') : (isRtl ? 'نشط منذ فترة' : 'Recently active')}
+                </span>
+              )}
             </div>
           </div>
         </div>
-        
-        {/* Actions */}
-        <div className="flex items-center gap-1 md:gap-2">
-          {features.aiChat && (
-            <>
-              <button 
-                onClick={handleSummarizeChat}
-                disabled={isSummarizing || messages.length === 0}
-                className="p-3 text-brand-primary bg-brand-primary/10 hover:bg-brand-primary/20 rounded-full transition-colors disabled:opacity-50"
-                title={i18n.language === 'ar' ? 'تلخيص المحادثة' : 'Summarize Chat'}
-              >
-                {isSummarizing ? <div className="w-4.5 h-4.5 border-2 border-brand-primary border-t-transparent animate-spin rounded-full" /> : <SparklesIcon size={18} />}
-              </button>
-              <button 
-                onClick={handleAnalyzeSentiment}
-                disabled={isAnalyzingSentiment || messages.length === 0}
-                className="p-3 text-brand-teal bg-brand-teal/10 hover:bg-brand-teal/20 rounded-full transition-colors disabled:opacity-50"
-                title={i18n.language === 'ar' ? 'تحليل المشاعر' : 'Analyze Sentiment'}
-              >
-                {isAnalyzingSentiment ? <div className="w-4.5 h-4.5 border-2 border-brand-teal border-t-transparent animate-spin rounded-full" /> : <Star size={18} />}
-              </button>
-            </>
-          )}
-          {!chat?.isCategoryChat && otherUser && (
-            <>
-              <button 
-                onClick={() => setIsSearching(!isSearching)}
-                className={`p-3 rounded-full transition-colors ${isSearching ? 'text-brand-primary bg-brand-primary/10' : 'text-brand-text-muted hover:bg-brand-surface hover:text-brand-primary'}`}
-                title={i18n.language === 'ar' ? 'بحث' : 'Search'}
-              >
-                <Search size={18} />
-              </button>
-              {otherUser.phone && (
-                <a href={`tel:${otherUser.phone}`} className="p-3 text-brand-primary bg-brand-primary/10 hover:bg-brand-primary/20 rounded-full transition-colors">
-                  <Phone size={18} />
-                </a>
-              )}
-              {chat?.status !== 'closed' && (
-                <button 
-                  onClick={() => setShowRatingModal(true)}
-                  className="p-3 text-brand-success bg-brand-success/10 hover:bg-brand-success/20 rounded-full transition-colors"
-                  title={i18n.language === 'ar' ? 'إنهاء وتقييم' : 'End & Rate'}
+
+        <div className="flex items-center gap-1">
+          <HapticButton 
+            onClick={() => setIsSearching(!isSearching)}
+            className={`p-2 rounded-xl transition-all ${isSearching ? 'bg-brand-primary text-white' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          >
+            <Search size={20} />
+          </HapticButton>
+          
+          <div className="relative">
+            <HapticButton 
+              onClick={() => setShowSmartActions(!showSmartActions)}
+              className={`p-2 rounded-xl transition-all ${showSmartActions ? 'bg-brand-primary text-white' : 'text-brand-primary bg-brand-primary/10 hover:bg-brand-primary/20'}`}
+            >
+              <BrainCircuit size={20} className={showSmartActions ? 'animate-pulse' : ''} />
+            </HapticButton>
+            
+            <AnimatePresence>
+              {showSmartActions && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className={`absolute top-full mt-2 ${isRtl ? 'left-0' : 'right-0'} w-64 bg-white dark:bg-slate-800 border border-brand-border/50 shadow-2xl rounded-[2rem] p-4 z-50`}
                 >
-                  <Check size={18} />
-                </button>
+                  <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] mb-4 px-2 flex items-center gap-2">
+                    <Sparkles size={12} />
+                    {isRtl ? 'إجراءات ذكية' : 'Smart Actions'}
+                  </h4>
+                  <div className="space-y-2">
+                    <button 
+                      onClick={() => { handleSummarizeChat().catch(err => console.error("Summarize error:", err)); setShowSmartActions(false); }}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600">
+                        <FileText size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white">{isRtl ? 'تلخيص المحادثة' : 'Summarize Chat'}</p>
+                        <p className="text-[9px] text-slate-500">{isRtl ? 'احصل على ملخص سريع' : 'Get a quick overview'}</p>
+                      </div>
+                    </button>
+                    <button 
+                      onClick={() => { handleAnalyzeSentiment().catch(err => console.error("Sentiment error:", err)); setShowSmartActions(false); }}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600">
+                        <SmilePlus size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white">{isRtl ? 'تحليل المشاعر' : 'Analyze Sentiment'}</p>
+                        <p className="text-[9px] text-slate-500">{isRtl ? 'فهم نبرة المحادثة' : 'Understand the tone'}</p>
+                      </div>
+                    </button>
+                    <button 
+                      onClick={() => { /* Toggle auto-translate all */ setShowSmartActions(false); }}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                        <SparklesIcon size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white">{isRtl ? 'ترجمة تلقائية' : 'Auto-Translate'}</p>
+                        <p className="text-[9px] text-slate-500">{isRtl ? 'ترجمة جميع الرسائل' : 'Translate all messages'}</p>
+                      </div>
+                    </button>
+                  </div>
+                </motion.div>
               )}
-            </>
+            </AnimatePresence>
+          </div>
+
+          {chat?.status === 'active' && profile?.role === 'customer' && (
+            <HapticButton 
+              onClick={() => setShowRatingModal(true)}
+              className="p-2 text-brand-success bg-brand-success/10 hover:bg-brand-success/20 rounded-xl transition-all"
+              title={isRtl ? 'إنهاء وتقييم' : 'End & Rate'}
+            >
+              <Check size={20} />
+            </HapticButton>
           )}
         </div>
       </div>
 
+      {/* Chameleon Action Bar (Floating Contextual Suggestions) */}
+      <AnimatePresence>
+        {suggestedActions.length > 0 && (
+          <motion.div 
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+            className="absolute top-20 left-0 right-0 z-30 flex justify-center px-4 pointer-events-none"
+          >
+            <div className="flex gap-2 pointer-events-auto">
+              {suggestedActions.map(action => (
+                <HapticButton
+                  key={action.id}
+                  onClick={action.action}
+                  className="bg-brand-primary text-white px-4 py-2 rounded-full shadow-lg shadow-brand-primary/30 flex items-center gap-2 text-xs font-bold border border-white/20 backdrop-blur-md"
+                >
+                  <action.icon size={14} />
+                  {action.label}
+                </HapticButton>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Context Card (Product Info) */}
+      <AnimatePresence>
+        {request && (
+          <motion.div 
+            initial={{ y: -10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className={`absolute top-[4.5rem] ${isRtl ? 'left-4' : 'right-4'} z-30 max-w-[280px]`}
+          >
+            <motion.div 
+              layout
+              className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-brand-border/30 shadow-xl rounded-3xl overflow-hidden"
+            >
+              <div className="p-3 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                    <Tag size={16} />
+                  </div>
+                  {!isContextMinimized && (
+                    <div className="min-w-0">
+                      <p className="text-[8px] font-black text-brand-primary uppercase tracking-widest mb-0.5">
+                        {isRtl ? 'الطلب الحالي' : 'Current Request'}
+                      </p>
+                      <h4 className="text-[11px] font-bold text-slate-900 dark:text-white truncate max-w-[140px]">
+                        {request.titleAr || request.titleEn || request.title}
+                      </h4>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {!isContextMinimized && (
+                    <div className="text-right">
+                      <p className="text-[11px] font-black text-brand-primary">
+                        {request.budget} {request.currency}
+                      </p>
+                    </div>
+                  )}
+                  <HapticButton 
+                    onClick={() => setIsContextMinimized(!isContextMinimized)}
+                    className="p-1.5 text-slate-400 hover:text-brand-primary rounded-lg transition-colors"
+                  >
+                    {isContextMinimized ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  </HapticButton>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Search Bar */}
+
       <AnimatePresence>
         {isSearching && (
           <motion.div 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="bg-brand-surface border-b border-brand-border-light px-4 py-2 overflow-hidden z-20"
+            className="px-4 py-2 bg-slate-50 dark:bg-slate-800/50 border-t border-brand-border/30"
           >
-            <div className="relative">
-              <Search size={16} className="absolute top-1/2 -translate-y-1/2 left-3 text-brand-text-muted" />
+            <div className="max-w-4xl mx-auto relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input 
                 type="text"
-                autoFocus
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={i18n.language === 'ar' ? 'ابحث في المحادثة...' : 'Search in chat...'}
-                className="w-full bg-brand-background border border-brand-border-light rounded-xl py-2 pl-9 pr-9 text-sm focus:outline-none focus:border-brand-primary/50 focus:ring-1 focus:ring-brand-primary/50 transition-all"
+                placeholder={isRtl ? 'بحث في المحادثة...' : 'Search in conversation...'}
+                className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-700 border border-brand-border/50 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                autoFocus
               />
-              {searchQuery && (
-                <button 
-                  onClick={() => setSearchQuery('')}
-                  className="absolute top-1/2 -translate-y-1/2 right-3 text-brand-text-muted hover:text-brand-text-main"
-                >
-                  <X size={14} />
-                </button>
-              )}
+              <button 
+                onClick={() => { setIsSearching(false); setSearchQuery(''); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={16} />
+              </button>
             </div>
           </motion.div>
         )}
@@ -1298,7 +1490,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                handlePinMessage(chat.pinnedMessageId);
+                handlePinMessage(chat.pinnedMessageId).catch(err => console.error("Pin message error:", err));
               }}
               className="p-2 text-brand-text-muted hover:text-brand-text-main rounded-full hover:bg-brand-background transition-colors"
             >
@@ -1524,7 +1716,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       </div>
 
       {/* Input Area */}
-      <div className="bg-brand-surface/95 backdrop-blur-xl border-t border-brand-border-light p-3 md:p-4 pb-safe">
+      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-brand-border/30 p-3 md:p-4 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
         {/* Smart Replies */}
         <AnimatePresence>
           {features.aiChat && (smartReplies.length > 0 || isGeneratingReplies) && !isExpired && (
@@ -1532,49 +1724,49 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
               initial={{ opacity: 0, y: 10, height: 0 }}
               animate={{ opacity: 1, y: 0, height: 'auto' }}
               exit={{ opacity: 0, y: 10, height: 0 }}
-              className="flex items-center gap-2 overflow-x-auto pb-3 scrollbar-hide max-w-4xl mx-auto w-full"
+              className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-hide max-w-4xl mx-auto w-full"
             >
-              <div className="flex items-center gap-1 text-brand-primary bg-brand-primary/10 px-3 py-1.5 rounded-full shrink-0">
-                <SparklesIcon size={14} />
-                <span className="text-xs font-bold">{i18n.language === 'ar' ? 'ردود ذكية' : 'Smart Replies'}</span>
+              <div className="flex items-center gap-1.5 text-brand-primary bg-brand-primary/10 px-3 py-1.5 rounded-full shrink-0 border border-brand-primary/20">
+                <Sparkles size={12} className="animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-widest">{isRtl ? 'اقتراحات' : 'AI Suggestions'}</span>
               </div>
               
               {isGeneratingReplies ? (
-                <div className="flex items-center gap-2 px-4 py-1.5 bg-brand-background border border-brand-border text-brand-text-muted text-sm rounded-full">
+                <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-brand-border/50 text-slate-400 text-xs rounded-full shadow-sm">
                   <div className="w-3 h-3 border-2 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
-                  {i18n.language === 'ar' ? 'جاري التوليد...' : 'Generating...'}
+                  <span className="font-medium">{isRtl ? 'جاري التفكير...' : 'Thinking...'}</span>
                 </div>
               ) : (
                 smartReplies.map((reply, idx) => (
-                  <button
+                  <HapticButton
                     key={`${reply}-${idx}`}
                     onClick={() => setInputText(reply)}
-                    className="shrink-0 px-4 py-1.5 bg-brand-background hover:bg-brand-primary/10 border border-brand-border hover:border-brand-primary/30 text-brand-text-main hover:text-brand-primary-hover text-sm rounded-full transition-all whitespace-nowrap shadow-sm"
+                    className="shrink-0 px-4 py-2 bg-white dark:bg-slate-800 hover:bg-brand-primary/5 border border-brand-border/50 hover:border-brand-primary/30 text-slate-700 dark:text-slate-200 hover:text-brand-primary text-xs font-bold rounded-full transition-all whitespace-nowrap shadow-sm"
                   >
                     {reply}
-                  </button>
+                  </HapticButton>
                 ))
               )}
             </motion.div>
           )}
         </AnimatePresence>
 
-        <form onSubmit={handleSend} className="max-w-4xl mx-auto flex flex-col gap-2 w-full">
+        <form onSubmit={handleSend} className="max-w-4xl mx-auto flex flex-col gap-3 w-full">
           {/* Tools Row */}
           {!isExpired && (
             <div className="flex items-center gap-2 px-1">
               {profile?.role === 'supplier' && (
-                <>
-                  <button 
+                <div className="flex items-center gap-2">
+                  <HapticButton 
                     type="button"
                     onClick={() => setShowQuoteModal(true)}
-                    className="px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-full hover:bg-brand-primary/20 transition-all flex items-center gap-2 text-xs font-bold shadow-sm"
+                    className="px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-full hover:bg-brand-primary/20 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-sm border border-brand-primary/10"
                   >
                     <FileText size={14} />
-                    {i18n.language === 'ar' ? 'عرض سعر' : 'Quote'}
-                  </button>
+                    {isRtl ? 'عرض سعر' : 'Quote'}
+                  </HapticButton>
                   {features.aiChat && (
-                    <button
+                    <HapticButton
                       type="button"
                       onClick={() => {
                         const lastCustomerMessage = [...messages].reverse().find(m => m.senderId !== profile.uid && m.type === 'text');
@@ -1583,161 +1775,135 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                         }
                         setShowNegotiationModal(true);
                       }}
-                      className="px-4 py-2 bg-brand-success/10 text-brand-success hover:bg-brand-success/20 rounded-full transition-all flex items-center gap-2 text-xs font-bold shadow-sm"
+                      className="px-4 py-2 bg-brand-success/10 text-brand-success hover:bg-brand-success/20 rounded-full transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-sm border border-brand-success/10"
                     >
-                      <Bot size={14} />
-                      {i18n.language === 'ar' ? 'مفاوض ذكي' : 'AI Negotiator'}
-                    </button>
+                      <BrainCircuit size={14} />
+                      {isRtl ? 'مفاوض ذكي' : 'AI Negotiator'}
+                    </HapticButton>
                   )}
-                </>
+                </div>
               )}
-              <button
-                type="button"
-                onClick={handleSendLocation}
-                disabled={isSendingLocation}
-                className="px-4 py-2 bg-brand-warning/10 text-brand-warning hover:bg-brand-warning/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-all flex items-center gap-2 text-xs font-bold shadow-sm"
-              >
-                {isSendingLocation ? (
-                  <div className="w-3.5 h-3.5 border-2 border-brand-warning border-t-transparent animate-spin rounded-full"></div>
-                ) : (
-                  <MapPin size={14} />
-                )}
-                {i18n.language === 'ar' ? 'إرسال الموقع' : 'Share Location'}
-              </button>
+              
+              <div className="flex items-center gap-1 ml-auto">
+                <HapticButton
+                  type="button"
+                  onClick={() => handleSendLocation().catch(err => console.error("Send location error:", err))}
+                  disabled={isSendingLocation}
+                  className="p-2 text-slate-400 hover:text-brand-warning hover:bg-brand-warning/10 rounded-xl transition-all"
+                >
+                  {isSendingLocation ? (
+                    <div className="w-5 h-5 border-2 border-brand-warning border-t-transparent animate-spin rounded-full"></div>
+                  ) : (
+                    <MapPin size={20} />
+                  )}
+                </HapticButton>
+                <label className="p-2 text-slate-400 hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all cursor-pointer">
+                  <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading || isRecording || isExpired} multiple />
+                  <ImageIcon size={20} />
+                </label>
+              </div>
             </div>
           )}
 
-          <div className="flex items-center gap-2 w-full flex-col">
-            {/* Replying To Preview */}
-            <AnimatePresence>
-              {replyingTo && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: 'auto' }}
-                  exit={{ opacity: 0, y: 10, height: 0 }}
-                  className="w-full bg-brand-surface/80 border border-brand-border rounded-xl p-3 flex items-start justify-between gap-3 shadow-sm"
-                >
-                  <div className="flex flex-col flex-1 min-w-0 border-l-2 border-brand-primary pl-3">
-                    <span className="text-xs font-bold text-brand-primary">
-                      {i18n.language === 'ar' ? 'الرد على ' : 'Replying to '}
-                      {senderNames[replyingTo.senderId] || (replyingTo.senderId === profile?.uid ? t('you') : '...')}
-                    </span>
-                    <p className="text-sm text-brand-text-muted truncate mt-0.5">
-                      {replyingTo.text || (replyingTo.type === 'image' ? '📷 Image' : replyingTo.type === 'audio' ? '🎤 Voice Message' : 'Message')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setReplyingTo(null)}
-                    className="p-3 text-brand-text-muted hover:text-brand-error hover:bg-brand-error/10 rounded-full transition-colors shrink-0"
-                  >
-                    <X size={16} />
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="flex items-center gap-2 w-full">
-              {/* Attachment Button */}
-              <div className="flex items-center gap-1 relative">
-                <label className={`p-3 rounded-full cursor-pointer transition-all ${isUploading || isExpired ? 'text-brand-text-muted' : 'text-brand-text-muted hover:bg-brand-surface hover:text-brand-primary'}`} title={i18n.language === 'ar' ? 'إرسال صورة' : 'Send Image'}>
-                  {isUploading ? <div className="w-6 h-6 border-2 border-brand-primary border-t-transparent animate-spin rounded-full" /> : <ImageIcon size={26} />}
-                  <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading || isRecording || isExpired} multiple />
-                </label>
-              </div>
-
-            {/* Input Field */}
-            <div className="flex-1 bg-brand-background rounded-3xl flex items-end relative border border-transparent focus-within:border-brand-primary/30 focus-within:bg-brand-surface focus-within:shadow-sm transition-all overflow-hidden">
-              <TextareaAutosize 
-                value={inputText}
-                onChange={e => {
-                  setInputText(e.target.value);
-                  handleTyping();
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend(e);
-                  }
-                }}
-                minRows={1}
-                maxRows={5}
-                placeholder={chat?.status === 'closed' ? (i18n.language === 'ar' ? 'المحادثة مغلقة' : 'Chat closed') : isExpired ? (i18n.language === 'ar' ? 'المحادثة منتهية' : 'Conversation expired') : t('type_message')}
-                className={`w-full bg-transparent border-none focus:ring-0 outline-none py-3.5 px-5 text-base resize-none ${isRecording ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-                disabled={isRecording || isExpired}
-              />
-              
-              {/* Recording UI Overlay */}
+          {/* Input Bar */}
+          <div className="relative flex items-end gap-2">
+            <div className={`flex-1 relative bg-slate-50 dark:bg-slate-800 border border-brand-border/50 rounded-[1.5rem] overflow-hidden transition-all focus-within:border-brand-primary/50 focus-within:ring-4 focus-within:ring-brand-primary/5 shadow-inner ${isRecording ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-200' : ''}`}>
               <AnimatePresence>
-                {isRecording && (
+                {replyingTo && (
                   <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="absolute inset-0 bg-brand-background flex items-center justify-between px-4 z-10"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="px-4 py-2 bg-brand-primary/5 border-b border-brand-primary/10 flex items-center justify-between"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 bg-brand-error rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
-                      <span className="text-sm font-mono font-bold text-brand-error">{formatTime(recordingTime)}</span>
-                      {/* Waveform animation */}
-                      <div className="flex items-center gap-1 h-6 ml-2">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                          <motion.div
-                            key={i}
-                            animate={{ height: ['20%', '100%', '20%'] }}
-                            transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.1 }}
-                            className="w-1 bg-brand-error rounded-full"
-                          />
-                        ))}
+                    <div className="flex items-center gap-2 border-l-2 border-brand-primary pl-2">
+                      <Reply size={12} className="text-brand-primary" />
+                      <div className="text-[10px] truncate max-w-[200px]">
+                        <span className="font-black text-brand-primary uppercase tracking-tighter mr-1">{replyingTo.senderName}:</span>
+                        <span className="text-slate-500">{replyingTo.text || (replyingTo.type === 'image' ? '📷 Image' : replyingTo.type === 'audio' ? '🎤 Voice Message' : 'Message')}</span>
                       </div>
                     </div>
-                    
-                    <div className="flex-1 flex justify-center pr-12">
-                      <motion.span 
-                        animate={{ x: [0, i18n.language === 'ar' ? 10 : -10, 0] }}
-                        transition={{ repeat: Infinity, duration: 1.5 }}
-                        className="text-xs text-brand-text-muted font-medium flex items-center gap-2"
-                      >
-                        {i18n.language === 'ar' ? 'اسحب للإلغاء ➔' : 'Slide to cancel ⬅'}
-                      </motion.span>
-                    </div>
+                    <button onClick={() => setReplyingTo(null)} className="text-slate-400 hover:text-slate-600">
+                      <X size={14} />
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>
-              
-              {/* Send / Mic Button inside the input area */}
-              <div className="p-2 shrink-0 flex items-center mb-0.5 z-20">
-                {inputText.trim() ? (
-                  <HapticButton 
-                    type="submit"
-                    className="p-3 bg-brand-teal text-white rounded-xl hover:bg-brand-teal-dark transition-all active:scale-95 shadow-md shadow-brand-teal/20 disabled:opacity-50"
-                    disabled={isRecording || isExpired || isModerating}
-                    onClick={handleSend}
-                  >
-                    {isModerating ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent animate-spin rounded-full" />
-                    ) : (
-                      <Send size={20} className={i18n.language === 'ar' ? 'rotate-180' : ''} />
-                    )}
-                  </HapticButton>
-                ) : (
-                  <motion.button 
-                    type="button"
-                    disabled={isExpired}
-                    onMouseDown={handleTouchStart}
-                    onMouseUp={handleTouchEnd}
-                    onMouseLeave={handleTouchEnd}
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                    animate={{ x: slideOffset }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    className={`p-3 rounded-full transition-all ${isRecording ? 'bg-brand-error text-white scale-110 shadow-lg shadow-brand-error/30' : 'text-brand-text-muted hover:bg-brand-border hover:text-brand-primary'}`}
-                  >
-                    {isRecording ? <Mic size={20} className="animate-pulse" /> : <Mic size={20} />}
-                  </motion.button>
-                )}
+
+            <div className="flex items-center gap-2 w-full">
+              <div className="relative flex items-center w-full">
+                <TextareaAutosize
+                  value={inputText}
+                  onChange={(e) => {
+                    setInputText(e.target.value);
+                    handleTyping().catch(err => console.error("Typing status error:", err));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend(e as any);
+                    }
+                  }}
+                  placeholder={chat?.status === 'closed' ? (isRtl ? 'المحادثة مغلقة' : 'Chat closed') : isExpired ? (isRtl ? 'المحادثة منتهية' : 'Conversation expired') : (isRtl ? 'اكتب رسالتك...' : 'Type a message...')}
+                  className={`w-full bg-transparent border-none focus:ring-0 outline-none py-3.5 px-5 text-sm font-medium resize-none max-h-32 transition-all ${isRecording ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                  disabled={isRecording || isExpired}
+                  minRows={1}
+                />
+
+                <AnimatePresence>
+                  {isRecording && (
+                    <motion.div 
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      className="absolute inset-0 flex items-center px-5 gap-3"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
+                        <span className="text-xs font-black text-rose-500 uppercase tracking-widest">{isRtl ? 'جاري التسجيل...' : 'Recording...'}</span>
+                      </div>
+                      <div className="flex-1 flex items-center gap-1 h-4">
+                        {Array.from({ length: 20 }).map((_, i) => (
+                          <motion.div 
+                            key={i}
+                            animate={{ height: [4, Math.random() * 16 + 4, 4] }}
+                            transition={{ repeat: Infinity, duration: 0.5, delay: i * 0.05 }}
+                            className="w-1 bg-rose-500/40 rounded-full"
+                          />
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2 pb-1">
+              {!inputText.trim() && !isUploading ? (
+                <HapticButton
+                  type="button"
+                  onMouseDown={startRecording}
+                  onMouseUp={stopRecording}
+                  onTouchStart={startRecording}
+                  onTouchEnd={stopRecording}
+                  disabled={isRecording || isExpired || isModerating}
+                  className={`p-3.5 rounded-2xl transition-all ${isRecording ? 'bg-rose-500 text-white scale-110 shadow-xl shadow-rose-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-brand-primary hover:bg-brand-primary/10'}`}
+                >
+                  {isRecording ? <Mic size={20} className="animate-pulse" /> : <Mic size={20} />}
+                </HapticButton>
+              ) : (
+                <HapticButton
+                  type="submit"
+                  disabled={(!inputText.trim() && !isUploading) || isExpired || isModerating}
+                  className="p-3.5 bg-brand-primary text-white rounded-2xl shadow-lg shadow-brand-primary/20 hover:bg-brand-primary-dark transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+                >
+                  {isUploading ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Send size={20} className={isRtl ? 'rotate-180' : ''} />
+                  )}
+                </HapticButton>
+              )}
             </div>
           </div>
           </div>
@@ -1806,7 +1972,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           <QuoteModal
             isOpen={showQuoteModal}
             onClose={() => setShowQuoteModal(false)}
-            onSendQuote={handleSendQuote}
+            onSendQuote={(data) => handleSendQuote(data).catch(err => console.error("Send quote error:", err))}
             request={request}
             chatId={chatId}
             features={features}

@@ -150,7 +150,7 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
         : (uploadingImg.aiData?.productNameEn || uploadingImg.aiData?.productNameAr || 'Product');
       const category = uploadingImg.aiData?.category || 'General';
 
-      const newImageUrl = await generateAlternativeProductImage(base64, uploadingImg.file.type, productName, category, i18n.language);
+      const newImageUrl = await generateAlternativeProductImage(base64, uploadingImg.file.type, productName, category);
 
       if (newImageUrl) {
         const res = await fetch(newImageUrl);

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User as UserIcon, CheckCircle, Sparkles as SparklesIcon, FileText, Printer, MapPin, ZoomIn, CheckCheck, Check, Reply, Play, Pause, SmilePlus, MoreVertical, Copy, Forward, Pin, Trash2, Clock } from 'lucide-react';
+import { User as UserIcon, CheckCircle, Sparkles as SparklesIcon, FileText, Printer, MapPin, ZoomIn, CheckCheck, Check, Reply, Play, Pause, SmilePlus, MoreVertical, Copy, Forward, Pin, Trash2, Clock, BrainCircuit, ShieldCheck, Sparkles, Info, Languages, MessageSquare, Quote } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Message, UserProfile } from '../../../../core/types';
 import { extractUrls, renderTextWithLinks } from '../../../../core/utils/linkParser';
@@ -162,17 +162,17 @@ interface ChatMessageProps {
   senderProfiles: Record<string, UserProfile>;
   translatedMessages: Record<string, string>;
   isTranslating: Record<string, boolean>;
-  handleTranslate: (messageId: string, text: string) => void;
-  handleTranslateAudio: (messageId: string, audioUrl: string) => void;
+  handleTranslate: (messageId: string, text: string) => Promise<void>;
+  handleTranslateAudio: (messageId: string, audioUrl: string) => Promise<void>;
   setReplyingTo: (msg: Message) => void;
   setZoomedImage: (url: string) => void;
   activeReactionMessageId?: string | null;
   setActiveReactionMessageId?: (id: string | null) => void;
   activeMessageMenuId?: string | null;
   setActiveMessageMenuId?: (id: string | null) => void;
-  handleReaction?: (messageId: string, emoji: string) => void;
-  handlePinMessage?: (messageId: string) => void;
-  handleDeleteMessage?: (messageId: string, forEveryone: boolean) => void;
+  handleReaction?: (messageId: string, emoji: string) => Promise<void>;
+  handlePinMessage?: (messageId: string) => Promise<void>;
+  handleDeleteMessage?: (messageId: string, forEveryone: boolean) => Promise<void>;
   setMessageToForward?: (msg: Message) => void;
   setShowForwardModal?: (show: boolean) => void;
   chat?: any;
@@ -208,10 +208,26 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
   const { t, i18n } = useTranslation();
 
   const isOwn = msg.senderId === profile?.uid;
+  const isRtl = i18n.language === 'ar';
   const isNextFromSameSender = index < messages.length - 1 && messages[index + 1].senderId === msg.senderId;
   const isPrevFromSameSender = index > 0 && messages[index - 1].senderId === msg.senderId;
   const showAvatar = !isNextFromSameSender || index === messages.length - 1;
   const showName = !isPrevFromSameSender;
+
+  const getBubbleStyle = () => {
+    if (isOwn) {
+      return "bg-gradient-to-br from-brand-primary to-brand-primary-dark text-white rounded-2xl rounded-tr-none shadow-lg shadow-brand-primary/20 border border-white/10";
+    }
+    return "bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl rounded-tl-none shadow-md border border-brand-border/30";
+  };
+
+  const getSentimentIcon = (sentiment?: string) => {
+    switch (sentiment) {
+      case 'positive': return <SmilePlus size={12} className="text-emerald-500" />;
+      case 'negative': return <SmilePlus size={12} className="text-rose-500 rotate-180" />;
+      default: return null;
+    }
+  };
   
   const msgDate = new Date(msg.createdAt);
   const dateString = msgDate.toLocaleDateString(i18n.language, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -276,10 +292,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
           
           <div className={`flex items-center gap-2 group/msg ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
             <div 
-              className={`px-4 py-3 shadow-sm relative transition-all duration-300 ${
+              className={`px-4 py-3 relative transition-all duration-300 ${getBubbleStyle()} ${
                 isOwn 
-                  ? `bg-gradient-to-br from-brand-primary to-brand-primary/90 text-white shadow-lg shadow-brand-primary/10 ${isPrevFromSameSender ? 'rounded-2xl' : 'rounded-2xl rounded-tr-sm'}` 
-                  : `bg-white dark:bg-brand-surface text-brand-text-main border border-brand-border/30 ${isPrevFromSameSender ? 'rounded-2xl' : 'rounded-2xl rounded-tl-sm'}`
+                  ? (isPrevFromSameSender ? 'rounded-2xl' : 'rounded-2xl rounded-tr-sm') 
+                  : (isPrevFromSameSender ? 'rounded-2xl' : 'rounded-2xl rounded-tl-sm')
               }`}
             >
               {/* Message Tail */}
@@ -313,7 +329,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
                 )}
                 {!isOwn && (
                   <button 
-                    onClick={() => handleTranslate(msg.id, msg.text!)}
+                    onClick={() => handleTranslate(msg.id, msg.text!).catch(err => console.error("Translate text error:", err))}
                     disabled={isTranslating[msg.id]}
                     className={`text-[10px] font-bold uppercase tracking-widest mt-1 py-2 px-3 -mx-2 rounded-lg flex items-center gap-1 hover:opacity-70 transition-opacity ${
                       isOwn ? 'text-white/60' : 'text-brand-primary'
@@ -334,7 +350,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
               <AudioPlayer 
                 url={msg.audioUrl} 
                 isOwn={isOwn} 
-                onTranslate={msg.audioUrl ? () => handleTranslateAudio(msg.id, msg.audioUrl!) : undefined}
+                onTranslate={msg.audioUrl ? () => handleTranslateAudio(msg.id, msg.audioUrl!).catch(err => console.error("Translate audio error:", err)) : undefined}
                 translation={translatedMessages[msg.id]}
                 isTranslating={isTranslating[msg.id]}
               />
@@ -441,7 +457,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
               </div>
             )}
             
-            <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+            <div className={`flex items-center gap-1.5 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+              {msg.sentiment && (
+                <div className="flex items-center" title={`AI Sentiment: ${msg.sentiment}`}>
+                  {getSentimentIcon(msg.sentiment)}
+                </div>
+              )}
               <span className={`text-[8px] opacity-50 font-medium ${isOwn ? 'text-white' : 'text-brand-text-muted'}`}>
                 {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
@@ -496,7 +517,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
                   {EMOJI_REACTIONS.map(emoji => (
                     <button
                       key={emoji}
-                      onClick={() => handleReaction?.(msg.id, emoji)}
+                      onClick={() => handleReaction?.(msg.id, emoji).catch(err => console.error("Reaction error:", err))}
                       className={`text-xl hover:scale-125 transition-transform ${msg.reactions?.[emoji]?.includes(profile?.uid || '') ? 'bg-brand-primary/10 rounded-full' : ''}`}
                     >
                       {emoji}
@@ -536,7 +557,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
                 >
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(msg.text || '');
+                      navigator.clipboard.writeText(msg.text || '').catch(err => console.error("Clipboard error:", err));
                       setActiveMessageMenuId?.(null);
                     }}
                     className="px-4 py-2 text-sm text-left hover:bg-brand-surface text-brand-text-main flex items-center gap-2 transition-colors"
@@ -556,7 +577,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
                     {i18n.language === 'ar' ? 'إعادة توجيه' : 'Forward'}
                   </button>
                   <button
-                    onClick={() => handlePinMessage?.(msg.id)}
+                    onClick={() => handlePinMessage?.(msg.id).catch(err => console.error("Pin error:", err))}
                     className="px-4 py-2 text-sm text-left hover:bg-brand-surface text-brand-text-main flex items-center gap-2 transition-colors"
                   >
                     <Pin size={14} />
@@ -566,7 +587,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
                   </button>
                   <div className="h-px bg-brand-border-light my-1" />
                   <button
-                    onClick={() => handleDeleteMessage?.(msg.id, false)}
+                    onClick={() => handleDeleteMessage?.(msg.id, false).catch(err => console.error("Delete error:", err))}
                     className="px-4 py-2 text-sm text-left hover:bg-brand-error/10 text-brand-error flex items-center gap-2 transition-colors"
                   >
                     <Trash2 size={14} />
@@ -574,7 +595,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
                   </button>
                   {isOwn && (
                     <button
-                      onClick={() => handleDeleteMessage?.(msg.id, true)}
+                      onClick={() => handleDeleteMessage?.(msg.id, true).catch(err => console.error("Delete for everyone error:", err))}
                       className="px-4 py-2 text-sm text-left hover:bg-brand-error/10 text-brand-error flex items-center gap-2 transition-colors"
                     >
                       <Trash2 size={14} />
@@ -593,7 +614,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
             {Object.entries(msg.reactions).map(([emoji, users]) => (
               <button
                 key={emoji}
-                onClick={() => handleReaction?.(msg.id, emoji)}
+                onClick={() => handleReaction?.(msg.id, emoji).catch(err => console.error("Reaction error:", err))}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
                   users.includes(profile?.uid || '') 
                     ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary' 

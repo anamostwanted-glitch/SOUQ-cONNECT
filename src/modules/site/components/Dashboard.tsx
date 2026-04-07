@@ -2,7 +2,7 @@ import React from 'react';
 import { UserProfile, AppFeatures } from '../../../core/types';
 import { AdminDashboard } from '../../admin/components/AdminDashboard';
 import { VendorDashboard } from '../../vendor/components/VendorDashboard';
-import { UserDashboard } from '../../user/components/UserDashboard';
+import { NexusCommandCenter } from '../../user/components/NexusCommandCenter';
 import LegacyDashboard from './LegacyDashboard';
 
 interface DashboardProps {
@@ -41,27 +41,11 @@ export default function Dashboard({
     );
   }
 
-  if (effectiveRole === 'supplier') {
-    return (
-      <VendorDashboard
-        profile={profile}
-        features={features}
-        supplierTab={supplierTab}
-        setSupplierTab={setSupplierTab}
-        onOpenChat={onOpenChat}
-        onViewProfile={onViewProfile}
-        uiStyle={uiStyle}
-      />
-    );
-  }
-
-  // Regular users get the new UserDashboard
+  // Use the new unified Nexus Command Center for both Suppliers and Customers
   return (
-    <UserDashboard
+    <NexusCommandCenter
       profile={profile}
       features={features}
-      supplierTab={supplierTab}
-      setSupplierTab={setSupplierTab}
       onOpenChat={onOpenChat}
       onViewProfile={onViewProfile}
       uiStyle={uiStyle}

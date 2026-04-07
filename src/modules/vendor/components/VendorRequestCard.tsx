@@ -6,6 +6,7 @@ import {
   Sparkles, Send, DollarSign, FileText, CheckCircle2
 } from 'lucide-react';
 import { doc, updateDoc, collection, query, where, getDocs, addDoc, getDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { db } from '../../../core/firebase';
 import { ProductRequest, UserProfile } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
@@ -78,7 +79,7 @@ export const VendorRequestCard: React.FC<VendorRequestCardProps> = ({
         onOpenChat(newChat.id);
       }
     } catch (error) {
-      console.error("Error starting chat:", error);
+      handleFirestoreError(error, OperationType.WRITE, 'chats', false);
     } finally {
       setChatLoading(false);
     }
@@ -111,7 +112,7 @@ export const VendorRequestCard: React.FC<VendorRequestCardProps> = ({
       
       setOfferSubmitted(true);
     } catch (error) {
-      console.error("Error submitting offer:", error);
+      handleFirestoreError(error, OperationType.WRITE, 'offers/requests', false);
     } finally {
       setIsSubmitting(false);
     }

@@ -77,7 +77,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ item, onClos
     } catch (error) {
       setErrorMessage(isRtl ? 'حدث خطأ أثناء التحديث' : 'Error updating product');
       setIsSubmitting(false);
-      handleFirestoreError(error, OperationType.UPDATE, `marketplace/${item.id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `marketplace/${item.id}`, false);
     }
   };
 

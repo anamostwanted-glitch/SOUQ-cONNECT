@@ -3,13 +3,66 @@ import { Category, UserProfile, GeminiApiKey, ProductRequest } from "../types";
 import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { neuralCache } from '../utils/neuralCache';
+import { handleFirestoreError, OperationType } from '../utils/errorHandling';
 
 let cachedKeys: GeminiApiKey[] = [];
 let lastFetch = 0;
 const exhaustedKeys = new Map<string, number>(); // key -> expiry timestamp
 const EXHAUST_COOLDOWN = 5 * 60 * 1000; // 5 minutes cooldown for an exhausted key
 
+export const getResponseText = (response: any): string => {
+  try {
+    return typeof response.text === 'function' ? response.text() : (response.text || '');
+  } catch (e) {
+    console.warn("Error getting response text:", e);
+    return '';
+  }
+};
+
 const COST_PER_1K_TOKENS = 0.000125; // Estimated cost for Gemini Flash
+
+const callAiJson = async (contents: any, schema: any, model: string = "gemini-1.5-flash") => {
+  return retryWithBackoff(async (apiKey) => {
+    const response = await fetch('/api/ai-json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents, schema, model, apiKey })
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      if (response.status === 429 || errorData.error?.includes('quota') || errorData.error === 'QUOTA_EXHAUSTED') {
+        throw new Error('QUOTA_EXHAUSTED');
+      }
+      if (response.status === 400 || errorData.error?.includes('INVALID_API_KEY') || errorData.error === 'INVALID_API_KEY') {
+        throw new Error('INVALID_API_KEY');
+      }
+      throw new Error(errorData.error || 'Proxy failed');
+    }
+    return await response.json();
+  });
+};
+
+const callAiText = async (contents: any, model: string = "gemini-1.5-flash") => {
+  return retryWithBackoff(async (apiKey) => {
+    const response = await fetch('/api/ai-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents, model, apiKey })
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      if (response.status === 429 || errorData.error?.includes('quota') || errorData.error === 'QUOTA_EXHAUSTED') {
+        throw new Error('QUOTA_EXHAUSTED');
+      }
+      if (response.status === 400 || errorData.error?.includes('INVALID_API_KEY') || errorData.error === 'INVALID_API_KEY') {
+        throw new Error('INVALID_API_KEY');
+      }
+      throw new Error(errorData.error || 'Proxy failed');
+    }
+    const data = await response.json();
+    return data.text;
+  });
+};
 
 const logUsage = async (feature: string, tokens: number, isCached: boolean = false) => {
   try {
@@ -24,7 +77,7 @@ const logUsage = async (feature: string, tokens: number, isCached: boolean = fal
       createdAt: new Date().toISOString()
     });
   } catch (e) {
-    console.error('Error logging AI usage:', e);
+    handleFirestoreError(e, OperationType.CREATE, 'usage_logs', false);
   }
 };
 
@@ -94,14 +147,21 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
         errorString.includes('429') ||
         errorString.includes('RESOURCE_EXHAUSTED');
         
-      if (isQuotaError) {
+      const isInvalidKeyError = 
+        error?.message?.includes('INVALID_API_KEY') ||
+        error?.message?.includes('API_KEY_INVALID') ||
+        error?.message?.includes('API key not valid') ||
+        errorString.includes('INVALID_API_KEY') ||
+        errorString.includes('API_KEY_INVALID');
+
+      if (isQuotaError || isInvalidKeyError) {
         if (lastUsedKey) {
-          console.warn(`Key exhausted: ${lastUsedKey.substring(0, 8)}... Marking for cooldown.`);
+          console.warn(`Key ${isQuotaError ? 'exhausted' : 'invalid'}: ${lastUsedKey.substring(0, 8)}... Marking for cooldown.`);
           exhaustedKeys.set(lastUsedKey, Date.now() + EXHAUST_COOLDOWN);
         }
 
         if (currentRetries > 0) {
-          console.warn(`Quota exceeded, retrying in ${currentDelay}ms with a potentially different key... (${currentRetries} retries left)`);
+          console.warn(`${isQuotaError ? 'Quota exceeded' : 'Invalid API key'}, retrying in ${currentDelay}ms with a potentially different key... (${currentRetries} retries left)`);
           await new Promise(resolve => setTimeout(resolve, currentDelay));
           return execute(currentRetries - 1, currentDelay * 2);
         }
@@ -115,59 +175,32 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
 
 export const translateText = async (text: string, targetLanguage: string): Promise<string> => {
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return text;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Translate the following text to ${targetLanguage}. Return ONLY the translated text.\n\n${text}`,
-      });
-      
-      const tokens = (text.length + (response.text?.length || 0)) / 4; // Rough estimate
-      await logUsage('Translation', Math.ceil(tokens));
-      
-      return response.text || text;
-    });
+    return await callAiText(`Translate the following text to ${targetLanguage}. Return ONLY the translated text.\n\n${text}`);
   } catch (e) {
-    console.warn('Translation failed, returning original text:', e);
+    console.warn('Server translation failed, returning original text:', e);
     return text;
   }
 };
 
 export const suggestColorHarmony = async (primaryColor: string): Promise<{ secondaryColor: string; reason: string }> => {
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return { secondaryColor: '#ffffff', reason: 'Default fallback' };
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Given the primary brand color ${primaryColor}, suggest a secondary text color that is visually harmonious, maintains high contrast for accessibility (WCAG), and feels professional. Return ONLY a JSON object with 'secondaryColor' (hex) and a brief 'reason'.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              secondaryColor: { type: Type.STRING },
-              reason: { type: Type.STRING }
-            },
-            required: ["secondaryColor", "reason"]
-          }
-        }
-      });
-      
-      try {
-        const result = JSON.parse(response.text || '{}');
-        const tokens = (primaryColor.length + (response.text?.length || 0)) / 4;
-        await logUsage('Color Harmony', Math.ceil(tokens));
-        return result;
-      } catch (e) {
-        return { secondaryColor: '#ffffff', reason: 'Parsing failed' };
+    const result = await callAiJson(
+      `Given the primary brand color ${primaryColor}, suggest a secondary text color that is visually harmonious, maintains high contrast for accessibility (WCAG), and feels professional. Return ONLY a JSON object with 'secondaryColor' (hex) and a brief 'reason'.`,
+      {
+        type: Type.OBJECT,
+        properties: {
+          secondaryColor: { type: Type.STRING },
+          reason: { type: Type.STRING }
+        },
+        required: ["secondaryColor", "reason"]
       }
-    });
+    );
+
+    const tokens = (primaryColor.length + JSON.stringify(result).length) / 4;
+    await logUsage('Color Harmony', Math.ceil(tokens));
+    return result;
   } catch (e) {
-    console.warn('Color harmony suggestion failed:', e);
+    console.warn('Color harmony suggestion failed via proxy:', e);
     return { secondaryColor: '#ffffff', reason: 'AI service unavailable' };
   }
 };
@@ -182,45 +215,31 @@ export const analyzeNeuralPulseImage = async (base64Data: string, mimeType: stri
       return { ...cached, isCached: true };
     }
 
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return { found: false, details: 'AI Service Unavailable' };
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType } },
-            // Conceptual Compression: Shorter, more direct prompt
-            { text: "[V-SCAN:JSON] Identify product, specs, 3 categories. Return JSON: {productName, specs, suggestedCategories[], confidence}" }
-          ]
+    const result = await callAiJson(
+      [
+        { inlineData: { data: base64Data.replace(/^data:image\/\w+;base64,/, ""), mimeType } },
+        { text: "[V-SCAN:JSON] Identify product, specs, 3 categories. Return JSON: {productName, specs, suggestedCategories[], confidence}" }
+      ],
+      {
+        type: Type.OBJECT,
+        properties: {
+          productName: { type: Type.STRING },
+          specs: { type: Type.STRING },
+          suggestedCategories: { type: Type.ARRAY, items: { type: Type.STRING } },
+          confidence: { type: Type.NUMBER }
         },
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              productName: { type: Type.STRING },
-              specs: { type: Type.STRING },
-              suggestedCategories: { type: Type.ARRAY, items: { type: Type.STRING } },
-              confidence: { type: Type.NUMBER }
-            },
-            required: ["productName", "specs", "suggestedCategories", "confidence"]
-          }
-        }
-      });
-      
-      const result = JSON.parse(response.text || '{}');
-      
-      const tokens = (base64Data.length / 4 + (response.text?.length || 0)) / 4; // Rough estimate
-      await logUsage('Neural Pulse Image', Math.ceil(tokens));
-      
-      // Store in Semantic Memory
-      neuralCache.set(fingerprint, result);
-      return result;
-    });
+        required: ["productName", "specs", "suggestedCategories", "confidence"]
+      }
+    );
+    
+    const tokens = (base64Data.length / 4 + JSON.stringify(result).length) / 4;
+    await logUsage('Neural Pulse Image', Math.ceil(tokens));
+    
+    // Store in Semantic Memory
+    neuralCache.set(fingerprint, result);
+    return result;
   } catch (e) {
-    console.error('Neural Pulse Image Analysis failed:', e);
+    console.error('Neural Pulse Image Analysis failed via proxy:', e);
     return { found: false, error: 'Analysis failed' };
   }
 };
@@ -235,41 +254,29 @@ export const processNeuralPulseVoice = async (transcript: string): Promise<any> 
       return { ...cached, isCached: true };
     }
 
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return { success: false };
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        // Conceptual Compression: Direct mapping
-        contents: `[V-RFQ:JSON] Map transcript to RFQ: "${transcript}". JSON: {product, quantity, budget, urgency, professionalSummary}`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              product: { type: Type.STRING },
-              quantity: { type: Type.STRING },
-              budget: { type: Type.STRING },
-              urgency: { type: Type.STRING },
-              professionalSummary: { type: Type.STRING }
-            },
-            required: ["product", "quantity", "budget", "urgency", "professionalSummary"]
-          }
-        }
-      });
-      
-      const result = JSON.parse(response.text || '{}');
-      
-      const tokens = (transcript.length + (response.text?.length || 0)) / 4; // Rough estimate
-      await logUsage('Neural Pulse Voice', Math.ceil(tokens));
-      
-      // Store in Semantic Memory
-      neuralCache.set(fingerprint, result);
-      return result;
-    });
+    const result = await callAiJson(
+      `[V-RFQ:JSON] Map transcript to RFQ: "${transcript}". JSON: {product, quantity, budget, urgency, professionalSummary}`,
+      {
+        type: Type.OBJECT,
+        properties: {
+          product: { type: Type.STRING },
+          quantity: { type: Type.STRING },
+          budget: { type: Type.STRING },
+          urgency: { type: Type.STRING },
+          professionalSummary: { type: Type.STRING }
+        },
+        required: ["product", "quantity", "budget", "urgency", "professionalSummary"]
+      }
+    );
+    
+    const tokens = (transcript.length + JSON.stringify(result).length) / 4;
+    await logUsage('Neural Pulse Voice', Math.ceil(tokens));
+    
+    // Store in Semantic Memory
+    neuralCache.set(fingerprint, result);
+    return result;
   } catch (e) {
-    console.error('Neural Pulse Voice Processing failed:', e);
+    console.error('Neural Pulse Voice Processing failed via proxy:', e);
     return { success: false };
   }
 };
@@ -284,114 +291,82 @@ export const generateNeuralPulseGeoInsight = async (lat: number, lng: number, re
       return { ...cached, isCached: true };
     }
 
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return { hasInsight: false };
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        // Conceptual Compression: Scenario-based prompt
-        contents: `[GEO-INSIGHT:JSON] User @ (${lat}, ${lng}), Interests: [${recentInterests.join(',')}]. Generate Luxurious Proximity Insight. JSON: {hasInsight, title, message, actionLabel}`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              hasInsight: { type: Type.BOOLEAN },
-              title: { type: Type.STRING },
-              message: { type: Type.STRING },
-              actionLabel: { type: Type.STRING }
-            },
-            required: ["hasInsight", "title", "message", "actionLabel"]
-          }
-        }
-      });
-      
-      const result = JSON.parse(response.text || '{}');
-      
-      const tokens = (recentInterests.join(',').length + (response.text?.length || 0)) / 4; // Rough estimate
-      await logUsage('Neural Pulse Geo', Math.ceil(tokens));
-      
-      // Store in Semantic Memory (expires in 1 hour for geo)
-      neuralCache.set(fingerprint, result, 60 * 60 * 1000);
-      return result;
-    });
+    const result = await callAiJson(
+      `[GEO-INSIGHT:JSON] User @ (${lat}, ${lng}), Interests: [${recentInterests.join(',')}]. Generate Luxurious Proximity Insight. JSON: {hasInsight, title, message, actionLabel}`,
+      {
+        type: Type.OBJECT,
+        properties: {
+          hasInsight: { type: Type.BOOLEAN },
+          title: { type: Type.STRING },
+          message: { type: Type.STRING },
+          actionLabel: { type: Type.STRING }
+        },
+        required: ["hasInsight", "title", "message", "actionLabel"]
+      }
+    );
+    
+    const tokens = (recentInterests.join(',').length + JSON.stringify(result).length) / 4;
+    await logUsage('Neural Pulse Geo', Math.ceil(tokens));
+    
+    // Store in Semantic Memory (expires in 1 hour for geo)
+    neuralCache.set(fingerprint, result, 60 * 60 * 1000);
+    return result;
   } catch (e) {
-    console.error('Neural Pulse Geo Insight failed:', e);
+    console.error('Neural Pulse Geo Insight failed via proxy:', e);
     return { hasInsight: false };
   }
 };
 
 export const verifyDocument = async (base64Data: string, mimeType: string): Promise<any> => {
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return { isLegit: true, details: 'Verified (Offline Mode)' };
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType } },
-            { text: "Analyze this document. Is it a valid commercial registration, tax certificate, or business license? Provide details and the company name if found." }
-          ]
+    const result = await callAiJson(
+      [
+        { inlineData: { data: base64Data.replace(/^data:image\/\w+;base64,/, ""), mimeType } },
+        { text: "Analyze this document. Is it a valid commercial registration, tax certificate, or business license? Provide details and the company name if found." }
+      ],
+      {
+        type: Type.OBJECT,
+        properties: {
+          isLegit: { type: Type.BOOLEAN },
+          details: { type: Type.STRING },
+          companyName: { type: Type.STRING }
         },
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              isLegit: { type: Type.BOOLEAN },
-              details: { type: Type.STRING },
-              companyName: { type: Type.STRING }
-            },
-            required: ["isLegit", "details"]
-          }
-        }
-      });
-      const result = JSON.parse(response.text || "{}");
-      const tokens = (base64Data.length / 4 + (response.text?.length || 0)) / 4;
-      await logUsage('Document Verification', Math.ceil(tokens));
-      return result;
-    });
+        required: ["isLegit", "details"]
+      }
+    );
+
+    const tokens = (base64Data.length / 4 + JSON.stringify(result).length) / 4;
+    await logUsage('Document Verification', Math.ceil(tokens));
+    return result;
   } catch (e) {
-    console.error('Document verification failed:', e);
+    console.error('Document verification failed via proxy:', e);
     return { isLegit: true, details: 'Verification failed due to technical error' };
   }
 };
 
 export const optimizeSupplierProfile = async (companyName: string, bio: string, keywords: string[], language: string): Promise<any> => {
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return { suggestedBio: bio, suggestedKeywords: keywords };
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Optimize this supplier profile for a B2B2C marketplace. 
+    const result = await callAiJson(
+      `Optimize this supplier profile for a B2B2C marketplace. 
         Company: ${companyName}
         Current Bio: ${bio}
         Current Keywords: ${keywords.join(", ")}
         Language: ${language === 'ar' ? 'Arabic' : 'English'}`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              suggestedBio: { type: Type.STRING },
-              suggestedKeywords: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["suggestedBio", "suggestedKeywords"]
-          }
-        }
-      });
-      const result = JSON.parse(response.text || "{}");
-      const tokens = (bio.length + keywords.join(',').length + (response.text?.length || 0)) / 4;
-      await logUsage('Profile Optimization', Math.ceil(tokens));
-      return result;
-    });
+      {
+        type: Type.OBJECT,
+        properties: {
+          suggestedBio: { type: Type.STRING },
+          suggestedKeywords: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["suggestedBio", "suggestedKeywords"]
+      }
+    );
+
+    const tokens = (companyName.length + bio.length + JSON.stringify(result).length) / 4;
+    await logUsage('Profile Optimization', Math.ceil(tokens));
+    return result;
   } catch (e) {
-    console.error('Profile optimization failed:', e);
+    console.error('Profile optimization failed via proxy:', e);
     return { suggestedBio: bio, suggestedKeywords: keywords };
   }
 };
@@ -430,7 +405,8 @@ export const generateSupplierLogo = async (companyName: string, category: string
         }
       }
 
-      const tokens = (prompt.length + (response.text?.length || 0)) / 4;
+      const responseText = getResponseText(response);
+      const tokens = (prompt.length + (responseText?.length || 0)) / 4;
       await logUsage('Logo Generation', Math.ceil(tokens));
 
       return {
@@ -449,104 +425,80 @@ export const generateSupplierLogo = async (companyName: string, category: string
 
 export const getProfileInsights = async (profileData: any, language: string): Promise<any> => {
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return null;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Analyze this user profile and provide strategic business insights. 
-        Profile: ${JSON.stringify(profileData)}
-        Provide a summary, key strengths, and actionable recommendations.
-        Return the response in both Arabic and English.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              summaryAr: { type: Type.STRING },
-              summaryEn: { type: Type.STRING },
-              strengthsAr: { type: Type.ARRAY, items: { type: Type.STRING } },
-              strengthsEn: { type: Type.ARRAY, items: { type: Type.STRING } },
-              recommendationsAr: { type: Type.ARRAY, items: { type: Type.STRING } },
-              recommendationsEn: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["summaryAr", "summaryEn", "strengthsAr", "strengthsEn", "recommendationsAr", "recommendationsEn"]
-          }
-        }
-      });
-      const result = JSON.parse(response.text || "{}");
-      const tokens = (JSON.stringify(profileData).length + (response.text?.length || 0)) / 4;
-      await logUsage('Profile Insights', Math.ceil(tokens));
-      return result;
-    });
+    const result = await callAiJson(
+      `Analyze this user profile and provide strategic business insights. 
+      Profile: ${JSON.stringify(profileData)}
+      Provide a summary, key strengths, and actionable recommendations.
+      Return the response in both Arabic and English.`,
+      {
+        type: Type.OBJECT,
+        properties: {
+          summaryAr: { type: Type.STRING },
+          summaryEn: { type: Type.STRING },
+          strengthsAr: { type: Type.ARRAY, items: { type: Type.STRING } },
+          strengthsEn: { type: Type.ARRAY, items: { type: Type.STRING } },
+          recommendationsAr: { type: Type.ARRAY, items: { type: Type.STRING } },
+          recommendationsEn: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["summaryAr", "summaryEn", "strengthsAr", "strengthsEn", "recommendationsAr", "recommendationsEn"]
+      }
+    );
+    const tokens = (JSON.stringify(profileData).length + JSON.stringify(result).length) / 4;
+    await logUsage('Profile Insights', Math.ceil(tokens));
+    return result;
   } catch (e) {
-    console.error('Profile insights failed:', e);
+    console.error('Profile insights failed via proxy:', e);
     return null;
   }
 };
 
 export const suggestSupplierCategories = async (profile: any, allCategories: Category[], language: string): Promise<string[]> => {
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return [];
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Based on this supplier profile, suggest the most relevant categories from the provided list.
-        Profile: ${JSON.stringify(profile)}
-        Categories: ${JSON.stringify(allCategories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn })))}`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
-          }
-        }
-      });
-      return JSON.parse(response.text || "[]");
-    });
+    const result = await callAiJson(
+      `Based on this supplier profile, suggest the most relevant categories from the provided list.
+      Profile: ${JSON.stringify(profile)}
+      Categories: ${JSON.stringify(allCategories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn })))}`,
+      {
+        type: Type.ARRAY,
+        items: { type: Type.STRING }
+      }
+    );
+    const tokens = (JSON.stringify(profile).length + JSON.stringify(result).length) / 4;
+    await logUsage('Category Suggestion', Math.ceil(tokens));
+    return result;
   } catch (e) {
-    console.error('Category suggestion failed:', e);
+    console.error('Category suggestion failed via proxy:', e);
     return [];
   }
 };
 
 export const suggestCategoriesFromQuery = async (query: string, categories: Category[], language: string): Promise<string[]> => {
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return [];
+    const categoryList = categories.map(c => ({ 
+      id: c.id, 
+      nameAr: c.nameAr, 
+      nameEn: c.nameEn,
+      parentId: c.parentId 
+    }));
+    
+    const result = await callAiJson(
+      `Based on the user query, suggest the most relevant category IDs from the provided list.
+      User Query: "${query}"
+      Available Categories: ${JSON.stringify(categoryList)}
       
-      const ai = new GoogleGenAI({ apiKey });
-      const categoryList = categories.map(c => ({ 
-        id: c.id, 
-        nameAr: c.nameAr, 
-        nameEn: c.nameEn,
-        parentId: c.parentId 
-      }));
-      
-      const response = await withTimeout(ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Based on the user query, suggest the most relevant category IDs from the provided list.
-        User Query: "${query}"
-        Available Categories: ${JSON.stringify(categoryList)}
-        
-        Return a JSON array of category IDs (strings). Limit to top 5 most relevant matches.
-        If no good matches are found, return an empty array [].`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
-          }
-        }
-      }));
-      
-      return JSON.parse(response.text || "[]");
-    });
+      Return a JSON array of category IDs (strings). Limit to top 5 most relevant matches.
+      If no good matches are found, return an empty array [].`,
+      {
+        type: Type.ARRAY,
+        items: { type: Type.STRING }
+      }
+    );
+    
+    const tokens = (query.length + JSON.stringify(result).length) / 4;
+    await logUsage('Query Category Suggestion', Math.ceil(tokens));
+    return result;
   } catch (e) {
-    console.error('AI Category suggestion failed:', e);
+    console.error('AI Category suggestion failed via proxy:', e);
     return [];
   }
 };
@@ -555,21 +507,17 @@ export const generateKeywords = async (...args: any[]): Promise<string[]> => ['k
 export const generateSupplierProposal = async (...args: any[]): Promise<string> => 'Proposal';
 export const enhanceRequestDescription = async (description: string, language: string): Promise<string> => {
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return description;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Enhance this product request description to be more professional and detailed for suppliers. 
-        Original: ${description}
-        Language: ${language === 'ar' ? 'Arabic' : 'English'}
-        Return ONLY the enhanced description.`,
-      });
-      return response.text || description;
-    });
+    const result = await callAiText(
+      `Enhance this product request description to be more professional and detailed for suppliers. 
+      Original: ${description}
+      Language: ${language === 'ar' ? 'Arabic' : 'English'}
+      Return ONLY the enhanced description.`
+    );
+    const tokens = (description.length + result.length) / 4;
+    await logUsage('Description Enhancement', Math.ceil(tokens));
+    return result || description;
   } catch (e) {
-    console.error('Description enhancement failed:', e);
+    console.error('Description enhancement failed via proxy:', e);
     return description;
   }
 };
@@ -590,26 +538,28 @@ export const categorizeProduct = async (query: string, categories: Category[]): 
   if (categories.length === 0) return defaultCat;
   
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return defaultCat;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const categoryList = categories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn }));
-      
-      const response = await withTimeout(ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Based on the user query, select the most appropriate category ID from the list.
-        Query: ${query}
-        Categories: ${JSON.stringify(categoryList)}
-        Return ONLY the category ID. If no good match, return null.`,
-      }));
-      
-      const result = response.text?.trim();
-      const matched = categories.find(c => c.id === result);
-      return matched ? matched.id : defaultCat;
-    });
+    const categoryList = categories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn }));
+    
+    const result = await callAiJson(
+      `Based on the user query, select the most appropriate category ID from the list.
+      Query: ${query}
+      Categories: ${JSON.stringify(categoryList)}
+      Return ONLY a JSON object with 'categoryId'. If no good match, return null.`,
+      {
+        type: Type.OBJECT,
+        properties: {
+          categoryId: { type: Type.STRING }
+        },
+        required: ["categoryId"]
+      }
+    );
+    
+    const matched = categories.find(c => c.id === result.categoryId);
+    const tokens = (query.length + JSON.stringify(result).length) / 4;
+    await logUsage('Product Categorization', Math.ceil(tokens));
+    return matched ? matched.id : defaultCat;
   } catch (e) {
-    console.error('Categorization failed:', e);
+    console.error('Categorization failed via proxy:', e);
     return defaultCat;
   }
 };
@@ -618,22 +568,17 @@ export const matchSuppliers = async (query: string, suppliers: UserProfile[], ca
   if (suppliers.length === 0) return [];
   
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return [];
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const supplierList = suppliers.map(s => ({ 
-        uid: s.uid, 
-        name: s.companyName || s.name, 
-        bio: s.bio, 
-        keywords: s.keywords,
-        location: s.location,
-        categories: s.categories
-      }));
-      
-      const response = await withTimeout(ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Match the best suppliers for this request. 
+    const supplierList = suppliers.map(s => ({ 
+      uid: s.uid, 
+      name: s.companyName || s.name, 
+      bio: s.bio, 
+      keywords: s.keywords,
+      location: s.location,
+      categories: s.categories
+    }));
+
+    const data = await callAiJson(
+      `Match the best suppliers for this request. 
         Be strict: only return suppliers that truly match the product or service requested.
         
         Request: ${query}
@@ -642,74 +587,71 @@ export const matchSuppliers = async (query: string, suppliers: UserProfile[], ca
         
         Return a JSON array of the top 3-5 supplier UIDs that best match the request. 
         If no good matches are found, return an empty array []. Be very strict.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              uids: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["uids"]
-          }
-        }
-      }));
-      
-      const data = JSON.parse(response.text || "{}");
-      return data.uids || [];
-    });
+      {
+        type: Type.OBJECT,
+        properties: {
+          uids: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["uids"]
+      }
+    );
+
+    return data.uids || [];
   } catch (e) {
-    console.error('Matchmaking failed:', e);
+    console.error('Matchmaking failed via proxy:', e);
     return [];
   }
 };
 
 export const analyzeProductImage = async (base64Data: string, mimeType: string): Promise<any> => {
-  const fallback = { 
-    productNameAr: 'منتج', descriptionAr: 'وصف المنتج',
-    productNameEn: 'Product', descriptionEn: 'Product description' 
-  };
-  
   try {
     return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return fallback;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType } },
-            { text: `Analyze this product image. Provide a professional name and a detailed description in BOTH Arabic and English.` }
-          ]
-        },
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              productNameAr: { type: Type.STRING },
-              descriptionAr: { type: Type.STRING },
-              productNameEn: { type: Type.STRING },
-              descriptionEn: { type: Type.STRING },
-              keywordsAr: { type: Type.ARRAY, items: { type: Type.STRING } },
-              keywordsEn: { type: Type.ARRAY, items: { type: Type.STRING } },
-              category: { type: Type.STRING },
-              priceEstimate: { type: Type.NUMBER },
-              isHighQuality: { type: Type.BOOLEAN },
-              features: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["productNameAr", "descriptionAr", "productNameEn", "descriptionEn", "keywordsAr", "keywordsEn", "category", "priceEstimate", "isHighQuality", "features"]
-          }
-        }
+      const response = await fetch('/api/analyze-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Data, mimeType, apiKey })
       });
-      const result = JSON.parse(response.text || "{}");
-      const tokens = (base64Data.length / 4 + (response.text?.length || 0)) / 4;
-      await logUsage('Product Analysis', Math.ceil(tokens));
-      return result;
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429 || errorData.error?.includes('quota') || errorData.error === 'QUOTA_EXHAUSTED') {
+          throw new Error('QUOTA_EXHAUSTED');
+        }
+        if (response.status === 400 || errorData.error?.includes('INVALID_API_KEY') || errorData.error === 'INVALID_API_KEY') {
+          throw new Error('INVALID_API_KEY');
+        }
+        throw new Error('Server analysis failed');
+      }
+
+      return await response.json();
     });
   } catch (e) {
-    console.error('Image analysis failed:', e);
-    return fallback;
+    console.error('Image analysis failed via proxy:', e);
+    return { 
+      productNameAr: 'منتج', descriptionAr: 'وصف المنتج',
+      productNameEn: 'Product', descriptionEn: 'Product description' 
+    };
+  }
+};
+
+export const generateAlternativeProductImage = async (base64Image: string, mimeType: string, title: string, category: string): Promise<string | null> => {
+  try {
+    const response = await fetch('/api/generate-product-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64Image, mimeType, title, category })
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) throw new Error('QUOTA_EXHAUSTED');
+      throw new Error('Server image generation failed');
+    }
+
+    const data = await response.json();
+    return data.image || null;
+  } catch (e) {
+    console.error('Image generation failed via proxy:', e);
+    return null;
   }
 };
 
@@ -717,35 +659,168 @@ export const parseVoiceRequest = async (transcript: string, language: string): P
   const fallback = { intent: 'search', query: transcript, productName: transcript };
   
   try {
+    const result = await callAiJson(
+      `Extract the search query, product name, and intent from this voice transcript.
+      Transcript: ${transcript}
+      Language: ${language}
+      Return JSON with 'query', 'productName', 'description', and 'intent'.`,
+      {
+        type: Type.OBJECT,
+        properties: {
+          query: { type: Type.STRING },
+          productName: { type: Type.STRING },
+          description: { type: Type.STRING },
+          intent: { type: Type.STRING }
+        },
+        required: ["query", "intent"]
+      }
+    );
+    const tokens = (transcript.length + JSON.stringify(result).length) / 4;
+    await logUsage('Voice Request Parsing', Math.ceil(tokens));
+    return result;
+  } catch (e) {
+    console.error('Voice parsing failed via proxy:', e);
+    return fallback;
+  }
+};
+
+export const analyzeWithdrawalFraud = async (withdrawal: any, userProfile: any, recentWithdrawals: any[]): Promise<any> => {
+  try {
+    const prompt = `Analyze this withdrawal request for potential fraud in a referral rewards system.
+      
+      Withdrawal Data: ${JSON.stringify(withdrawal)}
+      User Profile: ${JSON.stringify(userProfile)}
+      Recent User Withdrawals: ${JSON.stringify(recentWithdrawals)}
+      
+      Check for:
+      1. Rapid point accumulation.
+      2. Multiple withdrawals in short time.
+      3. Suspicious referral patterns (e.g., many referrals from same IP or device - if available).
+      4. Unusual withdrawal amounts.
+      
+      Return a JSON object with:
+      - fraudScore: 0 to 100 (100 is definitely fraud)
+      - analysis: Detailed explanation of the score
+      - status: 'safe', 'suspicious', or 'high_risk'
+      - recommendations: Array of suggested actions for the admin.`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          fraudScore: { type: Type.NUMBER },
+          analysis: { type: Type.STRING },
+          status: { type: Type.STRING, enum: ['safe', 'suspicious', 'high_risk'] },
+          recommendations: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["fraudScore", "analysis", "status", "recommendations"]
+      }
+    );
+    
+    const tokens = (prompt.length + JSON.stringify(result).length) / 4;
+    await logUsage('Fraud Analysis', Math.ceil(tokens));
+    return result;
+  } catch (e) {
+    console.error('Fraud analysis failed via proxy:', e);
+    return { fraudScore: 0, analysis: 'Analysis failed due to technical error', status: 'safe' };
+  }
+};
+
+export const analyzeSystemPulse = async (systemData: any, language: string): Promise<any> => {
+  try {
+    const prompt = `Analyze the current state of this B2B2C marketplace system.
+      
+      System Data Summary: ${JSON.stringify(systemData)}
+      Language: ${language === 'ar' ? 'Arabic' : 'English'}
+      
+      Provide a "Neural Pulse" analysis:
+      1. Overall Status: 'stable', 'active', 'warning', or 'critical'.
+      2. A short, punchy headline about the system's current "vibe".
+      3. 2-3 specific AI-driven insights or alerts.
+      4. A "Growth Score" (0-100).
+      
+      Return JSON: { status, headline, insights[], growthScore, recommendations[] }`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          status: { type: Type.STRING, enum: ['stable', 'active', 'warning', 'critical'] },
+          headline: { type: Type.STRING },
+          insights: { type: Type.ARRAY, items: { type: Type.STRING } },
+          growthScore: { type: Type.NUMBER },
+          recommendations: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["status", "headline", "insights", "growthScore"]
+      }
+    );
+    
+    const tokens = (prompt.length + JSON.stringify(result).length) / 4;
+    await logUsage('System Pulse', Math.ceil(tokens));
+    return result;
+  } catch (e) {
+    console.error('System Pulse analysis failed via proxy:', e);
+    return { status: 'stable', headline: 'System Stable', insights: [], growthScore: 100 };
+  }
+};
+
+export const analyzeAdminSearch = async (query: string, context: any, language: string): Promise<any> => {
+  try {
     return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return fallback;
+      if (!apiKey) return { intent: 'search', target: 'users', filters: {} };
       
       const ai = new GoogleGenAI({ apiKey });
+      const prompt = `Analyze this admin search query for a B2B2C marketplace.
+      
+      Query: "${query}"
+      Context (Available Tabs): ${JSON.stringify(context.tabs)}
+      Language: ${language === 'ar' ? 'Arabic' : 'English'}
+      
+      Determine the intent and target of the search.
+      Intents: 'navigate' (go to a tab), 'filter' (search with specific criteria), 'action' (perform a task).
+      Targets: 'users', 'requests', 'categories', 'withdrawals', 'suppliers', 'ambassadors'.
+      
+      Return JSON: { intent, target, filters: { role, status, minAmount, maxAmount, dateRange, searchString }, message }`;
+
       const response = await ai.models.generateContent({
         model: "gemini-flash-latest",
-        contents: `Extract the search query, product name, and intent from this voice transcript.
-        Transcript: ${transcript}
-        Language: ${language}
-        Return JSON with 'query', 'productName', 'description', and 'intent'.`,
+        contents: prompt,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              query: { type: Type.STRING },
-              productName: { type: Type.STRING },
-              description: { type: Type.STRING },
-              intent: { type: Type.STRING }
+              intent: { type: Type.STRING, enum: ['navigate', 'filter', 'action'] },
+              target: { type: Type.STRING },
+              filters: { 
+                type: Type.OBJECT,
+                properties: {
+                  role: { type: Type.STRING },
+                  status: { type: Type.STRING },
+                  minAmount: { type: Type.NUMBER },
+                  maxAmount: { type: Type.NUMBER },
+                  dateRange: { type: Type.STRING },
+                  searchString: { type: Type.STRING }
+                }
+              },
+              message: { type: Type.STRING }
             },
-            required: ["query", "intent"]
+            required: ["intent", "target", "filters"]
           }
         }
       });
-      return JSON.parse(response.text || "{}");
+      
+      const responseText = getResponseText(response);
+      const result = JSON.parse(responseText || "{}");
+      const tokens = (query.length + (responseText?.length || 0)) / 4;
+      await logUsage('Admin Search', Math.ceil(tokens));
+      return result;
     });
   } catch (e) {
-    console.error('Voice parsing failed:', e);
-    return fallback;
+    console.error('Admin Search analysis failed:', e);
+    return { intent: 'filter', target: 'users', filters: { searchString: query } };
   }
 };
 
@@ -753,37 +828,27 @@ export const generateProductCopy = async (productName: string, features: string[
   const fallback = { title: productName, description: productName, highlights: [] };
   
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return fallback;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Generate a compelling marketing copy for this product.
-        Name: ${productName}
-        Features: ${features.join(', ')}
-        Target Audience: ${targetAudience}
-        Language: ${language.startsWith('ar') ? 'Arabic' : 'English'}`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              description: { type: Type.STRING },
-              highlights: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["title", "description", "highlights"]
-          }
-        }
-      });
-      const result = JSON.parse(response.text || "{}");
-      const tokens = (productName.length + features.join(',').length + (response.text?.length || 0)) / 4;
-      await logUsage('Product Copy Generation', Math.ceil(tokens));
-      return result;
-    });
+    const result = await callAiJson(
+      `Generate a compelling marketing copy for this product.
+      Name: ${productName}
+      Features: ${features.join(', ')}
+      Target Audience: ${targetAudience}
+      Language: ${language.startsWith('ar') ? 'Arabic' : 'English'}`,
+      {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          description: { type: Type.STRING },
+          highlights: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["title", "description", "highlights"]
+      }
+    );
+    const tokens = (productName.length + features.join(',').length + JSON.stringify(result).length) / 4;
+    await logUsage('Product Copy Generation', Math.ceil(tokens));
+    return result;
   } catch (e) {
-    console.error('Copy generation failed:', e);
+    console.error('Copy generation failed via proxy:', e);
     return fallback;
   }
 };
@@ -792,74 +857,28 @@ export const enhanceProductImageDescription = async (base64Data: string, mimeTyp
   const fallback = { suggestions: [], caption: "Product image" };
   
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return fallback;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType } },
-            { text: `Analyze this product image and suggest how to make it more appealing to buyers in ${language.startsWith('ar') ? 'Arabic' : 'English'}. Also provide a professional caption.` }
-          ]
+    const result = await callAiJson(
+      {
+        parts: [
+          { inlineData: { data: base64Data, mimeType } },
+          { text: `Analyze this product image and suggest how to make it more appealing to buyers in ${language.startsWith('ar') ? 'Arabic' : 'English'}. Also provide a professional caption.` }
+        ]
+      },
+      {
+        type: Type.OBJECT,
+        properties: {
+          suggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+          caption: { type: Type.STRING }
         },
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              suggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
-              caption: { type: Type.STRING }
-            },
-            required: ["suggestions", "caption"]
-          }
-        }
-      });
-      return JSON.parse(response.text || "{}");
-    });
-  } catch (e) {
-    console.error('Image enhancement failed:', e);
-    return fallback;
-  }
-};
-
-export const generateAlternativeProductImage = async (base64Data: string, mimeType: string, productName: string, category: string, language: string): Promise<string | null> => {
-  try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return null;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `Enhance and professionalize this product image for a B2B marketplace. 
-      Product: ${productName}
-      Category: ${category}
-      Style: High-end, studio lighting, clean background, 4:5 aspect ratio.
-      The output should be a professional product shot.
-      IMPORTANT: Do not include any text, words, labels, or watermarks in the image. The image should be clean and professional.`;
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image",
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType } },
-            { text: prompt }
-          ]
-        },
-        config: {
-          imageConfig: { aspectRatio: "3:4" } // Closest to 4:5
-        }
-      });
-      
-      for (const part of response.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData) {
-          return `data:image/png;base64,${part.inlineData.data}`;
-        }
+        required: ["suggestions", "caption"]
       }
-      return null;
-    });
+    );
+    const tokens = (base64Data.length + JSON.stringify(result).length) / 4;
+    await logUsage('Image Enhancement', Math.ceil(tokens));
+    return result;
   } catch (e) {
-    console.error('Alternative image generation failed:', e);
-    return null;
+    console.error('Image enhancement failed via proxy:', e);
+    return fallback;
   }
 };
 
@@ -867,22 +886,18 @@ export const getAiAssistantResponse = async (query: string, context: any, langua
   const fallback = "I am an AI assistant. How can I help you?";
   
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return fallback;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `You are a helpful B2B2C marketplace assistant.
-        User Query: ${query}
-        Context: ${JSON.stringify(context)}
-        Language: ${language === 'ar' ? 'Arabic' : 'English'}
-        Provide a helpful, professional response.`,
-      });
-      return response.text || "I'm sorry, I couldn't process that.";
-    });
+    const result = await callAiText(
+      `You are a helpful B2B2C marketplace assistant.
+      User Query: ${query}
+      Context: ${JSON.stringify(context)}
+      Language: ${language === 'ar' ? 'Arabic' : 'English'}
+      Provide a helpful, professional response.`
+    );
+    const tokens = (query.length + JSON.stringify(context).length + result.length) / 4;
+    await logUsage('AI Assistant', Math.ceil(tokens));
+    return result || "I'm sorry, I couldn't process that.";
   } catch (e) {
-    console.error('AI Assistant failed:', e);
+    console.error('AI Assistant failed via proxy:', e);
     return fallback;
   }
 };
@@ -895,23 +910,18 @@ export const getPriceIntelligence = async (...args: any[]) => ({ recommendedPric
 export const summarizeChat = async (transcript: string, language: string): Promise<string> => {
   const fallback = "Chat summary";
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return fallback;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Summarize the following chat transcript in a concise way.
+    const responseText = await callAiText(
+      `Summarize the following chat transcript in a concise way.
         Transcript: ${transcript}
         Language: ${language === 'ar' ? 'Arabic' : 'English'}
-        Return ONLY the summary text.`,
-      });
-      const tokens = (transcript.length + (response.text?.length || 0)) / 4;
-      await logUsage('Chat Summarization', Math.ceil(tokens));
-      return response.text || fallback;
-    });
+        Return ONLY the summary text.`
+    );
+
+    const tokens = (transcript.length + (responseText?.length || 0)) / 4;
+    await logUsage('Chat Summarization', Math.ceil(tokens));
+    return responseText || fallback;
   } catch (e) {
-    console.error('Chat summarization failed:', e);
+    console.error('Chat summarization failed via proxy:', e);
     return fallback;
   }
 };
@@ -974,8 +984,9 @@ export const analyzeChatRisk = async (transcript: string, language: string): Pro
         }
       });
       
-      const result = JSON.parse(response.text || '{}');
-      const tokens = (transcript.length + (response.text?.length || 0)) / 4;
+      const responseText = getResponseText(response);
+      const result = JSON.parse(responseText || '{}');
+      const tokens = (transcript.length + (responseText?.length || 0)) / 4;
       await logUsage('Chat Risk Analysis', Math.ceil(tokens));
       return result;
     });
@@ -1023,7 +1034,8 @@ export const semanticSearch = async (query: string, items: any[], language: stri
         }
       }));
 
-      const data = JSON.parse(response.text || "{}");
+      const responseText = getResponseText(response);
+      const data = JSON.parse(responseText || "{}");
       
       // Log usage
       const tokens = (query.length + JSON.stringify(itemList).length + JSON.stringify(data).length) / 4;
@@ -1080,7 +1092,8 @@ export const analyzeImageForSearch = async (base64Data: string, mimeType: string
         }
       }));
       
-      const data = JSON.parse(response.text || "{}");
+      const responseText = getResponseText(response);
+      const data = JSON.parse(responseText || "{}");
 
       // Log usage
       const tokens = (1000 + JSON.stringify(data).length) / 4; // Image estimation
@@ -1126,8 +1139,9 @@ export const analyzeMarketTrends = async (searches: string[], summaries: string[
           }
         }
       }));
-      const result = JSON.parse(response.text || "{}");
-      const tokens = (searches.join(',').length + summaries.join(',').length + (response.text?.length || 0)) / 4;
+      const responseText = getResponseText(response);
+      const result = JSON.parse(responseText || "{}");
+      const tokens = (searches.join(',').length + summaries.join(',').length + (responseText?.length || 0)) / 4;
       await logUsage('Market Trends Analysis', Math.ceil(tokens));
       return result;
     });
@@ -1215,7 +1229,8 @@ export const analyzeSupplierDocument = async (
         }
       }));
 
-      const result = JSON.parse(response.text || "{}");
+      const responseText = getResponseText(response);
+      const result = JSON.parse(responseText || "{}");
       await logUsage('Supplier Document Analysis', 2000); // Fixed cost for image analysis
       return result;
     });
@@ -1294,7 +1309,8 @@ export const analyzeSupplyDemandGap = async (
         }
       }));
 
-      const result = JSON.parse(response.text || "{}");
+      const responseText = getResponseText(response);
+      const result = JSON.parse(responseText || "{}");
       await logUsage('Supply-Demand Gap Analysis', Math.ceil((JSON.stringify(categoryData).length + JSON.stringify(requestData).length + JSON.stringify(supplierData).length) / 4));
       return result;
     });
@@ -1344,7 +1360,8 @@ export const suggestCategoryMerges = async (categories: Category[], language: st
         }
       });
       
-      const result = JSON.parse(response.text || "[]");
+      const responseText = getResponseText(response);
+      const result = JSON.parse(responseText || "[]");
       return result.map((s: any) => ({
         ...s,
         categoryIds: [s.sourceId, s.targetId]
@@ -1374,8 +1391,9 @@ export const suggestMainCategories = async (language: string, categoryType: 'pro
           }
         }
       });
-      const result = JSON.parse(response.text || "[]");
-      const tokens = (existingList.length + (response.text?.length || 0)) / 4;
+      const responseText = getResponseText(response);
+      const result = JSON.parse(responseText || "[]");
+      const tokens = (existingList.length + (responseText?.length || 0)) / 4;
       await logUsage('Category Suggestion', Math.ceil(tokens));
       return result;
     });
@@ -1390,29 +1408,20 @@ export const suggestMainCategories = async (language: string, categoryType: 'pro
 
 export const suggestSubcategories = async (parentCategory: string, categoryType: 'product' | 'service', existingSubcategories: string[]): Promise<string[]> => {
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return [];
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const existingList = existingSubcategories.length > 0 ? `Do not include these existing subcategories: ${existingSubcategories.join(', ')}.` : '';
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Suggest 5-8 new ${categoryType === 'product' ? 'product' : 'service'} subcategories for the parent category "${parentCategory}" in a B2B2C marketplace. The language should match the parent category name. ${existingList} Return ONLY a JSON array of strings.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
-          }
-        }
-      });
-      const result = JSON.parse(response.text || "[]");
-      const tokens = (parentCategory.length + existingList.length + (response.text?.length || 0)) / 4;
-      await logUsage('Subcategory Suggestion', Math.ceil(tokens));
-      return result;
-    });
+    const existingList = existingSubcategories.length > 0 ? `Do not include these existing subcategories: ${existingSubcategories.join(', ')}.` : '';
+    const result = await callAiJson(
+      `Suggest 5-8 new ${categoryType === 'product' ? 'product' : 'service'} subcategories for the parent category "${parentCategory}" in a B2B2C marketplace. The language should match the parent category name. ${existingList} Return ONLY a JSON array of strings.`,
+      {
+        type: Type.ARRAY,
+        items: { type: Type.STRING }
+      }
+    );
+
+    const tokens = (parentCategory.length + existingList.length + JSON.stringify(result).length) / 4;
+    await logUsage('Subcategory Suggestion', Math.ceil(tokens));
+    return result;
   } catch (e: any) {
-    console.error('Subcategory suggestion failed:', e);
+    console.error('Subcategory suggestion failed via proxy:', e);
     if (e.message === 'QUOTA_EXHAUSTED' || e.status === 429 || (e.message && e.message.includes('429'))) {
       throw new Error('QUOTA_EXHAUSTED');
     }
@@ -1427,39 +1436,21 @@ export const suggestNeuralCategories = async (productInfo: { title: string, desc
   
   const cacheKey = `${productInfo.title}|${productInfo.description}`;
   const cached = neuralCategoryCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < 300000) { // 5 minute cache
-    await logUsage('Neural Category Suggestion', 0, true);
+  if (cached && Date.now() - cached.timestamp < 300000) {
     return cached.matches;
   }
 
   const categoryList = categories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn }));
   
   try {
-    const matches = await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) throw new Error('No API Key available');
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Based on the product title: "${productInfo.title}" and description: "${productInfo.description}", which of the following categories are the best matches? Return ONLY the IDs of the top 3 matching categories as a JSON array of strings.
+    const matches = await callAiJson(
+      `Based on the product title: "${productInfo.title}" and description: "${productInfo.description}", which of the following categories are the best matches? Return ONLY the IDs of the top 3 matching categories as a JSON array of strings.
         Categories: ${JSON.stringify(categoryList)}`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
-          }
-        }
-      });
-
-      const result = JSON.parse(response.text || "[]");
-
-      // Log usage
-      const tokens = (productInfo.title.length + productInfo.description.length + JSON.stringify(categoryList).length + JSON.stringify(result).length) / 4;
-      await logUsage('Neural Category Suggestion', Math.ceil(tokens));
-
-      return result;
-    });
+      {
+        type: Type.ARRAY,
+        items: { type: Type.STRING }
+      }
+    );
     
     neuralCategoryCache.set(cacheKey, { matches, timestamp: Date.now() });
     return matches;

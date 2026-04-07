@@ -76,7 +76,7 @@ export const VendorDashboard: React.FC<VendorDashboardProps> = ({
       setRequests(fetchedRequests);
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'requests');
+      handleFirestoreError(error, OperationType.GET, 'requests', false);
       setLoading(false);
     });
 

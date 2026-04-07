@@ -1215,7 +1215,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         setPricingInsights(insights);
       }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'price_insights');
+        handleFirestoreError(error, OperationType.LIST, 'price_insights', false);
       });
       return () => unsubscribe();
     }
@@ -1332,7 +1332,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         setFeatures(snap.data() as AppFeatures);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'settings/features');
+      handleFirestoreError(error, OperationType.GET, 'settings/features', false);
     });
     return () => unsub();
   }, []);
@@ -1421,7 +1421,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       // Revert optimistic update
       setCategories(previousCategories);
       console.error(error);
-      handleFirestoreError(error, OperationType.DELETE, 'categories');
+      handleFirestoreError(error, OperationType.DELETE, 'categories', false);
     }
   };
 
@@ -1495,7 +1495,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         setShowMergeModal(false);
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'categories');
+      handleFirestoreError(error, OperationType.UPDATE, 'categories', false);
     }
   };
 
@@ -1783,7 +1783,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setDashboardSuccess(i18n.language === 'ar' ? 'تمت إضافة الفئة بنجاح' : 'Category added successfully');
       setTimeout(() => setDashboardSuccess(null), 3000);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'categories');
+      handleFirestoreError(error, OperationType.CREATE, 'categories', false);
     }
   };
   const [editLogoUrl, setEditLogoUrl] = useState('');
@@ -1856,7 +1856,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     try {
       await updateDoc(doc(db, 'moderation_alerts', alertId), { resolved: true });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `moderation_alerts/${alertId}`);
+      handleFirestoreError(error, OperationType.UPDATE, `moderation_alerts/${alertId}`, false);
     }
   };
 
@@ -1914,7 +1914,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setCategories(sortedCats);
       setIsLoadingCategories(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'categories');
+      handleFirestoreError(error, OperationType.LIST, 'categories', false);
       setIsLoadingCategories(false);
     });
 
@@ -1932,7 +1932,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setSuppliers(suppList);
       // No separate loading for suppliers yet, but could add
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'users');
+      handleFirestoreError(error, OperationType.LIST, 'users', false);
     });
 
     // Fetch Requests based on activeRole
@@ -1949,7 +1949,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() } as ProductRequest)));
       setIsLoadingRequests(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'requests');
+      handleFirestoreError(error, OperationType.LIST, 'requests', false);
     });
 
     let unsubSupplierChats = () => {};
@@ -1968,7 +1968,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           setSupplierChats(allChatsData);
         }
       }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'chats');
+        handleFirestoreError(error, OperationType.LIST, 'chats', false);
       });
     }
 
@@ -2000,7 +2000,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   changed = true;
                 }
               } catch (error) {
-                handleFirestoreError(error, OperationType.GET, `users/${uid}`);
+                handleFirestoreError(error, OperationType.GET, `users/${uid}`, false);
               }
             }
           }
@@ -2009,7 +2009,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           console.error('Error in onSnapshot callback for all chats:', error);
         }
       }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'chats');
+        handleFirestoreError(error, OperationType.LIST, 'chats', false);
       });
 
       // Fetch All Users for Admin Stats
@@ -2017,7 +2017,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         setAllUsers(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
         setIsLoadingUsers(false);
       }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'users');
+        handleFirestoreError(error, OperationType.LIST, 'users', false);
         setIsLoadingUsers(false);
       });
 
@@ -2028,7 +2028,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setModerationAlerts(alerts);
       }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'moderation_alerts');
+        handleFirestoreError(error, OperationType.LIST, 'moderation_alerts', false);
       });
 
       // Fetch Market Trends
@@ -2038,14 +2038,14 @@ const Dashboard: React.FC<DashboardProps> = ({
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setMarketTrends(trends);
       }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'market_trends');
+        handleFirestoreError(error, OperationType.LIST, 'market_trends', false);
       });
 
       // Fetch Contact Events
       const unsubContactEvents = onSnapshot(collection(db, 'contactEvents'), (snap) => {
         setContactEvents(snap.docs.map(d => ({ id: d.id, ...d.data() } as ContactEvent)));
       }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'contactEvents');
+        handleFirestoreError(error, OperationType.LIST, 'contactEvents', false);
       });
 
       return () => {
@@ -2093,7 +2093,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         setEnableNeuralPulse(data.enableNeuralPulse ?? true);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'settings/site');
+      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
     });
     return () => unsubSettings();
   }, []);
@@ -2255,7 +2255,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'settings');
+      handleFirestoreError(error, OperationType.WRITE, 'settings', false);
     }
   };
 
@@ -2314,7 +2314,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setNewSubAr('');
       setNewSubEn('');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'categories');
+      handleFirestoreError(error, OperationType.CREATE, 'categories', false);
     }
   };
   */
@@ -2335,7 +2335,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     } catch (error) {
       // Revert optimistic update
       setCategories(previousCategories);
-      handleFirestoreError(error, OperationType.UPDATE, `categories/${id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `categories/${id}`, false);
     }
     setConfirmDeleteId(null);
   };
@@ -2375,7 +2375,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     } catch (error) {
       // Revert optimistic update
       setOffers(prev => prev.filter(offer => offer.id !== tempId));
-      handleFirestoreError(error, OperationType.CREATE, 'offers');
+      handleFirestoreError(error, OperationType.CREATE, 'offers', false);
     }
   };
 
@@ -2414,7 +2414,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     } catch (error) {
       setDashboardError(i18n.language === 'ar' ? 'حدث خطأ في الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت.' : 'Connection error. Please check your internet connection.');
       setTimeout(() => setDashboardError(null), 5000);
-      handleFirestoreError(error, OperationType.WRITE, 'chats');
+      handleFirestoreError(error, OperationType.WRITE, 'chats', false);
     } finally {
       setChatLoading(null);
     }
@@ -2448,7 +2448,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     } catch (error) {
       // Revert optimistic update by triggering a re-fetch or letting onSnapshot handle it
       // Since onSnapshot is active, it will eventually correct the state, but we can also force it
-      handleFirestoreError(error, OperationType.UPDATE, `requests/${requestId}`);
+      handleFirestoreError(error, OperationType.UPDATE, `requests/${requestId}`, false);
     }
   };
 
@@ -2527,7 +2527,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     try {
       await updateDoc(doc(db, 'chats', chatId), { archived });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `chats/${chatId}`);
+      handleFirestoreError(error, OperationType.UPDATE, `chats/${chatId}`, false);
     }
   };
 
@@ -2602,7 +2602,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
       } catch (error) {
-        handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}`);
+        handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}`, false);
       }
     } catch (err) {
       console.error(err);
@@ -3137,7 +3137,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       // Revert optimistic update
       setAllUsers(previousAllUsers);
       console.error('Error deleting user:', error);
-      handleFirestoreError(error, OperationType.DELETE, 'users');
+      handleFirestoreError(error, OperationType.DELETE, 'users', false);
     }
   };
 
@@ -3157,7 +3157,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setSuppliers(previousSuppliers);
       setAllUsers(previousAllUsers);
       console.error('Error deleting supplier:', error);
-      handleFirestoreError(error, OperationType.DELETE, 'users');
+      handleFirestoreError(error, OperationType.DELETE, 'users', false);
     }
   };
 
@@ -3194,7 +3194,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setSuppliers(previousSuppliers);
       setAllUsers(previousAllUsers);
       setEditingSupplier(editingSupplier); // Re-open modal
-      handleFirestoreError(error, OperationType.UPDATE, `users/${editingSupplier.uid}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${editingSupplier.uid}`, false);
     }
   };
 
@@ -3226,7 +3226,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         onOpenChat(newChat.id);
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'chats');
+      handleFirestoreError(error, OperationType.WRITE, 'chats', false);
     }
   };
 
@@ -7644,7 +7644,7 @@ const OffersList: React.FC<{
                 changed = true;
               }
             } catch (error) {
-              handleFirestoreError(error, OperationType.GET, `users/${offer.supplierId}`);
+              handleFirestoreError(error, OperationType.GET, `users/${offer.supplierId}`, false);
             }
           }
         }
@@ -7653,7 +7653,7 @@ const OffersList: React.FC<{
         console.error('Error in onSnapshot callback for offers:', error);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'offers');
+      handleFirestoreError(error, OperationType.LIST, 'offers', false);
     });
 
     // Fetch chats for this request
@@ -7695,7 +7695,7 @@ const OffersList: React.FC<{
                 changed = true;
               }
             } catch (error) {
-              handleFirestoreError(error, OperationType.GET, `users/${chat.supplierId}`);
+              handleFirestoreError(error, OperationType.GET, `users/${chat.supplierId}`, false);
             }
           }
         }
@@ -7704,7 +7704,7 @@ const OffersList: React.FC<{
         console.error('Error in onSnapshot callback for chats:', error);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'chats');
+      handleFirestoreError(error, OperationType.LIST, 'chats', false);
     });
 
     return () => {
@@ -7832,12 +7832,12 @@ const SupplierChatCard: React.FC<{ chat: Chat; onOpen: () => void }> = ({ chat, 
     if (chat.customerId && chat.customerId !== 'system') {
       getDoc(doc(db, 'users', chat.customerId)).then(snap => {
         if (snap.exists()) setCustomer(snap.data() as UserProfile);
-      }).catch(error => handleFirestoreError(error, OperationType.GET, `users/${chat.customerId}`));
+      }).catch(error => handleFirestoreError(error, OperationType.GET, `users/${chat.customerId}`, false));
     }
     if (chat.requestId && !chat.requestId.startsWith('category_')) {
       getDoc(doc(db, 'requests', chat.requestId)).then(snap => {
         if (snap.exists()) setRequest({ id: snap.id, ...snap.data() } as ProductRequest);
-      }).catch(error => handleFirestoreError(error, OperationType.GET, `requests/${chat.requestId}`));
+      }).catch(error => handleFirestoreError(error, OperationType.GET, `requests/${chat.requestId}`, false));
     }
   }, [chat]);
 
@@ -7923,7 +7923,7 @@ const SupplierOfferAction: React.FC<{
         setOffer(null);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'offers');
+      handleFirestoreError(error, OperationType.GET, 'offers', false);
     });
   }, [requestId, supplierId]);
 

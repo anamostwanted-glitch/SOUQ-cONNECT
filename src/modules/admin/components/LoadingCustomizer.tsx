@@ -363,8 +363,37 @@ export const LoadingCustomizer: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
+                      {isRtl ? 'لون الخلفية' : 'Background Color'}
+                    </label>
+                    <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{settings.loaderBackgroundColor || '#0f172a'}</span>
+                  </div>
+                  <div className="flex gap-3">
+                    <div 
+                      className="w-10 h-10 rounded-xl shadow-inner border-2 border-white relative overflow-hidden ring-1 ring-brand-border"
+                      style={{ backgroundColor: settings.loaderBackgroundColor || '#0f172a' }}
+                    >
+                      <input 
+                        type="color" 
+                        value={settings.loaderBackgroundColor || '#0f172a'}
+                        onChange={(e) => setSettings({ ...settings, loaderBackgroundColor: e.target.value })}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      />
+                    </div>
+                    <input 
+                      type="text" 
+                      value={settings.loaderBackgroundColor || '#0f172a'}
+                      onChange={(e) => setSettings({ ...settings, loaderBackgroundColor: e.target.value })}
+                      className="flex-1 px-4 py-2 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-mono text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
                       {isRtl ? 'لون شريط التقدم' : 'Progress Bar Color'}
                     </label>
+                    <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{settings.loaderProgressBarColor || settings.logoAuraColor}</span>
                   </div>
                   <div className="flex gap-3">
                     <div 

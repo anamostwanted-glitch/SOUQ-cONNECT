@@ -363,7 +363,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
             console.error("Failed to send welcome email:", emailErr);
           }
         } catch (error) {
-          handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+          handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`, false);
         }
         onAuthSuccess(assignedRole);
       }
@@ -423,7 +423,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
       try {
         docSnap = await getDoc(doc(db, 'users', user.uid));
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+        handleFirestoreError(error, OperationType.GET, `users/${user.uid}`, false);
       }
       
       let assignedRole: UserRole = 'customer';
@@ -508,7 +508,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           await processReferral();
         }
       } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+        handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`, false);
       }
       onAuthSuccess(assignedRole);
     } catch (err: any) {

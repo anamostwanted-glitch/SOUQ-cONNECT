@@ -54,6 +54,9 @@ export interface UserProfile {
   notificationPreferences?: NotificationPreferences;
   branding?: BrandingPreferences;
   referralPoints?: number;
+  neuralCredits?: number;
+  subscriptionPlan?: 'basic' | 'pro' | 'enterprise';
+  subscriptionExpiry?: string;
   referralCode?: string;
   favoriteProducts?: string[];
   aiInsights?: {
@@ -69,6 +72,13 @@ export interface UserProfile {
     bioAr: string;
     bioEn: string;
     lastUpdated: string;
+  };
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+    linkedin?: string;
+    youtube?: string;
   };
 }
 
@@ -104,6 +114,11 @@ export interface ProductRequest {
   suggestedSupplierIds?: string[];
   pinnedSupplierIds?: string[];
   offersCount?: number;
+  budget?: string;
+  currency?: string;
+  titleAr?: string;
+  titleEn?: string;
+  title?: string;
 }
 
 export interface Offer {
@@ -156,6 +171,8 @@ export interface Message {
   type: 'text' | 'audio' | 'image' | 'quote' | 'location';
   createdAt: string;
   read?: boolean;
+  senderName?: string;
+  sentiment?: 'positive' | 'negative' | 'neutral';
   replyTo?: {
     id: string;
     text?: string;
@@ -324,6 +341,33 @@ export interface SiteSettings {
   headerLogoAuraOpacity?: number;
   headerLogoAuraStyle?: 'solid' | 'gradient' | 'pulse' | 'mesh';
   headerLogoAuraSharpness?: number;
+
+  // Nexus Rewards System
+  enableNexusRewards?: boolean;
+  pointsPerShare?: number;
+  pointsToCashRatio?: number;
+  minWithdrawalAmount?: number;
+  referralTermsAr?: string;
+  referralTermsEn?: string;
+
+  // Adaptive Neural Grid Settings
+  gridSettings?: {
+    mobileCols: number;
+    webCols: number;
+    aiAutoPilot: boolean;
+  };
+
+  // Neural Navigation Settings
+  neuralNav?: {
+    enabled: boolean;
+    showProfile: boolean;
+    showNotifications: boolean;
+    showMessages: boolean;
+    showAiHub: boolean;
+    showVisualSearch: boolean;
+    pulseSpeed: 'slow' | 'normal' | 'fast';
+    themeColor?: string;
+  };
 }
 
 export interface GeminiApiKey {

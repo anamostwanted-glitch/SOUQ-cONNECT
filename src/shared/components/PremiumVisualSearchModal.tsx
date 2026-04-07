@@ -270,7 +270,7 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
         onClose();
       }, 2000);
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'product_requests');
+      handleFirestoreError(err, OperationType.WRITE, 'product_requests', false);
     } finally {
       setIsSendingToAll(false);
     }

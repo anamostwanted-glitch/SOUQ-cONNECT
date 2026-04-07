@@ -21,6 +21,11 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "lastActive": { "type": "string", "format": "date-time" },
         "following": { "type": "array", "items": { "type": "string" }, "description": "List of supplier UIDs the user is following" },
+        "referralPoints": { "type": "integer" },
+        "neuralCredits": { "type": "integer", "description": "Virtual currency for AI features" },
+        "subscriptionPlan": { "type": "string", "enum": ["basic", "pro", "enterprise"] },
+        "subscriptionExpiry": { "type": "string", "format": "date-time" },
+        "referralCode": { "type": "string" },
         "notificationPreferences": {
           "type": "object",
           "description": "User notification preferences",
@@ -235,6 +240,27 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "feature", "tokens", "createdAt"]
+    },
+    "WithdrawalRequest": {
+      "title": "WithdrawalRequest",
+      "description": "User requests to redeem points for cash",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "points": { "type": "integer" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "processedAt": { "type": "string", "format": "date-time" },
+        "adminNotes": { "type": "string" },
+        "fraudScore": { "type": "number" },
+        "fraudAnalysis": { "type": "string" },
+        "fraudStatus": { "type": "string", "enum": ["safe", "suspicious", "high_risk"] },
+        "fraudRecommendations": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["userId", "points", "amount", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -252,6 +278,7 @@
     "/translation_cache/{cacheId}": { "schema": "TranslationCache", "description": "Cache for AI translations" },
     "/market_trends/{trendId}": { "schema": "MarketTrend", "description": "AI analyzed market trends" },
     "/marketplace/{itemId}": { "schema": "MarketplaceItem", "description": "Marketplace listings" },
-    "/usage_logs/{logId}": { "schema": "UsageLog", "description": "AI usage and cost logs" }
+    "/usage_logs/{logId}": { "schema": "UsageLog", "description": "AI usage and cost logs" },
+    "/withdrawal_requests/{requestId}": { "schema": "WithdrawalRequest", "description": "User withdrawal requests" }
   }
 }

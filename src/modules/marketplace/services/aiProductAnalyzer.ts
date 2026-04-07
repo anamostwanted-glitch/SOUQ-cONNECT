@@ -1,5 +1,3 @@
-import { GoogleGenAI, Type } from '@google/genai';
-
 export interface AIProductSuggestion {
   productNameAr: string;
   descriptionAr: string;
@@ -25,92 +23,70 @@ async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 3, delay = 10
   }
 }
 
+const getResponseText = (response: any): string => {
+  try {
+    return typeof response.text === 'function' ? response.text() : (response.text || '');
+  } catch (e) {
+    console.warn("Error getting response text:", e);
+    return '';
+  }
+};
+
 export async function analyzeProductImage(base64Image: string, mimeType: string): Promise<AIProductSuggestion | null> {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return null;
-
-    const ai = new GoogleGenAI({ apiKey });
-    const base64Data = base64Image.split(',')[1] || base64Image;
-
-    return await retryWithBackoff(async () => {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType: mimeType } },
-            { text: 'Analyze this product image for a marketplace listing. Provide catchy titles and detailed descriptions in both Arabic and English. Also provide keywords in both languages, the most appropriate category (in English), an estimated price in USD, whether the image is high quality (well-lit, clear, professional), and a list of key features.' },
-          ],
-        },
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              productNameAr: { type: Type.STRING },
-              descriptionAr: { type: Type.STRING },
-              productNameEn: { type: Type.STRING },
-              descriptionEn: { type: Type.STRING },
-              keywordsAr: { type: Type.ARRAY, items: { type: Type.STRING } },
-              keywordsEn: { type: Type.ARRAY, items: { type: Type.STRING } },
-              category: { type: Type.STRING },
-              priceEstimate: { type: Type.NUMBER },
-              isHighQuality: { type: Type.BOOLEAN },
-              features: { type: Type.ARRAY, items: { type: Type.STRING } },
-            },
-            required: ['productNameAr', 'descriptionAr', 'productNameEn', 'descriptionEn', 'category', 'priceEstimate', 'isHighQuality', 'features'],
-          },
-        },
-      });
-      return JSON.parse(response.text || '{}') as AIProductSuggestion;
+    const response = await fetch('/api/analyze-product', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image: base64Image,
+        mimeType: mimeType,
+      }),
     });
-  } catch (error: any) {
-    if (error?.status === 429 || error?.message?.includes('quota')) {
-      console.warn('AI Quota exhausted. Falling back to manual entry.');
-      throw new Error('QUOTA_EXHAUSTED');
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 429) throw new Error('QUOTA_EXHAUSTED');
+      if (errorData.error === 'AI service configuration missing') throw new Error('MISSING_API_KEY');
+      throw new Error(errorData.error || 'Server error');
     }
-    console.error('Error analyzing product image with AI:', error);
+
+    return await response.json();
+  } catch (error: any) {
+    console.error('Error in analyzeProductImage proxy:', error);
+    if (error.message === 'QUOTA_EXHAUSTED' || error.message === 'MISSING_API_KEY') throw error;
     return null;
   }
 }
 
 export async function generateAlternativeProductImage(base64Image: string, mimeType: string, title: string, category: string): Promise<string | null> {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return null;
-
-    const ai = new GoogleGenAI({ apiKey });
-    const base64Data = base64Image.split(',')[1] || base64Image;
-    const prompt = `A professional, close-up photography of this product. Place it in the center of the picture on elegant interior design elements. Highlight its uses and applications. Product title: ${title || 'Product'}. Category: ${category || 'General'}. High quality, studio lighting, highly detailed. IMPORTANT: Do not include any text, words, labels, or watermarks in the image. The image should be clean and professional.`;
-
-    return await retryWithBackoff(async () => {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType: mimeType } },
-            { text: prompt },
-          ],
-        },
-        config: { imageConfig: { aspectRatio: "3:4" } }
-      });
-
-      const candidates = response.candidates;
-      if (candidates && candidates.length > 0) {
-        for (const part of candidates[0].content.parts || []) {
-          if (part.inlineData) {
-            return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-          }
-        }
-      }
-      return null;
+    const response = await fetch('/api/generate-product-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image: base64Image,
+        mimeType: mimeType,
+        title,
+        category
+      }),
     });
-  } catch (error: any) {
-    if (error?.status === 429 || error?.message?.includes('quota')) {
-      console.warn('AI Image Generation Quota exhausted.');
-      throw new Error('QUOTA_EXHAUSTED');
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 429) throw new Error('QUOTA_EXHAUSTED');
+      if (errorData.error === 'AI service configuration missing') throw new Error('MISSING_API_KEY');
+      throw new Error(errorData.error || 'Server error');
     }
-    console.error('Error generating alternative image:', error);
+
+    const data = await response.json();
+    return data.image || null;
+  } catch (error: any) {
+    console.error('Error in generateAlternativeProductImage proxy:', error);
+    if (error.message === 'QUOTA_EXHAUSTED' || error.message === 'MISSING_API_KEY') throw error;
     return null;
   }
 }

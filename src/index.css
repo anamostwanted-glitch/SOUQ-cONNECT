@@ -81,6 +81,9 @@
   --shadow-premium: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
   --shadow-premium-hover: 0 25px 60px -15px rgba(0, 0, 0, 0.12);
   --shadow-ai: 0 0 20px -5px var(--brand-teal);
+
+  --animate-spin-slow: spin 8s linear infinite;
+  --animate-shimmer: shimmer 2s infinite;
 }
 
 @layer base {

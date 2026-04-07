@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Home as HomeIcon, Bot, LayoutDashboard, ShoppingBag, MessageSquare, Bell, Sparkles, Store, Compass } from 'lucide-react';
+import { Home as HomeIcon, Bot, LayoutDashboard, ShoppingBag, MessageSquare, Bell, Sparkles, Store, Compass, LayoutGrid } from 'lucide-react';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { useTranslation } from 'react-i18next';
 import { ScrollDirection } from '../../../../shared/hooks/useScrollDirection';
@@ -60,17 +60,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       </HapticButton>
 
       <HapticButton 
-        onClick={() => setView('marketplace')}
-        onPrefetch={() => onPrefetch?.('marketplace')}
-        className={`flex-1 flex flex-col items-center gap-1 p-2 transition-all relative ${currentView === 'marketplace' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
-      >
-        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-          <Compass size={20} strokeWidth={currentView === 'marketplace' ? 2.5 : 2} />
-        </motion.div>
-        <span className="text-[9px] font-black tracking-tight uppercase">{isRtl ? 'اكتشف' : 'Discover'}</span>
-      </HapticButton>
-
-      <HapticButton 
         onClick={onVisualSearch}
         className="flex flex-col items-center justify-center w-16 h-16 bg-gradient-to-br from-brand-primary via-brand-primary to-brand-teal text-white rounded-[1.5rem] shadow-2xl shadow-brand-primary/40 -mt-12 scale-110 border-[4px] border-white dark:border-gray-900 transition-all duration-300 active:scale-95 relative overflow-hidden group"
       >
@@ -98,12 +87,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       <HapticButton 
         onClick={() => { setView('dashboard'); setSupplierTab?.('dashboard'); }}
         onPrefetch={() => onPrefetch?.('dashboard')}
-        className={`flex-1 flex-col items-center gap-1 p-2 transition-all relative ${currentView === 'dashboard' && supplierTab === 'dashboard' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+        className={`flex-1 flex flex-col items-center gap-1 p-2 transition-all relative ${currentView === 'dashboard' && supplierTab === 'dashboard' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
       >
         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-          <Store size={20} strokeWidth={currentView === 'dashboard' && supplierTab === 'dashboard' ? 2.5 : 2} />
+          <LayoutGrid size={20} strokeWidth={currentView === 'dashboard' && supplierTab === 'dashboard' ? 2.5 : 2} />
         </motion.div>
-        <span className="text-[9px] font-black tracking-tight uppercase">{isRtl ? 'متجري' : 'My Store'}</span>
+        <span className="text-[9px] font-black tracking-tight uppercase">{isRtl ? 'المركز' : 'Nexus'}</span>
       </HapticButton>
 
       <HapticButton 

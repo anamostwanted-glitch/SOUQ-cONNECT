@@ -59,7 +59,7 @@ export const CostAnalysisDashboard: React.FC = () => {
       }
     }, (error) => {
       setLoading(false);
-      handleFirestoreError(error, OperationType.LIST, 'usage_logs');
+      handleFirestoreError(error, OperationType.LIST, 'usage_logs', false);
     });
 
     return () => unsub();
