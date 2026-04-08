@@ -1,8 +1,13 @@
-name: Build Project
+name: Build and Deploy
+
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -11,7 +16,16 @@ jobs:
           node-version: '20'
       - run: npm ci
       - run: npm run build
-      - uses: actions/upload-artifact@v4
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          name: dist
-          path: dist/
+          server: 82.198.229.62
+          username: u860342626
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./dist/
+          server-dir: /public_html/
+          dangerous-clean-slate: true
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
