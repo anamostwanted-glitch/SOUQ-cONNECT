@@ -16,6 +16,9 @@ jobs:
           node-version: '20'
       - run: npm ci
       - run: npm run build
+      - name: Create .htaccess for SPA routing
+        run: |
+          printf 'Options -MultiViews\nRewriteEngine On\nRewriteCond %%{REQUEST_FILENAME} !-f\nRewriteCond %%{REQUEST_FILENAME} !-d\nRewriteRule ^ index.html [QSA,L]' > dist/.htaccess
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
