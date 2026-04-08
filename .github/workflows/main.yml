@@ -19,10 +19,10 @@ jobs:
       - name: Show dist/index.html content
         run: cat dist/index.html
       - name: List dist directory
-        run: ls -la dist/
+        run: ls -la dist/ && ls -la dist/assets/ || echo "No assets folder"
       - name: Create .htaccess for SPA routing
         run: |
-          printf 'Options -MultiViews\nRewriteEngine On\nRewriteCond %%{REQUEST_FILENAME} !-f\nRewriteCond %%{REQUEST_FILENAME} !-d\nRewriteRule ^ index.html [QSA,L]' > dist/.htaccess
+          printf 'Options -MultiViews\nRewriteEngine On\nRewriteBase /\nRewriteRule ^assets/ - [L]\nRewriteCond %%{REQUEST_FILENAME} !-f\nRewriteCond %%{REQUEST_FILENAME} !-d\nRewriteRule ^ index.html [QSA,L]' > dist/.htaccess
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
