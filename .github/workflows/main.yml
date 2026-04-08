@@ -32,6 +32,7 @@ jobs:
           local-dir: ./dist/
           server-dir: /public_html/
           dangerous-clean-slate: true
+          disable-hash-comparison: true
           exclude: |
             **/.git*
             **/.git*/**
