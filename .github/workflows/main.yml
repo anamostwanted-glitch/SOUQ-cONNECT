@@ -23,13 +23,15 @@ jobs:
         run: cat dist/index.html
       - name: List dist directory
         run: ls -la dist/ && ls -la dist/assets/
-      - name: Deploy via lftp
+      - name: Deploy via lftp with transfer-all
         run: |
           sudo apt-get install -y lftp
           lftp -c "
             set ftp:ssl-allow no;
+            set net:timeout 10;
+            set net:max-retries 5;
             open -u u860342626,$FTP_PASSWORD 82.198.229.62;
-            mirror --reverse --delete --verbose ./dist/ /public_html/;
+            mirror --reverse --delete --transfer-all --verbose ./dist/ /public_html/;
             quit
           "
         env:
