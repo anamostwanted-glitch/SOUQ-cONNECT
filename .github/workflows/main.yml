@@ -23,15 +23,18 @@ jobs:
         run: cat dist/index.html
       - name: List dist directory
         run: ls -la dist/ && ls -la dist/assets/
-      - name: Deploy via lftp with transfer-all
+      - name: Deploy via curl FTP
         run: |
-          sudo apt-get install -y lftp
+          sudo apt-get install -y lftp curl
+          echo "Uploading index.html first..."
+          curl -v --ftp-pasv -T dist/index.html "ftp://u860342626:$FTP_PASSWORD@82.198.229.62/public_html/index.html"
+          echo "Uploading .htaccess..."
+          curl -v --ftp-pasv -T dist/.htaccess "ftp://u860342626:$FTP_PASSWORD@82.198.229.62/public_html/.htaccess"
+          echo "Uploading assets directory..."
           lftp -c "
             set ftp:ssl-allow no;
-            set net:timeout 10;
-            set net:max-retries 5;
             open -u u860342626,$FTP_PASSWORD 82.198.229.62;
-            mirror --reverse --delete --transfer-all --verbose ./dist/ /public_html/;
+            mirror --reverse --delete --transfer-all ./dist/assets/ /public_html/assets/;
             quit
           "
         env:
