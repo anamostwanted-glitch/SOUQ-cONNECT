@@ -18,6 +18,7 @@ import { NexusRewards } from './modules/user/components/NexusRewards';
 import { handleFirestoreError, OperationType } from './core/utils/errorHandling';
 import { PageLoader } from './shared/components/PageLoader';
 
+import i18n from './i18n';
 import { UserNeuralHub } from './modules/common/components/UserNeuralHub';
 
 export default function App() {
