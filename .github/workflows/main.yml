@@ -16,24 +16,21 @@ jobs:
           node-version: '20'
       - run: npm ci
       - run: npm run build
-      - name: Show dist/index.html content
-        run: cat dist/index.html
-      - name: List dist directory
-        run: ls -la dist/ && ls -la dist/assets/ || echo "No assets folder"
       - name: Create .htaccess for SPA routing
         run: |
           printf 'Options -MultiViews\nRewriteEngine On\nRewriteBase /\nRewriteRule ^assets/ - [L]\nRewriteCond %%{REQUEST_FILENAME} !-f\nRewriteCond %%{REQUEST_FILENAME} !-d\nRewriteRule ^ index.html [QSA,L]' > dist/.htaccess
-      - name: Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: 82.198.229.62
-          username: u860342626
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./dist/
-          server-dir: /public_html/
-          dangerous-clean-slate: true
-          disable-hash-comparison: true
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
+      - name: Show dist/index.html content
+        run: cat dist/index.html
+      - name: List dist directory
+        run: ls -la dist/ && ls -la dist/assets/
+      - name: Deploy via lftp
+        run: |
+          sudo apt-get install -y lftp
+          lftp -c "
+            set ftp:ssl-allow no;
+            open -u u860342626,$FTP_PASSWORD 82.198.229.62;
+            mirror --reverse --delete --verbose ./dist/ /public_html/;
+            quit
+          "
+        env:
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
