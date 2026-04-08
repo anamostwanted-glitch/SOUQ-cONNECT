@@ -16,6 +16,10 @@ jobs:
           node-version: '20'
       - run: npm ci
       - run: npm run build
+      - name: Show dist/index.html content
+        run: cat dist/index.html
+      - name: List dist directory
+        run: ls -la dist/
       - name: Create .htaccess for SPA routing
         run: |
           printf 'Options -MultiViews\nRewriteEngine On\nRewriteCond %%{REQUEST_FILENAME} !-f\nRewriteCond %%{REQUEST_FILENAME} !-d\nRewriteRule ^ index.html [QSA,L]' > dist/.htaccess
