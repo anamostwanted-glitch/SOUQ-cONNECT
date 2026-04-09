@@ -16,12 +16,22 @@ import { handleFirestoreError, OperationType } from './core/utils/errorHandling'
 import { PageLoader } from './shared/components/PageLoader';
 import { UserNeuralHub } from './modules/common/components/UserNeuralHub';
 import { useTranslation } from 'react-i18next';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { preFetchNeuralPulse } from './core/services/geminiService';
 import { DiscoveryCanvas } from './components/Discovery/DiscoveryCanvas';
 import { ChatHub } from './modules/common/components/ChatHub';
 import ChatView from './modules/common/components/ChatView';
 import { ProfileView } from './modules/site/components/ProfileView';
 import { ConnectRewards } from './modules/user/components/ConnectRewards';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+});
 
 export default function App() {
   const { i18n } = useTranslation();
@@ -229,38 +239,40 @@ export default function App() {
   };
 
   return (
-    <BrandingProvider>
-      <AnimatePresence mode="wait">
-        {loading ? (
-          <PageLoader key="loader" />
-        ) : (
-          <motion.div
-            key="content"
-            drag="x"
-            dragConstraints={{ left: 0, right: 0 }}
-            onDragEnd={handleDragEnd}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            className="min-h-screen"
-          >
-            <Layout 
-              profile={profile}
-              features={features}
-              currentView={currentView}
-              setView={setView}
-              setActiveChatId={setActiveChatId}
-              viewMode={viewMode}
-              setViewMode={setViewMode}
-              uiStyle={uiStyle}
-              setUiStyle={setUiStyle}
-              onBack={onBack}
+    <QueryClientProvider client={queryClient}>
+      <BrandingProvider>
+        <AnimatePresence mode="wait">
+          {loading ? (
+            <PageLoader key="loader" />
+          ) : (
+            <motion.div
+              key="content"
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              onDragEnd={handleDragEnd}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+              className="min-h-screen"
             >
-              {renderView()}
-            </Layout>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </BrandingProvider>
+              <Layout 
+                profile={profile}
+                features={features}
+                currentView={currentView}
+                setView={setView}
+                setActiveChatId={setActiveChatId}
+                viewMode={viewMode}
+                setViewMode={setViewMode}
+                uiStyle={uiStyle}
+                setUiStyle={setUiStyle}
+                onBack={onBack}
+              >
+                {renderView()}
+              </Layout>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </BrandingProvider>
+    </QueryClientProvider>
   );
 }
