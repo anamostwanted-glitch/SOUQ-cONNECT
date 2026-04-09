@@ -62,42 +62,47 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
     }
 
     const unsubscribe = onSnapshot(q, async (snap) => {
-      const fetchedChats = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat));
-      setChats(fetchedChats);
-      setLoading(false);
+      try {
+        const fetchedChats = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat));
+        setChats(fetchedChats);
+        setLoading(false);
 
-      // Fetch missing profiles and requests
-      const missingUserIds = new Set<string>();
-      const missingRequestIds = new Set<string>();
+        // Fetch missing profiles and requests
+        const missingUserIds = new Set<string>();
+        const missingRequestIds = new Set<string>();
 
-      fetchedChats.forEach(chat => {
-        if (!userProfiles[chat.customerId]) missingUserIds.add(chat.customerId);
-        if (!userProfiles[chat.supplierId]) missingUserIds.add(chat.supplierId);
-        if (chat.requestId && !productRequests[chat.requestId]) missingRequestIds.add(chat.requestId);
-      });
-
-      if (missingUserIds.size > 0) {
-        const userPromises = Array.from(missingUserIds).map(id => getDoc(doc(db, 'users', id)));
-        const userSnaps = await Promise.all(userPromises);
-        const newUserProfiles = { ...userProfiles };
-        userSnaps.forEach(snap => {
-          if (snap.exists()) {
-            newUserProfiles[snap.id] = snap.data() as UserProfile;
-          }
+        fetchedChats.forEach(chat => {
+          if (!userProfiles[chat.customerId]) missingUserIds.add(chat.customerId);
+          if (!userProfiles[chat.supplierId]) missingUserIds.add(chat.supplierId);
+          if (chat.requestId && !productRequests[chat.requestId]) missingRequestIds.add(chat.requestId);
         });
-        setUserProfiles(newUserProfiles);
-      }
 
-      if (missingRequestIds.size > 0) {
-        const requestPromises = Array.from(missingRequestIds).map(id => getDoc(doc(db, 'requests', id)));
-        const requestSnaps = await Promise.all(requestPromises);
-        const newProductRequests = { ...productRequests };
-        requestSnaps.forEach(snap => {
-          if (snap.exists()) {
-            newProductRequests[snap.id] = { id: snap.id, ...snap.data() } as ProductRequest;
-          }
-        });
-        setProductRequests(newProductRequests);
+        if (missingUserIds.size > 0) {
+          const userPromises = Array.from(missingUserIds).map(id => getDoc(doc(db, 'users', id)));
+          const userSnaps = await Promise.all(userPromises);
+          const newUserProfiles = { ...userProfiles };
+          userSnaps.forEach(snap => {
+            if (snap.exists()) {
+              newUserProfiles[snap.id] = snap.data() as UserProfile;
+            }
+          });
+          setUserProfiles(newUserProfiles);
+        }
+
+        if (missingRequestIds.size > 0) {
+          const requestPromises = Array.from(missingRequestIds).map(id => getDoc(doc(db, 'requests', id)));
+          const requestSnaps = await Promise.all(requestPromises);
+          const newProductRequests = { ...productRequests };
+          requestSnaps.forEach(snap => {
+            if (snap.exists()) {
+              newProductRequests[snap.id] = { id: snap.id, ...snap.data() } as ProductRequest;
+            }
+          });
+          setProductRequests(newProductRequests);
+        }
+      } catch (err) {
+        console.error("Error in ChatArchiveManager onSnapshot callback:", err);
+        setLoading(false);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'chats', false);
