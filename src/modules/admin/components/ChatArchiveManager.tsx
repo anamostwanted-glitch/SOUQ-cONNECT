@@ -27,8 +27,9 @@ import { collection, query, onSnapshot, getDocs, doc, updateDoc, deleteDoc, orde
 import { db } from '../../../core/firebase';
 import { Chat, UserProfile, ProductRequest, Message } from '../../../core/types';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
-import { summarizeChat, analyzeChatRisk } from '../../../core/services/geminiService';
+import { summarizeChat, analyzeChatRisk, analyzeChatSentiment } from '../../../core/services/geminiService';
 import { toast } from 'sonner';
+import { HapticButton } from '../../../shared/components/HapticButton';
 
 interface ChatArchiveManagerProps {
   onOpenChat: (chatId: string) => void;
@@ -45,9 +46,11 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [isAnalyzingRisk, setIsAnalyzingRisk] = useState(false);
+  const [isAnalyzingSentiment, setIsAnalyzingSentiment] = useState(false);
   const [chatSummary, setChatSummary] = useState<string | null>(null);
   const [riskAnalysis, setRiskAnalysis] = useState<any | null>(null);
-  const [activeDetailTab, setActiveDetailTab] = useState<'summary' | 'risk'>('summary');
+  const [sentimentAnalysis, setSentimentAnalysis] = useState<any | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<'summary' | 'risk' | 'sentiment'>('summary');
   const [userProfiles, setUserProfiles] = useState<Record<string, UserProfile>>({});
   const [productRequests, setProductRequests] = useState<Record<string, ProductRequest>>({});
 
@@ -201,6 +204,44 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
     }
   };
 
+  const handleAnalyzeSentiment = async (chat: Chat) => {
+    setIsAnalyzingSentiment(true);
+    setSentimentAnalysis(null);
+    try {
+      const messagesSnap = await getDocs(query(
+        collection(db, 'chats', chat.id, 'messages'),
+        orderBy('createdAt', 'asc'),
+        limit(100)
+      ));
+      
+      const messages = messagesSnap.docs.map(d => d.data() as Message);
+      if (messages.length === 0) {
+        toast.error(isRtl ? 'لا توجد رسائل لتحليلها' : 'No messages to analyze');
+        return;
+      }
+
+      const transcript = messages.map(m => {
+        const sender = userProfiles[m.senderId]?.name || 'User';
+        return `${sender}: ${m.text || '[Media]'}`;
+      }).join('\n');
+
+      const analysis = await analyzeChatSentiment(transcript, i18n.language);
+      setSentimentAnalysis(analysis);
+      
+      await updateDoc(doc(db, 'chats', chat.id), {
+        sentimentAnalysis: analysis,
+        sentimentAnalyzedAt: new Date().toISOString()
+      });
+
+      toast.success(isRtl ? 'تم تحليل المشاعر بنجاح' : 'Sentiment analysis completed successfully');
+    } catch (error) {
+      console.error('Sentiment analysis error:', error);
+      toast.error(isRtl ? 'فشل تحليل المشاعر' : 'Failed to analyze sentiment');
+    } finally {
+      setIsAnalyzingSentiment(false);
+    }
+  };
+
   const filteredChats = chats.filter(chat => {
     const customer = userProfiles[chat.customerId];
     const supplier = userProfiles[chat.supplierId];
@@ -273,6 +314,7 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
                   setSelectedChat(chat);
                   setChatSummary((chat as any).aiSummary || null);
                   setRiskAnalysis((chat as any).riskAnalysis || null);
+                  setSentimentAnalysis((chat as any).sentimentAnalysis || null);
                 }}
                 className={`p-4 rounded-2xl border transition-all cursor-pointer group relative ${
                   selectedChat?.id === chat.id 
@@ -314,11 +356,14 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
                     </p>
                   </div>
                 </div>
-                {chat.archived && (
-                  <div className="absolute top-2 right-2">
+                <div className="absolute top-2 right-2 flex items-center gap-1">
+                  {(chat as any).sentimentAnalysis && (
+                    <div className={`w-2 h-2 rounded-full ${(chat as any).sentimentAnalysis.sentiment === 'positive' ? 'bg-emerald-500' : (chat as any).sentimentAnalysis.sentiment === 'negative' ? 'bg-brand-error' : 'bg-amber-500'}`} />
+                  )}
+                  {chat.archived && (
                     <Archive size={12} className="text-brand-text-muted" />
-                  </div>
-                )}
+                  )}
+                </div>
               </motion.div>
             ))
           )}
@@ -447,6 +492,16 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
                           {isRtl ? 'رادار المخاطر' : 'Risk Radar'}
                           {activeDetailTab === 'risk' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-error" />}
                         </button>
+                        <button
+                          onClick={() => setActiveDetailTab('sentiment')}
+                          className={`text-[10px] font-black uppercase tracking-widest pb-2 transition-all relative flex items-center gap-2 ${
+                            activeDetailTab === 'sentiment' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'
+                          }`}
+                        >
+                          <Sparkles size={12} />
+                          {isRtl ? 'تحليل المشاعر' : 'Sentiment'}
+                          {activeDetailTab === 'sentiment' && <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />}
+                        </button>
                       </div>
                       
                       {activeDetailTab === 'summary' ? (
@@ -458,7 +513,7 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
                           {isSummarizing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                           {isRtl ? 'توليد ملخص جديد' : 'Generate New Summary'}
                         </button>
-                      ) : (
+                      ) : activeDetailTab === 'risk' ? (
                         <button
                           onClick={() => handleAnalyzeRisk(selectedChat)}
                           disabled={isAnalyzingRisk}
@@ -466,6 +521,15 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
                         >
                           {isAnalyzingRisk ? <Loader2 size={12} className="animate-spin" /> : <AlertTriangle size={12} />}
                           {isRtl ? 'تحليل المخاطر' : 'Analyze Risk'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleAnalyzeSentiment(selectedChat)}
+                          disabled={isAnalyzingSentiment}
+                          className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary-hover transition-all disabled:opacity-50"
+                        >
+                          {isAnalyzingSentiment ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                          {isRtl ? 'تحليل المشاعر' : 'Analyze Sentiment'}
                         </button>
                       )}
                     </div>
@@ -528,7 +592,7 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
                               </p>
                             </div>
                           )
-                        ) : (
+                        ) : activeDetailTab === 'risk' ? (
                           isAnalyzingRisk ? (
                             <motion.div
                               key="loading-risk"
@@ -630,6 +694,92 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
                                 {isRtl 
                                   ? 'لم يتم إجراء تحليل مخاطر لهذه المحادثة بعد. اضغط على الزر أعلاه لبدء الفحص.' 
                                   : 'No risk analysis has been performed for this chat yet. Click the button above to start scanning.'}
+                              </p>
+                            </div>
+                          )
+                        ) : (
+                          isAnalyzingSentiment ? (
+                            <motion.div
+                              key="loading-sentiment"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="absolute inset-0 flex flex-col items-center justify-center space-y-3 bg-brand-background/80 backdrop-blur-sm z-10"
+                            >
+                              <div className="relative">
+                                <Loader2 className="animate-spin text-brand-primary" size={32} />
+                                <Sparkles className="absolute -top-1 -right-1 text-brand-primary animate-pulse" size={12} />
+                              </div>
+                              <p className="text-xs font-black text-brand-primary animate-pulse">
+                                {isRtl ? 'جاري تحليل مشاعر المحادثة...' : 'Analyzing chat sentiment...'}
+                              </p>
+                            </motion.div>
+                          ) : sentimentAnalysis ? (
+                            <motion.div
+                              key="sentiment"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="space-y-6"
+                            >
+                              <div className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
+                                <div className="flex items-center gap-4">
+                                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-black ${
+                                    sentimentAnalysis.sentiment === 'positive' ? 'bg-emerald-500' :
+                                    sentimentAnalysis.sentiment === 'negative' ? 'bg-brand-error' : 'bg-amber-500'
+                                  }`}>
+                                    {Math.round(sentimentAnalysis.score * 100)}
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-black text-brand-text-main uppercase tracking-widest">
+                                      {isRtl ? 'الحالة العاطفية' : 'Emotional State'}
+                                    </p>
+                                    <p className={`text-sm font-black uppercase ${
+                                      sentimentAnalysis.sentiment === 'positive' ? 'text-emerald-500' :
+                                      sentimentAnalysis.sentiment === 'negative' ? 'text-brand-error' : 'text-amber-500'
+                                    }`}>
+                                      {sentimentAnalysis.sentiment}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[10px] text-brand-text-muted font-bold uppercase">
+                                    {isRtl ? 'آخر تحليل' : 'Last Analysis'}
+                                  </p>
+                                  <p className="text-xs font-bold text-brand-text-main">
+                                    {new Date((selectedChat as any).sentimentAnalyzedAt || new Date()).toLocaleString()}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3">
+                                <h6 className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">
+                                  {isRtl ? 'المشاعر المكتشفة' : 'Detected Emotions'}
+                                </h6>
+                                <div className="flex flex-wrap gap-2">
+                                  {sentimentAnalysis.keyEmotions.map((emotion: string, i: number) => (
+                                    <span key={i} className="px-3 py-1 bg-brand-background border border-brand-border rounded-full text-[10px] font-black text-brand-text-main uppercase">
+                                      {emotion}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="p-4 bg-brand-surface border border-brand-border rounded-2xl space-y-2">
+                                <h6 className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">
+                                  {isRtl ? 'التحليل النفسي' : 'Psychological Analysis'}
+                                </h6>
+                                <p className="text-xs text-brand-text-main leading-relaxed">
+                                  {isRtl ? sentimentAnalysis.reasoningAr : sentimentAnalysis.reasoningEn}
+                                </p>
+                              </div>
+                            </motion.div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center h-full py-8 space-y-4 opacity-50">
+                              <Sparkles size={48} className="text-brand-text-muted" />
+                              <p className="text-sm font-bold text-brand-text-muted text-center max-w-xs">
+                                {isRtl 
+                                  ? 'لم يتم إجراء تحليل مشاعر لهذه المحادثة بعد. اضغط على الزر أعلاه لبدء التحليل.' 
+                                  : 'No sentiment analysis has been performed for this chat yet. Click the button above to start analysis.'}
                               </p>
                             </div>
                           )

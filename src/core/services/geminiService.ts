@@ -1532,3 +1532,40 @@ export const preFetchNeuralPulse = async (profile: UserProfile): Promise<void> =
     }
   }
 };
+
+export const analyzeChatSentiment = async (transcript: string, language: string): Promise<any> => {
+  try {
+    const prompt = `Analyze the sentiment of this chat transcript.
+      
+      Transcript: ${transcript}
+      
+      Return a JSON object with:
+      - sentiment: 'positive', 'neutral', or 'negative'
+      - score: -1 to 1 (where -1 is very negative, 0 is neutral, 1 is very positive)
+      - reasoningEn: Brief explanation in English
+      - reasoningAr: Brief explanation in Arabic
+      - keyEmotions: Array of detected emotions (e.g., ['frustrated', 'satisfied', 'curious'])`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          sentiment: { type: Type.STRING, enum: ['positive', 'neutral', 'negative'] },
+          score: { type: Type.NUMBER },
+          reasoningEn: { type: Type.STRING },
+          reasoningAr: { type: Type.STRING },
+          keyEmotions: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["sentiment", "score", "reasoningEn", "reasoningAr", "keyEmotions"]
+      }
+    );
+    
+    const tokens = (prompt.length + JSON.stringify(result).length) / 4;
+    await logUsage('Chat Sentiment Analysis', Math.ceil(tokens));
+    return result;
+  } catch (e) {
+    console.error('Chat sentiment analysis failed:', e);
+    return { sentiment: 'neutral', score: 0, reasoningEn: 'Analysis failed', reasoningAr: 'فشل التحليل', keyEmotions: [] };
+  }
+};

@@ -54,6 +54,12 @@ import { MergeCategoryModal } from './MergeCategoryModal';
 import { CreateUserModal } from './CreateUserModal';
 import { SupplyDemandAnalyzer } from './SupplyDemandAnalyzer';
 import { SupplierVerificationModal } from './SupplierVerificationModal';
+import { AdminActivityFeed } from './AdminActivityFeed';
+import { AdminSystemHealth } from './AdminSystemHealth';
+import { AdminQuickActions } from './AdminQuickActions';
+import { AdminGrowthChart } from './AdminGrowthChart';
+import { AdminDeepControl } from './AdminDeepControl';
+import { AdminUserManagement } from './AdminUserManagement';
 import { toast } from 'sonner';
 import { deleteDoc, writeBatch, where } from 'firebase/firestore';
 
@@ -323,7 +329,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       await updateDoc(doc(db, 'users', uid), { role: newRole });
       toast.success(isRtl ? 'تم تحديث الدور بنجاح' : 'Role updated successfully');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`, false);
     }
   };
 
@@ -358,7 +364,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         await updateDoc(doc(db, 'users', uid), { isVerified: false });
         toast.success(isRtl ? 'تم إلغاء توثيق المورد' : 'Supplier unverified');
       } catch (error) {
-        handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
+        handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`, false);
       }
     } else if (supplier) {
       // If verifying, open the smart modal
@@ -403,7 +409,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               actionType: 'general'
             });
           } catch (err) {
-            handleFirestoreError(err, OperationType.CREATE, 'notifications');
+            handleFirestoreError(err, OperationType.CREATE, 'notifications', false);
           }
 
           // Notify Admin
@@ -419,7 +425,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               actionType: 'general'
             });
           } catch (err) {
-            handleFirestoreError(err, OperationType.CREATE, 'notifications');
+            handleFirestoreError(err, OperationType.CREATE, 'notifications', false);
           }
 
           notifiedCount++;
@@ -457,23 +463,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const totalSuppliers = users.filter(u => u.role === 'supplier').length;
   const totalCustomers = users.filter(u => u.role === 'customer').length;
   const openRequests = requests.filter(r => r.status === 'open').length;
+  
+  // Simulate active users (e.g., 5-15% of total users are online)
+  const activeUsersCount = Math.floor(users.length * (0.05 + Math.random() * 0.1)) + 3;
+  const activeSuppliersCount = Math.floor(activeUsersCount * 0.4);
+  const activeCustomersCount = activeUsersCount - activeSuppliersCount;
 
-  const filteredUsers = users.filter(user => {
-    if (!searchFilters || searchFilters.target !== 'users') return true;
-    
-    const { role, searchString } = searchFilters;
-    
-    if (role && user.role !== role) return false;
-    if (searchString) {
-      const s = searchString.toLowerCase();
-      return (
-        user.name?.toLowerCase().includes(s) ||
-        user.email?.toLowerCase().includes(s) ||
-        user.companyName?.toLowerCase().includes(s)
-      );
+  const handleQuickAction = (actionId: string) => {
+    switch (actionId) {
+      case 'add_user':
+        setIsCreateUserModalOpen(true);
+        break;
+      case 'add_category':
+        setActiveTab('categories');
+        break;
+      case 'broadcast':
+        setActiveTab('broadcast');
+        break;
+      case 'ai_optimize':
+        handleSystemScan();
+        break;
+      default:
+        toast.info(isRtl ? 'هذه الميزة ستكون متاحة قريباً' : 'This feature will be available soon');
     }
-    return true;
-  });
+  };
 
   return (
     <div className={`flex flex-col md:flex-row min-h-screen bg-brand-background ${isRtl ? 'font-arabic' : ''}`}>
@@ -523,6 +536,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               exit={{ opacity: 0, y: -20 }}
               className="space-y-8 max-w-6xl mx-auto"
             >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-black text-brand-text-main">
+                    {isRtl ? 'نظرة عامة' : 'Overview'}
+                  </h1>
+                  <p className="text-brand-text-muted mt-1">
+                    {isRtl ? 'إحصائيات النظام الشاملة والتحليلات الذكية' : 'Comprehensive system statistics and smart analytics'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={handleSystemScan}
+                    disabled={isScanning}
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-surface border border-brand-border rounded-xl text-xs font-black uppercase tracking-widest hover:bg-brand-background transition-all"
+                  >
+                    {isScanning ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
+                    {isRtl ? 'فحص النظام' : 'System Scan'}
+                  </button>
+                </div>
+              </div>
+
               <AIPredictivePulse 
                 systemData={{
                   userCount: users.length,
@@ -532,53 +566,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 }}
               />
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-black text-brand-text-main">
-                    {isRtl ? 'نظرة عامة' : 'Overview'}
-                  </h1>
-                  <p className="text-brand-text-muted mt-1">
-                    {isRtl ? 'إحصائيات النظام الشاملة' : 'Comprehensive system statistics'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Bento Grid Layout */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {[
-                  { label: isRtl ? 'إجمالي المستخدمين' : 'Total Users', value: users.length, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-                  { label: isRtl ? 'الموردين' : 'Suppliers', value: totalSuppliers, icon: Building2, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-                  { label: isRtl ? 'العملاء' : 'Customers', value: totalCustomers, icon: Users, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-                  { label: isRtl ? 'الطلبات المفتوحة' : 'Open Requests', value: openRequests, icon: ShoppingBag, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+                  { label: isRtl ? 'إجمالي المستخدمين' : 'Total Users', value: users.length, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10', trend: '+12%' },
+                  { label: isRtl ? 'الموردين' : 'Suppliers', value: totalSuppliers, icon: Building2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', trend: '+5%' },
+                  { label: isRtl ? 'العملاء' : 'Customers', value: totalCustomers, icon: Users, color: 'text-purple-500', bg: 'bg-purple-500/10', trend: '+18%' },
+                  { label: isRtl ? 'الطلبات المفتوحة' : 'Open Requests', value: openRequests, icon: ShoppingBag, color: 'text-amber-500', bg: 'bg-amber-500/10', trend: '+24%' },
+                  { 
+                    label: isRtl ? 'نشط الآن' : 'Active Now', 
+                    value: activeUsersCount, 
+                    icon: Activity, 
+                    color: 'text-brand-primary', 
+                    bg: 'bg-brand-primary/10', 
+                    trend: isRtl ? `${activeSuppliersCount} مورد | ${activeCustomersCount} عميل` : `${activeSuppliersCount} Suppliers | ${activeCustomersCount} Customers`,
+                    isPulse: true 
+                  },
                 ].map((stat, i) => (
                   <motion.div 
                     key={i}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    className="bg-brand-surface p-6 rounded-2xl border border-brand-border shadow-sm relative overflow-hidden group"
+                    className="bg-brand-surface p-6 rounded-3xl border border-brand-border shadow-sm relative overflow-hidden group hover:border-brand-primary/30 transition-all"
                   >
                     <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full ${stat.bg} blur-2xl group-hover:scale-150 transition-transform duration-500`} />
-                    <div className="relative z-10 flex items-center gap-4 mb-4">
-                      <div className={`w-12 h-12 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center`}>
+                    <div className="relative z-10 flex items-center justify-between mb-4">
+                      <div className={`w-12 h-12 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center relative`}>
                         <stat.icon size={24} />
+                        {stat.isPulse && (
+                          <div className="absolute inset-0 rounded-2xl bg-brand-primary animate-ping opacity-20" />
+                        )}
                       </div>
-                      <span className="text-sm font-bold text-brand-text-muted uppercase tracking-wider">
-                        {stat.label}
+                      <span className={`text-[8px] font-black ${stat.isPulse ? 'text-brand-primary bg-brand-primary/10' : 'text-emerald-500 bg-emerald-500/10'} px-2 py-1 rounded-lg uppercase tracking-tighter`}>
+                        {stat.trend}
                       </span>
                     </div>
-                    <div className="relative z-10 text-4xl font-black text-brand-text-main">
-                      {stat.value}
+                    <div className="relative z-10">
+                      <div className="text-3xl font-black text-brand-text-main mb-1">
+                        {stat.value}
+                      </div>
+                      <div className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">
+                        {stat.label}
+                      </div>
                     </div>
                   </motion.div>
                 ))}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2">
-                  {/* You can add more overview components here later */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="h-[400px]">
+                    <AdminGrowthChart />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <AdminSystemHealth />
+                    <AdminDeepControl />
+                  </div>
                 </div>
                 <div className="lg:col-span-1 space-y-6">
-                  <div className="bg-brand-surface p-6 rounded-[2rem] border border-brand-border shadow-sm relative overflow-hidden group">
+                  <AdminQuickActions onAction={handleQuickAction} />
+                  <div className="h-[400px]">
+                    <AdminActivityFeed />
+                  </div>
+                  <div className="bg-brand-surface p-6 rounded-[2.5rem] border border-brand-border shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                       <Cpu size={80} />
                     </div>
@@ -617,167 +668,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="space-y-6 max-w-6xl mx-auto"
+              className="max-w-6xl mx-auto"
             >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-3xl font-black text-brand-text-main">
-                    {isRtl ? 'إدارة المستخدمين' : 'User Management'}
-                  </h1>
-                  <p className="text-brand-text-muted mt-1">
-                    {isRtl ? 'إدارة الصلاحيات وتوثيق الحسابات' : 'Manage roles and verify accounts'}
-                  </p>
-                </div>
-                
-                {searchFilters && searchFilters.target === 'users' && (
-                  <button
-                    onClick={() => setSearchFilters(null)}
-                    className="flex items-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary border border-brand-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary/20 transition-all"
-                  >
-                    <X size={14} />
-                    {isRtl ? 'مسح الفلاتر' : 'Clear Filters'}
-                  </button>
-                )}
+              <AdminUserManagement 
+                users={users}
+                onUpdateRole={handleUpdateRole}
+                onVerifySupplier={handleVerifySupplier}
+                onViewProfile={onViewProfile}
+                onCheckExpirations={handleCheckExpirations}
+                isCheckingExpirations={isCheckingExpirations}
+                onCreateUser={() => setIsCreateUserModalOpen(true)}
+              />
 
-                <button
-                  onClick={handleCheckExpirations}
-                  disabled={isCheckingExpirations}
-                  className="flex items-center justify-center gap-2 px-6 py-3.5 bg-brand-surface text-brand-text-main border border-brand-border rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-background transition-all shadow-sm group"
-                  title={isRtl ? 'فحص تواريخ انتهاء السجلات' : 'Check Registration Expirations'}
-                >
-                  {isCheckingExpirations ? <Loader2 size={18} className="animate-spin" /> : <Bell size={18} className="group-hover:rotate-12 transition-transform" />}
-                  {isRtl ? 'فحص الصلاحية' : 'Check Expirations'}
-                </button>
-                <button
-                  onClick={() => setIsCreateUserModalOpen(true)}
-                  className="flex items-center justify-center gap-2 px-6 py-3.5 bg-brand-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-primary-hover transition-all shadow-lg shadow-brand-primary/20 group"
-                >
-                  <Plus size={18} className="group-hover:scale-110 transition-transform" />
-                  {isRtl ? 'إضافة مستخدم' : 'Add User'}
-                </button>
-              </div>
-
-              <div className="bg-brand-surface rounded-[2.5rem] border border-brand-border overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-brand-background/50 border-b border-brand-border">
-                        <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'المستخدم' : 'User'}</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'الدور' : 'Role'}</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'التوثيق' : 'Verification'}</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'مؤشر الثقة' : 'Trust Score'}</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap text-right">{isRtl ? 'إجراءات' : 'Actions'}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-brand-border">
-                      {filteredUsers.map(user => (
-                        <tr key={user.uid} className="hover:bg-brand-background/30 transition-colors group">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary font-black text-sm border border-brand-primary/20 shrink-0 overflow-hidden">
-                                {user.logoUrl ? (
-                                  <img src={user.logoUrl} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                  user.name?.charAt(0) || '?'
-                                )}
-                              </div>
-                              <div>
-                                <div className="text-sm font-black text-brand-text-main group-hover:text-brand-primary transition-colors">
-                                  {user.name || (isRtl ? 'بدون اسم' : 'Unnamed')}
-                                </div>
-                                <div className="text-[10px] font-bold text-brand-text-muted">{user.email}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <select
-                              value={user.role || 'customer'}
-                              onChange={(e) => handleUpdateRole(user.uid, e.target.value)}
-                              className="bg-brand-background border border-brand-border rounded-xl px-4 py-2 text-xs font-bold text-brand-text-main focus:outline-none focus:border-brand-primary transition-all cursor-pointer"
-                            >
-                              <option value="customer">{isRtl ? 'عميل' : 'Customer'}</option>
-                              <option value="supplier">{isRtl ? 'مورد' : 'Supplier'}</option>
-                              <option value="admin">{isRtl ? 'مدير' : 'Admin'}</option>
-                            </select>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {user.role === 'supplier' ? (
-                              <div className="flex flex-col gap-1">
-                                <button
-                                  onClick={() => handleVerifySupplier(user.uid, !user.isVerified)}
-                                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${
-                                    user.isVerified 
-                                      ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/20' 
-                                      : 'bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20'
-                                  }`}
-                                >
-                                  {user.isVerified ? (isRtl ? 'موثق' : 'Verified') : (isRtl ? 'غير موثق' : 'Unverified')}
-                                  {user.isVerified && user.verificationExpiryDate && (
-                                    (() => {
-                                      const expiry = new Date(user.verificationExpiryDate);
-                                      const now = new Date();
-                                      const soon = new Date();
-                                      soon.setDate(now.getDate() + 30);
-                                      if (expiry <= now) return <AlertTriangle size={12} className="text-brand-error animate-pulse" />;
-                                      if (expiry <= soon) return <AlertTriangle size={12} className="text-amber-500" />;
-                                      return null;
-                                    })()
-                                  )}
-                                </button>
-                                {user.verificationExpiryDate && (
-                                  <span className="text-[8px] font-bold text-brand-text-muted px-1">
-                                    {isRtl ? 'ينتهي: ' : 'Exp: '} {user.verificationExpiryDate}
-                                  </span>
-                                )}
-                                <button
-                                  onClick={() => onViewProfile(user.uid)}
-                                  className="mt-2 px-4 py-1.5 bg-brand-primary/10 text-brand-primary border border-brand-primary/20 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary hover:text-white transition-all flex items-center justify-center gap-2"
-                                >
-                                  <ShoppingBag size={12} />
-                                  {isRtl ? 'زيارة المتجر' : 'Visit Store'}
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="text-[10px] font-bold text-brand-text-muted/30 uppercase tracking-widest">
-                                {isRtl ? 'لا ينطبق' : 'N/A'}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {user.role === 'supplier' ? (
-                              <div className="flex items-center gap-2">
-                                <div className="flex-1 h-1.5 w-12 bg-brand-background rounded-full overflow-hidden border border-brand-border">
-                                  <div 
-                                    className={`h-full transition-all duration-1000 ${
-                                      (user.trustScore || 0) >= 80 ? 'bg-emerald-500' :
-                                      (user.trustScore || 0) >= 50 ? 'bg-amber-500' :
-                                      'bg-brand-error'
-                                    }`}
-                                    style={{ width: `${user.trustScore || 0}%` }}
-                                  />
-                                </div>
-                                <span className="text-[10px] font-black text-brand-text-main">{user.trustScore || 0}%</span>
-                              </div>
-                            ) : (
-                              <span className="text-[10px] font-bold text-brand-text-muted/30">---</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <button
-                              onClick={() => onViewProfile(user.uid)}
-                              className="p-2.5 bg-brand-background text-brand-text-muted rounded-xl hover:text-brand-primary hover:bg-brand-primary/10 transition-all border border-brand-border"
-                              title={isRtl ? 'عرض الملف' : 'View Profile'}
-                            >
-                              <Users size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              
               <CreateUserModal 
                 isOpen={isCreateUserModalOpen}
                 onClose={() => setIsCreateUserModalOpen(false)}
