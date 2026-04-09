@@ -5,6 +5,7 @@ import { Heart, Share2, Info, ShieldCheck, Tag, Star, Zap, X } from 'lucide-reac
 import { useTranslation } from 'react-i18next';
 import { db } from '../../../core/firebase';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 
 interface ProductDiscoveryCanvasProps {
   items: MarketplaceItem[];
@@ -37,6 +38,8 @@ export const ProductDiscoveryCanvas: React.FC<ProductDiscoveryCanvasProps> = ({
       if (doc.exists()) {
         setSettings(doc.data() as SiteSettings);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
     });
     return () => unsub();
   }, []);
@@ -80,10 +83,10 @@ export const ProductDiscoveryCanvas: React.FC<ProductDiscoveryCanvasProps> = ({
   }, [items, settings, windowWidth]);
 
   return (
-    <div className="w-full">
+    <div className="w-full h-full pb-20">
       {/* Adaptive Neural Grid */}
       <div 
-        className="grid gap-2 p-2" 
+        className="grid gap-3 p-3" 
         style={{ 
           gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
           gridAutoFlow: 'dense'
@@ -96,7 +99,7 @@ export const ProductDiscoveryCanvas: React.FC<ProductDiscoveryCanvasProps> = ({
             <motion.div
               key={item.id}
               layoutId={`product-${item.id}`}
-              className={`relative overflow-hidden cursor-pointer group rounded-2xl ${isSpan2 ? 'col-span-2 aspect-[16/10]' : 'col-span-1 aspect-[8/10]'}`}
+              className={`relative overflow-hidden cursor-pointer group rounded-3xl shadow-lg ${isSpan2 ? 'col-span-2 aspect-[16/10]' : 'col-span-1 aspect-[9/16]'}`}
               onClick={() => handleItemClick(item)}
               whileHover={{ scale: 0.98 }}
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
@@ -104,42 +107,19 @@ export const ProductDiscoveryCanvas: React.FC<ProductDiscoveryCanvasProps> = ({
               <img
                 src={item.images?.[0] || 'https://picsum.photos/seed/product/400/600'}
                 alt={isRtl ? item.titleAr : item.titleEn}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                className="w-full h-full object-cover"
                 loading="lazy"
                 referrerPolicy="no-referrer"
               />
               
-              {/* Glassmorphism Overlay - Hidden on mobile */}
-              <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-90 group-hover:opacity-100 transition-opacity duration-300 hidden md:flex flex-col justify-end">
-                <div className="flex justify-between items-end">
-                  <div>
-                    <p className="text-white font-bold text-sm line-clamp-1">
-                      {isRtl ? item.titleAr : item.titleEn}
-                    </p>
-                    <p className="text-brand-primary font-black text-lg">
-                      ${item.price}
-                    </p>
-                  </div>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onLike?.(item.id); }}
-                    className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-brand-primary hover:text-white transition-colors"
-                  >
-                    <Heart size={14} />
-                  </button>
-                </div>
-                
-                {/* Status Badge */}
-                {item.status === 'active' && (
-                  <div className="absolute top-3 left-3 px-2 py-1 rounded-lg bg-green-500/20 backdrop-blur-md border border-green-500/30 text-green-300 text-[10px] font-bold uppercase tracking-wider">
-                    {isRtl ? 'متاح' : 'Available'}
-                  </div>
-                )}
-                {isSpan2 && (
-                  <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-brand-primary/20 backdrop-blur-md border border-brand-primary/30 text-brand-primary text-[10px] font-bold flex items-center gap-1">
-                    <Zap size={10} />
-                    {isRtl ? 'مميز' : 'Featured'}
-                  </div>
-                )}
+              {/* Mobile-optimized Overlay */}
+              <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col justify-end">
+                <p className="text-white font-black text-base line-clamp-1">
+                  {isRtl ? item.titleAr : item.titleEn}
+                </p>
+                <p className="text-brand-primary font-black text-xl">
+                  ${item.price}
+                </p>
               </div>
             </motion.div>
           );

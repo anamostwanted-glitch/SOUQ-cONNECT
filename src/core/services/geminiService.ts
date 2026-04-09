@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Category, UserProfile, GeminiApiKey, ProductRequest } from "../types";
+
 import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { neuralCache } from '../utils/neuralCache';
@@ -21,46 +22,50 @@ export const getResponseText = (response: any): string => {
 
 const COST_PER_1K_TOKENS = 0.000125; // Estimated cost for Gemini Flash
 
-export const callAiJson = async (contents: any, schema: any, model: string = "gemini-1.5-flash") => {
+export const callAiJson = async (contents: any, schema: any, model: string = "gemini-3-flash-preview") => {
   return retryWithBackoff(async (apiKey) => {
-    const response = await fetch('/api/ai-json', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents, schema, model, apiKey })
-    });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      if (response.status === 429 || errorData.error?.includes('quota') || errorData.error === 'QUOTA_EXHAUSTED') {
-        throw new Error('QUOTA_EXHAUSTED');
-      }
-      if (response.status === 400 || errorData.error?.includes('INVALID_API_KEY') || errorData.error === 'INVALID_API_KEY') {
-        throw new Error('INVALID_API_KEY');
-      }
-      throw new Error(errorData.error || 'Proxy failed');
+    if (!apiKey) {
+      const error = new Error('No API key available');
+      (error as any).isMissingKey = true;
+      throw error;
     }
-    return await response.json();
+    
+    const ai = new GoogleGenAI({ apiKey });
+    const prompt = typeof contents === 'string' ? contents : JSON.stringify(contents);
+    
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        // @ts-ignore
+        responseSchema: schema
+      }
+    });
+
+    const text = response.text;
+    if (!text) throw new Error('Empty response from AI');
+    return JSON.parse(text);
   });
 };
 
-const callAiText = async (contents: any, model: string = "gemini-1.5-flash") => {
+export const callAiText = async (contents: any, model: string = "gemini-3-flash-preview") => {
   return retryWithBackoff(async (apiKey) => {
-    const response = await fetch('/api/ai-text', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents, model, apiKey })
-    });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      if (response.status === 429 || errorData.error?.includes('quota') || errorData.error === 'QUOTA_EXHAUSTED') {
-        throw new Error('QUOTA_EXHAUSTED');
-      }
-      if (response.status === 400 || errorData.error?.includes('INVALID_API_KEY') || errorData.error === 'INVALID_API_KEY') {
-        throw new Error('INVALID_API_KEY');
-      }
-      throw new Error(errorData.error || 'Proxy failed');
+    if (!apiKey) {
+      const error = new Error('No API key available');
+      (error as any).isMissingKey = true;
+      throw error;
     }
-    const data = await response.json();
-    return data.text;
+    
+    const ai = new GoogleGenAI({ apiKey });
+    const prompt = typeof contents === 'string' ? contents : JSON.stringify(contents);
+    
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }]
+    });
+
+    return response.text || '';
   });
 };
 
@@ -118,7 +123,7 @@ const getApiKey = async () => {
   }
   
   // Fallback to env key if no other keys are available and it's not exhausted
-  const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY;
+  const envKey = process.env.GEMINI_API_KEY;
   if (envKey) {
     const expiry = exhaustedKeys.get(envKey);
     if (!expiry || now >= expiry) return envKey;
@@ -136,6 +141,9 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
       lastUsedKey = apiKey;
       return await fn(apiKey);
     } catch (error: any) {
+      if (error.isMissingKey) {
+        throw error;
+      }
       const errorString = JSON.stringify(error);
       const isQuotaError = 
         error?.status === 429 || 
@@ -202,6 +210,40 @@ export const suggestColorHarmony = async (primaryColor: string): Promise<{ secon
   } catch (e) {
     console.warn('Color harmony suggestion failed via proxy:', e);
     return { secondaryColor: '#ffffff', reason: 'AI service unavailable' };
+  }
+};
+
+export const analyzeUserBehavior = async (profile: UserProfile, recentSearches: string[], recentRequests: ProductRequest[]): Promise<{isMomentOfNeed: boolean; reason: string; recommendedAction: string}> => {
+  try {
+    const prompt = `Analyze the user's recent behavior to determine if they are in a "Moment of Need" for concierge assistance.
+      
+      User Profile: ${JSON.stringify(profile)}
+      Recent Searches: ${JSON.stringify(recentSearches)}
+      Recent Requests: ${JSON.stringify(recentRequests.map(r => ({ productName: r.productName, status: r.status })))}
+      
+      Determine if the user is struggling to find a supplier, is indecisive, or needs expert help.
+      
+      Return JSON: { isMomentOfNeed: boolean, reason: string, recommendedAction: string }`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          isMomentOfNeed: { type: Type.BOOLEAN },
+          reason: { type: Type.STRING },
+          recommendedAction: { type: Type.STRING }
+        },
+        required: ["isMomentOfNeed", "reason", "recommendedAction"]
+      }
+    );
+    
+    const tokens = (prompt.length + JSON.stringify(result).length) / 4;
+    await logUsage('Behavior Analysis', Math.ceil(tokens));
+    return result;
+  } catch (e) {
+    console.error('Behavior analysis failed:', e);
+    return { isMomentOfNeed: false, reason: 'Analysis failed', recommendedAction: 'none' };
   }
 };
 
@@ -381,42 +423,24 @@ export const generateSupplierLogo = async (companyName: string, category: string
   };
   
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return fallback;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `A professional, modern, minimalist logo for a company named "${companyName}" in the "${category}" industry. 
-      The style should be high-end, luxury tech, suitable for a B2B platform. 
-      Clean lines, professional color palette. No text except maybe a stylized letter.`;
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image",
-        contents: prompt,
-        config: {
-          imageConfig: { aspectRatio: "1:1" }
-        }
-      });
-      
-      let logoUrl = fallback.logoUrl;
-      for (const part of response.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData) {
-          logoUrl = `data:image/png;base64,${part.inlineData.data}`;
-          break;
-        }
-      }
+    const prompt = `A professional, modern, minimalist logo for a company named "${companyName}" in the "${category}" industry. 
+    The style should be high-end, luxury tech, suitable for a B2B platform. 
+    Clean lines, professional color palette. No text except maybe a stylized letter. Language: ${language}`;
+    
+    const responseText = await callAiText(prompt);
+    
+    let logoUrl = fallback.logoUrl;
+    
+    const tokens = (prompt.length + (responseText?.length || 0)) / 4;
+    await logUsage('Logo Generation', Math.ceil(tokens));
 
-      const responseText = getResponseText(response);
-      const tokens = (prompt.length + (responseText?.length || 0)) / 4;
-      await logUsage('Logo Generation', Math.ceil(tokens));
-
-      return {
-        logoUrl,
-        bgColor: '#000000',
-        textColor: '#ffffff',
-        font: 'Inter',
-        logoText: companyName
-      };
-    });
+    return {
+      logoUrl,
+      bgColor: '#000000',
+      textColor: '#ffffff',
+      font: 'Inter',
+      logoText: companyName
+    };
   } catch (e) {
     console.error('Logo generation failed:', e);
     return fallback;
@@ -564,8 +588,8 @@ export const categorizeProduct = async (query: string, categories: Category[]): 
   }
 };
 
-export const matchSuppliers = async (query: string, suppliers: UserProfile[], categories: Category[], userLocation?: string): Promise<string[]> => {
-  if (suppliers.length === 0) return [];
+export const matchSuppliers = async (query: string, suppliers: UserProfile[], categories: Category[], userLocation?: string): Promise<{uids: string[], reasoning: string}> => {
+  if (suppliers.length === 0) return {uids: [], reasoning: 'No suppliers provided'};
   
   try {
     const supplierList = suppliers.map(s => ({ 
@@ -585,48 +609,75 @@ export const matchSuppliers = async (query: string, suppliers: UserProfile[], ca
         User Location: ${userLocation || 'Not specified'}
         Suppliers: ${JSON.stringify(supplierList)}
         
-        Return a JSON array of the top 3-5 supplier UIDs that best match the request. 
-        If no good matches are found, return an empty array []. Be very strict.`,
+        Return a JSON object with:
+        - uids: Array of top 3-5 supplier UIDs that best match the request.
+        - reasoning: A brief explanation of why these suppliers were chosen.
+        
+        If no good matches are found, return an empty array for uids. Be very strict.`,
       {
         type: Type.OBJECT,
         properties: {
-          uids: { type: Type.ARRAY, items: { type: Type.STRING } }
+          uids: { type: Type.ARRAY, items: { type: Type.STRING } },
+          reasoning: { type: Type.STRING }
         },
-        required: ["uids"]
+        required: ["uids", "reasoning"]
       }
     );
 
-    return data.uids || [];
+    return { uids: data.uids || [], reasoning: data.reasoning || '' };
   } catch (e) {
     console.error('Matchmaking failed via proxy:', e);
-    return [];
+    return { uids: [], reasoning: 'Matchmaking failed' };
   }
 };
 
 export const analyzeProductImage = async (base64Data: string, mimeType: string): Promise<any> => {
   try {
     return await retryWithBackoff(async (apiKey) => {
-      const response = await fetch('/api/analyze-product', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Data, mimeType, apiKey })
+      if (!apiKey) throw new Error('MISSING_API_KEY');
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `
+        Analyze this product image and provide a detailed JSON response with the following fields:
+        - productNameEn: Product name in English
+        - productNameAr: Product name in Arabic
+        - descriptionEn: A compelling product description in English
+        - descriptionAr: A compelling product description in Arabic
+        - category: One of these categories: Electronics, Fashion, Home, Beauty, Sports, Toys, Other
+        - priceEstimate: A realistic price estimate in USD (number)
+        - isHighQuality: Boolean indicating if the image is high quality
+        - features: Array of 3-5 key product features (strings)
+        - keywordsEn: Array of 5-10 SEO keywords in English
+        - keywordsAr: Array of 5-10 SEO keywords in Arabic
+
+        Return ONLY the JSON object.
+      `;
+
+      const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [{
+          role: 'user',
+          parts: [
+            { inlineData: { data: cleanBase64, mimeType } },
+            { text: prompt },
+          ],
+        }],
+        config: {
+          responseMimeType: "application/json",
+        },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 429 || errorData.error?.includes('quota') || errorData.error === 'QUOTA_EXHAUSTED') {
-          throw new Error('QUOTA_EXHAUSTED');
-        }
-        if (response.status === 400 || errorData.error?.includes('INVALID_API_KEY') || errorData.error === 'INVALID_API_KEY') {
-          throw new Error('INVALID_API_KEY');
-        }
-        throw new Error('Server analysis failed');
-      }
-
-      return await response.json();
+      const responseText = response.text;
+      if (!responseText) throw new Error('Empty response from AI');
+      const jsonStr = responseText.replace(/```json\n?|\n?```/g, "").trim();
+      const suggestion = JSON.parse(jsonStr);
+      
+      await logUsage('Product Image Analysis', 2000); // Fixed cost for image analysis
+      return suggestion;
     });
-  } catch (e) {
-    console.error('Image analysis failed via proxy:', e);
+  } catch (e: any) {
+    console.error('Image analysis failed:', e);
+    if (e.message === 'MISSING_API_KEY' || e.message === 'QUOTA_EXHAUSTED') throw e;
     return { 
       productNameAr: 'منتج', descriptionAr: 'وصف المنتج',
       productNameEn: 'Product', descriptionEn: 'Product description' 
@@ -636,21 +687,36 @@ export const analyzeProductImage = async (base64Data: string, mimeType: string):
 
 export const generateAlternativeProductImage = async (base64Image: string, mimeType: string, title: string, category: string): Promise<string | null> => {
   try {
-    const response = await fetch('/api/generate-product-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64Image, mimeType, title, category })
+    return await retryWithBackoff(async (apiKey) => {
+      if (!apiKey) throw new Error('MISSING_API_KEY');
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `A professional, close-up photography of this product. Place it in the center of the picture on elegant interior design elements. Highlight its uses and applications. Product title: ${title || 'Product'}. Category: ${category || 'General'}. High quality, studio lighting, highly detailed. IMPORTANT: Do not include any text, words, labels, or watermarks in the image. The image should be clean and professional.`;
+
+      const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, "");
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-image",
+        contents: {
+          parts: [
+            { inlineData: { data: cleanBase64, mimeType: mimeType } },
+            { text: prompt },
+          ],
+        },
+      });
+
+      const candidates = response.candidates;
+      if (candidates && candidates.length > 0) {
+        for (const part of candidates[0].content.parts || []) {
+          if (part.inlineData) {
+            await logUsage('Product Image Generation', 5000); // Higher cost for generation
+            return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+          }
+        }
+      }
+      return null;
     });
-
-    if (!response.ok) {
-      if (response.status === 429) throw new Error('QUOTA_EXHAUSTED');
-      throw new Error('Server image generation failed');
-    }
-
-    const data = await response.json();
-    return data.image || null;
-  } catch (e) {
-    console.error('Image generation failed via proxy:', e);
+  } catch (e: any) {
+    console.error('Image generation failed:', e);
+    if (e.message === 'MISSING_API_KEY' || e.message === 'QUOTA_EXHAUSTED') throw e;
     return null;
   }
 };
@@ -760,64 +826,57 @@ export const analyzeSystemPulse = async (systemData: any, language: string): Pro
     const tokens = (prompt.length + JSON.stringify(result).length) / 4;
     await logUsage('System Pulse', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('System Pulse analysis failed via proxy:', e);
+  } catch (e: any) {
+    const isQuotaError = e?.status === 429 || e?.error?.code === 429 || e?.message?.includes('429') || e?.message?.includes('RESOURCE_EXHAUSTED');
+    if (e.isMissingKey) {
+      console.warn('System Pulse analysis skipped: No API key available');
+    } else if (isQuotaError) {
+      console.warn('System Pulse analysis skipped: Quota exceeded');
+    } else {
+      console.error('System Pulse analysis failed via proxy:', e);
+    }
     return { status: 'stable', headline: 'System Stable', insights: [], growthScore: 100 };
   }
 };
 
 export const analyzeAdminSearch = async (query: string, context: any, language: string): Promise<any> => {
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return { intent: 'search', target: 'users', filters: {} };
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `Analyze this admin search query for a B2B2C marketplace.
-      
-      Query: "${query}"
-      Context (Available Tabs): ${JSON.stringify(context.tabs)}
-      Language: ${language === 'ar' ? 'Arabic' : 'English'}
-      
-      Determine the intent and target of the search.
-      Intents: 'navigate' (go to a tab), 'filter' (search with specific criteria), 'action' (perform a task).
-      Targets: 'users', 'requests', 'categories', 'withdrawals', 'suppliers', 'ambassadors'.
-      
-      Return JSON: { intent, target, filters: { role, status, minAmount, maxAmount, dateRange, searchString }, message }`;
+    const prompt = `Analyze this admin search query for a B2B2C marketplace.
+    
+    Query: "${query}"
+    Context (Available Tabs): ${JSON.stringify(context.tabs)}
+    Language: ${language === 'ar' ? 'Arabic' : 'English'}
+    
+    Determine the intent and target of the search.
+    Intents: 'navigate' (go to a tab), 'filter' (search with specific criteria), 'action' (perform a task).
+    Targets: 'users', 'requests', 'categories', 'withdrawals', 'suppliers', 'ambassadors'.
+    
+    Return JSON: { intent, target, filters: { role, status, minAmount, maxAmount, dateRange, searchString }, message }`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              intent: { type: Type.STRING, enum: ['navigate', 'filter', 'action'] },
-              target: { type: Type.STRING },
-              filters: { 
-                type: Type.OBJECT,
-                properties: {
-                  role: { type: Type.STRING },
-                  status: { type: Type.STRING },
-                  minAmount: { type: Type.NUMBER },
-                  maxAmount: { type: Type.NUMBER },
-                  dateRange: { type: Type.STRING },
-                  searchString: { type: Type.STRING }
-                }
-              },
-              message: { type: Type.STRING }
-            },
-            required: ["intent", "target", "filters"]
+    const result = await callAiJson(prompt, {
+      type: Type.OBJECT,
+      properties: {
+        intent: { type: Type.STRING },
+        target: { type: Type.STRING },
+        filters: { 
+          type: Type.OBJECT,
+          properties: {
+            role: { type: Type.STRING },
+            status: { type: Type.STRING },
+            minAmount: { type: Type.NUMBER },
+            maxAmount: { type: Type.NUMBER },
+            dateRange: { type: Type.STRING },
+            searchString: { type: Type.STRING }
           }
-        }
-      });
-      
-      const responseText = getResponseText(response);
-      const result = JSON.parse(responseText || "{}");
-      const tokens = (query.length + (responseText?.length || 0)) / 4;
-      await logUsage('Admin Search', Math.ceil(tokens));
-      return result;
+        },
+        message: { type: Type.STRING }
+      },
+      required: ["intent", "target", "filters"]
     });
+
+    const tokens = (query.length + JSON.stringify(result).length) / 4;
+    await logUsage('Admin Search', Math.ceil(tokens));
+    return result;
   } catch (e) {
     console.error('Admin Search analysis failed:', e);
     return { intent: 'filter', target: 'users', filters: { searchString: query } };
@@ -936,60 +995,48 @@ export const analyzeChatRisk = async (transcript: string, language: string): Pro
   recommendationEn: string;
 }> => {
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) throw new Error('AI Service Unavailable');
+    const prompt = `[RISK-RADAR:JSON] Analyze this chat transcript for business risks (disputes, fraud, off-platform payment, harassment, slow response).
+      Transcript: "${transcript}"
       
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `[RISK-RADAR:JSON] Analyze this chat transcript for business risks (disputes, fraud, off-platform payment, harassment, slow response).
-        Transcript: "${transcript}"
-        
-        Return JSON: {
-          riskScore: 0-100,
-          riskLevel: "low"|"medium"|"high"|"critical",
-          flags: [{type, descriptionAr, descriptionEn, confidence}],
-          summaryAr,
-          summaryEn,
-          recommendationAr,
-          recommendationEn
-        }`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
+      Return JSON: {
+        riskScore: 0-100,
+        riskLevel: "low"|"medium"|"high"|"critical",
+        flags: [{type, descriptionAr, descriptionEn, confidence}],
+        summaryAr,
+        summaryEn,
+        recommendationAr,
+        recommendationEn
+      }`;
+
+    const result = await callAiJson(prompt, {
+      type: Type.OBJECT,
+      properties: {
+        riskScore: { type: Type.NUMBER },
+        riskLevel: { type: Type.STRING },
+        flags: {
+          type: Type.ARRAY,
+          items: {
             type: Type.OBJECT,
             properties: {
-              riskScore: { type: Type.NUMBER },
-              riskLevel: { type: Type.STRING },
-              flags: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    type: { type: Type.STRING },
-                    descriptionAr: { type: Type.STRING },
-                    descriptionEn: { type: Type.STRING },
-                    confidence: { type: Type.NUMBER }
-                  },
-                  required: ["type", "descriptionAr", "descriptionEn", "confidence"]
-                }
-              },
-              summaryAr: { type: Type.STRING },
-              summaryEn: { type: Type.STRING },
-              recommendationAr: { type: Type.STRING },
-              recommendationEn: { type: Type.STRING }
+              type: { type: Type.STRING },
+              descriptionAr: { type: Type.STRING },
+              descriptionEn: { type: Type.STRING },
+              confidence: { type: Type.NUMBER }
             },
-            required: ["riskScore", "riskLevel", "flags", "summaryAr", "summaryEn", "recommendationAr", "recommendationEn"]
+            required: ["type", "descriptionAr", "descriptionEn", "confidence"]
           }
-        }
-      });
-      
-      const responseText = getResponseText(response);
-      const result = JSON.parse(responseText || '{}');
-      const tokens = (transcript.length + (responseText?.length || 0)) / 4;
-      await logUsage('Chat Risk Analysis', Math.ceil(tokens));
-      return result;
+        },
+        summaryAr: { type: Type.STRING },
+        summaryEn: { type: Type.STRING },
+        recommendationAr: { type: Type.STRING },
+        recommendationEn: { type: Type.STRING }
+      },
+      required: ["riskScore", "riskLevel", "flags", "summaryAr", "summaryEn", "recommendationAr", "recommendationEn"]
     });
+
+    const tokens = (transcript.length + JSON.stringify(result).length) / 4;
+    await logUsage('Chat Risk Analysis', Math.ceil(tokens));
+    return result;
   } catch (e) {
     console.error('Chat risk analysis failed:', e);
     return {
@@ -1011,38 +1058,27 @@ export const semanticSearch = async (query: string, items: any[], language: stri
   if (items.length === 0) return [];
   
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      const ai = new GoogleGenAI({ apiKey });
-      const itemList = items.map(i => ({ id: i.id, name: i.name, description: i.description, category: i.category }));
+    const itemList = items.map(i => ({ id: i.id, name: i.name, description: i.description, category: i.category }));
+    
+    const prompt = `Perform a strict semantic search on these items for the query: "${query}"
+      Items: ${JSON.stringify(itemList)}
       
-      const response = await withTimeout(ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Perform a strict semantic search on these items for the query: "${query}"
-        Items: ${JSON.stringify(itemList)}
-        
-        Return a JSON object with a 'results' array of the top 10 item IDs that truly and closely match the query.
-        If no items are a good match, return an empty array []. Be very strict.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              results: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["results"]
-          }
-        }
-      }));
+      Return a JSON object with a 'results' array of the top 10 item IDs that truly and closely match the query.
+      If no items are a good match, return an empty array []. Be very strict.`;
 
-      const responseText = getResponseText(response);
-      const data = JSON.parse(responseText || "{}");
-      
-      // Log usage
-      const tokens = (query.length + JSON.stringify(itemList).length + JSON.stringify(data).length) / 4;
-      await logUsage('Semantic Search', Math.ceil(tokens));
-
-      return data.results || [];
+    const data = await callAiJson(prompt, {
+      type: Type.OBJECT,
+      properties: {
+        results: { type: Type.ARRAY, items: { type: Type.STRING } }
+      },
+      required: ["results"]
     });
+    
+    // Log usage
+    const tokens = (query.length + JSON.stringify(itemList).length + JSON.stringify(data).length) / 4;
+    await logUsage('Semantic Search', Math.ceil(tokens));
+
+    return data.results || [];
   } catch (e) {
     console.error('Semantic search failed:', e);
     return [];
@@ -1055,23 +1091,28 @@ export const analyzeImageForSearch = async (base64Data: string, mimeType: string
   try {
     return await retryWithBackoff(async (apiKey) => {
       const ai = new GoogleGenAI({ apiKey });
-      const response = await withTimeout(ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: {
+      const prompt = `Analyze this image for a B2B marketplace search. 
+        Provide:
+        1. A concise visual description.
+        2. 5-10 relevant keywords.
+        3. The most likely product category.
+        4. Specific attributes like color, material, and style.
+        Language: ${language.startsWith('ar') ? 'Arabic' : 'English'}
+        Return ONLY a JSON object.`;
+
+      const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [{
+          role: 'user',
           parts: [
-            { inlineData: { data: base64Data, mimeType } },
-            { text: `Analyze this image for a B2B marketplace search. 
-            Provide:
-            1. A concise visual description.
-            2. 5-10 relevant keywords.
-            3. The most likely product category.
-            4. Specific attributes like color, material, and style.
-            Language: ${language.startsWith('ar') ? 'Arabic' : 'English'}
-            Return ONLY a JSON object.` }
-          ]
-        },
+            { inlineData: { data: cleanBase64, mimeType } },
+            { text: prompt },
+          ],
+        }],
         config: {
           responseMimeType: "application/json",
+          // @ts-ignore
           responseSchema: {
             type: Type.OBJECT,
             properties: {
@@ -1089,11 +1130,12 @@ export const analyzeImageForSearch = async (base64Data: string, mimeType: string
             },
             required: ["visualDescription", "keywords", "category"]
           }
-        }
-      }));
+        },
+      });
       
-      const responseText = getResponseText(response);
-      const data = JSON.parse(responseText || "{}");
+      const responseText = response.text;
+      if (!responseText) throw new Error('Empty response from AI');
+      const data = JSON.parse(responseText);
 
       // Log usage
       const tokens = (1000 + JSON.stringify(data).length) / 4; // Image estimation
@@ -1115,36 +1157,25 @@ export const generateSupplierLogoImage = generateSupplierLogo;
 export const analyzeMarketTrends = async (searches: string[], summaries: string[], language: string): Promise<any> => {
   const fallback = { analysis: 'Trends analysis', suggestions: [] };
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return fallback;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await withTimeout(ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Analyze the following marketplace activity to identify current trends and provide strategic insights.
-        Recent Searches: ${JSON.stringify(searches)}
-        Chat Summaries: ${JSON.stringify(summaries)}
-        Language: ${language === 'ar' ? 'Arabic' : 'English'}
-        Provide a detailed analysis of what products/services are trending, what's missing, and recommendations for the platform.
-        Return ONLY a JSON object with 'analysis' (string) and 'suggestions' (array of strings).`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              analysis: { type: Type.STRING },
-              suggestions: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["analysis", "suggestions"]
-          }
-        }
-      }));
-      const responseText = getResponseText(response);
-      const result = JSON.parse(responseText || "{}");
-      const tokens = (searches.join(',').length + summaries.join(',').length + (responseText?.length || 0)) / 4;
-      await logUsage('Market Trends Analysis', Math.ceil(tokens));
-      return result;
+    const prompt = `Analyze the following marketplace activity to identify current trends and provide strategic insights.
+      Recent Searches: ${JSON.stringify(searches)}
+      Chat Summaries: ${JSON.stringify(summaries)}
+      Language: ${language === 'ar' ? 'Arabic' : 'English'}
+      Provide a detailed analysis of what products/services are trending, what's missing, and recommendations for the platform.
+      Return ONLY a JSON object with 'analysis' (string) and 'suggestions' (array of strings).`;
+
+    const result = await callAiJson(prompt, {
+      type: Type.OBJECT,
+      properties: {
+        analysis: { type: Type.STRING },
+        suggestions: { type: Type.ARRAY, items: { type: Type.STRING } }
+      },
+      required: ["analysis", "suggestions"]
     });
+
+    const tokens = (searches.join(',').length + summaries.join(',').length + JSON.stringify(result).length) / 4;
+    await logUsage('Market Trends Analysis', Math.ceil(tokens));
+    return result;
   } catch (e) {
     console.error('Market analysis failed:', e);
     return fallback;
@@ -1167,43 +1198,40 @@ export const analyzeSupplierDocument = async (
 
   try {
     return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return fallback;
-      
       const ai = new GoogleGenAI({ apiKey });
-      
-      const response = await withTimeout(ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: [
-          {
-            inlineData: {
-              data: base64Image,
-              mimeType: mimeType
-            }
-          },
-          {
-            text: `Analyze this commercial document (Commercial Registration, Tax ID, or License) for a supplier verification.
-            Language: ${language === 'ar' ? 'Arabic' : 'English'}
-            
-            Extract the following information if available:
-            - Company Name
-            - Registration Number
-            - Expiry Date
-            - Activity/Scope
-            
-            Evaluate if the document looks authentic and valid.
-            Return ONLY a JSON object with:
-            - isValid (boolean)
-            - confidence (number 0-100)
-            - extractedData (object with fields above)
-            - analysisAr (string)
-            - analysisEn (string)
-            - recommendationAr (string)
-            - recommendationEn (string)
-            - trustScore (number 0-100)`
-          }
-        ],
+      const prompt = `Analyze this commercial document (Commercial Registration, Tax ID, or License) for a supplier verification.
+        Language: ${language === 'ar' ? 'Arabic' : 'English'}
+        
+        Extract the following information if available:
+        - Company Name
+        - Registration Number
+        - Expiry Date
+        - Activity/Scope
+        
+        Evaluate if the document looks authentic and valid.
+        Return ONLY a JSON object with:
+        - isValid (boolean)
+        - confidence (number 0-100)
+        - extractedData (object with fields above)
+        - analysisAr (string)
+        - analysisEn (string)
+        - recommendationAr (string)
+        - recommendationEn (string)
+        - trustScore (number 0-100)`;
+
+      const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, "");
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [{
+          role: 'user',
+          parts: [
+            { inlineData: { data: cleanBase64, mimeType } },
+            { text: prompt },
+          ],
+        }],
         config: {
           responseMimeType: "application/json",
+          // @ts-ignore
           responseSchema: {
             type: Type.OBJECT,
             properties: {
@@ -1226,13 +1254,14 @@ export const analyzeSupplierDocument = async (
             },
             required: ["isValid", "confidence", "analysisAr", "analysisEn", "recommendationAr", "recommendationEn", "trustScore"]
           }
-        }
-      }));
-
-      const responseText = getResponseText(response);
-      const result = JSON.parse(responseText || "{}");
+        },
+      });
+      
+      const responseText = response.text;
+      if (!responseText) throw new Error('Empty response from AI');
+      const data = JSON.parse(responseText);
       await logUsage('Supplier Document Analysis', 2000); // Fixed cost for image analysis
-      return result;
+      return data;
     });
   } catch (e) {
     console.error('Document analysis failed:', e);
@@ -1256,18 +1285,12 @@ export const analyzeSupplyDemandGap = async (
 
   try {
     return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return fallback;
-      
-      const ai = new GoogleGenAI({ apiKey });
-      
       // Prepare data for AI
       const categoryData = categories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn }));
       const requestData = requests.map(r => ({ categoryId: r.categoryId, status: r.status }));
       const supplierData = suppliers.map(s => ({ categories: s.categories || [] }));
 
-      const response = await withTimeout(ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Analyze the supply and demand gap in our B2B marketplace.
+      const prompt = `Analyze the supply and demand gap in our B2B marketplace.
         Categories: ${JSON.stringify(categoryData)}
         Product Requests (Demand): ${JSON.stringify(requestData)}
         Suppliers (Supply): ${JSON.stringify(supplierData)}
@@ -1280,37 +1303,32 @@ export const analyzeSupplyDemandGap = async (
         - analysisEn (string)
         - gaps (array of objects with { categoryId: string, demandScore: number, supplyScore: number, gapLevel: 'low'|'medium'|'high' })
         - recommendationsAr (array of strings)
-        - recommendationsEn (array of strings)`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              analysisAr: { type: Type.STRING },
-              analysisEn: { type: Type.STRING },
-              gaps: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    categoryId: { type: Type.STRING },
-                    demandScore: { type: Type.NUMBER },
-                    supplyScore: { type: Type.NUMBER },
-                    gapLevel: { type: Type.STRING, enum: ['low', 'medium', 'high'] }
-                  },
-                  required: ["categoryId", "demandScore", "supplyScore", "gapLevel"]
-                }
-              },
-              recommendationsAr: { type: Type.ARRAY, items: { type: Type.STRING } },
-              recommendationsEn: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["analysisAr", "analysisEn", "gaps", "recommendationsAr", "recommendationsEn"]
-          }
-        }
-      }));
+        - recommendationsEn (array of strings)`;
 
-      const responseText = getResponseText(response);
-      const result = JSON.parse(responseText || "{}");
+      const result = await callAiJson(prompt, {
+        type: Type.OBJECT,
+        properties: {
+          analysisAr: { type: Type.STRING },
+          analysisEn: { type: Type.STRING },
+          gaps: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                categoryId: { type: Type.STRING },
+                demandScore: { type: Type.NUMBER },
+                supplyScore: { type: Type.NUMBER },
+                gapLevel: { type: Type.STRING }
+              },
+              required: ["categoryId", "demandScore", "supplyScore", "gapLevel"]
+            }
+          },
+          recommendationsAr: { type: Type.ARRAY, items: { type: Type.STRING } },
+          recommendationsEn: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["analysisAr", "analysisEn", "gaps", "recommendationsAr", "recommendationsEn"]
+      });
+
       await logUsage('Supply-Demand Gap Analysis', Math.ceil((JSON.stringify(categoryData).length + JSON.stringify(requestData).length + JSON.stringify(supplierData).length) / 4));
       return result;
     });
@@ -1325,14 +1343,11 @@ export const formatCategoryName = async (...args: any[]) => ({ nameAr: args[0], 
 export const suggestCategoryMerges = async (categories: Category[], language: string): Promise<{ sourceId: string; targetId: string; categoryIds: string[]; reasonAr: string; reasonEn: string }[]> => {
   try {
     return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey || categories.length < 2) return [];
+      if (categories.length < 2) return [];
       
-      const ai = new GoogleGenAI({ apiKey });
       const categoryList = categories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn, parentId: c.parentId }));
       
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Analyze this list of categories and identify potential duplicates or highly similar categories that should be merged. 
+      const prompt = `Analyze this list of categories and identify potential duplicates or highly similar categories that should be merged. 
         Categories: ${JSON.stringify(categoryList)}
         
         For each potential merge, provide:
@@ -1341,7 +1356,12 @@ export const suggestCategoryMerges = async (categories: Category[], language: st
         - reasonAr: A brief reason for the merge in Arabic.
         - reasonEn: A brief reason for the merge in English.
         
-        Return ONLY a JSON array of objects. If no merges are suggested, return an empty array [].`,
+        Return ONLY a JSON array of objects. If no merges are suggested, return an empty array [].`;
+
+      const genAI = new GoogleGenAI({ apiKey });
+      const response = await genAI.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -1359,10 +1379,13 @@ export const suggestCategoryMerges = async (categories: Category[], language: st
           }
         }
       });
+
+      const text = response.text;
+      if (!text) return [];
       
-      const responseText = getResponseText(response);
-      const result = JSON.parse(responseText || "[]");
-      return result.map((s: any) => ({
+      const parsedResult = JSON.parse(text);
+
+      return parsedResult.map((s: any) => ({
         ...s,
         categoryIds: [s.sourceId, s.targetId]
       }));
@@ -1375,28 +1398,17 @@ export const suggestCategoryMerges = async (categories: Category[], language: st
 
 export const suggestMainCategories = async (language: string, categoryType: 'product' | 'service', existingCategories: string[]): Promise<string[]> => {
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) return [];
-      
-      const ai = new GoogleGenAI({ apiKey });
-      const existingList = existingCategories.length > 0 ? `Do not include these existing categories: ${existingCategories.join(', ')}.` : '';
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: `Suggest 5-8 new main ${categoryType === 'product' ? 'product' : 'service'} categories for a B2B2C marketplace. The language should be ${language}. ${existingList} Return ONLY a JSON array of strings.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
-          }
-        }
-      });
-      const responseText = getResponseText(response);
-      const result = JSON.parse(responseText || "[]");
-      const tokens = (existingList.length + (responseText?.length || 0)) / 4;
-      await logUsage('Category Suggestion', Math.ceil(tokens));
-      return result;
+    const existingList = existingCategories.length > 0 ? `Do not include these existing categories: ${existingCategories.join(', ')}.` : '';
+    const prompt = `Suggest 5-8 new main ${categoryType === 'product' ? 'product' : 'service'} categories for a B2B2C marketplace. The language should be ${language}. ${existingList} Return ONLY a JSON array of strings.`;
+    
+    const result = await callAiJson(prompt, {
+      type: Type.ARRAY,
+      items: { type: Type.STRING }
     });
+
+    const tokens = (prompt.length + JSON.stringify(result).length) / 4;
+    await logUsage('Category Suggestion', Math.ceil(tokens));
+    return result;
   } catch (e: any) {
     console.error('Main category suggestion failed:', e);
     if (e.message === 'QUOTA_EXHAUSTED' || e.status === 429 || (e.message && e.message.includes('429'))) {
@@ -1457,5 +1469,66 @@ export const suggestNeuralCategories = async (productInfo: { title: string, desc
   } catch (e) {
     console.error('Neural category suggestion failed:', e);
     return [];
+  }
+};
+
+export const predictUserNextStep = async (profile: UserProfile, currentView: string): Promise<any> => {
+  try {
+    const prompt = `Based on the user's role (${profile.role}), current view (${currentView}), and profile strength, predict the single most valuable next action they should take in the marketplace.
+    Return JSON with:
+    1. actionId: string (e.g., 'add_product', 'browse_offers', 'complete_profile')
+    2. reasonAr: string
+    3. reasonEn: string
+    4. priority: number (1-10)`;
+
+    const result = await callAiJson(prompt, {
+      type: Type.OBJECT,
+      properties: {
+        actionId: { type: Type.STRING },
+        reasonAr: { type: Type.STRING },
+        reasonEn: { type: Type.STRING },
+        priority: { type: Type.NUMBER }
+      },
+      required: ["actionId", "reasonAr", "reasonEn", "priority"]
+    });
+    return result;
+  } catch (e: any) {
+    const isQuotaError = e?.status === 429 || e?.error?.code === 429 || e?.message?.includes('429') || e?.message?.includes('RESOURCE_EXHAUSTED');
+    if (isQuotaError) {
+      console.warn('Prediction skipped: Quota exceeded');
+    } else {
+      console.error('Prediction failed:', e);
+    }
+    return null;
+  }
+};
+
+export const preFetchNeuralPulse = async (profile: UserProfile): Promise<void> => {
+  try {
+    const cacheKey = `pulse_${profile.uid}`;
+    if (neuralCache.get(cacheKey)) return;
+
+    const prompt = `Analyze user profile: ${JSON.stringify({ role: profile.role, name: profile.name })}. Generate a quick status pulse.
+    Return JSON: status (excellent/good/needs_attention), headlineEn, headlineAr, growthScore (0-100).`;
+
+    const result = await callAiJson(prompt, {
+      type: Type.OBJECT,
+      properties: {
+        status: { type: Type.STRING },
+        headlineEn: { type: Type.STRING },
+        headlineAr: { type: Type.STRING },
+        growthScore: { type: Type.NUMBER }
+      },
+      required: ["status", "headlineEn", "headlineAr", "growthScore"]
+    });
+
+    neuralCache.set(cacheKey, result, 3600000); // Cache for 1 hour
+  } catch (e: any) {
+    const isQuotaError = e?.status === 429 || e?.error?.code === 429 || e?.message?.includes('429') || e?.message?.includes('RESOURCE_EXHAUSTED');
+    if (isQuotaError) {
+      console.warn('Pre-fetch pulse skipped: Quota exceeded');
+    } else {
+      console.error('Pre-fetch pulse failed:', e);
+    }
   }
 };

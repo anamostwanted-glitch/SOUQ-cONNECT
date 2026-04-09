@@ -44,7 +44,7 @@ interface WithdrawalRequest {
   fraudRecommendations?: string[];
 }
 
-export const NexusManager: React.FC = () => {
+export const ConnectManager: React.FC = () => {
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const [settings, setSettings] = useState<SiteSettings | null>(null);
@@ -120,7 +120,7 @@ export const NexusManager: React.FC = () => {
     setSaving(true);
     try {
       await setDoc(doc(db, 'settings', 'site'), settings, { merge: true });
-      toast.success(isRtl ? 'تم حفظ إعدادات النكسوس بنجاح' : 'Nexus settings saved successfully');
+      toast.success(isRtl ? 'تم حفظ إعدادات كونكت بنجاح' : 'Connect settings saved successfully');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/site', false);
     } finally {
@@ -179,7 +179,7 @@ export const NexusManager: React.FC = () => {
         <div>
           <h1 className="text-3xl font-black text-brand-text-main tracking-tight flex items-center gap-3">
             <Zap className="text-brand-primary" />
-            {isRtl ? 'إدارة نمو النكسوس' : 'Nexus Growth Manager'}
+            {isRtl ? 'إدارة نمو كونكت' : 'Connect Growth Manager'}
           </h1>
           <p className="text-brand-text-muted mt-1 font-medium">
             {isRtl ? 'تحكم في نظام الإحالات والمكافآت الذكي' : 'Control the smart referral and rewards system'}

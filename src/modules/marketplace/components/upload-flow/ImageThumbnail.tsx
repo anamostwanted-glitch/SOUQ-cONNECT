@@ -75,13 +75,12 @@ export const ImageThumbnail: React.FC<ImageThumbnailProps> = ({ image, onRemove,
           )}
           
           {image.status === 'analyzing' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center text-brand-primary">
-              <div className="relative w-12 h-12 mb-2">
-                <div className="absolute inset-0 border-2 border-brand-primary/30 rounded-lg"></div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center w-full text-brand-primary px-4">
+              <div className="relative w-full h-1.5 bg-white/20 rounded-full overflow-hidden mb-2">
                 <motion.div 
-                  animate={{ top: ['0%', '100%', '0%'] }} 
-                  transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                  className="absolute left-0 right-0 h-0.5 bg-brand-primary shadow-[0_0_8px_rgba(var(--brand-primary),0.8)]"
+                  animate={{ left: ['-100%', '100%'] }} 
+                  transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                  className="absolute top-0 bottom-0 w-1/2 bg-brand-primary shadow-[0_0_10px_rgba(var(--brand-primary),0.8)]"
                 />
               </div>
               <span className="text-xs font-bold text-white">AI Analyzing...</span>

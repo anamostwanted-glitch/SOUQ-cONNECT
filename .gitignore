@@ -1,7 +1,24 @@
 node_modules/
+dist/
 build/
 coverage/
 .DS_Store
+Thumbs.db
 *.log
 .env*
 !.env.example
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Firebase logs
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# Vite
+*.local

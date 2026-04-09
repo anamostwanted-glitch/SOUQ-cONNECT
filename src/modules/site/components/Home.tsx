@@ -12,6 +12,7 @@ import {
   enhanceRequestDescription, 
   analyzeProductImage, 
   matchSuppliers,
+  analyzeUserBehavior,
   parseVoiceRequest,
   translateText,
   generateProductCopy,
@@ -22,6 +23,9 @@ import UserProfileModal from '../../../shared/components/UserProfileModal';
 import { PremiumVisualSearchModal } from '../../../shared/components/PremiumVisualSearchModal';
 import { soundService, SoundType } from '../../../core/utils/soundService';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { SupplierRegistrationCTA } from './home/SupplierRegistrationCTA';
+import { MatchedSuppliersSection } from './home/MatchedSuppliersSection';
+import { getNextBestAction } from '../../../core/services/PredictiveService';
 import { 
   Bot, 
   Sparkles as SparklesIcon, 
@@ -38,8 +42,10 @@ import {
   Hammer,
   Zap,
   Droplets,
-  Wrench
+  Wrench,
+  ShoppingBag
 } from 'lucide-react';
+
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
 
@@ -64,6 +70,7 @@ const Home: React.FC<HomeProps> = ({
   const effectiveRole = viewMode || profile?.role || 'customer';
   const isRtl = i18n.language === 'ar';
   const [searchQuery, setSearchQuery] = usePersistedState('home_search_query', '');
+  const [recentSearches, setRecentSearches] = usePersistedState<string[]>('home_recent_searches', []);
   const [draftDescription, setDraftDescription] = usePersistedState('home_draft_description', '');
   const [showDraftArea, setShowDraftArea] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
@@ -101,6 +108,8 @@ const Home: React.FC<HomeProps> = ({
   const [secondaryTextColor, setSecondaryTextColor] = useState('#94a3b8');
   const [enableNeuralPulse, setEnableNeuralPulse] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [showConciergeTrigger, setShowConciergeTrigger] = useState(false);
+  const [conciergeReason, setConciergeReason] = useState('');
   const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
   const [productCopy, setProductCopy] = useState<{ title: string; description: string; highlights: string[] } | null>(null);
   const [isEnhancingImage, setIsEnhancingImage] = useState(false);
@@ -109,6 +118,39 @@ const Home: React.FC<HomeProps> = ({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
   const requestsRef = useRef<HTMLDivElement>(null);
+  const nextAction = getNextBestAction(profile, 'home');
+
+  const updateConciergeConsent = async () => {
+    if (!profile?.uid || !profile?.phone) return;
+    try {
+      // 1. Update consent in Firestore
+      await updateDoc(doc(db, 'users', profile.uid), {
+        conciergeConsent: true
+      });
+      
+      // 2. Send welcome message via WhatsApp
+      await fetch('/api/send-concierge-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: profile.phone,
+          message: isRtl 
+            ? 'أهلاً بك! تم تفعيل تنبيهات الكونسيرج الذكية. سنرسل لك تنبيهات مخصصة فقط عندما نجد المورد الذي يناسب احتياجاتك بدقة.'
+            : 'Welcome! Smart concierge alerts are now enabled. We will send you personalized alerts only when we find the supplier that perfectly matches your needs.'
+        })
+      });
+      
+      setShowConciergeTrigger(false);
+    } catch (error) {
+      console.error('Error updating concierge consent:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (matchedSuppliers.length > 0 && !profile?.conciergeConsent && !showConciergeTrigger) {
+      setShowConciergeTrigger(true);
+    }
+  }, [matchedSuppliers, profile?.conciergeConsent]);
 
   const removeImage = () => {
     setSelectedImage(null);
@@ -192,7 +234,7 @@ const Home: React.FC<HomeProps> = ({
     return Package;
   };
 
-  const handleVoiceInput = () => {
+  const handleVoiceInput = React.useCallback(() => {
     setVoiceError(null);
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       setVoiceError(i18n.language === 'ar' ? 'متصفحك لا يدعم التعرف على الصوت' : 'Your browser does not support speech recognition');
@@ -249,7 +291,7 @@ const Home: React.FC<HomeProps> = ({
     };
 
     recognition.start();
-  };
+  }, [i18n.language, setSearchQuery, setDraftDescription, setShowDraftArea, setAiStatus, parseVoiceRequest]);
 
   const handleGenerateCopy = async () => {
     if (!searchQuery) return;
@@ -303,9 +345,9 @@ const Home: React.FC<HomeProps> = ({
         if (base64) {
           const result = await analyzeProductImage(base64, selectedImage.type);
           if (result) {
-            aiDescription = result.description;
+            aiDescription = (i18n.language === 'ar' ? result.descriptionAr : result.descriptionEn) || '';
             if (!searchQuery) {
-              setSearchQuery(result.productName);
+              setSearchQuery((i18n.language === 'ar' ? result.productNameAr : result.productNameEn) || '');
             }
           }
         }
@@ -322,9 +364,36 @@ const Home: React.FC<HomeProps> = ({
     }
   };
 
+  useEffect(() => {
+    const analyzeBehavior = async () => {
+      if (!profile || recentSearches.length < 2) return;
+      
+      try {
+        const q = query(collection(db, 'requests'), where('customerId', '==', profile.uid), limit(5));
+        const snapshot = await getDocs(q);
+        const requests = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ProductRequest));
+        
+        const analysis = await analyzeUserBehavior(profile, recentSearches, requests);
+        if (analysis.isMomentOfNeed && !profile?.conciergeConsent && !showConciergeTrigger) {
+          setConciergeReason(analysis.reason);
+          setShowConciergeTrigger(true);
+        }
+      } catch (error) {
+        console.error('Error analyzing behavior:', error);
+      }
+    };
+    
+    analyzeBehavior().catch(err => console.error("Analyze behavior error:", err));
+  }, [recentSearches, profile]);
+
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
+    
+    if (searchQuery.trim()) {
+      setRecentSearches(prev => [...prev.slice(-4), searchQuery.trim()]);
+    }
+    
     console.log('handleRequest called. Profile:', profile);
     if (!profile) {
       console.log('No profile found, navigating to role-selection');
@@ -370,10 +439,11 @@ const Home: React.FC<HomeProps> = ({
           try {
             const result = await analyzeProductImage(base64, selectedImage.type);
             if (result) {
-              aiDescription = result.description;
+              aiDescription = (i18n.language === 'ar' ? result.descriptionAr : result.descriptionEn) || '';
               if (!trimmedQuery) {
-                setSearchQuery(result.productName);
-                trimmedQuery = result.productName; // Update local variable so the rest of the function uses it
+                const newQuery = (i18n.language === 'ar' ? result.productNameAr : result.productNameEn) || '';
+                setSearchQuery(newQuery);
+                trimmedQuery = newQuery; // Update local variable so the rest of the function uses it
               }
             }
           } catch (imgAiErr) {
@@ -610,7 +680,16 @@ const Home: React.FC<HomeProps> = ({
               // Smart Matchmaking
               setIsMatching(true);
               try {
-                const matchedIds = await matchSuppliers(trimmedQuery, categorySuppliers, categories, profile?.location);
+                // --- FAST TIER ---
+                // Pre-filter by location or rating if possible for instant feedback
+                const fastMatches = categorySuppliers
+                  .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+                  .slice(0, 3);
+                setMatchedSuppliers(fastMatches);
+
+                // --- SMART TIER ---
+                // Run AI matching in the background
+                const { uids: matchedIds, reasoning } = await matchSuppliers(trimmedQuery, categorySuppliers, categories, profile?.location);
                 let matched = categorySuppliers.filter(s => matchedIds.includes(s.uid));
                 
                 // If AI returned empty but we have category suppliers, show them as "Relevant" instead of "Suggested"
@@ -618,14 +697,17 @@ const Home: React.FC<HomeProps> = ({
                   matched = categorySuppliers.slice(0, 3);
                 }
                 
+                // Update with smarter matches
                 setMatchedSuppliers(matched);
-                // Update the request document with matched suppliers for dashboard display
+                
+                // Update the request document with matched suppliers and reasoning for dashboard display
                 await updateDoc(doc(db, 'requests', requestRef.id), {
-                  suggestedSupplierIds: matched.map(s => s.uid)
+                  suggestedSupplierIds: matched.map(s => s.uid),
+                  aiReasoning: reasoning // Store the reasoning
                 });
               } catch (err) {
                 console.error('Matchmaking error:', err);
-                setMatchedSuppliers(categorySuppliers.slice(0, 3)); // Fallback to first 3
+                // Keep the fast matches if smart tier fails
               } finally {
                 setIsMatching(false);
               }
@@ -697,7 +779,7 @@ const Home: React.FC<HomeProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
-              className="mb-12 relative group cursor-pointer flex flex-col items-center"
+              className="mb-20 relative group cursor-pointer flex flex-col items-center"
               onClick={() => setIsVisualSearchOpen(true)}
             >
               {/* Spinning Neural Glow (Visible on Hover) */}
@@ -780,16 +862,37 @@ const Home: React.FC<HomeProps> = ({
                   dir={isRtl ? 'rtl' : 'ltr'}
                 />
                 <div className="flex items-center gap-2">
-                  <HapticButton onClick={handleVoiceInput} className="p-2 text-brand-text-muted hover:text-brand-primary transition-colors">
-                    <Mic size={20} />
+                  <HapticButton onClick={handleVoiceInput} className="p-3 text-brand-text-muted hover:text-brand-primary transition-colors">
+                    <Mic size={24} />
                   </HapticButton>
-                  <HapticButton onClick={() => setIsVisualSearchOpen(true)} className="p-2 text-brand-text-muted hover:text-brand-teal transition-colors">
-                    <Camera size={20} />
+                  <HapticButton onClick={() => setIsVisualSearchOpen(true)} className="p-3 text-brand-text-muted hover:text-brand-teal transition-colors">
+                    <Camera size={24} />
                   </HapticButton>
                 </div>
               </div>
             </div>
           </div>
+          
+          {/* Smart Suggestion */}
+          {nextAction && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex justify-center"
+            >
+              <HapticButton
+                onClick={() => {
+                  if (nextAction.action === 'upload_product') onNavigate('dashboard');
+                  if (nextAction.action === 'search_market') onNavigate('marketplace');
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-full text-sm font-medium hover:bg-brand-primary/20 transition-colors"
+              >
+                {nextAction.icon === 'Package' && <Package size={16} />}
+                {nextAction.icon === 'ShoppingBag' && <ShoppingBag size={16} />}
+                {t(nextAction.label)}
+              </HapticButton>
+            </motion.div>
+          )}
         </motion.div>
       ) : (
         <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-200px)] md:min-h-[calc(100vh-80px)] py-12 md:py-24 relative overflow-hidden">
@@ -837,18 +940,18 @@ const Home: React.FC<HomeProps> = ({
                 {/* Dynamic Aura Effect */}
                 <motion.div 
                   animate={logoAuraStyle === 'pulse' ? {
-                    scale: [1, logoAuraSpread, 1],
-                    opacity: [logoAuraOpacity * 0.5, logoAuraOpacity, logoAuraOpacity * 0.5],
+                    scale: [1, 1.02, 1],
+                    opacity: [logoAuraOpacity * 0.6, logoAuraOpacity * 0.8, logoAuraOpacity * 0.6],
                   } : logoAuraStyle === 'mesh' ? {
-                    scale: [1, 1.1, 1],
-                    rotate: [0, 90, 180, 270, 360],
-                    borderRadius: ["40% 60% 70% 30% / 40% 50% 60% 50%", "60% 40% 30% 70% / 50% 60% 40% 60%", "40% 60% 70% 30% / 40% 50% 60% 50%"]
-                  } : { 
                     scale: [1, 1.05, 1],
-                    opacity: [logoAuraOpacity * 0.8, logoAuraOpacity, logoAuraOpacity * 0.8],
+                    rotate: [0, 45, 90, 45, 0],
+                    borderRadius: ["40% 60% 70% 30% / 40% 50% 60% 50%", "50% 50% 50% 50% / 50% 50% 50% 50%", "40% 60% 70% 30% / 40% 50% 60% 50%"]
+                  } : { 
+                    scale: [1, 1.02, 1],
+                    opacity: [logoAuraOpacity * 0.7, logoAuraOpacity * 0.9, logoAuraOpacity * 0.7],
                   }}
                   transition={{ 
-                    duration: logoAuraStyle === 'pulse' ? 3 : 8, 
+                    duration: logoAuraStyle === 'pulse' ? 5 : 12, 
                     repeat: Infinity, 
                     ease: "easeInOut" 
                   }}
@@ -965,6 +1068,7 @@ const Home: React.FC<HomeProps> = ({
                     <Search className="w-5 h-5 md:w-6 md:h-6" strokeWidth={2} />
                   </div>
                   <input
+                    id="search-input"
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -1036,9 +1140,17 @@ const Home: React.FC<HomeProps> = ({
               className="mt-4 space-y-4"
             >
               {voiceError && (
-                <div className="p-4 bg-brand-error/10 text-brand-error rounded-2xl border border-brand-error/20 flex items-center gap-3 text-sm font-bold">
-                  <AlertCircle size={18} />
-                  {voiceError}
+                <div className="p-4 bg-brand-error/10 text-brand-error rounded-2xl border border-brand-error/20 flex flex-col gap-2 text-sm font-bold">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle size={18} />
+                    {voiceError}
+                  </div>
+                  <button 
+                    onClick={() => document.getElementById('search-input')?.focus()}
+                    className="text-xs underline hover:text-brand-error-dark"
+                  >
+                    {isRtl ? 'جرب الكتابة بدلاً من ذلك' : 'Try typing instead'}
+                  </button>
                 </div>
               )}
 
@@ -1235,139 +1347,22 @@ const Home: React.FC<HomeProps> = ({
               )}
 
               {matchedSuppliers.length > 0 && (
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-brand-teal/10 rounded-xl flex items-center justify-center text-brand-teal">
-                      <SparklesIcon size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-black text-brand-text-main">
-                        {isRtl ? 'الموردون المقترحون لك' : 'Suggested Suppliers for You'}
-                      </h3>
-                      <p className="text-xs text-brand-text-muted font-bold uppercase tracking-widest mt-1">
-                        {isRtl ? 'بناءً على تحليلات الذكاء الاصطناعي لطلبك' : 'Based on AI analysis of your request'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {matchedSuppliers.map((supplier) => (
-                      <motion.div
-                        key={supplier.uid}
-                        whileHover={{ y: -5 }}
-                        className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border border-white/40 dark:border-gray-700/50 rounded-[2rem] p-6 shadow-xl shadow-black/5 group relative overflow-hidden"
-                      >
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-teal/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-700" />
-                        
-                        <div className="relative z-10 flex flex-col items-center text-center">
-                          <div className="w-20 h-20 rounded-2xl bg-brand-background flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-lg">
-                            {supplier.photoURL ? (
-                              <img src={supplier.photoURL} alt={supplier.companyName} className="w-full h-full object-cover" />
-                            ) : (
-                              <Building2 size={32} className="text-brand-text-muted opacity-50" />
-                            )}
-                          </div>
-                          
-                          <h4 className="text-lg font-black text-brand-text-main mb-1 truncate w-full px-2">
-                            {supplier.companyName || supplier.name}
-                          </h4>
-                          
-                          <div className="flex items-center gap-1 text-amber-500 mb-3">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <SparklesIcon key={star} size={10} fill="currentColor" />
-                            ))}
-                            <span className="text-[10px] font-black ml-1 text-brand-text-muted">5.0</span>
-                          </div>
-
-                          <p className="text-xs text-brand-text-muted line-clamp-2 mb-6 min-h-[2rem]">
-                            {supplier.bio || (isRtl ? 'مورد معتمد في منصتنا' : 'Verified supplier on our platform')}
-                          </p>
-
-                          <div className="flex items-center gap-2 w-full">
-                            <HapticButton
-                              onClick={() => onOpenChat?.(supplier.uid)}
-                              className="flex-1 bg-brand-primary text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:bg-brand-primary-dark transition-all"
-                            >
-                              {isRtl ? 'تواصل' : 'Contact'}
-                            </HapticButton>
-                            <HapticButton
-                              onClick={() => onViewProfile?.(supplier.uid)}
-                              className="p-3 bg-brand-background text-brand-text-main rounded-xl hover:bg-brand-border transition-all"
-                            >
-                              <ArrowRight size={16} className={isRtl ? 'rotate-180' : ''} />
-                            </HapticButton>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
+                <MatchedSuppliersSection 
+                  matchedSuppliers={matchedSuppliers} 
+                  isRtl={isRtl} 
+                  onOpenChat={onOpenChat || (() => {})} 
+                  onViewProfile={onViewProfile || (() => {})} 
+                />
               )}
+
             </motion.div>
           )}
         </AnimatePresence>
 
         {!profile && (
-          <motion.div 
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mt-32 relative group overflow-hidden rounded-[4rem] bg-white/40 dark:bg-gray-900/40 backdrop-blur-3xl border border-white/40 dark:border-gray-700/50 shadow-2xl shadow-brand-primary/10"
-          >
-            {/* Background Effects */}
-            <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/5 via-transparent to-brand-teal/5 group-hover:opacity-100 transition-opacity duration-1000" />
-            <div className="absolute -top-32 -right-32 w-[30rem] h-[30rem] bg-brand-teal/10 rounded-full blur-[120px] group-hover:scale-125 transition-transform duration-1000" />
-            <div className="absolute -bottom-32 -left-32 w-[30rem] h-[30rem] bg-brand-primary/10 rounded-full blur-[120px] group-hover:scale-125 transition-transform duration-1000" />
-            
-            <div className="relative z-10 p-8 md:p-24 flex flex-col lg:flex-row items-center justify-between gap-16">
-              <div className="text-center lg:text-left max-w-3xl">
-                <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-brand-teal/10 text-brand-teal font-black text-sm mb-8 border border-brand-teal/20 shadow-sm">
-                  <SparklesIcon size={18} />
-                  {i18n.language === 'ar' ? 'للموردين والشركات المتميزة' : 'For Premium Suppliers & Businesses'}
-                </div>
-                <h3 className="text-3xl md:text-6xl lg:text-7xl font-black mb-8 text-brand-text-main tracking-tight leading-[1.1]">
-                  {i18n.language === 'ar' ? 'هل أنت مورد؟' : 'Are you a supplier?'}
-                </h3>
-                <p className="text-lg md:text-2xl text-brand-text-muted mb-12 leading-relaxed font-medium">
-                  {i18n.language === 'ar' 
-                    ? 'انضم إلى شبكتنا الحصرية من الموردين المتميزين. ابدأ في تلقي طلبات المنتجات من العملاء، وسّع نطاق عملك، وزد مبيعاتك بكل سهولة واحترافية.' 
-                    : 'Join our exclusive network of premium suppliers. Start receiving product requests from customers, expand your reach, and grow your sales with ease and professionalism.'}
-                </p>
-                <HapticButton
-                  onClick={() => onNavigate('auth-supplier')}
-                  className="group/btn relative overflow-hidden bg-gradient-to-r from-brand-teal via-brand-primary to-brand-teal bg-[length:200%_auto] animate-gradient-x text-white px-12 py-6 rounded-[2rem] text-xl font-black shadow-2xl shadow-brand-teal/30 hover:shadow-brand-teal/50 transition-all hover:-translate-y-2 flex items-center justify-center gap-4 w-full md:w-auto"
-                >
-                  <span className="relative z-10 flex items-center gap-4">
-                    {i18n.language === 'ar' ? 'سجل كمورد الآن' : 'Register as Supplier Now'}
-                    <ArrowRight size={28} className={`group-hover/btn:translate-x-2 transition-transform ${isRtl ? 'rotate-180 group-hover/btn:-translate-x-2' : ''}`} />
-                  </span>
-                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500 ease-out" />
-                </HapticButton>
-              </div>
-              
-              <div className="hidden lg:flex relative w-80 h-80 shrink-0 items-center justify-center">
-                <div className="absolute inset-0 bg-gradient-to-br from-brand-teal/30 to-brand-primary/30 rounded-full animate-pulse-slow blur-3xl" />
-                <motion.div 
-                  animate={{ 
-                    y: [0, -20, 0],
-                    rotate: [0, 5, 0]
-                  }}
-                  transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                  className="relative w-64 h-64 bg-white/60 dark:bg-gray-900/60 backdrop-blur-3xl rounded-[3rem] border border-white/40 dark:border-gray-700/50 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-1000"
-                >
-                  <Building2 size={120} className="text-brand-teal opacity-80" strokeWidth={1} />
-                  {/* Floating Elements */}
-                  <div className="absolute -top-6 -right-6 p-4 bg-brand-primary text-white rounded-2xl shadow-xl animate-bounce-slow">
-                    <Package size={32} />
-                  </div>
-                  <div className="absolute -bottom-6 -left-6 p-4 bg-brand-teal text-white rounded-2xl shadow-xl animate-bounce-slow" style={{ animationDelay: '1s' }}>
-                    <SparklesIcon size={32} />
-                  </div>
-                </motion.div>
-              </div>
-            </div>
-          </motion.div>
+          <SupplierRegistrationCTA isRtl={isRtl} i18n={i18n} onNavigate={onNavigate} />
         )}
+
       </div>
     )}
 
@@ -1391,6 +1386,41 @@ const Home: React.FC<HomeProps> = ({
       <SparklesIcon size={24} />
       <span className="font-bold">{isRtl ? 'اكتشف' : 'Explore'}</span>
     </motion.button>
+
+      {/* Concierge Trigger */}
+      <AnimatePresence>
+        {showConciergeTrigger && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-24 left-4 right-4 md:left-auto md:right-6 md:w-96 z-50 bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-2xl border border-brand-border"
+          >
+            <h3 className="text-lg font-black text-brand-text-main mb-2">
+              {isRtl ? 'اجعلنا مساعدك الشخصي' : 'Make us your personal assistant'}
+            </h3>
+            <p className="text-sm text-brand-text-muted mb-6">
+              {isRtl 
+                ? 'بدلاً من تضييع وقتك في البحث، اسمح لنا بإرسال تنبيهات ذكية ومخصصة لك فقط عندما نجد المورد الذي يناسب احتياجاتك بدقة. لا رسائل مزعجة، فقط ما تحتاجه فعلياً.'
+                : 'Instead of wasting your time searching, let us send you smart, personalized alerts only when we find the supplier that perfectly matches your needs. No spam, just what you actually need.'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConciergeTrigger(false)}
+                className="flex-1 py-3 rounded-xl font-bold text-brand-text-muted hover:bg-brand-background transition-colors"
+              >
+                {isRtl ? 'ليس الآن' : 'Not now'}
+              </button>
+              <button
+                onClick={() => updateConciergeConsent().catch(err => console.error("Consent update error:", err))}
+                className="flex-[2] py-3 rounded-xl font-bold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors"
+              >
+                {isRtl ? 'تفعيل التنبيهات' : 'Enable alerts'}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 </div>
 );
 };

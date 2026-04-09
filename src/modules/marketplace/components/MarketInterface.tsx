@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query';
+import { fetchMarketplaceItems, fetchCategories, fetchMarketTrends, fetchSuppliers, searchMarketplaceAndSuppliers } from '../services/marketService';
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -14,7 +16,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../../../core/firebase';
-import { MarketplaceItem, UserProfile, Category, AppFeatures, MarketTrend } from '../../../core/types';
+import { MarketplaceItem, UserProfile, Category, AppFeatures, MarketTrend, UserRole } from '../../../core/types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -55,6 +57,8 @@ import { handleFirestoreError, OperationType } from '../../../core/utils/errorHa
 import { Skeleton } from '../../../shared/components/Skeleton';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { ProductCard } from './ProductCard';
+import { ProductCardSkeleton } from './ProductCardSkeleton';
+import { SupplierSpotlight } from './SupplierSpotlight';
 import { ProductDetailsModal } from '../../../shared/components/ProductDetailsModal';
 import { SmartUploadModal } from './upload-flow/SmartUploadModal';
 import { EditProductModal } from './EditProductModal';
@@ -72,7 +76,7 @@ interface MarketInterfaceProps {
   features: AppFeatures;
   onOpenChat: (chatId: string) => void;
   onViewProfile: (uid: string) => void;
-  viewMode?: 'admin' | 'supplier' | 'customer';
+  viewMode?: UserRole;
 }
 
 import { ScrollDirection, useScrollDirection } from '../../../shared/hooks/useScrollDirection';
@@ -195,11 +199,6 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     }
   };
 
-  const [items, setItems] = useState<MarketplaceItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [suppliers, setSuppliers] = useState<UserProfile[]>([]);
-  const [marketTrends, setMarketTrends] = useState<MarketTrend[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -222,10 +221,42 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const [neuralPulse, setNeuralPulse] = useState<{ ar: string; en: string } | null>(null);
   const [isNeuralPulseLoading, setIsNeuralPulseLoading] = useState(false);
   const [showPulseBar, setShowPulseBar] = useState(true);
-  const [viewStyle, setViewStyle] = useState<'grid' | 'canvas'>('canvas');
+  const [viewStyle, setViewStyle] = useState<'grid' | 'canvas'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 'canvas';
+    }
+    return 'grid';
+  });
   const [restoreBtnPos, setRestoreBtnPos] = useState(() => {
     const saved = localStorage.getItem('pulse_restore_pos');
     return saved ? JSON.parse(saved) : { x: 0, y: 0 };
+  });
+
+  const { data: items = [], isLoading: itemsLoading } = useQuery({
+    queryKey: ['marketplace', activeTab, auth.currentUser?.uid],
+    queryFn: () => fetchMarketplaceItems(activeTab, auth.currentUser?.uid),
+    enabled: !!auth.currentUser || activeTab === 'discover'
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: fetchCategories
+  });
+
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: fetchSuppliers
+  });
+
+  const { data: marketTrends = [] } = useQuery({
+    queryKey: ['marketTrends'],
+    queryFn: fetchMarketTrends
+  });
+
+  const { data: searchResults, isLoading: isSearching } = useQuery({
+    queryKey: ['search', searchTerm],
+    queryFn: () => searchMarketplaceAndSuppliers(searchTerm),
+    enabled: searchTerm.length > 2
   });
   
   const effectiveRole = viewMode || profile?.role;
@@ -233,7 +264,6 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const isSupplier = effectiveRole === 'supplier';
   const isCustomer = effectiveRole === 'customer';
 
-  // Reset view state when role changes (for admin testing)
   useEffect(() => {
     if (isCustomer) {
       setActiveTab('discover');
@@ -243,174 +273,6 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
       setShowAdminHub(false);
     }
   }, [effectiveRole, isCustomer, isSupplier]);
-
-  useEffect(() => {
-    const q = activeTab === 'myshop' && auth.currentUser
-      ? query(collection(db, 'marketplace'), where('sellerId', '==', auth.currentUser.uid), orderBy('createdAt', 'desc'))
-      : query(collection(db, 'marketplace'), where('status', '==', 'active'), orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as MarketplaceItem));
-      setItems(docs);
-      setLoading(false);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'marketplace', false);
-      setLoading(false);
-    });
-
-    const fetchCategories = async () => {
-      try {
-        const catSnap = await getDocs(collection(db, 'categories'));
-        const docs = catSnap.docs.map(d => ({ id: d.id, ...d.data() } as Category));
-        
-        // Load click history from localStorage
-        const savedClicks = localStorage.getItem('market_category_clicks');
-        const clicks = savedClicks ? JSON.parse(savedClicks) : {};
-        setCategoryClicks(clicks);
-
-        // Smart Sorting Logic
-        const sorted = docs.sort((a, b) => {
-          // 1. Check User Interests (Profile Categories)
-          const aIsInterest = profile?.categories?.includes(a.id) ? 1 : 0;
-          const bIsInterest = profile?.categories?.includes(b.id) ? 1 : 0;
-          if (aIsInterest !== bIsInterest) return bIsInterest - aIsInterest;
-
-          // 2. Check User Behavior (Click Count)
-          const aClicks = clicks[a.id] || 0;
-          const bClicks = clicks[b.id] || 0;
-          if (aClicks !== bClicks) return bClicks - aClicks;
-
-          // 3. Random Factor for Freshness (Small weight)
-          // We use a stable random based on the day to keep it consistent for a while
-          const today = new Date().toDateString();
-          const seed = (str: string) => str.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0);
-          const aRandom = seed(a.id + today) % 100;
-          const bRandom = seed(b.id + today) % 100;
-          if (Math.abs(aRandom - bRandom) > 20) return bRandom - aRandom;
-
-          // 4. Alphabetical Fallback
-          const nameA = isRtl ? a.nameAr : a.nameEn;
-          const nameB = isRtl ? b.nameAr : b.nameEn;
-          return nameA.localeCompare(nameB, i18n.language);
-        });
-        setCategories(sorted);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'categories', false);
-      }
-    };
-
-    const fetchTrends = async () => {
-      try {
-        const trendSnap = await getDocs(collection(db, 'marketTrends'));
-        const docs = trendSnap.docs.map(d => ({ id: d.id, ...d.data() } as MarketTrend));
-        setMarketTrends(docs);
-      } catch (error) {
-        // Silent fail for trends
-      }
-    };
-    
-    const fetchSuppliers = async () => {
-      if (!auth.currentUser) return;
-      try {
-        const q = query(collection(db, 'users'), where('role', '==', 'supplier'), limit(10));
-        const snap = await getDocs(q);
-        const docs = snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile));
-        setSuppliers(docs);
-      } catch (error) {
-        console.error('Error fetching suppliers:', error);
-      }
-    };
-
-    fetchCategories().catch(err => console.error("Unhandled fetchCategories error:", err));
-    fetchTrends().catch(err => console.error("Unhandled fetchTrends error:", err));
-    fetchSuppliers().catch(err => console.error("Unhandled fetchSuppliers error:", err));
-
-    // Fetch Neural Pulse Insights
-    const fetchNeuralPulse = async () => {
-      setIsNeuralPulseLoading(true);
-      try {
-        // Analyze current items to generate dynamic insights
-        const categoryCounts: Record<string, number> = {};
-        let totalViews = 0;
-        let mostExpensiveItem: MarketplaceItem | null = null;
-        let newestItem: MarketplaceItem | null = null;
-
-        items.forEach(item => {
-          if (item.categories?.[0]) {
-            categoryCounts[item.categories[0]] = (categoryCounts[item.categories[0]] || 0) + 1;
-          }
-          totalViews += (item.views || 0);
-          if (!mostExpensiveItem || item.price > mostExpensiveItem.price) mostExpensiveItem = item;
-          if (!newestItem || new Date(item.createdAt) > new Date(newestItem.createdAt)) newestItem = item;
-        });
-
-        // Special case for empty market
-        if (items.length === 0) {
-          const emptyInsights = [
-            { ar: 'السوق جديد وهادئ.. كن أول من يضيف منتجاً اليوم!', en: 'The market is new and quiet.. Be the first to add a product today!' },
-            { ar: 'نصيحة: إضافة صور واضحة تزيد من فرص البيع بنسبة 50%.', en: 'Tip: Adding clear photos increases sales chances by 50%.' },
-            { ar: 'ابدأ تجارتك الآن بضغطة زر واحدة من قائمة الإجراءات.', en: 'Start your trade now with a single click from the actions menu.' }
-          ];
-          const randomEmpty = emptyInsights[Math.floor(Math.random() * emptyInsights.length)];
-          setNeuralPulse(randomEmpty);
-          setIsNeuralPulseLoading(false);
-          return;
-        }
-
-        const topCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'General';
-        
-        // Randomly pick one of several insight types
-        const insightType = Math.floor(Math.random() * 6);
-        let ar = '', en = '';
-
-        switch (insightType) {
-          case 0:
-            ar = `الذكاء الاصطناعي يلاحظ نشاطاً كبيراً في فئة ${topCategory}. تم تسجيل ${totalViews} مشاهدة للمنتجات مؤخراً.`;
-            en = `AI observes high activity in the ${topCategory} category. ${totalViews} product views recorded recently.`;
-            break;
-          case 1:
-            ar = `تحليل السوق: فئة ${topCategory} هي الأكثر طلباً اليوم. ننصح البائعين بتحديث مخزونهم.`;
-            en = `Market Analysis: ${topCategory} is the most requested today. We advise sellers to update their stock.`;
-            break;
-          case 2:
-            if (newestItem) {
-              ar = `منتج جديد مميز: ${isRtl ? newestItem.titleAr : newestItem.titleEn} متوفر الآن في السوق.`;
-              en = `Featured New Arrival: ${isRtl ? newestItem.titleAr : newestItem.titleEn} is now available in the market.`;
-            } else {
-              ar = `السوق يشهد استقراراً في الأسعار مع زيادة في عدد المتسوقين النشطين.`;
-              en = `The market is seeing price stability with an increase in active shoppers.`;
-            }
-            break;
-          case 3:
-            ar = `نصيحة ذكية: المنتجات ذات الصور الواضحة والوصف التفصيلي تحصل على تفاعل أعلى بنسبة 40%.`;
-            en = `Smart Tip: Products with clear photos and detailed descriptions get 40% higher engagement.`;
-            break;
-          case 4:
-            ar = `تنبيه التوجهات: هناك زيادة بنسبة 15% في البحث عن منتجات مستدامة هذا الأسبوع.`;
-            en = `Trend Alert: There's a 15% increase in searches for sustainable products this week.`;
-            break;
-          case 5:
-            ar = `رؤية الذكاء: الوقت الحالي هو الأنسب لعرض المنتجات الموسمية لزيادة المبيعات.`;
-            en = `AI Insight: Now is the best time to list seasonal products to maximize sales.`;
-            break;
-          default:
-            ar = `الذكاء الاصطناعي يراقب السوق لضمان أفضل تجربة تسوق لك.`;
-            en = `AI is monitoring the market to ensure the best shopping experience for you.`;
-        }
-        
-        setNeuralPulse({ ar, en });
-        setIsNeuralPulseLoading(false);
-      } catch (error) {
-        setIsNeuralPulseLoading(false);
-      }
-    };
-
-    if (items.length >= 0) {
-      fetchNeuralPulse().catch(err => console.error("Neural Pulse fetch failed:", err));
-    }
-
-    return () => unsubscribe();
-  }, [activeTab]);
 
   const handleDelete = async (item: MarketplaceItem) => {
     setItemToDelete(item);
@@ -508,7 +370,9 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
 
   const filteredItems = visualSearchResults 
     ? visualSearchResults 
-    : items.filter(item => {
+    : (searchTerm.length > 2 && searchResults?.products) 
+      ? searchResults.products
+      : items.filter(item => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
       (item.title?.toLowerCase() || '').includes(searchLower) || 
@@ -686,26 +550,8 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           animate={{ opacity: 1, y: 0 }}
           className="mb-12"
         >
-          <div className="relative p-8 md:p-12 rounded-[3rem] bg-gradient-to-br from-brand-primary/5 via-white to-brand-teal/5 border border-brand-border/50 overflow-hidden group">
-            {/* Background Decorative Elements */}
-            <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-96 h-96 bg-brand-primary/10 rounded-full blur-[100px] pointer-events-none" />
-            <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-96 h-96 bg-brand-teal/10 rounded-full blur-[100px] pointer-events-none" />
-            
+          <div className="relative p-4 rounded-3xl bg-transparent overflow-hidden group md:hidden">
             <div className="relative z-10 max-w-3xl mx-auto text-center">
-              <motion.div
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-primary/10 text-brand-primary text-xs font-black uppercase tracking-widest mb-6"
-              >
-                <Sparkles size={14} className="animate-pulse" />
-                {isRtl ? 'اكتشف الأفضل في السوق' : 'Discover the Best in Market'}
-              </motion.div>
-              
-              <h1 className="text-3xl md:text-5xl font-black text-brand-text-main mb-6 leading-tight">
-                {isRtl ? 'ابحث عن منتجاتك المفضلة' : 'Find Your Favorite Products'}
-                <span className="text-brand-primary">.</span>
-              </h1>
-              
               <div className="relative group/search max-w-2xl mx-auto">
                 <div className="absolute -inset-1 bg-gradient-to-r from-brand-primary/20 to-brand-teal/20 rounded-2xl blur opacity-25 group-focus-within/search:opacity-100 transition-opacity duration-500" />
                 <div className="relative flex items-center bg-white dark:bg-slate-900 border border-brand-border rounded-2xl p-2 shadow-xl">
@@ -732,28 +578,8 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                     >
                       <Camera size={18} />
                     </HapticButton>
-                    <HapticButton
-                      className="hidden sm:flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-xl font-black text-sm hover:bg-brand-primary-hover transition-all shadow-lg shadow-brand-primary/20"
-                    >
-                      {isRtl ? 'بحث' : 'Search'}
-                    </HapticButton>
                   </div>
                 </div>
-              </div>
-              
-              <div className="mt-8 flex flex-wrap justify-center gap-3">
-                <p className="w-full text-xs font-bold text-brand-text-muted uppercase tracking-widest mb-1">
-                  {isRtl ? 'عمليات بحث شائعة' : 'Popular Searches'}
-                </p>
-                {['iPhone 15', 'MacBook Air', 'Nike Air Max', 'Sony PS5'].map((tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => setSearchTerm(tag)}
-                    className="px-4 py-2 rounded-xl bg-white/50 dark:bg-slate-800/50 border border-brand-border hover:border-brand-primary hover:text-brand-primary text-xs font-bold transition-all"
-                  >
-                    {tag}
-                  </button>
-                ))}
               </div>
             </div>
           </div>
@@ -860,6 +686,15 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
               </div>
             </div>
           </motion.div>
+        )}
+
+        {/* Supplier Spotlight */}
+        {searchTerm === '' && !selectedCategory && sellerTypeFilter === 'all' && (
+          <SupplierSpotlight 
+            suppliers={suppliers} 
+            onViewProfile={onViewProfile} 
+            isRtl={isRtl} 
+          />
         )}
 
         {/* Recommended for You Section */}
@@ -997,37 +832,6 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           </motion.div>
         )}
 
-        {/* Intelligent Supplier Display Section */}
-        {suppliers.length > 0 && !selectedCategory && searchTerm === '' && (
-          supplierLayout === 'mosaic' ? (
-            <SupplierMosaic 
-              suppliers={suppliers} 
-              isRtl={isRtl} 
-              onViewProfile={onViewProfile}
-              onOpenChat={onOpenChat}
-              profile={profile}
-            />
-          ) : supplierLayout === 'horizon' ? (
-            <SupplierPulseHorizon 
-              suppliers={suppliers} 
-              isRtl={isRtl} 
-              onViewProfile={onViewProfile}
-              onOpenChat={onOpenChat}
-              onToggleLayout={() => setSupplierLayout('nebula')}
-              profile={profile}
-            />
-          ) : (
-            <SupplierNebulaLayout 
-              suppliers={suppliers} 
-              isRtl={isRtl} 
-              onViewProfile={onViewProfile}
-              onOpenChat={onOpenChat}
-              onToggleLayout={() => setSupplierLayout('mosaic')}
-              profile={profile}
-            />
-          )
-        )}
-
         {/* Recently Viewed Section */}
         {recentlyViewedItems.length > 0 && !selectedCategory && searchTerm === '' && sellerTypeFilter === 'all' && (
           <motion.div 
@@ -1108,14 +912,14 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
         </AnimatePresence>
 
         {/* View Toggle */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white">
+        <div className="flex justify-between items-center mb-4 md:mb-6">
+          <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white">
             {isRtl ? 'اكتشف المنتجات' : 'Discover Products'}
           </h2>
           <div className="flex items-center gap-2 bg-brand-surface p-1 rounded-xl border border-brand-border">
             <button
               onClick={() => setViewStyle('canvas')}
-              className={`p-2 rounded-lg transition-colors ${viewStyle === 'canvas' ? 'bg-brand-primary text-white' : 'text-brand-text-muted hover:text-brand-primary'}`}
+              className={`p-2 rounded-lg transition-colors hidden md:flex ${viewStyle === 'canvas' ? 'bg-brand-primary text-white' : 'text-brand-text-muted hover:text-brand-primary'}`}
               title={isRtl ? 'عرض اللوحة' : 'Canvas View'}
             >
               <LayoutGrid size={20} />
@@ -1130,21 +934,9 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           </div>
         </div>
 
-        {loading ? (
+        {itemsLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-            {[...Array(10)].map((_, i) => (
-              <div key={i} className={`rounded-3xl overflow-hidden ${glassClass}`}>
-                <Skeleton className="w-full aspect-[4/5]" />
-                <div className="p-4 space-y-3">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-3 w-1/2" />
-                  <div className="flex justify-between items-center pt-2">
-                    <Skeleton className="h-8 w-8 rounded-full" />
-                    <Skeleton className="h-8 w-16 rounded-full" />
-                  </div>
-                </div>
-              </div>
-            ))}
+            {[...Array(10)].map((_, i) => <ProductCardSkeleton key={`skeleton-${i}`} />)}
           </div>
         ) : filteredItems.length > 0 ? (
           viewStyle === 'canvas' ? (
@@ -1171,19 +963,23 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
               className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"
             >
               <AnimatePresence>
-                {filteredItems.map(item => (
-                  <ProductCard 
-                    key={item.id} 
-                    item={item} 
-                    onOpenChat={onOpenChat}
-                    onViewDetails={() => handleViewProduct(item)}
-                    onViewProfile={onViewProfile}
-                    isOwner={profile?.uid === item.sellerId}
-                    isAdmin={isAdmin}
-                    onDelete={handleDelete}
-                    onEdit={(item) => setEditingItem(item)}
-                  />
-                ))}
+                {itemsLoading ? (
+                  [...Array(10)].map((_, i) => <ProductCardSkeleton key={`skeleton-${i}`} />)
+                ) : (
+                  filteredItems.map(item => (
+                    <ProductCard 
+                      key={item.id} 
+                      item={item} 
+                      onOpenChat={onOpenChat}
+                      onViewDetails={() => handleViewProduct(item)}
+                      onViewProfile={onViewProfile}
+                      isOwner={profile?.uid === item.sellerId}
+                      isAdmin={isAdmin}
+                      onDelete={handleDelete}
+                      onEdit={(item) => setEditingItem(item)}
+                    />
+                  ))
+                )}
               </AnimatePresence>
             </motion.div>
           )

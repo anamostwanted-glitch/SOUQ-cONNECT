@@ -197,7 +197,7 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
           enhancedResult.category
         ].filter(Boolean).join(' ');
 
-        const supplierIds = await matchSuppliers(
+        const { uids: supplierIds } = await matchSuppliers(
           searchTerms,
           allSuppliers,
           categories,

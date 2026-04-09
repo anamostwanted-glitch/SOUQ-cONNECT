@@ -54,7 +54,7 @@ export const NeuralPulse: React.FC<NeuralPulseProps> = ({ onAction }) => {
           // Only auto-trigger if we haven't called it recently (e.g., in the last 5 minutes)
           const now = Date.now();
           if (now - lastGeoCall > 5 * 60 * 1000) {
-            handleGeoInsight(loc);
+            handleGeoInsight(loc).catch(err => console.error("Geo insight error:", err));
           }
         },
         (err) => console.warn('Location access denied', err)

@@ -29,7 +29,7 @@ import { handleFirestoreError, OperationType } from '../../../core/utils/errorHa
 import imageCompression from 'browser-image-compression';
 import { getProfileInsights, optimizeSupplierProfile } from '../../../core/services/geminiService';
 
-interface NexusStorefrontProps {
+interface ConnectStorefrontProps {
   profile: UserProfile;
   isOwner: boolean;
   onViewProduct: (item: MarketplaceItem) => void;
@@ -37,7 +37,7 @@ interface NexusStorefrontProps {
   onOpenChat: (id: string) => void;
 }
 
-export const NexusStorefront: React.FC<NexusStorefrontProps> = ({ profile, isOwner, onViewProduct, onBack, onOpenChat }) => {
+export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, isOwner, onViewProduct, onBack, onOpenChat }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   

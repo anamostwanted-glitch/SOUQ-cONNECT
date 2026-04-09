@@ -39,6 +39,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
   const [name, setName] = useState('');
   const [role, setRole] = useState<UserRole>(initialRole || 'customer');
   const [companyName, setCompanyName] = useState('');
+  const [commercialRegistration, setCommercialRegistration] = useState('');
   const [phone, setPhone] = useState('');
   const [location, setLocation] = useState('');
   const [coordinates, setCoordinates] = useState<{latitude: number, longitude: number} | null>(null);
@@ -334,11 +335,13 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           role: assignedRole,
           referralCode: user.uid.substring(0, 6).toUpperCase(),
           referralPoints: 0,
+          loyaltyPoints: assignedRole === 'customer' ? 50 : 0, // Welcome points
           createdAt: new Date().toISOString()
         };
 
         if (assignedRole === 'supplier') {
           profileData.companyName = companyName;
+          profileData.commercialRegistration = commercialRegistration;
           profileData.phone = phone;
           profileData.location = location;
           if (coordinates) {
@@ -781,6 +784,19 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                       type="text"
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary outline-none transition-all"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-brand-text-main mb-1 flex items-center gap-2">
+                      <Building2 size={16} className="text-brand-primary" />
+                      {i18n.language === 'ar' ? 'رقم السجل التجاري' : 'Commercial Registration No.'}
+                    </label>
+                    <input
+                      type="text"
+                      value={commercialRegistration}
+                      onChange={(e) => setCommercialRegistration(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary outline-none transition-all"
                       required
                     />

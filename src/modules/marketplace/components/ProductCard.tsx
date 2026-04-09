@@ -194,50 +194,55 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-all group/seller"
           onClick={(e) => {
             e.stopPropagation();
+            if (!auth.currentUser) return;
             onViewProfile?.(item.sellerId);
           }}
         >
           <div className="relative">
             <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-teal flex items-center justify-center text-white font-black text-sm shrink-0 shadow-lg shadow-brand-primary/10 group-hover/seller:scale-110 transition-transform">
-              {(item.sellerName || 'S').charAt(0).toUpperCase()}
+              {auth.currentUser ? (item.sellerName || 'S').charAt(0).toUpperCase() : '?'}
             </div>
-            {item.isOnline && (
+            {item.isOnline && auth.currentUser && (
               <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-brand-teal rounded-full border-2 border-white dark:border-slate-800" />
             )}
           </div>
           <div className="flex flex-col min-w-0">
             <span className="text-xs font-black text-brand-text-main truncate flex items-center gap-1">
-              {item.sellerName || (isRtl ? 'بائع' : 'Seller')}
-              {item.sellerRole === 'supplier' && (
+              {auth.currentUser ? (item.sellerName || (isRtl ? 'بائع' : 'Seller')) : (isRtl ? 'سجل للمشاهدة' : 'Login to view')}
+              {item.sellerRole === 'supplier' && auth.currentUser && (
                 <ShieldCheck size={12} className="text-brand-primary fill-brand-primary/10" />
               )}
             </span>
             <span className="text-[9px] font-bold text-brand-text-muted uppercase tracking-tighter">
-              {item.sellerRole === 'supplier' ? (isRtl ? 'مورد معتمد' : 'Verified Supplier') : (isRtl ? 'بائع مجتمعي' : 'Community')}
+              {auth.currentUser ? (item.sellerRole === 'supplier' ? (isRtl ? 'مورد معتمد' : 'Verified Supplier') : (isRtl ? 'بائع مجتمعي' : 'Community')) : (isRtl ? 'معلومات البائع' : 'Seller Info')}
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <HapticButton 
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!auth.currentUser) return;
-              const chatId = [auth.currentUser.uid, item.sellerId].sort().join('_');
-              onOpenChat(chatId);
-            }}
-            className="w-10 h-10 rounded-2xl bg-brand-primary/10 text-brand-primary hover:bg-brand-primary hover:text-white flex items-center justify-center transition-all shadow-sm"
-            title={isRtl ? 'محادثة' : 'Chat'}
-          >
-            <MessageCircle size={20} />
-          </HapticButton>
-          
-          <WhatsAppButton 
-            phoneNumber={item.sellerPhone || ''}
-            productName={displayTitle}
-            productId={item.id}
-            className="w-10 h-10 !p-0 rounded-2xl flex items-center justify-center shadow-sm hover:scale-105 transition-transform"
-          />
+          {auth.currentUser && (
+            <>
+              <HapticButton 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!auth.currentUser) return;
+                  const chatId = [auth.currentUser.uid, item.sellerId].sort().join('_');
+                  onOpenChat(chatId);
+                }}
+                className="w-10 h-10 rounded-2xl bg-brand-primary/10 text-brand-primary hover:bg-brand-primary hover:text-white flex items-center justify-center transition-all shadow-sm"
+                title={isRtl ? 'محادثة' : 'Chat'}
+              >
+                <MessageCircle size={20} />
+              </HapticButton>
+              
+              <WhatsAppButton 
+                phoneNumber={item.sellerPhone || ''}
+                productName={displayTitle}
+                productId={item.id}
+                className="w-10 h-10 !p-0 rounded-2xl flex items-center justify-center shadow-sm hover:scale-105 transition-transform"
+              />
+            </>
+          )}
         </div>
       </div>
     </motion.div>

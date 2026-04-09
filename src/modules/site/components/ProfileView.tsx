@@ -573,30 +573,39 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
 
   const handleSaveProfile = async () => {
     if (!profile) return;
-    setIsSaving(true);
-    try {
-      const updateData: any = {
-        name: editName,
-        phone: editPhone,
-        location: editLocation,
-        ...(editCoordinates ? { coordinates: editCoordinates } : {}),
-        website: editWebsite,
-        bio: editBio,
-        logoUrl: editLogoUrl,
-        coverUrl: editCoverUrl,
-        keywords: editKeywords,
-        categories: editCategories
-      };
-      
-      if (profile.role === 'supplier' || profile.role === 'admin') {
-        updateData.companyName = editCompanyName;
-      }
+    
+    // Optimistic UI update
+    const previousProfile = { ...profile };
+    const updateData: any = {
+      name: editName,
+      phone: editPhone,
+      location: editLocation,
+      ...(editCoordinates ? { coordinates: editCoordinates } : {}),
+      website: editWebsite,
+      bio: editBio,
+      logoUrl: editLogoUrl,
+      coverUrl: editCoverUrl,
+      keywords: editKeywords,
+      categories: editCategories
+    };
+    
+    if (profile.role === 'supplier' || profile.role === 'admin') {
+      updateData.companyName = editCompanyName;
+    }
 
+    setIsSaving(true);
+    setProfile({ ...profile, ...updateData });
+    setIsEditing(false);
+
+    try {
       await updateDoc(doc(db, 'users', profile.uid), updateData);
-      setProfile({ ...profile, ...updateData });
-      setIsEditing(false);
+      toast.success(isRtl ? 'تم حفظ التغييرات!' : 'Changes saved!');
     } catch (error) {
+      // Revert on failure
+      setProfile(previousProfile);
+      setIsEditing(true);
       handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}`, false);
+      toast.error(isRtl ? 'فشل حفظ التغييرات' : 'Failed to save changes');
     } finally {
       setIsSaving(false);
     }

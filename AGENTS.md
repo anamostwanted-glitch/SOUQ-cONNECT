@@ -21,3 +21,17 @@
 ## 4. Security
 - Never hardcode API keys or secrets.
 - Always validate user roles (`isAdmin()`, `isSupplier()`) before rendering sensitive UI components or performing privileged actions.
+
+## 5. Project Context Summary (Backup)
+- **Project Name:** Nexus AI Marketplace (Multi-User Platform)
+- **Core Stack:** React 18, Vite, Tailwind CSS, Firebase (Auth, Firestore, Storage).
+- **Architecture:** Modular structure (modules/marketplace, modules/site, modules/user, modules/admin).
+- **Key Features:**
+  - Multi-role support (Customer, Supplier, Admin).
+  - Smart Bento Menu navigation with role-based logic.
+  - Real-time chat with AI pulse insights (Gemini).
+  - Marketplace with smart category sorting and visual search.
+  - Neural Hub for AI-driven user insights.
+- **Navigation State:** Managed via `currentView` and `dashboardTab` in `App.tsx`.
+- **Error Handling:** Centralized via `handleFirestoreError` in `core/utils/errorHandling.ts`.
+- **Data Pattern:** Soft delete for all user content.

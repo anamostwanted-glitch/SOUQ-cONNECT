@@ -183,6 +183,17 @@ const BrandingSettings: React.FC<BrandingSettingsProps> = ({ onBack }) => {
   };
 
   const handleSave = async () => {
+    // Simple contrast check
+    const r = parseInt(branding.primaryColor.substring(1, 3), 16);
+    const g = parseInt(branding.primaryColor.substring(3, 5), 16);
+    const b = parseInt(branding.primaryColor.substring(5, 7), 16);
+    const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    
+    if (luminance < 0.2) {
+      setMessage(i18n.language === 'ar' ? 'اللون الأساسي داكن جداً، قد يؤثر على سهولة القراءة.' : 'Primary color is too dark, may affect readability.');
+      return;
+    }
+
     setSaving(true);
     setMessage('');
     try {

@@ -28,6 +28,8 @@ interface BentoMenuProps {
   features: AppFeatures;
   currentView: string;
   setView: (view: any) => void;
+  dashboardTab?: string;
+  setDashboardTab?: (tab: string) => void;
   viewMode: string;
   setViewMode: (mode: any) => void;
   isRtl: boolean;
@@ -39,6 +41,8 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
   features,
   currentView,
   setView,
+  dashboardTab,
+  setDashboardTab,
   viewMode,
   setViewMode,
   isRtl,
@@ -59,27 +63,27 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
   }, []);
 
   const menuItems = [
-    { id: 'home', icon: Home, labelAr: 'الرئيسية', labelEn: 'Home', color: 'text-blue-500' },
-    { id: 'smart_pulse', icon: Activity, labelAr: 'النبض الذكي', labelEn: 'Smart Pulse', color: 'text-brand-teal' },
-    { id: 'marketplace', icon: ShoppingBag, labelAr: 'السوق', labelEn: 'Market', color: 'text-green-500' },
-    { id: 'chat', icon: MessageSquare, labelAr: 'المحادثات', labelEn: 'Chats', color: 'text-yellow-500' },
-    { id: 'nexus', icon: Zap, labelAr: 'المكافآت', labelEn: 'Nexus', color: 'text-purple-500' },
-    { id: 'dashboard', icon: LayoutGrid, labelAr: 'لوحة التحكم', labelEn: 'Dashboard', color: 'text-red-500' },
-    { id: 'profile', icon: User, labelAr: 'الملف الشخصي', labelEn: 'Profile', color: 'text-indigo-500' },
-    { id: 'help', icon: HelpCircle, labelAr: 'مركز المساعدة', labelEn: 'Help Center', color: 'text-orange-500' },
-  ];
+    { id: 'home', icon: Home, labelAr: 'الرئيسية', labelEn: 'Home', color: 'text-blue-500', roles: ['customer', 'supplier', 'admin'] },
+    { id: 'smart_pulse', icon: Activity, labelAr: 'النبض الذكي', labelEn: 'Smart Pulse', color: 'text-brand-teal', roles: ['customer', 'supplier', 'admin'] },
+    { id: 'marketplace', icon: ShoppingBag, labelAr: 'السوق', labelEn: 'Market', color: 'text-green-500', roles: ['customer', 'supplier', 'admin'] },
+    { id: 'chat', icon: MessageSquare, labelAr: 'المحادثات', labelEn: 'Chats', color: 'text-yellow-500', roles: ['customer', 'supplier', 'admin'] },
+    { id: 'connect', icon: Zap, labelAr: 'المكافآت', labelEn: 'Nexus', color: 'text-purple-500', roles: ['customer', 'supplier', 'admin'] },
+    { id: 'dashboard', icon: LayoutGrid, labelAr: 'لوحة التحكم', labelEn: 'Dashboard', color: 'text-red-500', roles: ['supplier', 'admin'] },
+    { id: 'profile', icon: User, labelAr: 'الملف الشخصي', labelEn: 'Profile', color: 'text-indigo-500', roles: ['customer', 'supplier', 'admin'] },
+    { id: 'help', icon: HelpCircle, labelAr: 'مركز المساعدة', labelEn: 'Help Center', color: 'text-orange-500', roles: ['customer', 'supplier', 'admin'] },
+  ].filter(item => item.roles.includes(viewMode));
 
   const adminItems = [
-    { id: 'admin-settings', icon: Settings, labelAr: 'الإعدادات', labelEn: 'Settings' },
-    { id: 'admin-users', icon: ShieldCheck, labelAr: 'المستخدمين', labelEn: 'Users' },
-    { id: 'admin-analytics', icon: Bot, labelAr: 'التحليلات', labelEn: 'AI Analytics' },
+    { id: 'admin-settings', icon: Settings, labelAr: 'الإعدادات', labelEn: 'Settings', tab: 'site' },
+    { id: 'admin-users', icon: ShieldCheck, labelAr: 'المستخدمين', labelEn: 'Users', tab: 'users' },
+    { id: 'admin-analytics', icon: Bot, labelAr: 'التحليلات', labelEn: 'AI Analytics', tab: 'ai' },
   ];
 
   return (
     <div className="relative" ref={menuRef}>
       <HapticButton
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-300 ${
+        className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 ${
           isOpen ? 'bg-brand-primary text-white shadow-lg' : 'hover:bg-brand-surface text-brand-text-muted'
         }`}
       >
@@ -92,11 +96,11 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
             initial={{ opacity: 0, scale: 0.9, y: 10, x: isRtl ? 20 : -20 }}
             animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            className={`fixed md:absolute top-20 md:top-12 left-4 right-4 md:left-auto ${isRtl ? 'md:left-0' : 'md:right-0'} md:w-[360px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-[32px] shadow-2xl border border-brand-border/50 overflow-hidden z-[100]`}
+            className={`fixed md:absolute top-20 md:top-12 left-4 right-4 md:left-auto ${isRtl ? 'md:left-0' : 'md:right-0'} md:w-[360px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-[32px] shadow-2xl border border-brand-border/50 overflow-hidden z-[100] pointer-events-auto`}
           >
             <div className="p-6">
               {/* User Profile Header (Google Style) */}
-              {profile && (
+              {profile ? (
                 <div className="flex items-center gap-4 mb-8 p-4 bg-brand-surface rounded-[24px] border border-brand-border/30">
                   <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-brand-primary/20">
                     {profile.photoURL ? (
@@ -110,12 +114,36 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-bold text-brand-text-main truncate">{profile.name}</h4>
                     <p className="text-[10px] text-brand-text-muted truncate">{profile.email}</p>
+                    {viewMode === 'customer' && profile.loyaltyPoints !== undefined && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <Sparkles size={10} className="text-brand-primary" />
+                        <span className="text-[9px] font-bold text-brand-primary">
+                          {profile.loyaltyPoints} {isRtl ? 'نقطة ولاء' : 'Loyalty Points'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="px-2 py-1 bg-brand-primary/10 rounded-lg">
                     <span className="text-[9px] font-black text-brand-primary uppercase tracking-tighter">
                       {isRtl ? (viewMode === 'admin' ? 'مدير' : viewMode === 'supplier' ? 'مورد' : 'عميل') : viewMode.toUpperCase()}
                     </span>
                   </div>
+                </div>
+              ) : (
+                <div className="mb-8 p-6 bg-gradient-to-br from-brand-primary/10 to-brand-teal/10 rounded-[24px] border border-brand-primary/20 text-center">
+                  <Bot size={32} className="mx-auto mb-3 text-brand-primary animate-bounce" />
+                  <h4 className="text-sm font-bold text-brand-text-main mb-1">
+                    {isRtl ? 'مرحباً بك في عالمنا الذكي' : 'Welcome to our Neural World'}
+                  </h4>
+                  <p className="text-[10px] text-brand-text-muted mb-4">
+                    {isRtl ? 'سجل دخولك لتجربة القوة الكاملة للذكاء الاصطناعي' : 'Login to experience the full power of AI'}
+                  </p>
+                  <HapticButton
+                    onClick={() => { setView('role-selection'); setIsOpen(false); }}
+                    className="w-full py-2.5 bg-brand-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-primary/20"
+                  >
+                    {isRtl ? 'انضم إلينا الآن' : 'Join Us Now'}
+                  </HapticButton>
                 </div>
               )}
 
@@ -153,6 +181,17 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => {
+                      if (item.id === 'dashboard') {
+                        setDashboardTab?.('overview');
+                      } else if (item.id === 'profile') {
+                        // If user is admin/supplier, profile is often in dashboard
+                        if (viewMode === 'supplier' || viewMode === 'admin') {
+                          setView('dashboard');
+                          setDashboardTab?.('overview');
+                          setIsOpen(false);
+                          return;
+                        }
+                      }
                       setView(item.id);
                       setIsOpen(false);
                     }}
@@ -225,6 +264,7 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
                         onClick={() => {
                           setViewMode('admin');
                           setView('dashboard');
+                          setDashboardTab?.(item.tab);
                           setIsOpen(false);
                         }}
                         className="flex flex-col items-center gap-2 group"
@@ -245,7 +285,12 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
             <div className="bg-brand-surface/50 p-4 flex items-center justify-between">
               <HapticButton 
                 onClick={() => {
-                  setView('profile');
+                  if (viewMode === 'admin' || viewMode === 'supplier') {
+                    setView('dashboard');
+                    setDashboardTab?.('settings');
+                  } else {
+                    setView('profile');
+                  }
                   setIsOpen(false);
                 }}
                 className="flex items-center gap-2 text-xs font-bold text-brand-text-muted hover:text-brand-primary transition-colors"

@@ -15,6 +15,7 @@ import {
   Heart,
   Tag,
   ShieldCheck,
+  Shield,
   Clock,
   Sparkles,
   Users,
@@ -78,16 +79,22 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   React.useEffect(() => {
     if (!item?.id) return;
     
-    // Fetch Price Insights if available
-    const unsubscribe = onSnapshot(doc(db, 'price_insights', item.id), (doc) => {
-      if (doc.exists()) {
-        setPriceInsight(doc.data() as PriceInsight);
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `price_insights/${item.id}`, false);
-    });
+    // Fetch Price Insights if available and authenticated
+    let unsubscribe: (() => void) | undefined;
+    
+    if (auth.currentUser) {
+      unsubscribe = onSnapshot(doc(db, 'price_insights', item.id), (doc) => {
+        if (doc.exists()) {
+          setPriceInsight(doc.data() as PriceInsight);
+        }
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, `price_insights/${item.id}`, false);
+      });
+    }
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [item?.id]);
 
   React.useEffect(() => {
@@ -220,17 +227,23 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xl">
+      <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xl">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="bg-white w-[95%] sm:w-full max-w-5xl h-auto max-h-[90vh] sm:rounded-[32px] rounded-[24px] overflow-hidden flex flex-col md:flex-row shadow-2xl relative"
+          initial={{ y: '100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '100%' }}
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          className="bg-white w-full sm:w-full max-w-5xl h-[90vh] sm:h-auto sm:max-h-[90vh] rounded-t-[32px] sm:rounded-[32px] overflow-hidden flex flex-col md:flex-row shadow-2xl relative"
         >
+          {/* Mobile Handle */}
+          <div className="absolute top-0 left-0 w-full h-8 flex items-center justify-center sm:hidden z-20">
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
+          </div>
+
           {/* Close Button (Mobile) */}
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 p-2 bg-black/20 backdrop-blur-md hover:bg-black/40 rounded-full text-white transition-all md:hidden"
+            className="absolute top-4 right-4 z-30 p-2 bg-black/20 backdrop-blur-md hover:bg-black/40 rounded-full text-white transition-all md:hidden"
           >
             <X className="w-5 h-5" />
           </button>
@@ -421,64 +434,86 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
 
               {/* Seller Info */}
               <div className="p-5 bg-slate-50 rounded-[24px] border border-slate-100">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-14 h-14 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary font-bold text-2xl border-2 border-white shadow-sm">
-                    {item.sellerName.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-slate-800">{item.sellerName}</h4>
-                      {item.isVerifiedSupplier && <CheckCircle className="w-4 h-4 text-emerald-500" />}
+                {auth.currentUser ? (
+                  <>
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-14 h-14 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary font-bold text-2xl border-2 border-white shadow-sm">
+                        {item.sellerName.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-slate-800">{item.sellerName}</h4>
+                          {item.isVerifiedSupplier && <CheckCircle className="w-4 h-4 text-emerald-500" />}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                          <span className={`px-2 py-0.5 rounded-full ${item.sellerRole === 'supplier' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-brand-secondary/10 text-brand-secondary'}`}>
+                            {item.sellerRole === 'supplier' ? (isRtl ? 'مورد' : 'Supplier') : (isRtl ? 'بائع مجتمعي' : 'Community Seller')}
+                          </span>
+                          <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                          <span className="flex items-center gap-1 text-brand-primary">
+                            <Users className="w-3 h-3" />
+                            {sellerFollowersCount} {isRtl ? 'متابع' : 'Followers'}
+                          </span>
+                        </div>
+                      </div>
+                      {auth.currentUser && item.sellerId !== auth.currentUser.uid && (
+                        <button 
+                          onClick={handleFollowSeller}
+                          disabled={isFollowLoading}
+                          className={`ml-auto px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                            isFollowingSeller 
+                              ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' 
+                              : 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20'
+                          }`}
+                        >
+                          {isFollowingSeller ? <UserMinus className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                          {isFollowingSeller ? (isRtl ? 'إلغاء' : 'Following') : (isRtl ? 'متابعة' : 'Follow')}
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => onViewProfile(item.sellerId)}
+                        className={`p-2 hover:bg-white rounded-xl transition-colors text-slate-400 hover:text-brand-primary ${auth.currentUser && item.sellerId !== auth.currentUser.uid ? '' : 'ml-auto'}`}
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                      <span className={`px-2 py-0.5 rounded-full ${item.sellerRole === 'supplier' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-brand-secondary/10 text-brand-secondary'}`}>
-                        {item.sellerRole === 'supplier' ? (isRtl ? 'مورد' : 'Supplier') : (isRtl ? 'بائع مجتمعي' : 'Community Seller')}
-                      </span>
-                      <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                      <span className="flex items-center gap-1 text-brand-primary">
-                        <Users className="w-3 h-3" />
-                        {sellerFollowersCount} {isRtl ? 'متابع' : 'Followers'}
-                      </span>
-                    </div>
-                  </div>
-                  {auth.currentUser && item.sellerId !== auth.currentUser.uid && (
-                    <button 
-                      onClick={handleFollowSeller}
-                      disabled={isFollowLoading}
-                      className={`ml-auto px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                        isFollowingSeller 
-                          ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' 
-                          : 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20'
-                      }`}
-                    >
-                      {isFollowingSeller ? <UserMinus className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-                      {isFollowingSeller ? (isRtl ? 'إلغاء' : 'Following') : (isRtl ? 'متابعة' : 'Follow')}
-                    </button>
-                  )}
-                  <button 
-                    onClick={() => onViewProfile(item.sellerId)}
-                    className={`p-2 hover:bg-white rounded-xl transition-colors text-slate-400 hover:text-brand-primary ${auth.currentUser && item.sellerId !== auth.currentUser.uid ? '' : 'ml-auto'}`}
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-sm text-slate-500">
-                    <MapPin className="w-4 h-4 text-brand-primary" />
-                    <span>{item.location || t('unknown_location', 'Unknown Location')}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm text-slate-500">
-                    <Clock className="w-4 h-4 text-brand-primary" />
-                    <span>{new Date(item.createdAt).toLocaleDateString(i18n.language, { dateStyle: 'medium' })}</span>
-                  </div>
-                  {item.sellerPhone && (
-                    <div className="flex items-center gap-3 text-sm text-slate-500">
-                      <Phone className="w-4 h-4 text-brand-primary" />
-                      <span>{item.sellerPhone}</span>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 text-sm text-slate-500">
+                        <MapPin className="w-4 h-4 text-brand-primary" />
+                        <span>{item.location || t('unknown_location', 'Unknown Location')}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-slate-500">
+                        <Clock className="w-4 h-4 text-brand-primary" />
+                        <span>{new Date(item.createdAt).toLocaleDateString(i18n.language, { dateStyle: 'medium' })}</span>
+                      </div>
+                      {item.sellerPhone && (
+                        <div className="flex items-center gap-3 text-sm text-slate-500">
+                          <Phone className="w-4 h-4 text-brand-primary" />
+                          <span>{item.sellerPhone}</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary mx-auto mb-3">
+                      <Shield size={24} />
+                    </div>
+                    <h4 className="text-sm font-black text-slate-900 mb-1">
+                      {isRtl ? 'سجل دخولك لمشاهدة معلومات البائع' : 'Login to view seller information'}
+                    </h4>
+                    <p className="text-[10px] text-slate-500 font-medium mb-4">
+                      {isRtl ? 'لحماية خصوصية الموردين، يجب تسجيل الدخول أولاً' : 'To protect supplier privacy, please login first'}
+                    </p>
+                    <HapticButton 
+                      onClick={onClose}
+                      className="px-6 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-primary/20"
+                    >
+                      {isRtl ? 'تسجيل الدخول' : 'Login Now'}
+                    </HapticButton>
+                  </div>
+                )}
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { UserProfile, MarketplaceItem } from '../../../core/types';
-import { NexusStorefront } from '../../common/components/NexusStorefront';
+import { ConnectStorefront } from '../../common/components/ConnectStorefront';
 import { TooltipProvider } from "../../../shared/components/ui/tooltip";
 
 export const CustomerProfileLayout = (props: any) => {
@@ -8,7 +8,7 @@ export const CustomerProfileLayout = (props: any) => {
 
   return (
     <TooltipProvider>
-      <NexusStorefront 
+      <ConnectStorefront 
         profile={profile}
         isOwner={isOwner}
         onBack={onBack}
@@ -24,7 +24,7 @@ export const SupplierProfileLayout = (props: any) => {
 
   return (
     <TooltipProvider>
-      <NexusStorefront 
+      <ConnectStorefront 
         profile={profile}
         isOwner={isOwner}
         onBack={onBack}
@@ -40,7 +40,7 @@ export const AdminProfileLayout = (props: any) => {
 
   return (
     <TooltipProvider>
-      <NexusStorefront 
+      <ConnectStorefront 
         profile={profile}
         isOwner={isOwner}
         onBack={onBack}

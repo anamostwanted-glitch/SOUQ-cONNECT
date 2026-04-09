@@ -26,13 +26,13 @@ import { soundService, SoundType } from '../../../core/utils/soundService';
 import { getProfileInsights } from '../../../core/services/geminiService';
 import { toast } from 'sonner';
 
-interface NexusRewardsProps {
+interface ConnectRewardsProps {
   profile: UserProfile;
   settings: SiteSettings;
   onBack: () => void;
 }
 
-export const NexusRewards: React.FC<NexusRewardsProps> = ({ profile, settings, onBack }) => {
+export const ConnectRewards: React.FC<ConnectRewardsProps> = ({ profile, settings, onBack }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const [copied, setCopied] = useState(false);
@@ -47,13 +47,17 @@ export const NexusRewards: React.FC<NexusRewardsProps> = ({ profile, settings, o
 
   useEffect(() => {
     const fetchStats = async () => {
-      const q = query(collection(db, 'users'), where('referredBy', '==', profile.uid));
-      const snap = await getDocs(q);
-      setStats({
-        totalReferrals: snap.size,
-        activeReferrals: snap.docs.filter(d => d.data().role !== 'customer').length,
-        viralCoefficient: (snap.size / 10).toFixed(1) as any
-      });
+      try {
+        const q = query(collection(db, 'users'), where('referredBy', '==', profile.uid));
+        const snap = await getDocs(q);
+        setStats({
+          totalReferrals: snap.size,
+          activeReferrals: snap.docs.filter(d => d.data().role !== 'customer').length,
+          viralCoefficient: (snap.size / 10).toFixed(1) as any
+        });
+      } catch (err) {
+        console.error('Failed to fetch stats:', err);
+      }
     };
     fetchStats();
   }, [profile.uid]);

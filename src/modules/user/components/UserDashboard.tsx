@@ -578,7 +578,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 </div>
                 <ChevronRight size={20} className={`text-brand-text-muted ${isRtl ? 'rotate-180' : ''}`} />
               </div>
-              <div className="p-4 hover:bg-rose-500/5 transition-colors cursor-pointer flex items-center justify-between text-rose-500" onClick={() => auth.signOut()}>
+              <div className="p-4 hover:bg-rose-500/5 transition-colors cursor-pointer flex items-center justify-between text-rose-500" onClick={() => auth.signOut().catch(err => console.error("Sign out error:", err))}>
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-rose-500/10 rounded-xl"><LogOut size={20} /></div>
                   <span className="font-bold">{isRtl ? 'تسجيل الخروج' : 'Sign Out'}</span>

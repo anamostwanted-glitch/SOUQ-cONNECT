@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Combine, X, Check, AlertTriangle, Loader2, ArrowRight } from 'lucide-react';
+import { Combine, X, Check, AlertTriangle, Loader2, ArrowRight, Layers } from 'lucide-react';
 import { Category } from '../../../core/types';
 
 interface MergeSuggestion {
@@ -28,6 +28,7 @@ export const MergeCategoryModal: React.FC<MergeCategoryModalProps> = ({
   isRtl
 }) => {
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isMergingAll, setIsMergingAll] = useState(false);
 
   const getCategoryName = (id: string) => {
     const cat = categories.find(c => c.id === id);
@@ -41,6 +42,18 @@ export const MergeCategoryModal: React.FC<MergeCategoryModalProps> = ({
       await onConfirmMerge(sourceId, targetId);
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const handleMergeAll = async () => {
+    setIsMergingAll(true);
+    try {
+      for (const suggestion of suggestions) {
+        await onConfirmMerge(suggestion.sourceId, suggestion.targetId);
+      }
+    } finally {
+      setIsMergingAll(false);
+      onClose();
     }
   };
 
@@ -140,7 +153,7 @@ export const MergeCategoryModal: React.FC<MergeCategoryModalProps> = ({
                     <div className="flex flex-col items-center md:items-end gap-3">
                       <button
                         onClick={() => handleMerge(suggestion.sourceId, suggestion.targetId)}
-                        disabled={processingId !== null}
+                        disabled={processingId !== null || isMergingAll}
                         className="px-6 py-2.5 bg-brand-primary text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-brand-primary-hover transition-all flex items-center gap-2 shadow-lg shadow-brand-primary/20"
                       >
                         {processingId === suggestion.sourceId ? (
@@ -161,7 +174,17 @@ export const MergeCategoryModal: React.FC<MergeCategoryModalProps> = ({
           )}
         </div>
 
-        <div className="p-8 bg-brand-background/30 border-t border-brand-border flex justify-end">
+        <div className="p-8 bg-brand-background/30 border-t border-brand-border flex justify-between items-center">
+          {suggestions.length > 1 ? (
+            <button
+              onClick={handleMergeAll}
+              disabled={isMergingAll || processingId !== null}
+              className="px-6 py-3 bg-brand-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-primary-hover transition-all flex items-center gap-2 shadow-lg shadow-brand-primary/20 disabled:opacity-50"
+            >
+              {isMergingAll ? <Loader2 size={16} className="animate-spin" /> : <Layers size={16} />}
+              {isRtl ? 'دمج الكل' : 'Merge All'}
+            </button>
+          ) : <div />}
           <button
             onClick={onClose}
             className="px-8 py-3 bg-brand-surface text-brand-text-muted rounded-2xl font-black text-xs uppercase tracking-widest border border-brand-border hover:text-brand-text-main transition-all"

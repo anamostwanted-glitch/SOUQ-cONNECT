@@ -54,7 +54,7 @@ import { SmartUploadModal } from '../../marketplace/components/upload-flow/Smart
 import { Category } from '../../../core/types';
 import { UserNeuralHub } from '../../common/components/UserNeuralHub';
 
-interface NexusCommandCenterProps {
+interface ConnectCommandCenterProps {
   profile: UserProfile;
   features: AppFeatures;
   onOpenChat: (chatId: string) => void;
@@ -64,7 +64,7 @@ interface NexusCommandCenterProps {
 
 type Perspective = 'customer' | 'supplier';
 
-export const NexusCommandCenter: React.FC<NexusCommandCenterProps> = ({
+export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
   profile,
   features,
   onOpenChat,
@@ -129,7 +129,10 @@ export const NexusCommandCenter: React.FC<NexusCommandCenterProps> = ({
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const reqs: ProductRequest[] = [];
       snapshot.forEach((doc) => {
-        reqs.push({ id: doc.id, ...doc.data() } as ProductRequest);
+        const data = doc.data();
+        if (!data.isDeleted) {
+          reqs.push({ id: doc.id, ...data } as ProductRequest);
+        }
       });
       setRequests(reqs);
       setIsLoadingRequests(false);
@@ -507,6 +510,60 @@ export const NexusCommandCenter: React.FC<NexusCommandCenterProps> = ({
     );
   };
 
+  const renderRecentOrders = () => {
+    const recent = requests.slice(0, 3);
+    if (recent.length === 0) return null;
+
+    const handleClearAll = async () => {
+      try {
+        const batch = [];
+        requests.forEach(req => {
+          batch.push(updateDoc(doc(db, 'requests', req.id), { isDeleted: true, deletedAt: new Date().toISOString() }));
+        });
+        await Promise.all(batch);
+        toast.success(isRtl ? 'تم مسح الطلبات' : 'Orders cleared');
+      } catch (err) {
+        console.error('Clear failed:', err);
+        toast.error(isRtl ? 'فشل المسح' : 'Failed to clear');
+      }
+    };
+
+    return (
+      <div className="mb-12">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-black text-brand-text-main">{isRtl ? 'طلباتي الأخيرة' : 'My Recent Orders'}</h3>
+          <div className="flex gap-2">
+            <HapticButton onClick={() => setActiveSubView('requests')} className="text-xs font-bold text-brand-primary">
+              {isRtl ? 'عرض الكل' : 'View All'}
+            </HapticButton>
+            <HapticButton onClick={handleClearAll} className="text-xs font-bold text-rose-500">
+              {isRtl ? 'مسح الكل' : 'Clear All'}
+            </HapticButton>
+          </div>
+        </div>
+        <div className="space-y-4">
+          {recent.map(req => (
+            <div key={req.id} className={`${cardClass} flex flex-col gap-4`}>
+              <div className="flex justify-between items-start">
+                <h4 className="font-black text-brand-text-main">{req.productName}</h4>
+                <span className="text-xs font-bold text-brand-text-muted">{new Date(req.createdAt).toLocaleDateString()}</span>
+              </div>
+              {req.matchedSuppliers && req.matchedSuppliers.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {req.matchedSuppliers.map(supplier => (
+                    <div key={supplier.uid} className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-xs font-bold whitespace-nowrap">
+                      {supplier.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/30 dark:bg-slate-950/30 pb-32">
       <div className="max-w-6xl mx-auto px-6 pt-12">
@@ -515,6 +572,9 @@ export const NexusCommandCenter: React.FC<NexusCommandCenterProps> = ({
 
         {/* Aura Header */}
         {renderAuraHeader()}
+
+        {/* Recent Orders */}
+        {perspective === 'customer' && renderRecentOrders()}
 
         {/* Pulse Ribbon */}
         {renderPulseRibbon()}

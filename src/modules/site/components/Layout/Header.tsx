@@ -1,31 +1,31 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sparkles, MapPin, Globe, Bell, Menu, UploadCloud, Bot, MessageSquare, BookOpen, Zap, ShieldCheck, LogOut, Settings, User as UserIcon, Search } from 'lucide-react';
-import { HapticButton } from '../../../../shared/components/HapticButton';
-import { UserProfile, AppFeatures, Notification } from '../../../../core/types';
+import { Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sparkles, MapPin, Globe, Bell, Menu, UploadCloud, Bot, MessageSquare, BookOpen, Zap, ShieldCheck, LogOut, Settings, User as UserIcon, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { BentoMenu } from './BentoMenu';
+import { motion } from 'motion/react';
+import { HapticButton } from '../../../../shared/components/HapticButton';
 import { NotificationDropdown } from './NotificationDropdown';
-import { motion, useAnimation, AnimatePresence } from 'motion/react';
+import { BentoMenu } from './BentoMenu';
 import { auth } from '../../../../core/firebase';
+import { UserProfile, AppFeatures, UserRole, Notification } from '../../../../core/types';
 
 interface HeaderProps {
   siteLogo: string;
   siteName: string;
-  logoAuraColor?: string;
-  logoAuraBlur?: number;
-  logoAuraSpread?: number;
-  logoAuraOpacity?: number;
-  logoAuraStyle?: 'solid' | 'gradient' | 'pulse' | 'mesh';
-  logoAuraSharpness?: number;
-  logoScale?: number;
-  showNeuralLogo?: boolean;
+  logoAuraColor: string;
+  logoAuraBlur: number;
+  logoAuraSpread: number;
+  logoAuraOpacity: number;
+  logoAuraStyle: 'solid' | 'gradient' | 'pulse' | 'mesh';
+  logoAuraSharpness: number;
+  logoScale: number;
+  showNeuralLogo: boolean;
   currentView: string;
   setView: (view: any) => void;
-  supplierTab: string;
-  setSupplierTab?: (tab: any) => void;
+  dashboardTab?: string;
+  setDashboardTab?: (tab: string) => void;
   profile: UserProfile | null;
-  viewMode: string;
-  setViewMode: (mode: any) => void;
+  viewMode: UserRole;
+  setViewMode: (mode: UserRole) => void;
   uiStyle: 'classic' | 'minimal';
   setUiStyle: (style: 'classic' | 'minimal') => void;
   features: AppFeatures;
@@ -42,23 +42,24 @@ interface HeaderProps {
   onMobileMenuOpen: () => void;
   onOpenHelpCenter: () => void;
   notifRef: React.RefObject<HTMLDivElement>;
+  onBack?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   siteLogo,
   siteName,
-  logoAuraColor = '#1b97a7',
-  logoAuraBlur = 20,
-  logoAuraSpread = 1.2,
-  logoAuraOpacity = 0.4,
-  logoAuraStyle = 'solid',
-  logoAuraSharpness = 50,
-  logoScale = 1,
-  showNeuralLogo = true,
+  logoAuraColor,
+  logoAuraBlur,
+  logoAuraSpread,
+  logoAuraOpacity,
+  logoAuraStyle,
+  logoAuraSharpness,
+  logoScale,
+  showNeuralLogo,
   currentView,
   setView,
-  supplierTab,
-  setSupplierTab,
+  dashboardTab,
+  setDashboardTab,
   profile,
   viewMode,
   setViewMode,
@@ -77,60 +78,79 @@ export const Header: React.FC<HeaderProps> = ({
   onVisualSearch,
   onMobileMenuOpen,
   onOpenHelpCenter,
-  notifRef
+  notifRef,
+  onBack,
 }) => {
   const { t, i18n } = useTranslation();
 
   return (
     <header className="fixed top-4 left-4 right-4 z-50 pointer-events-none flex justify-center">
       <motion.div 
+        layout
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="pointer-events-auto w-full max-w-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border border-white/50 dark:border-gray-700/50 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rounded-[2rem] p-1.5 flex items-center gap-2 relative group"
+        className="glass-effect flex items-center gap-2 p-1.5 md:p-2 rounded-[2rem] shadow-premium max-w-full md:max-w-2xl w-auto pointer-events-auto relative group/header"
       >
-        {/* Subtle AI Gradient Background */}
-        <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none">
-          <div className="absolute inset-0 bg-gradient-to-r from-brand-primary/5 via-transparent to-brand-teal/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        </div>
-
-        {/* Profile / Login */}
-        {profile ? (
+        {/* Animated Border Glow */}
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-primary/5 via-brand-teal/5 to-brand-primary/5 opacity-0 group-hover/header:opacity-100 transition-opacity duration-700 pointer-events-none rounded-[2rem]" />
+        
+        {/* Back Button */}
+        {onBack && (
           <HapticButton
-            onClick={() => setView('profile')}
-            className="w-10 h-10 shrink-0 rounded-full overflow-hidden border-2 border-white dark:border-gray-800 shadow-sm relative z-10"
+            onClick={onBack}
+            className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-brand-surface/50 border border-brand-border shadow-sm relative z-10 hover:bg-brand-primary hover:text-white transition-all group/back"
           >
-            {profile.photoURL ? (
-              <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <div className="w-full h-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-                <UserIcon size={18} />
-              </div>
-            )}
-          </HapticButton>
-        ) : (
-          <HapticButton 
-            onClick={() => setView('role-selection')}
-            className="w-10 h-10 shrink-0 rounded-full bg-brand-primary text-white flex items-center justify-center shadow-sm relative z-10"
-          >
-            <UserIcon size={18} />
+            {isRtl ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+            <span className={`absolute ${isRtl ? 'right-12' : 'left-12'} whitespace-nowrap text-xs font-bold opacity-0 group-hover/back:opacity-100 transition-opacity pointer-events-none bg-brand-surface px-2 py-1 rounded-md border border-brand-border shadow-sm`}>
+              {isRtl ? 'رجوع' : 'Back'}
+            </span>
           </HapticButton>
         )}
+
+        {/* Profile / Login */}
+        <div className="relative shrink-0">
+          {profile ? (
+            <HapticButton
+              onClick={() => setView('profile')}
+              className="w-10 h-10 rounded-full overflow-hidden border-2 border-white dark:border-gray-800 shadow-sm relative z-10 hover:ring-2 hover:ring-brand-primary/20 transition-all"
+            >
+              {profile.photoURL ? (
+                <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-full h-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                  <UserIcon size={18} />
+                </div>
+              )}
+              {/* Online Status Pulse */}
+              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full z-20" />
+            </HapticButton>
+          ) : (
+            <HapticButton 
+              onClick={() => setView('role-selection')}
+              className="px-4 h-10 rounded-full bg-brand-primary text-white flex items-center gap-2 shadow-lg shadow-brand-primary/20 relative z-10 transition-all hover:scale-105 active:scale-95"
+            >
+              <UserIcon size={16} />
+              <span className="text-xs font-bold whitespace-nowrap">
+                {isRtl ? 'دخول' : 'Login'}
+              </span>
+            </HapticButton>
+          )}
+        </div>
 
         {/* Smart AI Search / Context */}
         <HapticButton 
           onClick={onVisualSearch}
-          className="flex-1 flex flex-col justify-center px-2 py-1 text-left rtl:text-right relative z-10"
+          className="flex-1 flex flex-col justify-center px-3 py-1 text-left rtl:text-right relative z-10 hover:bg-brand-primary/5 rounded-2xl transition-colors group/search"
         >
           <div className="flex items-center gap-1.5">
-            <Sparkles size={14} className="text-brand-primary animate-pulse" />
+            <Sparkles size={14} className="text-brand-primary group-hover/search:animate-bounce" />
             <span className="text-sm font-bold text-brand-text-main">
               {isRtl ? 'كيف أساعدك اليوم؟' : 'How can I help today?'}
             </span>
           </div>
           <div className="flex items-center gap-1 mt-0.5">
             <MapPin size={10} className="text-brand-text-muted" />
-            <span className="text-[10px] font-medium text-brand-text-muted truncate max-w-[150px]">
+            <span className="text-[10px] font-medium text-brand-text-muted truncate max-w-[120px] md:max-w-[180px]">
               {isLoadingLocation ? (isRtl ? 'تحديد الموقع...' : 'Locating...') : locationName || (isRtl ? 'موقع غير معروف' : 'Unknown')}
             </span>
           </div>
@@ -141,7 +161,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Language Toggle */}
           <HapticButton 
             onClick={toggleLanguage}
-            className="w-9 h-9 flex items-center justify-center hover:bg-brand-surface rounded-full transition-all text-brand-text-muted hover:text-brand-primary"
+            className="w-10 h-10 flex items-center justify-center hover:bg-brand-surface rounded-full transition-all text-brand-text-muted hover:text-brand-primary"
             title={isRtl ? 'تبديل اللغة' : 'Toggle Language'}
           >
             <Globe size={18} />
@@ -166,10 +186,12 @@ export const Header: React.FC<HeaderProps> = ({
             features={features}
             currentView={currentView}
             setView={setView}
+            dashboardTab={dashboardTab}
+            setDashboardTab={setDashboardTab}
             viewMode={viewMode}
             setViewMode={setViewMode}
             isRtl={isRtl}
-            onLogout={() => auth.signOut()}
+            onLogout={() => auth.signOut().catch(err => console.error("Sign out error:", err))}
           />
         </div>
       </motion.div>

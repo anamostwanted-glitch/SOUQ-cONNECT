@@ -207,7 +207,7 @@ service cloud.firestore {
     }
 
     function isValidRequest(data) {
-      let allowedFields = ['customerId', 'customerName', 'productName', 'status', 'createdAt', 'description', 'imageUrl', 'categoryId', 'categoryNameAr', 'categoryNameEn', 'location', 'offerCount', 'quantity', 'approvedSuppliers', 'deletedAt'];
+      let allowedFields = ['customerId', 'customerName', 'productName', 'status', 'createdAt', 'description', 'imageUrl', 'categoryId', 'categoryNameAr', 'categoryNameEn', 'location', 'offerCount', 'quantity', 'approvedSuppliers', 'suggestedSupplierIds', 'deletedAt'];
       return data.keys().hasAll(['customerId', 'productName', 'status', 'createdAt']) &&
              data.keys().hasOnly(allowedFields) &&
              data.customerId is string &&
@@ -224,6 +224,7 @@ service cloud.firestore {
              (!('offerCount' in data) || data.offerCount is number) &&
              (!('quantity' in data) || (data.quantity is string && data.quantity.size() < 64)) &&
              (!('approvedSuppliers' in data) || (data.approvedSuppliers is list && data.approvedSuppliers.size() < 50)) &&
+             (!('suggestedSupplierIds' in data) || (data.suggestedSupplierIds is list && data.suggestedSupplierIds.size() < 50)) &&
              (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
     }
 
@@ -582,7 +583,10 @@ service cloud.firestore {
 
     match /usage_logs/{logId} {
       allow read: if isAdmin();
-      allow create: if isAuthenticated() && isValidUsageLog(request.resource.data);
+      allow create: if (
+        (isAuthenticated() && request.resource.data.uid == request.auth.uid) ||
+        (!isAuthenticated() && request.resource.data.uid == 'anonymous')
+      ) && isValidUsageLog(request.resource.data);
       allow update, delete: if isAdmin();
     }
 

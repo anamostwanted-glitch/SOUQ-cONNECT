@@ -8,8 +8,8 @@ import { ScrollDirection } from '../../../../shared/hooks/useScrollDirection';
 interface BottomNavProps {
   currentView: string;
   setView: (view: any) => void;
-  supplierTab: string;
-  setSupplierTab?: (tab: any) => void;
+  dashboardTab: string;
+  setDashboardTab?: (tab: any) => void;
   isRtl: boolean;
   unreadCount: number;
   scrollDirection: ScrollDirection;
@@ -22,8 +22,8 @@ interface BottomNavProps {
 export const BottomNav: React.FC<BottomNavProps> = ({
   currentView,
   setView,
-  supplierTab,
-  setSupplierTab,
+  dashboardTab,
+  setDashboardTab,
   isRtl,
   unreadCount,
   scrollDirection,
@@ -85,12 +85,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       </HapticButton>
 
       <HapticButton 
-        onClick={() => { setView('dashboard'); setSupplierTab?.('dashboard'); }}
+        onClick={() => { setView('dashboard'); setDashboardTab?.('overview'); }}
         onPrefetch={() => onPrefetch?.('dashboard')}
-        className={`flex-1 flex flex-col items-center gap-1 p-2 transition-all relative ${currentView === 'dashboard' && supplierTab === 'dashboard' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+        className={`flex-1 flex flex-col items-center gap-1 p-2 transition-all relative ${currentView === 'dashboard' && dashboardTab === 'overview' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
       >
         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-          <LayoutGrid size={20} strokeWidth={currentView === 'dashboard' && supplierTab === 'dashboard' ? 2.5 : 2} />
+          <LayoutGrid size={20} strokeWidth={currentView === 'dashboard' && dashboardTab === 'overview' ? 2.5 : 2} />
         </motion.div>
         <span className="text-[9px] font-black tracking-tight uppercase">{isRtl ? 'المركز' : 'Nexus'}</span>
       </HapticButton>

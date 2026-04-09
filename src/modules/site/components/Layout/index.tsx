@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18nInstance from '../../../../i18n';
-import { UserProfile, Notification, AppFeatures, Category } from '../../../../core/types';
+import { UserProfile, Notification, AppFeatures, Category, UserRole } from '../../../../core/types';
 import { ArrowUp, AlertCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { auth, db } from '../../../../core/firebase';
@@ -16,6 +16,7 @@ import { PremiumVisualSearchModal } from '../../../../shared/components/PremiumV
 import { NotificationModal } from '../../../../shared/components/NotificationModal';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { NeuralPulse } from '../NeuralPulse';
+import { GlobalProgress } from '../../../../shared/components/GlobalProgress';
 
 import { AIActionHub } from './AIActionHub';
 import { Header } from './Header';
@@ -31,14 +32,15 @@ interface LayoutProps {
   setView: (view: any) => void;
   setActiveChatId: (id: string | null) => void;
   onBack?: () => void;
-  supplierTab?: string;
-  setSupplierTab?: (tab: string) => void;
-  viewMode: 'admin' | 'supplier' | 'customer';
-  setViewMode: (mode: 'admin' | 'supplier' | 'customer') => void;
+  dashboardTab?: string;
+  setDashboardTab?: (tab: string) => void;
+  viewMode: UserRole;
+  setViewMode: (mode: UserRole) => void;
   uiStyle: 'classic' | 'minimal';
   setUiStyle: (style: 'classic' | 'minimal') => void;
   onPrefetch?: (view: string) => void;
   chatUnreadCount?: number;
+  progress?: number | null;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
@@ -49,14 +51,15 @@ export const Layout: React.FC<LayoutProps> = ({
   setView,
   setActiveChatId,
   onBack,
-  supplierTab = 'dashboard',
-  setSupplierTab,
+  dashboardTab = 'overview',
+  setDashboardTab,
   viewMode,
   setViewMode,
   uiStyle,
   setUiStyle,
   onPrefetch,
-  chatUnreadCount = 0
+  chatUnreadCount = 0,
+  progress = null
 }) => {
   const { t } = useTranslation();
   const { isDarkMode, toggleDarkMode } = useBranding();
@@ -288,7 +291,7 @@ export const Layout: React.FC<LayoutProps> = ({
     }
     if (n.actionType === 'submit_offer') {
       setView('dashboard');
-      setSupplierTab?.('dashboard');
+      setDashboardTab?.('overview');
     } else if (n.actionType === 'accept_chat') {
       if (n.targetId) {
         setActiveChatId(n.targetId);
@@ -303,12 +306,13 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const toggleLanguage = () => {
     const newLang = i18nInstance.language === 'ar' ? 'en' : 'ar';
-    i18nInstance.changeLanguage(newLang);
+    i18nInstance.changeLanguage(newLang).catch(err => console.error("Language change error:", err));
     document.documentElement.dir = newLang === 'ar' ? 'rtl' : 'ltr';
   };
 
   return (
     <div className={`viewport-height flex flex-col bg-brand-background text-brand-text-main font-sans ${isRtl ? 'font-arabic' : ''} transition-colors duration-300 overflow-hidden`}>
+      <GlobalProgress progress={progress} />
       <div className="z-50">
         <Header 
           siteLogo={siteLogo}
@@ -323,8 +327,8 @@ export const Layout: React.FC<LayoutProps> = ({
           showNeuralLogo={headerShowNeuralLogo}
           currentView={currentView}
           setView={setView}
-          supplierTab={supplierTab}
-          setSupplierTab={setSupplierTab}
+          dashboardTab={dashboardTab}
+          setDashboardTab={setDashboardTab}
           profile={profile}
           viewMode={viewMode}
           setViewMode={setViewMode}
@@ -350,6 +354,7 @@ export const Layout: React.FC<LayoutProps> = ({
           onMobileMenuOpen={() => setIsMobileMenuOpen(true)}
           onOpenHelpCenter={() => setShowHelpCenter(true)}
           notifRef={notifRef}
+          onBack={currentView !== 'home' ? onBack : undefined}
         />
       </div>
 
@@ -396,8 +401,8 @@ export const Layout: React.FC<LayoutProps> = ({
         setView={setView}
         viewMode={viewMode}
         setViewMode={setViewMode}
-        supplierTab={supplierTab}
-        setSupplierTab={setSupplierTab}
+        dashboardTab={dashboardTab}
+        setDashboardTab={setDashboardTab}
         isRtl={isRtl}
         isDarkMode={isDarkMode}
         toggleDarkMode={toggleDarkMode}
@@ -417,13 +422,13 @@ export const Layout: React.FC<LayoutProps> = ({
         onOpenHelpCenter={() => setShowHelpCenter(true)}
       />
 
-      {profile && currentView !== 'chat' && (uiStyle !== 'minimal' || currentView !== 'home') && !isAIHubOpen && !isVisualSearchOpen && (
+      {currentView !== 'chat' && (uiStyle !== 'minimal' || currentView !== 'home') && !isAIHubOpen && !isVisualSearchOpen && (
         <div className="safe-bottom bg-brand-background/80 backdrop-blur-xl border-t border-brand-border/50 z-40">
           <BottomNav 
             currentView={currentView}
             setView={setView}
-            supplierTab={supplierTab}
-            setSupplierTab={setSupplierTab}
+            dashboardTab={dashboardTab}
+            setDashboardTab={setDashboardTab}
             isRtl={isRtl}
             unreadCount={chatUnreadCount}
             scrollDirection={scrollDirection}

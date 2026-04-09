@@ -137,9 +137,12 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({ allUsers, isRt
                   {isRtl ? 'الدور' : 'Role'}
                 </th>
                 <th className={`px-4 py-3 md:px-8 md:py-5 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap ${isRtl ? 'text-right' : 'text-left'}`}>
+                  {isRtl ? 'رقم الهاتف' : 'Phone'}
+                </th>
+                <th className={`px-4 py-3 md:px-8 md:py-5 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap ${isRtl ? 'text-right' : 'text-left'}`}>
                   {activeSubTab === 'locations' ? (isRtl ? 'الموقع' : 'Location') : (activeSubTab === 'phones' ? (isRtl ? 'رقم الهاتف' : 'Phone Number') : (isRtl ? 'البريد الإلكتروني' : 'Email'))}
                 </th>
-                {activeSubTab !== 'locations' && (
+                {activeSubTab !== 'locations' && activeSubTab !== 'phones' && (
                   <th className={`px-4 py-3 md:px-8 md:py-5 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap ${isRtl ? 'text-right' : 'text-left'}`}>
                     {isRtl ? 'الموقع' : 'Location'}
                   </th>
@@ -171,6 +174,9 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({ allUsers, isRt
                       {user.role === 'supplier' ? (isRtl ? 'مورد' : 'Supplier') : (isRtl ? 'عميل' : 'Customer')}
                     </span>
                   </td>
+                  <td className="px-4 py-3 md:px-8 md:py-5 whitespace-nowrap text-sm font-black text-brand-text-main" dir="ltr">
+                    {user.phone || '-'}
+                  </td>
                   <td className="px-4 py-3 md:px-8 md:py-5 whitespace-nowrap">
                     <div className="flex items-center gap-2 text-sm font-black text-brand-text-main">
                       {activeSubTab === 'locations' ? (
@@ -181,7 +187,7 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({ allUsers, isRt
                       ) : activeSubTab === 'phones' ? (
                         <>
                           <Phone size={14} className="text-brand-primary shrink-0" />
-                          <span dir="ltr">{user.phone}</span>
+                          <span>{user.phone || '-'}</span>
                         </>
                       ) : (
                         <>
@@ -191,7 +197,7 @@ export const UserDataManager: React.FC<UserDataManagerProps> = ({ allUsers, isRt
                       )}
                     </div>
                   </td>
-                  {activeSubTab !== 'locations' && (
+                  {activeSubTab !== 'locations' && activeSubTab !== 'phones' && (
                     <td className="px-4 py-3 md:px-8 md:py-5 text-sm font-bold text-brand-text-muted whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <MapPin size={14} className="text-brand-text-muted/50 shrink-0" />

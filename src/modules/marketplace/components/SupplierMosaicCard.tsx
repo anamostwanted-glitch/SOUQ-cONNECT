@@ -87,7 +87,7 @@ export const SupplierMosaicCard: React.FC<SupplierMosaicCardProps> = ({
         <div className="relative mb-4">
           <div className={`absolute -inset-3 bg-gradient-to-br ${trustColor} opacity-10 blur-2xl rounded-full group-hover:opacity-30 transition-opacity duration-700`} />
           <div className={`relative ${size === 'large' ? 'w-24 h-24 md:w-28 md:h-28' : size === 'medium' ? 'w-20 h-20 md:w-24 md:h-24' : 'w-16 h-16 md:w-20 md:h-20'} rounded-full bg-white dark:bg-slate-800 p-2 border border-white/50 dark:border-slate-700/50 shadow-xl overflow-hidden flex items-center justify-center`}>
-            {supplier.logoUrl ? (
+            {supplier.logoUrl && profile ? (
               <img 
                 src={supplier.logoUrl} 
                 alt={supplier.companyName}
@@ -102,13 +102,15 @@ export const SupplierMosaicCard: React.FC<SupplierMosaicCardProps> = ({
           </div>
           
           {/* Trust Score Badge */}
-          <div className={`absolute -bottom-1 -right-1 px-2 py-1 rounded-xl bg-gradient-to-br ${trustColor} text-white text-[9px] font-black shadow-lg border border-white/20 backdrop-blur-md`}>
-            {supplier.trustScore || 85}%
-          </div>
+          {profile && (
+            <div className={`absolute -bottom-1 -right-1 px-2 py-1 rounded-xl bg-gradient-to-br ${trustColor} text-white text-[9px] font-black shadow-lg border border-white/20 backdrop-blur-md`}>
+              {supplier.trustScore || 85}%
+            </div>
+          )}
         </div>
 
         <h3 className={`font-black text-brand-text-main leading-tight mb-1 group-hover:text-brand-primary transition-colors ${size === 'large' ? 'text-xl' : 'text-base'}`}>
-          {isRtl ? supplier.companyName : (supplier.companyName || supplier.name)}
+          {profile ? (isRtl ? supplier.companyName : (supplier.companyName || supplier.name)) : (isRtl ? 'مورد معتمد' : 'Verified Supplier')}
         </h3>
 
         {/* AI Bio Tag */}
@@ -116,7 +118,7 @@ export const SupplierMosaicCard: React.FC<SupplierMosaicCardProps> = ({
           <div className="px-2 py-0.5 rounded-md bg-brand-primary/5 border border-brand-primary/10 flex items-center gap-1">
             <BrainCircuit size={10} className="text-brand-primary" />
             <span className="text-[9px] font-bold text-brand-primary">
-              {isRtl ? (supplier.aiBio?.bioAr || 'مورد معتمد') : (supplier.aiBio?.bioEn || 'Verified Supplier')}
+              {profile ? (isRtl ? (supplier.aiBio?.bioAr || 'مورد معتمد') : (supplier.aiBio?.bioEn || 'Verified Supplier')) : (isRtl ? 'مورد معتمد' : 'Verified Supplier')}
             </span>
           </div>
         </div>

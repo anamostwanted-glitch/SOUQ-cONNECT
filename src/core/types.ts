@@ -52,9 +52,12 @@ export interface UserProfile {
   isOnline?: boolean;
   averageResponseTime?: number;
   notificationPreferences?: NotificationPreferences;
+  conciergeConsent?: boolean;
   branding?: BrandingPreferences;
   referralPoints?: number;
   neuralCredits?: number;
+  loyaltyPoints?: number;
+  commercialRegistration?: string;
   subscriptionPlan?: 'basic' | 'pro' | 'enterprise';
   subscriptionExpiry?: string;
   referralCode?: string;

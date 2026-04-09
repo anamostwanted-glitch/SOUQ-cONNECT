@@ -1,0 +1,25 @@
+# PROJECT BACKUP SUMMARY - Nexus AI Marketplace
+# Date: 2026-04-09
+
+## 1. Core Architecture
+- Framework: React 18 + Vite + Tailwind CSS
+- Backend: Firebase (Auth, Firestore, Storage)
+- State Management: React Hooks (useState, useEffect) in App.tsx
+
+## 2. Main Components & Files to Save (Copy-Paste these if ZIP fails):
+- /src/App.tsx (Main Logic & Navigation)
+- /src/modules/site/components/Layout/BentoMenu.tsx (Navigation UI)
+- /src/modules/marketplace/components/MarketInterface.tsx (Core Marketplace)
+- /src/modules/admin/components/AdminDashboard.tsx (Admin Logic)
+- /src/core/utils/errorHandling.ts (Critical for Stability)
+- /firebase-blueprint.json (Database Structure)
+- /firestore.rules (Security Rules)
+
+## 3. Critical Logic Summary:
+- Navigation uses `currentView` and `dashboardTab`.
+- Roles: 'customer', 'supplier', 'admin'.
+- Soft Delete Pattern: All deletions use `status: 'deleted'`.
+- Error Handling: All Firestore calls wrap in `handleFirestoreError`.
+
+## 4. How to Restore:
+If you start a new project, upload these files and give the AI the 'AGENTS.md' file.

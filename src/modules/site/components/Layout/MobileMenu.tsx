@@ -16,8 +16,8 @@ interface MobileMenuProps {
   setView: (view: any) => void;
   viewMode: string;
   setViewMode: (mode: any) => void;
-  supplierTab: string;
-  setSupplierTab?: (tab: any) => void;
+  dashboardTab: string;
+  setDashboardTab?: (tab: any) => void;
   isRtl: boolean;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
@@ -46,8 +46,8 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   setView,
   viewMode,
   setViewMode,
-  supplierTab,
-  setSupplierTab,
+  dashboardTab,
+  setDashboardTab,
   isRtl,
   isDarkMode,
   toggleDarkMode,
@@ -193,7 +193,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                     {id: 'help', label: isRtl ? 'مركز المساعدة' : 'Help Center', icon: BookOpen, action: onOpenHelpCenter},
                   ].map((item) => {
                     if (item.condition === false) return null;
-                    const isActive = item.view && currentView === item.view && (!item.tab || supplierTab === item.tab);
+                    const isActive = item.view && currentView === item.view && (!item.tab || dashboardTab === item.tab);
                     
                     return (
                       <HapticButton 
@@ -203,7 +203,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                             item.action();
                           } else if (item.view) {
                             setView(item.view); 
-                            if (item.tab) setSupplierTab?.(item.tab);
+                            if (item.tab) setDashboardTab?.(item.tab);
                           }
                           setIsOpen(false); 
                         }}

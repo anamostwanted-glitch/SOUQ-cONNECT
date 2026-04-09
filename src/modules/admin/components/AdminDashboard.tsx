@@ -35,6 +35,7 @@ import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc } from '
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { db } from '../../../core/firebase';
 import { UserProfile, AppFeatures, ProductRequest, Category } from '../../../core/types';
+import { AdminSidebar } from './AdminSidebar';
 import { CategoryManagement } from '../../../shared/components/CategoryManagement';
 import { KeywordManagerModal } from '../../../shared/components/KeywordManagerModal';
 import BrandingSettings from '../../site/components/BrandingSettings';
@@ -46,7 +47,7 @@ import { MarketingManager } from './MarketingManager';
 import { UserDataManager } from './UserDataManager';
 import { BroadcastBox } from './BroadcastBox';
 import { ChatArchiveManager } from './ChatArchiveManager';
-import { NexusManager } from './NexusManager';
+import { ConnectManager } from './ConnectManager';
 import { AIPredictivePulse } from './AIPredictivePulse';
 import { NeuralSearch } from './NeuralSearch';
 import { MergeCategoryModal } from './MergeCategoryModal';
@@ -61,18 +62,25 @@ interface AdminDashboardProps {
   features: AppFeatures;
   onOpenChat: (chatId: string) => void;
   onViewProfile: (uid: string) => void;
+  activeTab?: string;
+  setActiveTab?: (tab: string) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   profile,
   features,
   onOpenChat,
-  onViewProfile
+  onViewProfile,
+  activeTab: externalActiveTab,
+  setActiveTab: setExternalActiveTab
 }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
 
-  const [activeTab, setActiveTab] = useState('overview');
+  const [internalActiveTab, setInternalActiveTab] = useState('overview');
+  
+  const activeTab = externalActiveTab || internalActiveTab;
+  const setActiveTab = setExternalActiveTab || setInternalActiveTab;
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [requests, setRequests] = useState<ProductRequest[]>([]);
@@ -90,6 +98,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [selectedSupplierForVerification, setSelectedSupplierForVerification] = useState<UserProfile | null>(null);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleSuggestMerges = async () => {
     setIsSuggestingMerges(true);
@@ -301,8 +321,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleUpdateRole = async (uid: string, newRole: string) => {
     try {
       await updateDoc(doc(db, 'users', uid), { role: newRole });
+      toast.success(isRtl ? 'تم تحديث الدور بنجاح' : 'Role updated successfully');
     } catch (error) {
-      console.error("Error updating role:", error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
     }
   };
 
@@ -337,7 +358,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         await updateDoc(doc(db, 'users', uid), { isVerified: false });
         toast.success(isRtl ? 'تم إلغاء توثيق المورد' : 'Supplier unverified');
       } catch (error) {
-        console.error("Error unverifying supplier:", error);
+        handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
       }
     } else if (supplier) {
       // If verifying, open the smart modal
@@ -366,32 +387,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           const isActuallyExpired = expiryDate <= now;
           
           // Notify Supplier
-          await addDoc(collection(db, 'notifications'), {
-            userId: supplier.uid,
-            titleAr: isActuallyExpired ? 'انتهت صلاحية وثائق التوثيق' : 'اقترب موعد انتهاء صلاحية وثائقك',
-            titleEn: isActuallyExpired ? 'Verification Documents Expired' : 'Documents Expiring Soon',
-            bodyAr: isActuallyExpired 
-              ? `انتهت صلاحية سجلّك التجاري في ${supplier.verificationExpiryDate}. يرجى تحديثه فوراً.` 
-              : `سينتهي سجلّك التجاري في ${supplier.verificationExpiryDate}. يرجى التجديد قبل الانتهاء.`,
-            bodyEn: isActuallyExpired 
-              ? `Your commercial registration expired on ${supplier.verificationExpiryDate}. Please update it immediately.` 
-              : `Your commercial registration will expire on ${supplier.verificationExpiryDate}. Please renew it soon.`,
-            createdAt: new Date().toISOString(),
-            read: false,
-            actionType: 'general'
-          });
+          try {
+            await addDoc(collection(db, 'notifications'), {
+              userId: supplier.uid,
+              titleAr: isActuallyExpired ? 'انتهت صلاحية وثائق التوثيق' : 'اقترب موعد انتهاء صلاحية وثائقك',
+              titleEn: isActuallyExpired ? 'Verification Documents Expired' : 'Documents Expiring Soon',
+              bodyAr: isActuallyExpired 
+                ? `انتهت صلاحية سجلّك التجاري في ${supplier.verificationExpiryDate}. يرجى تحديثه فوراً.` 
+                : `سينتهي سجلّك التجاري في ${supplier.verificationExpiryDate}. يرجى التجديد قبل الانتهاء.`,
+              bodyEn: isActuallyExpired 
+                ? `Your commercial registration expired on ${supplier.verificationExpiryDate}. Please update it immediately.` 
+                : `Your commercial registration will expire on ${supplier.verificationExpiryDate}. Please renew it soon.`,
+              createdAt: new Date().toISOString(),
+              read: false,
+              actionType: 'general'
+            });
+          } catch (err) {
+            handleFirestoreError(err, OperationType.CREATE, 'notifications');
+          }
 
           // Notify Admin
-          await addDoc(collection(db, 'notifications'), {
-            userId: profile.uid,
-            titleAr: isActuallyExpired ? 'تنبيه: سجل تجاري منتهي' : 'تنبيه: سجل تجاري يقترب من الانتهاء',
-            titleEn: isActuallyExpired ? 'Alert: Expired Registration' : 'Alert: Registration Expiring Soon',
-            bodyAr: `المورد ${supplier.name} لديه سجل ${isActuallyExpired ? 'منتهي' : 'يقترب من الانتهاء'} (${supplier.verificationExpiryDate}).`,
-            bodyEn: `Supplier ${supplier.name} has an ${isActuallyExpired ? 'expired' : 'expiring'} registration (${supplier.verificationExpiryDate}).`,
-            createdAt: new Date().toISOString(),
-            read: false,
-            actionType: 'general'
-          });
+          try {
+            await addDoc(collection(db, 'notifications'), {
+              userId: profile.uid,
+              titleAr: isActuallyExpired ? 'تنبيه: سجل تجاري منتهي' : 'تنبيه: سجل تجاري يقترب من الانتهاء',
+              titleEn: isActuallyExpired ? 'Alert: Expired Registration' : 'Alert: Registration Expiring Soon',
+              bodyAr: `المورد ${supplier.name} لديه سجل ${isActuallyExpired ? 'منتهي' : 'يقترب من الانتهاء'} (${supplier.verificationExpiryDate}).`,
+              bodyEn: `Supplier ${supplier.name} has an ${isActuallyExpired ? 'expired' : 'expiring'} registration (${supplier.verificationExpiryDate}).`,
+              createdAt: new Date().toISOString(),
+              read: false,
+              actionType: 'general'
+            });
+          } catch (err) {
+            handleFirestoreError(err, OperationType.CREATE, 'notifications');
+          }
 
           notifiedCount++;
         }
@@ -420,7 +449,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'site', label: isRtl ? 'إعدادات الواجهة' : 'Interface Settings', icon: Zap },
     { id: 'ai', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu },
     { id: 'cost', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
-    { id: 'nexus', label: isRtl ? 'نمو النكسوس' : 'Nexus Growth', icon: Zap, isNew: true },
+    { id: 'connect', label: isRtl ? 'نمو كونكت' : 'Connect Growth', icon: Zap, isNew: true },
     { id: 'gap-analysis', label: isRtl ? 'تحليل الفجوة' : 'Gap Analysis', icon: BarChart3, isNew: true },
     { id: 'settings', label: isRtl ? 'الهوية البصرية' : 'Brand Identity', icon: Palette },
   ];
@@ -448,47 +477,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   return (
     <div className={`flex flex-col md:flex-row min-h-screen bg-brand-background ${isRtl ? 'font-arabic' : ''}`}>
-      {/* Sidebar / Mobile Nav */}
-      <aside className={`w-full md:w-72 bg-brand-surface border-brand-border border-b md:border-b-0 ${isRtl ? 'md:border-l' : 'md:border-r'} flex flex-col shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 sticky top-0 md:relative`}>
-        <div className="p-6 md:p-8 border-b border-brand-border/50 bg-brand-surface/50 backdrop-blur-sm hidden md:block">
-          <h2 className="text-2xl font-black text-brand-text-main tracking-tight flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-brand-primary to-brand-primary-hover rounded-2xl flex items-center justify-center text-white shadow-lg shadow-brand-primary/25">
-              <Shield size={24} />
-            </div>
-            <div className="flex flex-col">
-              <span>{isRtl ? 'لوحة التحكم' : 'Admin Panel'}</span>
-              <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest mt-0.5">
-                {isRtl ? 'الإدارة المركزية' : 'Central Management'}
-              </span>
-            </div>
-          </h2>
-        </div>
-
-        <nav className="flex md:flex-col p-2 md:p-4 space-x-2 md:space-x-0 md:space-y-1.5 overflow-x-auto md:overflow-y-auto custom-scrollbar no-scrollbar scroll-smooth">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center justify-between px-4 py-2.5 md:py-3.5 rounded-xl text-xs md:text-sm font-black transition-all duration-300 whitespace-nowrap md:whitespace-normal shrink-0 md:shrink ${
-                activeTab === tab.id 
-                  ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20 md:translate-x-1' 
-                  : 'text-brand-text-muted hover:bg-brand-background hover:text-brand-text-main md:hover:translate-x-1'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <tab.icon size={18} className={activeTab === tab.id ? 'text-white' : 'text-brand-text-muted'} />
-                <span className="hidden md:inline">{tab.label}</span>
-                <span className="md:hidden">{tab.label.split(' ')[0]}</span>
-              </div>
-              {(tab as any).isNew && (
-                <span className="ml-2 px-1.5 py-0.5 rounded-md bg-brand-primary text-[8px] font-black text-white animate-pulse hidden md:inline">
-                  NEW
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
-      </aside>
+      <AdminSidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        tabs={tabs} 
+        isRtl={isRtl} 
+        profile={profile} 
+      />
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-brand-background p-4 md:p-8">
@@ -870,79 +865,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="space-y-8 max-w-4xl mx-auto"
+              className="w-full -m-4 md:-m-8"
             >
-              <div className="text-center space-y-4">
-                <div className="w-20 h-20 bg-brand-primary/10 rounded-[2rem] flex items-center justify-center text-brand-primary mx-auto animate-pulse">
-                  <Cpu size={40} />
-                </div>
-                <h1 className="text-4xl font-black text-brand-text-main">
-                  {isRtl ? 'مركز الذكاء الاصطناعي العصبي' : 'AI Neural Hub'}
-                </h1>
-                <p className="text-brand-text-muted max-w-lg mx-auto">
-                  {isRtl ? 'تحكم في قدرات الذكاء الاصطناعي المتقدمة لتحسين تجربة المستخدم وأداء النظام' : 'Control advanced AI capabilities to optimize user experience and system performance'}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border shadow-sm hover:shadow-xl hover:shadow-brand-primary/5 transition-all group">
-                  <div className="w-12 h-12 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary mb-6 group-hover:scale-110 transition-transform">
-                    <Sparkles size={24} />
-                  </div>
-                  <h3 className="text-xl font-black text-brand-text-main mb-2">{isRtl ? 'توليد الشعارات الذكي' : 'Smart Logo Generation'}</h3>
-                  <p className="text-sm text-brand-text-muted mb-6">{isRtl ? 'تفعيل ميزة توليد الشعارات للموردين باستخدام Gemini Pro' : 'Enable logo generation for suppliers using Gemini Pro'}</p>
-                  <div className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
-                    <span className="text-xs font-black uppercase tracking-widest text-brand-text-muted">{isRtl ? 'الحالة' : 'Status'}</span>
-                    <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-black uppercase tracking-widest">{isRtl ? 'نشط' : 'Active'}</span>
-                  </div>
-                </div>
-
-                <div className="bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border shadow-sm hover:shadow-xl hover:shadow-brand-primary/5 transition-all group">
-                  <div className="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-500 mb-6 group-hover:scale-110 transition-transform">
-                    <Wand2 size={24} />
-                  </div>
-                  <h3 className="text-xl font-black text-brand-text-main mb-2">{isRtl ? 'تحسين المحتوى التلقائي' : 'Auto Content Optimization'}</h3>
-                  <p className="text-sm text-brand-text-muted mb-6">{isRtl ? 'تصحيح الأخطاء اللغوية وتحسين نصوص المنتجات تلقائياً' : 'Automatically correct typos and optimize product descriptions'}</p>
-                  <div className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
-                    <span className="text-xs font-black uppercase tracking-widest text-brand-text-muted">{isRtl ? 'الحالة' : 'Status'}</span>
-                    <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-[10px] font-black uppercase tracking-widest">{isRtl ? 'قيد المعالجة' : 'Processing'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border shadow-sm">
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500">
-                      <Zap size={24} />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-black text-brand-text-main">{isRtl ? 'تشخيص النظام الذكي' : 'Smart System Diagnostics'}</h3>
-                      <p className="text-sm text-brand-text-muted">{isRtl ? 'فحص شامل لقاعدة البيانات والملفات' : 'Comprehensive database and file check'}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleSystemScan}
-                    disabled={isScanning}
-                    className="px-6 py-3 bg-brand-primary text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-brand-primary-hover transition-all shadow-lg shadow-brand-primary/20 disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {isScanning ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-                    {isRtl ? 'بدء الفحص' : 'Start Scan'}
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  {[
-                    { label: isRtl ? 'سلامة قاعدة البيانات' : 'Database Integrity', status: scanResults?.integrity || 'Optimal', color: 'text-emerald-500' },
-                    { label: isRtl ? 'سرعة استجابة الخادم' : 'Server Response Time', status: scanResults?.latency || '45ms', color: 'text-emerald-500' },
-                    { label: isRtl ? 'تحسين الصور' : 'Image Optimization', status: scanResults?.optimization || '98%', color: 'text-emerald-500' },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
-                      <span className="text-sm font-bold text-brand-text-main">{item.label}</span>
-                      <span className={`text-sm font-black ${item.color}`}>{item.status}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <AdminNeuralHub />
             </motion.div>
           )}
           {activeTab === 'categories' && (
@@ -1020,17 +945,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'ai' && (
-            <motion.div
-              key="ai"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <AdminNeuralHub />
-            </motion.div>
-          )}
-
           {activeTab === 'cost' && (
             <motion.div
               key="cost"
@@ -1043,14 +957,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'nexus' && (
+          {activeTab === 'connect' && (
             <motion.div
-              key="nexus"
+              key="connect"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <NexusManager />
+              <ConnectManager />
             </motion.div>
           )}
 
@@ -1067,6 +981,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           )}
         </AnimatePresence>
       </main>
+      {isCommandPaletteOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center pt-20"
+          onClick={() => setIsCommandPaletteOpen(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="w-full max-w-lg bg-brand-surface rounded-3xl border border-brand-border shadow-2xl p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-brand-border">
+              <Search className="text-brand-text-muted" size={20} />
+              <input
+                type="text"
+                placeholder={isRtl ? 'ابحث في لوحة التحكم...' : 'Search dashboard...'}
+                className="flex-1 bg-transparent border-none outline-none text-sm font-bold"
+                autoFocus
+              />
+              <kbd className="px-2 py-1 bg-brand-background rounded text-[10px] font-black text-brand-text-muted">ESC</kbd>
+            </div>
+            <div className="p-2">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id as any);
+                    setIsCommandPaletteOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-brand-text-main hover:bg-brand-background transition-all"
+                >
+                  <tab.icon size={18} className="text-brand-primary" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 };

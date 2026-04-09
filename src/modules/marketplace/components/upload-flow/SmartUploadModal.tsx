@@ -244,7 +244,6 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
       setErrorMessage(null);
       
       const reader = new FileReader();
-      reader.readAsDataURL(file);
       reader.onloadend = async () => {
         try {
           const base64data = reader.result as string;
@@ -309,6 +308,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
         updateImageStatus(id, 'error', 0, 'Error reading file');
         setIsAnalyzing(false);
       };
+      reader.readAsDataURL(file);
     } catch (error) {
       console.error('Error in analyzeSpecificImage:', error);
       setIsAnalyzing(false);
@@ -343,7 +343,6 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
             setIsAnalyzing(true);
             
             const reader = new FileReader();
-            reader.readAsDataURL(compressedFile); // Use compressed but unwatermarked for analysis
             reader.onloadend = async () => {
               try {
                 const base64data = reader.result as string;
@@ -411,6 +410,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
               updateImageStatus(id, 'error', 0, 'Error reading file');
               setIsAnalyzing(false);
             };
+            reader.readAsDataURL(compressedFile); // Use compressed but unwatermarked for analysis
           } catch (error) {
             console.error('Error in analysis timeout:', error);
             setIsAnalyzing(false);
@@ -432,21 +432,32 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
 
   const applyAiSuggestion = () => {
     if (!aiSuggestion) return;
-    setTitle(isRtl ? aiSuggestion.productNameAr : aiSuggestion.productNameEn);
-    setDescription(isRtl ? aiSuggestion.descriptionAr : aiSuggestion.descriptionEn);
-    setPrice(aiSuggestion.priceEstimate.toString());
-    setClassification(aiSuggestion.category);
-    setFeatures(aiSuggestion.features);
-    setIsHighQuality(aiSuggestion.isHighQuality);
+    setTitle((isRtl ? aiSuggestion.productNameAr : aiSuggestion.productNameEn) || '');
+    setDescription((isRtl ? aiSuggestion.descriptionAr : aiSuggestion.descriptionEn) || '');
+    setPrice(aiSuggestion.priceEstimate ? aiSuggestion.priceEstimate.toString() : '');
+    setClassification(aiSuggestion.category || '');
+    
+    // Also try to match and set the category ID
+    const cat = categories.find(c => 
+      c.nameEn.toLowerCase() === aiSuggestion.category?.toLowerCase() || 
+      c.nameAr.toLowerCase() === aiSuggestion.category?.toLowerCase()
+    );
+    if (cat) {
+      setSelectedCategories([cat.id]);
+    }
+
+    setFeatures(aiSuggestion.features || []);
+    setIsHighQuality(!!aiSuggestion.isHighQuality);
     setBilingualContent({
-      titleAr: aiSuggestion.productNameAr,
-      titleEn: aiSuggestion.productNameEn,
-      descriptionAr: aiSuggestion.descriptionAr,
-      descriptionEn: aiSuggestion.descriptionEn,
-      keywordsAr: aiSuggestion.keywordsAr,
-      keywordsEn: aiSuggestion.keywordsEn
+      titleAr: aiSuggestion.productNameAr || '',
+      titleEn: aiSuggestion.productNameEn || '',
+      descriptionAr: aiSuggestion.descriptionAr || '',
+      descriptionEn: aiSuggestion.descriptionEn || '',
+      keywordsAr: aiSuggestion.keywordsAr || [],
+      keywordsEn: aiSuggestion.keywordsEn || []
     });
     setAiSuggestion(null);
+    toast.success(isRtl ? 'تم تطبيق بيانات الذكاء الاصطناعي' : 'AI data applied successfully');
   };
 
   const handleDrop = async (e: React.DragEvent) => {
@@ -889,7 +900,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                   <input 
                     type="text" 
                     placeholder={isRtl ? 'عنوان المنتج (مثال: آيفون 15 برو)' : 'Product Title (e.g. iPhone 15 Pro)'}
-                    value={title}
+                    value={title || ''}
                     onChange={(e) => setTitle(e.target.value)}
                     className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
                   />
@@ -903,7 +914,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                     <input 
                       type="number" 
                       placeholder={isRtl ? 'السعر' : 'Price'}
-                      value={price}
+                      value={price || ''}
                       onChange={(e) => setPrice(e.target.value)}
                       className="w-full pl-14 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
                     />
@@ -915,7 +926,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                     <input 
                       type="text" 
                       placeholder={isRtl ? 'التصنيف (مثال: إلكترونيات)' : 'Classification (e.g. Electronics)'}
-                      value={classification}
+                      value={classification || ''}
                       onChange={(e) => setClassification(e.target.value)}
                       className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
                     />
@@ -974,7 +985,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                 <input 
                   type="text" 
                   placeholder={isRtl ? 'أضف ميزة (مثال: مقاوم للماء)' : 'Add feature (e.g. Waterproof)'}
-                  value={featureInput}
+                  value={featureInput || ''}
                   onChange={(e) => setFeatureInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && featureInput.trim()) {
@@ -1009,7 +1020,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
               </div>
               <textarea 
                 placeholder={isRtl ? 'اكتب وصفاً تفصيلياً للمنتج...' : 'Write a detailed description...'}
-                value={description}
+                value={description || ''}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
                 className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-medium text-slate-900 dark:text-white resize-none"
@@ -1025,7 +1036,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                 <input 
                   type="text" 
                   placeholder={isRtl ? 'الموقع' : 'Location'}
-                  value={location}
+                  value={location || ''}
                   onChange={(e) => setLocation(e.target.value)}
                   className="w-full pl-12 pr-12 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-medium text-slate-900 dark:text-white"
                 />
@@ -1044,7 +1055,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                 <input 
                   type="tel" 
                   placeholder={isRtl ? 'رقم الهاتف' : 'Phone Number'}
-                  value={phone}
+                  value={phone || ''}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-medium text-slate-900 dark:text-white"
                 />

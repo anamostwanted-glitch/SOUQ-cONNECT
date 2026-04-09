@@ -2,14 +2,14 @@ import React from 'react';
 import { UserProfile, AppFeatures } from '../../../core/types';
 import { AdminDashboard } from '../../admin/components/AdminDashboard';
 import { VendorDashboard } from '../../vendor/components/VendorDashboard';
-import { NexusCommandCenter } from '../../user/components/NexusCommandCenter';
+import { ConnectCommandCenter } from '../../user/components/ConnectCommandCenter';
 import LegacyDashboard from './LegacyDashboard';
 
 interface DashboardProps {
   profile: UserProfile;
   features: AppFeatures;
-  supplierTab: string;
-  setSupplierTab: (tab: string) => void;
+  dashboardTab: string;
+  setDashboardTab: (tab: string) => void;
   onOpenChat: (chatId: string) => void;
   onViewProfile: (uid: string) => void;
   viewMode?: 'admin' | 'supplier' | 'customer';
@@ -19,8 +19,8 @@ interface DashboardProps {
 export default function Dashboard({
   profile,
   features,
-  supplierTab,
-  setSupplierTab,
+  dashboardTab,
+  setDashboardTab,
   onOpenChat,
   onViewProfile,
   viewMode,
@@ -37,13 +37,15 @@ export default function Dashboard({
         features={features}
         onOpenChat={onOpenChat}
         onViewProfile={onViewProfile}
+        activeTab={dashboardTab}
+        setActiveTab={setDashboardTab}
       />
     );
   }
 
-  // Use the new unified Nexus Command Center for both Suppliers and Customers
+  // Use the new unified Connect Command Center for both Suppliers and Customers
   return (
-    <NexusCommandCenter
+    <ConnectCommandCenter
       profile={profile}
       features={features}
       onOpenChat={onOpenChat}

@@ -92,7 +92,7 @@ export const AINeuralCategorySelector: React.FC<AINeuralCategorySelectorProps> =
     return () => clearTimeout(timer);
   }, [productInfo?.title, productInfo?.description, categories]);
 
-  const handleSelect = (categoryId: string) => {
+  const handleSelect = (categoryId: string, forceClose: boolean = false) => {
     const hasChildren = categories.some(c => c.parentId === categoryId);
 
     if (hasChildren && !searchQuery) {
@@ -102,6 +102,11 @@ export const AINeuralCategorySelector: React.FC<AINeuralCategorySelectorProps> =
         onSelect(selectedCategoryIds.filter(id => id !== categoryId));
       } else {
         onSelect([...selectedCategoryIds, categoryId]);
+      }
+      
+      // If it's a leaf category or forceClose is requested, close the modal
+      if (!hasChildren || forceClose || searchQuery) {
+        setTimeout(() => setIsOpen(false), 300);
       }
     }
   };
@@ -220,7 +225,7 @@ export const AINeuralCategorySelector: React.FC<AINeuralCategorySelectorProps> =
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: idx * 0.1 }}
-                            onClick={() => handleSelect(id)}
+                            onClick={() => handleSelect(id, true)}
                             className="flex items-center justify-between p-4 bg-brand-primary/10 border border-brand-primary/20 rounded-2xl hover:bg-brand-primary/20 transition-all group"
                           >
                             <div className="flex items-center gap-3">
@@ -302,6 +307,17 @@ export const AINeuralCategorySelector: React.FC<AINeuralCategorySelectorProps> =
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Footer / Done Button */}
+              <div className="p-6 border-t border-white/5 bg-white/5">
+                <HapticButton
+                  onClick={() => setIsOpen(false)}
+                  className="w-full py-4 bg-brand-primary text-white rounded-2xl font-black shadow-xl shadow-brand-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                  <Check size={20} />
+                  {isRtl ? 'تم الاختيار' : 'Done Selecting'}
+                </HapticButton>
               </div>
             </motion.div>
           </>

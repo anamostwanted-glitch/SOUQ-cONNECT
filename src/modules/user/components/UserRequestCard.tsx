@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { doc, updateDoc, collection, query, where, getDocs, addDoc, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
-import { db } from '../../../core/firebase';
+import { db, auth } from '../../../core/firebase';
 import { ProductRequest, UserProfile } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
 
@@ -244,7 +244,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
       </div>
 
       {/* Smart Section: Suggested Suppliers */}
-      {suppliers.length > 0 && (
+      {suppliers.length > 0 && auth.currentUser && (
         <div className="bg-gradient-to-br from-brand-primary/5 via-transparent to-transparent rounded-2xl p-4 border border-brand-primary/10 mt-2">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1.5 text-brand-primary">
@@ -346,7 +346,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
               )}
 
               {/* AI Match Details Section */}
-              {suppliers.length > 0 && (
+              {suppliers.length > 0 && auth.currentUser && (
                 <div className="mt-6">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-1 h-4 bg-brand-primary rounded-full" />

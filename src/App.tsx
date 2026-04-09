@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { MarketInterface } from './modules/marketplace/components/MarketInterface';
+import Dashboard from './modules/site/components/Dashboard';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './core/firebase';
 import { UserProfile, AppFeatures, UserRole, SiteSettings } from './core/types';
@@ -8,20 +10,21 @@ import { Layout } from './modules/site/components/Layout';
 import Home from './modules/site/components/Home';
 import Auth from './modules/site/components/Auth';
 import RoleSelection from './modules/site/components/RoleSelection';
-import { MarketInterface } from './modules/marketplace/components/MarketInterface';
+import { Skeleton } from './shared/components/Skeleton';
+import { HelpCircle } from 'lucide-react';
+import { handleFirestoreError, OperationType } from './core/utils/errorHandling';
+import { PageLoader } from './shared/components/PageLoader';
+import { UserNeuralHub } from './modules/common/components/UserNeuralHub';
+import { useTranslation } from 'react-i18next';
+import { preFetchNeuralPulse } from './core/services/geminiService';
 import { DiscoveryCanvas } from './components/Discovery/DiscoveryCanvas';
 import { ChatHub } from './modules/common/components/ChatHub';
 import ChatView from './modules/common/components/ChatView';
-import Dashboard from './modules/site/components/Dashboard';
 import { ProfileView } from './modules/site/components/ProfileView';
-import { NexusRewards } from './modules/user/components/NexusRewards';
-import { handleFirestoreError, OperationType } from './core/utils/errorHandling';
-import { PageLoader } from './shared/components/PageLoader';
-
-import i18n from './i18n';
-import { UserNeuralHub } from './modules/common/components/UserNeuralHub';
+import { ConnectRewards } from './modules/user/components/ConnectRewards';
 
 export default function App() {
+  const { i18n } = useTranslation();
   const [currentView, setView] = useState('home');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [features, setFeatures] = useState<AppFeatures>({
@@ -36,8 +39,9 @@ export default function App() {
   const [settings, setSettings] = useState<SiteSettings>({});
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
-  const [supplierTab, setSupplierTab] = useState('dashboard');
+  const [dashboardTab, setDashboardTab] = useState('overview');
   const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState<number | null>(null);
 
   useEffect(() => {
     let unsubscribeUser: (() => void) | undefined;
@@ -49,6 +53,9 @@ export default function App() {
             const userData = docSnap.data() as UserProfile;
             setProfile(userData);
             setViewMode(prev => prev === 'customer' && userData.role !== 'customer' ? userData.role : prev);
+            
+            // Pre-fetch AI insights for smoother experience
+            preFetchNeuralPulse(userData).catch(err => console.error("Pre-fetch error:", err));
           } else {
             setProfile(null);
           }
@@ -71,6 +78,8 @@ export default function App() {
       if (snap.exists()) {
         setSettings(snap.data() as SiteSettings);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
     });
 
     return () => {
@@ -94,18 +103,20 @@ export default function App() {
           />
         );
       case 'role-selection':
-        return <RoleSelection onSelect={(role) => { setView('auth'); }} />;
+        return <RoleSelection onSelect={(role) => { setViewMode(role); setView('auth'); }} />;
       case 'auth':
-        return <Auth onAuthSuccess={(role) => { setView('home'); }} />;
+        return <Auth onAuthSuccess={(role) => { setView('home'); }} initialRole={viewMode} />;
       case 'marketplace':
         return (
-          <MarketInterface 
-            profile={profile} 
-            features={features}
-            onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
-            onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
-            viewMode={viewMode as any}
-          />
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <MarketInterface 
+              profile={profile} 
+              features={features}
+              onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+              onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
+              viewMode={viewMode as any}
+            />
+          </Suspense>
         );
       case 'discovery':
         return <DiscoveryCanvas />;
@@ -138,16 +149,40 @@ export default function App() {
       case 'dashboard':
         if (!profile) return <Auth onAuthSuccess={() => setView('dashboard')} />;
         return (
-          <Dashboard 
-            profile={profile}
-            features={features}
-            supplierTab={supplierTab}
-            setSupplierTab={setSupplierTab}
-            onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
-            onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
-            viewMode={viewMode as any}
-            uiStyle={uiStyle}
-          />
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <Dashboard 
+              profile={profile}
+              features={features}
+              dashboardTab={dashboardTab}
+              setDashboardTab={setDashboardTab}
+              onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+              onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
+              viewMode={viewMode as any}
+              uiStyle={uiStyle}
+            />
+          </Suspense>
+        );
+      case 'help':
+        return (
+          <div className="pt-24 px-4 min-h-screen bg-brand-background flex flex-col items-center justify-center text-center">
+            <div className="w-20 h-20 bg-brand-primary/10 rounded-full flex items-center justify-center text-brand-primary mb-6">
+              <HelpCircle size={40} />
+            </div>
+            <h1 className="text-3xl font-black text-brand-text-main mb-4">
+              {i18n.language === 'ar' ? 'مركز المساعدة الذكي' : 'Neural Help Center'}
+            </h1>
+            <p className="text-brand-text-muted max-w-md mb-8">
+              {i18n.language === 'ar' 
+                ? 'نحن هنا لمساعدتك. قريباً سنقوم بإطلاق نظام دعم مدعوم بالذكاء الاصطناعي للإجابة على جميع استفساراتك.' 
+                : 'We are here to help. Soon we will launch an AI-powered support system to answer all your inquiries.'}
+            </p>
+            <button 
+              onClick={() => setView('home')}
+              className="px-8 py-3 bg-brand-primary text-white rounded-2xl font-bold shadow-lg shadow-brand-primary/20"
+            >
+              {i18n.language === 'ar' ? 'العودة للرئيسية' : 'Back to Home'}
+            </button>
+          </div>
         );
       case 'profile':
         if (selectedProfileId === profile?.uid || (!selectedProfileId && profile)) {
@@ -165,11 +200,31 @@ export default function App() {
             }} 
           />
         );
-      case 'nexus':
-        if (!profile) return <Auth onAuthSuccess={() => setView('nexus')} />;
-        return <NexusRewards profile={profile} settings={settings} onBack={() => setView('home')} />;
+      case 'connect':
+        if (!profile) return <Auth onAuthSuccess={() => setView('connect')} />;
+        return <ConnectRewards profile={profile} settings={settings} onBack={() => setView('home')} />;
       default:
         return <Home profile={profile} onNavigate={setView} viewMode={viewMode as any} uiStyle={uiStyle} />;
+    }
+  };
+
+  const onBack = () => {
+    // Logic to go back based on currentView
+    if (currentView === 'chat') setActiveChatId(null);
+    else if (currentView === 'profile') setView('home');
+    else if (currentView !== 'home') setView('home');
+  };
+
+  const handleDragEnd = (event: any, info: any) => {
+    const swipeThreshold = 100;
+    const isRtl = i18n.language === 'ar';
+    
+    // RTL: Swipe Right -> Back
+    // LTR: Swipe Left -> Back
+    if (isRtl) {
+      if (info.offset.x > swipeThreshold) onBack();
+    } else {
+      if (info.offset.x < -swipeThreshold) onBack();
     }
   };
 
@@ -181,6 +236,9 @@ export default function App() {
         ) : (
           <motion.div
             key="content"
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            onDragEnd={handleDragEnd}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
@@ -192,12 +250,11 @@ export default function App() {
               currentView={currentView}
               setView={setView}
               setActiveChatId={setActiveChatId}
-              supplierTab={supplierTab}
-              setSupplierTab={setSupplierTab}
-              viewMode={viewMode as any}
-              setViewMode={setViewMode as any}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
               uiStyle={uiStyle}
               setUiStyle={setUiStyle}
+              onBack={onBack}
             >
               {renderView()}
             </Layout>

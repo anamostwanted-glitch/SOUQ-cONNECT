@@ -3395,7 +3395,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                 </div>
                 <button 
-                  onClick={() => auth.signOut()}
+                  onClick={() => auth.signOut().catch(err => console.error("Sign out error:", err))}
                   className="w-full py-2.5 bg-brand-surface text-brand-error text-xs font-bold rounded-xl border border-brand-border hover:bg-brand-error hover:text-white transition-all duration-200 flex items-center justify-center gap-2 group shadow-sm"
                 >
                   <LogOut size={14} className="group-hover:-translate-x-1 transition-transform" />

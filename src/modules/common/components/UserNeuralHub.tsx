@@ -13,6 +13,7 @@ import {
 import { UserProfile } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { callAiJson } from '../../../core/services/geminiService';
+import { neuralCache } from '../../../core/utils/neuralCache';
 import { Type } from '@google/genai';
 
 interface UserNeuralHubProps {
@@ -84,7 +85,21 @@ export const UserNeuralHub: React.FC<UserNeuralHubProps> = ({ profile, isRtl }) 
   };
 
   useEffect(() => {
-    analyzeUserPulse();
+    const cachedData = neuralCache.get(`pulse_${profile.uid}`);
+    if (cachedData) {
+      setPulseData({
+        ...cachedData,
+        headline: isRtl ? cachedData.headlineAr : cachedData.headlineEn,
+        insights: cachedData.insights || [
+          isRtl ? 'استمر في التفاعل مع المنصة لزيادة فرصك' : 'Keep interacting with the platform to increase your chances',
+          isRtl ? 'تأكد من تحديث بياناتك الشخصية باستمرار' : 'Make sure to keep your personal data updated',
+          isRtl ? 'استكشف الميزات الذكية الجديدة' : 'Explore the new smart features'
+        ],
+        nextBestAction: cachedData.nextBestAction || (isRtl ? 'تصفح أحدث العروض' : 'Browse latest offers')
+      });
+    } else {
+      analyzeUserPulse();
+    }
   }, []);
 
   const getStatusColor = (status: string) => {
