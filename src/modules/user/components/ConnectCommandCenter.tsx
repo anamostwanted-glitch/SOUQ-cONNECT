@@ -43,7 +43,7 @@ import { db, auth } from '../../../core/firebase';
 import { UserProfile, AppFeatures, ProductRequest, MarketplaceItem } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { toast } from 'sonner';
-import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { handleFirestoreError, OperationType, handleAiError } from '../../../core/utils/errorHandling';
 import { ProfileSettings } from './ProfileSettings';
 import { UserRequestCard } from './UserRequestCard';
 import { VendorRequestCard } from '../../vendor/components/VendorRequestCard';
@@ -180,7 +180,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
           url: shareUrl,
         });
       } catch (err) {
-        console.error("Share failed:", err);
+        handleAiError(err, 'ConnectCommandCenter:handleShare', false);
       }
     } else {
       navigator.clipboard.writeText(shareUrl)
@@ -188,7 +188,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
           toast.success(isRtl ? 'تم نسخ الرابط' : 'Link copied to clipboard');
         })
         .catch(err => {
-          console.error("Clipboard copy failed:", err);
+          handleAiError(err, 'ConnectCommandCenter:handleShare:clipboard', false);
           toast.error(isRtl ? 'فشل نسخ الرابط' : 'Failed to copy link');
         });
     }
@@ -413,7 +413,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
               <div className={`w-10 h-10 rounded-xl ${glassClass} flex items-center justify-center group-hover:scale-110 transition-transform ${isRtl ? 'rotate-180' : ''}`}>
                 <ChevronRight size={20} className="rotate-180" />
               </div>
-              <span className="font-black text-sm uppercase tracking-widest">{isRtl ? 'العودة للمركز' : 'Back to Nexus'}</span>
+              <span className="font-black text-sm uppercase tracking-widest">{isRtl ? 'العودة للمركز' : 'Back to Connect'}</span>
             </HapticButton>
             <h2 className="text-2xl font-black text-brand-text-main">
               {activeSubView === 'settings' || activeSubView === 'store_settings' ? (isRtl ? 'الإعدادات' : 'Settings') : ''}
@@ -523,7 +523,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
         await Promise.all(batch);
         toast.success(isRtl ? 'تم مسح الطلبات' : 'Orders cleared');
       } catch (err) {
-        console.error('Clear failed:', err);
+        handleFirestoreError(err, OperationType.UPDATE, 'requests', false);
         toast.error(isRtl ? 'فشل المسح' : 'Failed to clear');
       }
     };
@@ -633,7 +633,6 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
         <div className="mt-12 flex justify-center">
           <HapticButton 
             onClick={() => auth.signOut().catch(err => {
-              console.error("Sign out error:", err);
               toast.error(isRtl ? 'فشل تسجيل الخروج' : 'Sign out failed');
             })}
             className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-rose-500/5 text-rose-500 border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all font-black text-sm uppercase tracking-widest"

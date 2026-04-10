@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, ChevronRight, ChevronDown, Plus, Check, X, Trash2, Hash, Sparkles, Edit2, Tag } from 'lucide-react';
 import { Category } from '../../core/types';
-import { handleFirestoreError, OperationType } from '../../core/utils/errorHandling';
+import { handleFirestoreError, OperationType, handleAiError } from '../../core/utils/errorHandling';
 import { CategoryList } from './CategoryList';
 import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../core/firebase';
@@ -59,7 +59,7 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
       setIsAddingSub(false);
       setIsExpanded(true);
     } catch (error) {
-      console.error('Error adding subcategory:', error);
+      handleFirestoreError(error, OperationType.WRITE, 'categories', false);
     }
   };
 
@@ -84,7 +84,7 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
       const translation = await translateText(newSubAr, 'English');
       setNewSubEn(translation);
     } catch (error) {
-      console.error('Translation error:', error);
+      handleAiError(error, 'SortableCategoryItem:handleTranslate', false);
     } finally {
       setIsTranslating(false);
     }
@@ -149,7 +149,7 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
                         const translation = await translateText(editAr, 'English');
                         setEditEn(translation);
                       } catch (error) {
-                        console.error('Translation error:', error);
+                        handleAiError(error, 'SortableCategoryItem:handleEdit:translate', false);
                       } finally {
                         setIsTranslating(false);
                       }

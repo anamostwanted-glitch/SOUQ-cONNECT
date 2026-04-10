@@ -40,7 +40,7 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { db, auth } from '../../core/firebase';
-import { handleFirestoreError, OperationType } from '../../core/utils/errorHandling';
+import { handleFirestoreError, OperationType, handleAiError } from '../../core/utils/errorHandling';
 import { BlurImage } from './BlurImage';
 import { HapticButton } from './HapticButton';
 import { WhatsAppButton } from './WhatsAppButton';
@@ -115,7 +115,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           }
         }
       } catch (error) {
-        console.error('Error fetching seller stats:', error);
+        handleFirestoreError(error, OperationType.GET, 'users/seller_stats', false);
       }
     };
     fetchSellerStats();
@@ -171,7 +171,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           setIsFavorite(userData.favoriteProducts?.includes(item.id) || false);
         }
       } catch (error) {
-        console.error('Error checking favorite status:', error);
+        handleFirestoreError(error, OperationType.GET, 'users/favorite_status', false);
       }
     };
     checkFavoriteStatus();
@@ -215,7 +215,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
       try {
         await navigator.share(shareData);
       } catch (err) {
-        console.error('Error sharing:', err);
+        handleAiError(err, 'ProductDetailsModal:handleShare', false);
       }
     } else {
       navigator.clipboard.writeText(shareData.url);

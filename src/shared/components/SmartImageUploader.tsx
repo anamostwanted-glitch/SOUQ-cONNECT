@@ -19,7 +19,9 @@ import {
 import imageCompression from 'browser-image-compression';
 import { analyzeProductImage, generateAlternativeProductImage } from '../../core/services/geminiService';
 import { processImageTo4x5WithWatermark } from '../../core/utils/imageManipulation';
+import { getProxiedImageUrl } from '../../core/utils/imageUtils';
 import { HapticButton } from './HapticButton';
+import { handleAiError } from '../../core/utils/errorHandling';
 
 interface UploadingImage {
   id: string;
@@ -95,7 +97,7 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
       
       // 2. Watermarking
       setImages(prev => prev.map(img => img.id === uploadingImg.id ? { ...img, originalFile: compressedFile, progress: 40 } : img));
-      const watermarkedBlob = await processImageTo4x5WithWatermark(compressedFile, watermarkLogo, watermarkText, watermarkOpacity, watermarkPosition, watermarkScale);
+      const watermarkedBlob = await processImageTo4x5WithWatermark(compressedFile, getProxiedImageUrl(watermarkLogo), watermarkText, watermarkOpacity, watermarkPosition, watermarkScale);
       
       // 3. AI Analysis (only for the first image or if not analyzed)
       setImages(prev => prev.map(img => img.id === uploadingImg.id ? { ...img, status: 'analyzing' as const, progress: 60 } : img));
@@ -127,7 +129,7 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
       });
 
     } catch (error) {
-      console.error("Error processing image:", error);
+      handleAiError(error, 'SmartImageUploader:processImage', false);
       setImages(prev => prev.map(img => img.id === uploadingImg.id ? { ...img, status: 'error' as const, error: 'Failed to process' } : img));
     }
   };
@@ -157,7 +159,7 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
         const blob = await res.blob();
         
         // Apply watermark to the AI generated image
-        const watermarkedAiBlob = await processImageTo4x5WithWatermark(blob, watermarkLogo, watermarkText, watermarkOpacity, watermarkPosition, watermarkScale);
+        const watermarkedAiBlob = await processImageTo4x5WithWatermark(blob, getProxiedImageUrl(watermarkLogo), watermarkText, watermarkOpacity, watermarkPosition, watermarkScale);
         const watermarkedAiUrl = URL.createObjectURL(watermarkedAiBlob);
         const newFile = new File([watermarkedAiBlob], `enhanced_${uploadingImg.file.name}`, { type: 'image/png' });
         
@@ -181,7 +183,7 @@ export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
         throw new Error("Failed to generate image");
       }
     } catch (error) {
-      console.error("Error generating alternative image:", error);
+      handleAiError(error, 'SmartImageUploader:generateAlternative', false);
       setImages(prev => prev.map(img => img.id === uploadingImg.id ? { ...img, status: 'error' as const, error: 'Failed to generate' } : img));
     }
   };

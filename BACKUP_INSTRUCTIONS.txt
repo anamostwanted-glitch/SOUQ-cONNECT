@@ -1,4 +1,4 @@
-# PROJECT BACKUP SUMMARY - Nexus AI Marketplace
+# PROJECT BACKUP SUMMARY - Connect AI Marketplace
 # Date: 2026-04-09
 
 ## 1. Core Architecture

@@ -403,13 +403,18 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /settings/{settingId} {
+    match /settings/site {
       allow read: if true;
       allow write: if isAdmin();
     }
 
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     match /settings/features {
-      allow read: if true;
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
@@ -513,12 +518,12 @@ service cloud.firestore {
       let allowedFields = ['sellerId', 'sellerName', 'sellerRole', 'title', 'titleAr', 'titleEn', 'description', 'descriptionAr', 'descriptionEn', 'price', 'currency', 'categories', 'images', 'status', 'location', 'createdAt', 'updatedAt', 'isVerifiedSupplier', 'phone', 'sellerPhone', 'isHighQuality', 'features', 'classification', 'views', 'deletedAt'];
       return data.keys().hasAll(['sellerId', 'title', 'price', 'status', 'createdAt']) &&
              data.keys().hasOnly(allowedFields) &&
-             data.sellerId is string &&
-             data.title is string && data.title.size() < 256 &&
-             (!('titleAr' in data) || (data.titleAr is string && data.titleAr.size() < 256)) &&
-             (!('titleEn' in data) || (data.titleEn is string && data.titleEn.size() < 256)) &&
+             data.sellerId is string && data.sellerId.size() > 0 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 256 &&
              data.price is number && data.price >= 0 &&
              data.status in ['active', 'sold', 'hidden', 'draft', 'deleted'] &&
+             (!('titleAr' in data) || (data.titleAr is string && data.titleAr.size() < 256)) &&
+             (!('titleEn' in data) || (data.titleEn is string && data.titleEn.size() < 256)) &&
              (!('sellerName' in data) || (data.sellerName is string && data.sellerName.size() < 256)) &&
              (!('sellerRole' in data) || (data.sellerRole is string && data.sellerRole.size() < 128)) &&
              (!('description' in data) || (data.description is string && data.description.size() < 5000)) &&
@@ -535,7 +540,7 @@ service cloud.firestore {
              (!('isHighQuality' in data) || data.isHighQuality is bool) &&
              (!('features' in data) || (data.features is list && data.features.size() <= 20)) &&
              (!('classification' in data) || (data.classification is string && data.classification.size() < 128)) &&
-             (!('views' in data) || data.views is number) &&
+             (!('views' in data) || (data.views is number && data.views >= 0)) &&
              (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
     }
 
@@ -617,6 +622,54 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidWithdrawalRequest(request.resource.data);
       allow update: if isAdmin() && isValidWithdrawalRequest(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    function isValidCampaign(data) {
+      let allowedFields = ['name', 'status', 'platform', 'budget', 'spent', 'conversions', 'clicks', 'startDate', 'endDate', 'createdAt'];
+      return data.keys().hasAll(['name', 'status', 'platform', 'budget', 'createdAt']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.name is string && data.name.size() < 256 &&
+             data.status in ['draft', 'active', 'paused', 'completed'] &&
+             data.platform in ['meta', 'google'] &&
+             data.budget is number && data.budget >= 0 &&
+             (!('spent' in data) || (data.spent is number && data.spent >= 0)) &&
+             (!('conversions' in data) || (data.conversions is number && data.conversions >= 0)) &&
+             (!('clicks' in data) || (data.clicks is number && data.clicks >= 0)) &&
+             (!('startDate' in data) || (data.startDate is string && data.startDate.size() < 64)) &&
+             (!('endDate' in data) || (data.endDate is string && data.endDate.size() < 64)) &&
+             data.createdAt is string && data.createdAt.size() < 64;
+    }
+
+    match /campaigns/{campaignId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isValidCampaign(request.resource.data);
+      allow update: if isAdmin() && isValidCampaign(request.resource.data);
+      allow delete: if isAdmin();
+
+      function isValidCampaignAd(data) {
+        let allowedFields = ['campaignId', 'title', 'text', 'imageUrl', 'status', 'createdAt'];
+        return data.keys().hasAll(['campaignId', 'title', 'text', 'status', 'createdAt']) &&
+               data.keys().hasOnly(allowedFields) &&
+               data.campaignId is string && data.campaignId.size() < 128 &&
+               data.title is string && data.title.size() < 256 &&
+               data.text is string && data.text.size() < 5000 &&
+               (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 1024)) &&
+               data.status in ['draft', 'active', 'paused'] &&
+               data.createdAt is string && data.createdAt.size() < 64;
+      }
+
+      match /ads/{adId} {
+        allow read: if isAdmin();
+        allow create: if isAdmin() && isValidCampaignAd(request.resource.data);
+        allow update: if isAdmin() && isValidCampaignAd(request.resource.data);
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
     }
 
     // Connection Test Rule

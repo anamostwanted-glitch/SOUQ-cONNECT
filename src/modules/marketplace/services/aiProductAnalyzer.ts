@@ -1,4 +1,8 @@
-import { analyzeProductImage as geminiAnalyzeProductImage, generateAlternativeProductImage as geminiGenerateAlternativeProductImage } from '../../../core/services/geminiService';
+import { 
+  analyzeProductImage as geminiAnalyzeProductImage, 
+  generateAlternativeProductImage as geminiGenerateAlternativeProductImage,
+  handleAiError 
+} from '../../../core/services/geminiService';
 
 export interface AIProductSuggestion {
   productNameAr: string;
@@ -18,8 +22,7 @@ export async function analyzeProductImage(base64Image: string, mimeType: string)
     const result = await geminiAnalyzeProductImage(base64Image, mimeType);
     return result as AIProductSuggestion;
   } catch (error: any) {
-    console.error('Error in analyzeProductImage:', error);
-    if (error.message === 'QUOTA_EXHAUSTED' || error.message === 'MISSING_API_KEY') throw error;
+    handleAiError(error, 'Product image analysis');
     return null;
   }
 }
@@ -28,8 +31,7 @@ export async function generateAlternativeProductImage(base64Image: string, mimeT
   try {
     return await geminiGenerateAlternativeProductImage(base64Image, mimeType, title, category);
   } catch (error: any) {
-    console.error('Error in generateAlternativeProductImage:', error);
-    if (error.message === 'QUOTA_EXHAUSTED' || error.message === 'MISSING_API_KEY') throw error;
+    handleAiError(error, 'Alternative image generation');
     return null;
   }
 }

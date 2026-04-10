@@ -16,7 +16,8 @@ import {
   parseVoiceRequest,
   translateText,
   generateProductCopy,
-  enhanceProductImageDescription
+  enhanceProductImageDescription,
+  handleAiError
 } from '../../../core/services/geminiService';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import UserProfileModal from '../../../shared/components/UserProfileModal';
@@ -144,7 +145,7 @@ const Home: React.FC<HomeProps> = ({
       
       setShowConciergeTrigger(false);
     } catch (error) {
-      console.error('Error updating concierge consent:', error);
+      handleFirestoreError(error, OperationType.WRITE, `users/${profile.uid}`, false);
     }
   };
 
@@ -224,7 +225,7 @@ const Home: React.FC<HomeProps> = ({
         handleFirestoreError(error, OperationType.LIST, 'categories', false);
       }
     };
-    fetchCategories().catch(err => console.error("Unhandled fetchCategories error:", err));
+    fetchCategories().catch(err => handleFirestoreError(err, OperationType.LIST, 'categories', false));
   }, []);
 
   const getCategoryIcon = (categoryName: string) => {
@@ -271,14 +272,14 @@ const Home: React.FC<HomeProps> = ({
           setShowDraftArea(true);
         }
       } catch (error) {
-        console.error('Voice parsing error:', error);
+        handleAiError(error, 'Voice request parsing');
       } finally {
         setAiStatus('');
       }
     };
 
     recognition.onerror = (event: any) => {
-      console.error('Speech recognition error', event.error);
+      handleAiError(event.error, 'Speech recognition');
       setVoiceError(i18n.language === 'ar' ? 'حدث خطأ أثناء التعرف على الصوت' : 'An error occurred during speech recognition');
       setTimeout(() => setVoiceError(null), 3000);
       setIsListening(false);
@@ -310,7 +311,7 @@ const Home: React.FC<HomeProps> = ({
       setDraftDescription(result.description);
       setShowDraftArea(true);
     } catch (error) {
-      console.error('Copy generation error:', error);
+      handleAiError(error, 'Product copy generation');
     } finally {
       setIsGeneratingCopy(false);
       setAiStatus('');
@@ -326,7 +327,7 @@ const Home: React.FC<HomeProps> = ({
       const result = await enhanceProductImageDescription(base64, selectedImage?.type || 'image/jpeg', i18n.language);
       setImageEnhancements(result);
     } catch (error) {
-      console.error('Image enhancement error:', error);
+      handleAiError(error, 'Image enhancement');
     } finally {
       setIsEnhancingImage(false);
       setAiStatus('');
@@ -359,7 +360,7 @@ const Home: React.FC<HomeProps> = ({
       const enhancedDescription = await enhanceRequestDescription(searchQuery + (aiDescription ? ` (Image context: ${aiDescription})` : ''), i18n.language);
       setDraftDescription(enhancedDescription);
     } catch (error) {
-      console.error(error);
+      handleAiError(error, 'Description enhancement');
     } finally {
       setIsDrafting(false);
       setAiStatus('');
@@ -381,11 +382,11 @@ const Home: React.FC<HomeProps> = ({
           setShowConciergeTrigger(true);
         }
       } catch (error) {
-        console.error('Error analyzing behavior:', error);
+        handleAiError(error, 'User behavior analysis');
       }
     };
     
-    analyzeBehavior().catch(err => console.error("Analyze behavior error:", err));
+    analyzeBehavior().catch(err => handleAiError(err, "Analyze behavior"));
   }, [recentSearches, profile]);
 
   const handleRequest = async (e: React.FormEvent) => {
@@ -418,7 +419,7 @@ const Home: React.FC<HomeProps> = ({
         });
       }
     } catch (e) {
-      console.error('Error logging search:', e);
+      handleFirestoreError(e, OperationType.WRITE, 'searches', false);
     }
 
     setLoading(true);
@@ -449,7 +450,7 @@ const Home: React.FC<HomeProps> = ({
               }
             }
           } catch (imgAiErr) {
-            console.error('Image AI analysis failed:', imgAiErr);
+            handleAiError(imgAiErr, 'Image AI analysis');
           }
         }
 
@@ -464,7 +465,7 @@ const Home: React.FC<HomeProps> = ({
           await uploadBytes(storageRef, compressedFile);
           imageUrl = await getDownloadURL(storageRef);
         } catch (uploadErr) {
-          console.error('Image upload failed:', uploadErr);
+          handleFirestoreError(uploadErr, OperationType.WRITE, 'storage/requests', false);
         }
       }
 
@@ -481,7 +482,7 @@ const Home: React.FC<HomeProps> = ({
           currentCategories = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
           setCategories(currentCategories);
         } catch (error) {
-          console.error('Failed to fetch categories during request:', error);
+          handleFirestoreError(error, OperationType.LIST, 'categories', false);
         }
       }
 
@@ -599,7 +600,7 @@ const Home: React.FC<HomeProps> = ({
               }
             }
           } catch (err) {
-            console.error('Error updating keywords:', err);
+            handleFirestoreError(err, OperationType.WRITE, `categories/${categoryId}`, false);
           }
 
           // Notify all suppliers in this category and potentially parent categories
@@ -708,7 +709,7 @@ const Home: React.FC<HomeProps> = ({
                   aiReasoning: reasoning // Store the reasoning
                 });
               } catch (err) {
-                console.error('Matchmaking error:', err);
+                handleAiError(err, 'Supplier matchmaking');
                 // Keep the fast matches if smart tier fails
               } finally {
                 setIsMatching(false);
@@ -719,7 +720,7 @@ const Home: React.FC<HomeProps> = ({
             }
 
           } catch (notifErr) {
-            console.error('Error sending notifications or matching:', notifErr);
+            handleFirestoreError(notifErr, OperationType.WRITE, 'notifications', false);
             setIsMatching(false);
           }
 
@@ -749,7 +750,7 @@ const Home: React.FC<HomeProps> = ({
         setTimeout(() => setAiStatus(''), 5000);
       }
     } catch (err) {
-      console.error(err);
+      handleAiError(err, 'Home request processing');
       setAiStatus(i18n.language === 'ar' ? 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.' : 'An unexpected error occurred. Please try again.');
       setTimeout(() => setAiStatus(''), 5000);
     } finally {
@@ -1230,7 +1231,7 @@ const Home: React.FC<HomeProps> = ({
                           setLastRequest(null);
                           setLastRequestId(null);
                         } catch (error) {
-                          console.error("Error deleting request:", error);
+                          handleFirestoreError(error, OperationType.UPDATE, `requests/${id}`, false);
                         }
                       }
                     }}
@@ -1283,7 +1284,7 @@ const Home: React.FC<HomeProps> = ({
       <ConciergeConsent 
         show={showConciergeTrigger}
         onClose={() => setShowConciergeTrigger(false)}
-        onAccept={() => updateConciergeConsent().catch(err => console.error("Consent update error:", err))}
+        onAccept={() => updateConciergeConsent().catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${profile?.uid}`, false))}
         isRtl={isRtl}
         reason={conciergeReason}
       />

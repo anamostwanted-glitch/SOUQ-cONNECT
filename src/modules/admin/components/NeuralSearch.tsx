@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Command, Sparkles, X, BrainCircuit, Loader2, ArrowRight, Navigation, Filter, Zap } from 'lucide-react';
-import { analyzeAdminSearch } from '../../../core/services/geminiService';
+import { analyzeAdminSearch, handleAiError } from '../../../core/services/geminiService';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -60,7 +60,7 @@ export const NeuralSearch: React.FC<NeuralSearchProps> = ({ onNavigate, onFilter
         toast.info(result.message || (isRtl ? 'لم أفهم طلبك تماماً' : "I didn't quite catch that"));
       }
     } catch (error) {
-      console.error('Search error:', error);
+      handleAiError(error, 'Neural search');
       toast.error(isRtl ? 'فشل البحث العصبي' : 'Neural search failed');
     } finally {
       setIsAnalyzing(false);

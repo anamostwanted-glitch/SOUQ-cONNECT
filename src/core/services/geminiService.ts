@@ -4,12 +4,13 @@ import { Category, UserProfile, GeminiApiKey, ProductRequest } from "../types";
 import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { neuralCache } from '../utils/neuralCache';
-import { handleFirestoreError, OperationType } from '../utils/errorHandling';
+import { handleFirestoreError, OperationType, handleAiError as handleAiErrorCentral } from '../utils/errorHandling';
+import { AIResilienceManager } from '../utils/AIResilienceManager';
 
 let cachedKeys: GeminiApiKey[] = [];
 let lastFetch = 0;
 const exhaustedKeys = new Map<string, number>(); // key -> expiry timestamp
-const EXHAUST_COOLDOWN = 5 * 60 * 1000; // 5 minutes cooldown for an exhausted key
+const EXHAUST_COOLDOWN = 60 * 60 * 1000; // 1 hour cooldown for an exhausted key
 
 export const getResponseText = (response: any): string => {
   try {
@@ -20,53 +21,175 @@ export const getResponseText = (response: any): string => {
   }
 };
 
+/**
+ * Consolidates AI error handling to provide consistent logging and UX.
+ */
+export const handleAiError = (error: any, context: string, shouldThrow: boolean = true) => {
+  const isInvalid = error.isInvalidKey || 
+    error.message?.includes('API key not valid') || 
+    error.message?.includes('API_KEY_INVALID') ||
+    error.message?.includes('INVALID_ARGUMENT');
+  
+  const isQuota = error.status === 429 || 
+    error.message?.includes('429') || 
+    error.message?.includes('RESOURCE_EXHAUSTED') ||
+    error.message?.includes('QUOTA_EXHAUSTED');
+
+  if (isInvalid) {
+    console.warn(`${context} failed: Invalid API key. AI features will be limited.`);
+  } else if (isQuota) {
+    console.warn(`${context} failed: Quota exceeded.`);
+  } else {
+    handleAiErrorCentral(error, context, shouldThrow);
+  }
+};
+
 const COST_PER_1K_TOKENS = 0.000125; // Estimated cost for Gemini Flash
 
-export const callAiJson = async (contents: any, schema: any, model: string = "gemini-3-flash-preview") => {
-  return retryWithBackoff(async (apiKey) => {
-    if (!apiKey) {
-      const error = new Error('No API key available');
-      (error as any).isMissingKey = true;
-      throw error;
-    }
-    
-    const ai = new GoogleGenAI({ apiKey });
-    const prompt = typeof contents === 'string' ? contents : JSON.stringify(contents);
-    
-    const response = await ai.models.generateContent({
-      model,
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json",
-        // @ts-ignore
-        responseSchema: schema
-      }
-    });
-
-    const text = response.text;
-    if (!text) throw new Error('Empty response from AI');
-    return JSON.parse(text);
+const executeProxyCall = async (payload: any) => {
+  const response = await fetch('/api/gemini/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
   });
+  
+  if (response.status === 413) {
+    throw new Error('Image or payload is too large for the server. Please try a smaller image.');
+  }
+
+  let data: any;
+  try {
+    data = await response.json();
+  } catch (e) {
+    const text = await response.text();
+    throw new Error(`Proxy response was not JSON (${response.status} ${response.statusText}): ${text.substring(0, 100)}`);
+  }
+
+  if (!response.ok) {
+    const errorMessage = data.error || 'Proxy AI request failed';
+    const error = new Error(errorMessage);
+    if (data.isInvalidKey) {
+      (error as any).isInvalidKey = true;
+    }
+    throw error;
+  }
+  
+  return data;
+};
+
+export const callAiJson = async (contents: any, schema: any, model: string = "gemini-3-flash-preview") => {
+  return AIResilienceManager.execute(async () => {
+    const proxyCall = async () => {
+      const data = await executeProxyCall({
+        contents: [{ role: 'user', parts: [{ text: typeof contents === 'string' ? contents : JSON.stringify(contents) }] }],
+        model,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: schema
+        }
+      });
+      return JSON.parse(data.text);
+    };
+
+    const apiKey = await getApiKey();
+    
+    if (!apiKey) {
+      console.log('DEBUG: No local API key found, falling back to server proxy for callAiJson');
+      try {
+        return await proxyCall();
+      } catch (proxyError: any) {
+        handleAiError(proxyError, 'Proxy AI call (callAiJson)');
+        const error = new Error(proxyError.message || 'No API key available');
+        (error as any).isMissingKey = true;
+        (error as any).isInvalidKey = proxyError.isInvalidKey || proxyError.message?.includes('API key not valid');
+        throw error;
+      }
+    }
+
+    try {
+      return await retryWithBackoff(async (key) => {
+        if (!key) {
+          const error = new Error('No API key available');
+          (error as any).isMissingKey = true;
+          throw error;
+        }
+        const ai = new GoogleGenAI({ apiKey: key });
+        const prompt = typeof contents === 'string' ? contents : JSON.stringify(contents);
+        
+        const response = await ai.models.generateContent({
+          model,
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          config: {
+            responseMimeType: "application/json",
+            // @ts-ignore
+            responseSchema: schema
+          }
+        });
+
+        const text = response.text;
+        if (!text) throw new Error('Empty response from AI');
+        return JSON.parse(text);
+      });
+    } catch (e: any) {
+      if (e.isMissingKey) {
+        console.log('DEBUG: Local keys exhausted during callAiJson, falling back to proxy');
+        return await proxyCall();
+      }
+      throw e;
+    }
+  }, null, 'callAiJson'); // Fallback null for JSON
 };
 
 export const callAiText = async (contents: any, model: string = "gemini-3-flash-preview") => {
-  return retryWithBackoff(async (apiKey) => {
-    if (!apiKey) {
-      const error = new Error('No API key available');
-      (error as any).isMissingKey = true;
-      throw error;
-    }
-    
-    const ai = new GoogleGenAI({ apiKey });
-    const prompt = typeof contents === 'string' ? contents : JSON.stringify(contents);
-    
-    const response = await ai.models.generateContent({
-      model,
-      contents: [{ role: 'user', parts: [{ text: prompt }] }]
-    });
+  return AIResilienceManager.execute(async () => {
+    const proxyCall = async () => {
+      const data = await executeProxyCall({
+        contents: [{ role: 'user', parts: [{ text: typeof contents === 'string' ? contents : JSON.stringify(contents) }] }],
+        model
+      });
+      return data.text || '';
+    };
 
-    return response.text || '';
-  });
+    const apiKey = await getApiKey();
+
+    if (!apiKey) {
+      console.log('DEBUG: No local API key found, falling back to server proxy for callAiText');
+      try {
+        return await proxyCall();
+      } catch (proxyError: any) {
+        handleAiError(proxyError, 'Proxy AI call (callAiText)');
+        const error = new Error(proxyError.message || 'No API key available');
+        (error as any).isMissingKey = true;
+        (error as any).isInvalidKey = proxyError.isInvalidKey || proxyError.message?.includes('API key not valid');
+        throw error;
+      }
+    }
+
+    try {
+      return await retryWithBackoff(async (key) => {
+        if (!key) {
+          const error = new Error('No API key available');
+          (error as any).isMissingKey = true;
+          throw error;
+        }
+        const ai = new GoogleGenAI({ apiKey: key });
+        const prompt = typeof contents === 'string' ? contents : JSON.stringify(contents);
+        
+        const response = await ai.models.generateContent({
+          model,
+          contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        });
+
+        return response.text || '';
+      });
+    } catch (e: any) {
+      if (e.isMissingKey) {
+        console.log('DEBUG: Local keys exhausted during callAiText, falling back to proxy');
+        return await proxyCall();
+      }
+      throw e;
+    }
+  }, '', 'callAiText'); // Fallback empty string for text
 };
 
 const logUsage = async (feature: string, tokens: number, isCached: boolean = false) => {
@@ -97,7 +220,7 @@ const fetchKeys = async () => {
       lastFetch = now;
     }
   } catch (e) {
-    console.error('Error fetching AI keys:', e);
+    handleFirestoreError(e, OperationType.GET, 'settings/gemini_config', false);
   }
   return cachedKeys;
 };
@@ -106,29 +229,37 @@ const getApiKey = async () => {
   const activeKeys = await fetchKeys();
   const now = Date.now();
   
+  console.log('DEBUG: Active keys from Firestore:', activeKeys ? activeKeys.length : 'null');
+
   // Filter out keys that are currently marked as exhausted
-  const availableKeys = activeKeys.filter(k => {
+  const availableKeys = activeKeys ? activeKeys.filter(k => {
     const expiry = exhaustedKeys.get(k.key);
     if (expiry && now < expiry) return false;
     if (expiry && now >= expiry) {
       exhaustedKeys.delete(k.key);
     }
     return true;
-  });
+  }) : [];
 
   if (availableKeys.length > 0) {
     // Simple random selection from available keys for load balancing
     const selected = availableKeys[Math.floor(Math.random() * availableKeys.length)];
+    console.log('DEBUG: Using key from Firestore');
     return selected.key;
   }
   
   // Fallback to env key if no other keys are available and it's not exhausted
   const envKey = process.env.GEMINI_API_KEY;
+  console.log('DEBUG: Env GEMINI_API_KEY exists:', !!envKey);
   if (envKey) {
     const expiry = exhaustedKeys.get(envKey);
-    if (!expiry || now >= expiry) return envKey;
+    if (!expiry || now >= expiry) {
+      console.log('DEBUG: Using key from env');
+      return envKey;
+    }
   }
   
+  console.log('DEBUG: No API key found in Firestore or Env');
   return null;
 };
 
@@ -138,13 +269,18 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
   const execute = async (currentRetries: number, currentDelay: number): Promise<T> => {
     try {
       const apiKey = await getApiKey();
+      if (!apiKey) {
+        const error = new Error('No API key available');
+        (error as any).isMissingKey = true;
+        throw error;
+      }
       lastUsedKey = apiKey;
       return await fn(apiKey);
     } catch (error: any) {
       if (error.isMissingKey) {
         throw error;
       }
-      const errorString = JSON.stringify(error);
+      const errorString = error instanceof Error ? error.message : JSON.stringify(error);
       const isQuotaError = 
         error?.status === 429 || 
         error?.error?.code === 429 ||
@@ -153,23 +289,34 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
         error?.message?.includes('RESOURCE_EXHAUSTED') ||
         error?.message?.includes('429') ||
         errorString.includes('429') ||
-        errorString.includes('RESOURCE_EXHAUSTED');
-        
+        errorString.includes('quota');
+
+      if (isQuotaError && lastUsedKey) {
+        console.warn(`Quota exceeded for key ${lastUsedKey.substring(0, 5)}... marking as exhausted.`);
+        exhaustedKeys.set(lastUsedKey, Date.now() + EXHAUST_COOLDOWN);
+      }
+      
       const isInvalidKeyError = 
         error?.message?.includes('INVALID_API_KEY') ||
         error?.message?.includes('API_KEY_INVALID') ||
         error?.message?.includes('API key not valid') ||
+        error?.message?.includes('INVALID_ARGUMENT') ||
         errorString.includes('INVALID_API_KEY') ||
-        errorString.includes('API_KEY_INVALID');
+        errorString.includes('API_KEY_INVALID') ||
+        errorString.includes('API key not valid') ||
+        errorString.includes('INVALID_ARGUMENT') ||
+        error.isInvalidKey === true;
 
       if (isQuotaError || isInvalidKeyError) {
         if (lastUsedKey) {
-          console.warn(`Key ${isQuotaError ? 'exhausted' : 'invalid'}: ${lastUsedKey.substring(0, 8)}... Marking for cooldown.`);
-          exhaustedKeys.set(lastUsedKey, Date.now() + EXHAUST_COOLDOWN);
+          const isInvalid = isInvalidKeyError;
+          console.warn(`Key ${isInvalid ? 'invalid' : 'exhausted'}: ${lastUsedKey.substring(0, 8)}... Marking for cooldown.`);
+          // Invalid keys get a much longer cooldown (24 hours) as they are unlikely to fix themselves
+          exhaustedKeys.set(lastUsedKey, Date.now() + (isInvalid ? EXHAUST_COOLDOWN * 24 : EXHAUST_COOLDOWN));
         }
 
-        if (currentRetries > 0) {
-          console.warn(`${isQuotaError ? 'Quota exceeded' : 'Invalid API key'}, retrying in ${currentDelay}ms with a potentially different key... (${currentRetries} retries left)`);
+        if (currentRetries > 0 && !isInvalidKeyError) {
+          console.warn(`Quota exceeded, retrying in ${currentDelay}ms with a potentially different key... (${currentRetries} retries left)`);
           await new Promise(resolve => setTimeout(resolve, currentDelay));
           return execute(currentRetries - 1, currentDelay * 2);
         }
@@ -213,8 +360,15 @@ export const suggestColorHarmony = async (primaryColor: string): Promise<{ secon
   }
 };
 
+// Removed duplicate preFetchNeuralPulse declaration
+
+
+// ... existing code ...
+
 export const analyzeUserBehavior = async (profile: UserProfile, recentSearches: string[], recentRequests: ProductRequest[]): Promise<{isMomentOfNeed: boolean; reason: string; recommendedAction: string}> => {
-  try {
+  const fallback = { isMomentOfNeed: false, reason: 'Analysis failed', recommendedAction: 'none' };
+
+  return AIResilienceManager.execute(async () => {
     const prompt = `Analyze the user's recent behavior to determine if they are in a "Moment of Need" for concierge assistance.
       
       User Profile: ${JSON.stringify(profile)}
@@ -241,14 +395,13 @@ export const analyzeUserBehavior = async (profile: UserProfile, recentSearches: 
     const tokens = (prompt.length + JSON.stringify(result).length) / 4;
     await logUsage('Behavior Analysis', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Behavior analysis failed:', e);
-    return { isMomentOfNeed: false, reason: 'Analysis failed', recommendedAction: 'none' };
-  }
+  }, fallback, 'Behavior analysis');
 };
 
 export const analyzeNeuralPulseImage = async (base64Data: string, mimeType: string): Promise<any> => {
-  try {
+  const fallback = { found: false, error: 'Analysis failed' };
+
+  return AIResilienceManager.execute(async () => {
     // 1. Semantic Check (0 Tokens)
     const fingerprint = neuralCache.generateImageFingerprint(base64Data);
     const cached = neuralCache.get(fingerprint);
@@ -280,14 +433,13 @@ export const analyzeNeuralPulseImage = async (base64Data: string, mimeType: stri
     // Store in Semantic Memory
     neuralCache.set(fingerprint, result);
     return result;
-  } catch (e) {
-    console.error('Neural Pulse Image Analysis failed via proxy:', e);
-    return { found: false, error: 'Analysis failed' };
-  }
+  }, fallback, 'Neural Pulse Image Analysis');
 };
 
 export const processNeuralPulseVoice = async (transcript: string): Promise<any> => {
-  try {
+  const fallback = { success: false };
+
+  return AIResilienceManager.execute(async () => {
     // 1. Semantic Check (0 Tokens)
     const fingerprint = neuralCache.generateVoiceFingerprint(transcript);
     const cached = neuralCache.get(fingerprint);
@@ -317,10 +469,7 @@ export const processNeuralPulseVoice = async (transcript: string): Promise<any> 
     // Store in Semantic Memory
     neuralCache.set(fingerprint, result);
     return result;
-  } catch (e) {
-    console.error('Neural Pulse Voice Processing failed via proxy:', e);
-    return { success: false };
-  }
+  }, fallback, 'Neural Pulse Voice Processing');
 };
 
 export const generateNeuralPulseGeoInsight = async (lat: number, lng: number, recentInterests: string[]): Promise<any> => {
@@ -353,8 +502,8 @@ export const generateNeuralPulseGeoInsight = async (lat: number, lng: number, re
     // Store in Semantic Memory (expires in 1 hour for geo)
     neuralCache.set(fingerprint, result, 60 * 60 * 1000);
     return result;
-  } catch (e) {
-    console.error('Neural Pulse Geo Insight failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Neural Pulse Geo Insight');
     return { hasInsight: false };
   }
 };
@@ -380,8 +529,8 @@ export const verifyDocument = async (base64Data: string, mimeType: string): Prom
     const tokens = (base64Data.length / 4 + JSON.stringify(result).length) / 4;
     await logUsage('Document Verification', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Document verification failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Document verification');
     return { isLegit: true, details: 'Verification failed due to technical error' };
   }
 };
@@ -407,8 +556,8 @@ export const optimizeSupplierProfile = async (companyName: string, bio: string, 
     const tokens = (companyName.length + bio.length + JSON.stringify(result).length) / 4;
     await logUsage('Profile Optimization', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Profile optimization failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Profile optimization');
     return { suggestedBio: bio, suggestedKeywords: keywords };
   }
 };
@@ -441,8 +590,8 @@ export const generateSupplierLogo = async (companyName: string, category: string
       font: 'Inter',
       logoText: companyName
     };
-  } catch (e) {
-    console.error('Logo generation failed:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Logo generation');
     return fallback;
   }
 };
@@ -470,8 +619,8 @@ export const getProfileInsights = async (profileData: any, language: string): Pr
     const tokens = (JSON.stringify(profileData).length + JSON.stringify(result).length) / 4;
     await logUsage('Profile Insights', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Profile insights failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Profile insights');
     return null;
   }
 };
@@ -490,8 +639,8 @@ export const suggestSupplierCategories = async (profile: any, allCategories: Cat
     const tokens = (JSON.stringify(profile).length + JSON.stringify(result).length) / 4;
     await logUsage('Category Suggestion', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Category suggestion failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Category suggestion');
     return [];
   }
 };
@@ -521,9 +670,37 @@ export const suggestCategoriesFromQuery = async (query: string, categories: Cate
     const tokens = (query.length + JSON.stringify(result).length) / 4;
     await logUsage('Query Category Suggestion', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('AI Category suggestion failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'AI Category suggestion');
     return [];
+  }
+};
+
+export const askGemini = async (prompt: string): Promise<string> => {
+  try {
+    return await callAiText(prompt);
+  } catch (e: any) {
+    handleAiError(e, 'Gemini query');
+    return 'Sorry, I could not process your request.';
+  }
+};
+
+export const suggestPrice = async (title: string, category: string, language: string): Promise<number> => {
+  try {
+    const result = await callAiJson(
+      `Suggest a realistic price estimate in USD for a product: "${title}" in category "${category}". Return ONLY a JSON object with 'price'.`,
+      {
+        type: Type.OBJECT,
+        properties: {
+          price: { type: Type.NUMBER }
+        },
+        required: ["price"]
+      }
+    );
+    return result.price;
+  } catch (e: any) {
+    handleAiError(e, 'Price suggestion');
+    return 0;
   }
 };
 
@@ -540,9 +717,71 @@ export const enhanceRequestDescription = async (description: string, language: s
     const tokens = (description.length + result.length) / 4;
     await logUsage('Description Enhancement', Math.ceil(tokens));
     return result || description;
-  } catch (e) {
-    console.error('Description enhancement failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Description enhancement');
     return description;
+  }
+};
+
+export const generateLoadingScreenSettings = async (description: string): Promise<any> => {
+  try {
+    const result = await callAiJson(
+      `Generate loading screen settings based on this description: "${description}".
+      Return a JSON object with the following fields:
+      - loaderLogoUrl (string, keep empty if not provided)
+      - enableNeuralPulse (boolean)
+      - enableOrbitalRings (boolean)
+      - enableShimmerEffect (boolean)
+      - logoAuraStyle ('solid' | 'gradient' | 'pulse' | 'mesh')
+      - animationSpeed ('slow' | 'normal' | 'fast')
+      - logoAuraColor (hex string)
+      - logoAuraOpacity (number, 0-1)
+      - logoAuraSpread (number, 1-3)
+      - logoAuraBlur (number, 0-150)
+      - loaderBackgroundStyle ('solid' | 'gradient' | 'mesh' | 'animated')
+      - loaderLogoShape ('square' | 'circle' | 'squircle')
+      - loaderLogoAnimation ('none' | 'bounce' | 'rotate' | 'scale' | 'float')
+      - loaderBackgroundColor (hex string)
+      - loaderProgressBarColor (hex string)
+      - loaderCenterText (string)
+      - loaderStatusTextAr (string)
+      - loaderStatusTextEn (string)
+      - loaderFooterTextAr (string)
+      - loaderFooterTextEn (string)`,
+      {
+        type: Type.OBJECT,
+        properties: {
+          loaderLogoUrl: { type: Type.STRING },
+          enableNeuralPulse: { type: Type.BOOLEAN },
+          enableOrbitalRings: { type: Type.BOOLEAN },
+          enableShimmerEffect: { type: Type.BOOLEAN },
+          logoAuraStyle: { type: Type.STRING, enum: ['solid', 'gradient', 'pulse', 'mesh'] },
+          animationSpeed: { type: Type.STRING, enum: ['slow', 'normal', 'fast'] },
+          logoAuraColor: { type: Type.STRING },
+          logoAuraOpacity: { type: Type.NUMBER },
+          logoAuraSpread: { type: Type.NUMBER },
+          logoAuraBlur: { type: Type.NUMBER },
+          loaderBackgroundStyle: { type: Type.STRING, enum: ['solid', 'gradient', 'mesh', 'animated'] },
+          loaderLogoShape: { type: Type.STRING, enum: ['square', 'circle', 'squircle'] },
+          loaderLogoAnimation: { type: Type.STRING, enum: ['none', 'bounce', 'rotate', 'scale', 'float'] },
+          loaderBackgroundColor: { type: Type.STRING },
+          loaderProgressBarColor: { type: Type.STRING },
+          loaderCenterText: { type: Type.STRING },
+          loaderStatusTextAr: { type: Type.STRING },
+          loaderStatusTextEn: { type: Type.STRING },
+          loaderFooterTextAr: { type: Type.STRING },
+          loaderFooterTextEn: { type: Type.STRING }
+        },
+        required: ["enableNeuralPulse", "enableOrbitalRings", "enableShimmerEffect", "logoAuraStyle", "animationSpeed", "logoAuraColor", "logoAuraOpacity", "logoAuraSpread", "logoAuraBlur", "loaderBackgroundStyle", "loaderLogoShape", "loaderLogoAnimation", "loaderBackgroundColor", "loaderProgressBarColor", "loaderCenterText", "loaderStatusTextAr", "loaderStatusTextEn", "loaderFooterTextAr", "loaderFooterTextEn"]
+      }
+    );
+    
+    const tokens = (description.length + JSON.stringify(result).length) / 4;
+    await logUsage('Loading Screen Generation', Math.ceil(tokens));
+    return result;
+  } catch (e: any) {
+    handleAiError(e, 'Loading screen generation');
+    return null;
   }
 };
 
@@ -582,8 +821,8 @@ export const categorizeProduct = async (query: string, categories: Category[]): 
     const tokens = (query.length + JSON.stringify(result).length) / 4;
     await logUsage('Product Categorization', Math.ceil(tokens));
     return matched ? matched.id : defaultCat;
-  } catch (e) {
-    console.error('Categorization failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Categorization');
     return defaultCat;
   }
 };
@@ -625,17 +864,76 @@ export const matchSuppliers = async (query: string, suppliers: UserProfile[], ca
     );
 
     return { uids: data.uids || [], reasoning: data.reasoning || '' };
-  } catch (e) {
-    console.error('Matchmaking failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Matchmaking');
     return { uids: [], reasoning: 'Matchmaking failed' };
   }
 };
 
 export const analyzeProductImage = async (base64Data: string, mimeType: string): Promise<any> => {
+  const proxyCall = async () => {
+    const prompt = `
+      Analyze this product image and provide a detailed JSON response with the following fields:
+      - productNameEn: Product name in English
+      - productNameAr: Product name in Arabic
+      - descriptionEn: A compelling product description in English
+      - descriptionAr: A compelling product description in Arabic
+      - category: One of these categories: Electronics, Fashion, Home, Beauty, Sports, Toys, Other
+      - priceEstimate: A realistic price estimate in USD (number)
+      - isHighQuality: Boolean indicating if the image is high quality
+      - features: Array of 3-5 key product features (strings)
+      - keywordsEn: Array of 5-10 SEO keywords in English
+      - keywordsAr: Array of 5-10 SEO keywords in Arabic
+
+      Return ONLY the JSON object.
+    `;
+
+    const data = await executeProxyCall({
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { data: base64Data.replace(/^data:image\/\w+;base64,/, ""), mimeType } },
+          { text: prompt },
+        ],
+      }],
+      model: "gemini-3-flash-preview",
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    return JSON.parse(data.text);
+  };
+
+  const apiKey = await getApiKey();
+
+  if (!apiKey) {
+    console.log('DEBUG: No local API key found, falling back to server proxy for analyzeProductImage');
+    try {
+      const suggestion = await proxyCall();
+      await logUsage('Product Image Analysis Proxy', 2000); 
+      return suggestion;
+    } catch (proxyError: any) {
+      handleAiError(proxyError, 'Proxy Image Analysis');
+      return { 
+        productNameAr: '', descriptionAr: '',
+        productNameEn: '', descriptionEn: '',
+        category: '', priceEstimate: 0,
+        isHighQuality: false, features: [],
+        keywordsAr: [], keywordsEn: [],
+        error: proxyError.message
+      };
+    }
+  }
+
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) throw new Error('MISSING_API_KEY');
-      const ai = new GoogleGenAI({ apiKey });
+    return await retryWithBackoff(async (key) => {
+      if (!key) {
+        const error = new Error('No API key available');
+        (error as any).isMissingKey = true;
+        throw error;
+      }
+      const ai = new GoogleGenAI({ apiKey: key });
       const prompt = `
         Analyze this product image and provide a detailed JSON response with the following fields:
         - productNameEn: Product name in English
@@ -676,20 +974,66 @@ export const analyzeProductImage = async (base64Data: string, mimeType: string):
       return suggestion;
     });
   } catch (e: any) {
-    console.error('Image analysis failed:', e);
-    if (e.message === 'MISSING_API_KEY' || e.message === 'QUOTA_EXHAUSTED') throw e;
+    if (e.isMissingKey) {
+      console.log('DEBUG: Local keys exhausted during analyzeProductImage, falling back to proxy');
+      try {
+        return await proxyCall();
+      } catch (proxyError: any) {
+        handleAiError(proxyError, 'Proxy Image Analysis fallback');
+      }
+    }
+    handleAiError(e, 'Image analysis');
     return { 
-      productNameAr: 'منتج', descriptionAr: 'وصف المنتج',
-      productNameEn: 'Product', descriptionEn: 'Product description' 
+      productNameAr: '', descriptionAr: '',
+      productNameEn: '', descriptionEn: '',
+      category: '', priceEstimate: 0,
+      isHighQuality: false, features: [],
+      keywordsAr: [], keywordsEn: [],
+      error: e.message
     };
   }
 };
 
 export const generateAlternativeProductImage = async (base64Image: string, mimeType: string, title: string, category: string): Promise<string | null> => {
+  const proxyCall = async () => {
+    const prompt = `A professional, close-up photography of this product. Place it in the center of the picture on elegant interior design elements. Highlight its uses and applications. Product title: ${title || 'Product'}. Category: ${category || 'General'}. High quality, studio lighting, highly detailed. IMPORTANT: Do not include any text, words, labels, or watermarks in the image. The image should be clean and professional.`;
+
+    const data = await executeProxyCall({
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { data: base64Image.replace(/^data:image\/\w+;base64,/, ""), mimeType } },
+          { text: prompt },
+        ],
+      }],
+      model: "gemini-3-flash-preview"
+    });
+
+    // Since Gemini Flash doesn't generate images, we return a placeholder based on the description
+    await logUsage('Product Image Generation Proxy', 5000);
+    return `https://picsum.photos/seed/${encodeURIComponent(title)}/800/1000`;
+  };
+
+  const apiKey = await getApiKey();
+
+  if (!apiKey) {
+    console.log('DEBUG: No local API key found, falling back to server proxy for generateAlternativeProductImage');
+    try {
+      return await proxyCall();
+    } catch (proxyError: any) {
+      handleAiError(proxyError, 'Proxy Image Generation');
+      return null;
+    }
+  }
+
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      if (!apiKey) throw new Error('MISSING_API_KEY');
-      const ai = new GoogleGenAI({ apiKey });
+    return await retryWithBackoff(async (key) => {
+      if (!key) {
+        const error = new Error('No API key available');
+        (error as any).isMissingKey = true;
+        throw error;
+      }
+      const ai = new GoogleGenAI({ apiKey: key });
       const prompt = `A professional, close-up photography of this product. Place it in the center of the picture on elegant interior design elements. Highlight its uses and applications. Product title: ${title || 'Product'}. Category: ${category || 'General'}. High quality, studio lighting, highly detailed. IMPORTANT: Do not include any text, words, labels, or watermarks in the image. The image should be clean and professional.`;
 
       const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, "");
@@ -715,8 +1059,15 @@ export const generateAlternativeProductImage = async (base64Image: string, mimeT
       return null;
     });
   } catch (e: any) {
-    console.error('Image generation failed:', e);
-    if (e.message === 'MISSING_API_KEY' || e.message === 'QUOTA_EXHAUSTED') throw e;
+    if (e.isMissingKey) {
+      console.log('DEBUG: Local keys exhausted during generateAlternativeProductImage, falling back to proxy');
+      try {
+        return await proxyCall();
+      } catch (proxyError: any) {
+        handleAiError(proxyError, 'Proxy Image Generation fallback');
+      }
+    }
+    handleAiError(e, 'Image generation');
     return null;
   }
 };
@@ -744,8 +1095,8 @@ export const parseVoiceRequest = async (transcript: string, language: string): P
     const tokens = (transcript.length + JSON.stringify(result).length) / 4;
     await logUsage('Voice Request Parsing', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Voice parsing failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Voice parsing');
     return fallback;
   }
 };
@@ -787,8 +1138,8 @@ export const analyzeWithdrawalFraud = async (withdrawal: any, userProfile: any, 
     const tokens = (prompt.length + JSON.stringify(result).length) / 4;
     await logUsage('Fraud Analysis', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Fraud analysis failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Fraud analysis');
     return { fraudScore: 0, analysis: 'Analysis failed due to technical error', status: 'safe' };
   }
 };
@@ -827,13 +1178,10 @@ export const analyzeSystemPulse = async (systemData: any, language: string): Pro
     await logUsage('System Pulse', Math.ceil(tokens));
     return result;
   } catch (e: any) {
-    const isQuotaError = e?.status === 429 || e?.error?.code === 429 || e?.message?.includes('429') || e?.message?.includes('RESOURCE_EXHAUSTED');
     if (e.isMissingKey) {
       console.warn('System Pulse analysis skipped: No API key available');
-    } else if (isQuotaError) {
-      console.warn('System Pulse analysis skipped: Quota exceeded');
     } else {
-      console.error('System Pulse analysis failed via proxy:', e);
+      handleAiError(e, 'System Pulse analysis');
     }
     return { status: 'stable', headline: 'System Stable', insights: [], growthScore: 100 };
   }
@@ -877,8 +1225,8 @@ export const analyzeAdminSearch = async (query: string, context: any, language: 
     const tokens = (query.length + JSON.stringify(result).length) / 4;
     await logUsage('Admin Search', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Admin Search analysis failed:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Admin Search analysis');
     return { intent: 'filter', target: 'users', filters: { searchString: query } };
   }
 };
@@ -906,8 +1254,8 @@ export const generateProductCopy = async (productName: string, features: string[
     const tokens = (productName.length + features.join(',').length + JSON.stringify(result).length) / 4;
     await logUsage('Product Copy Generation', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Copy generation failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Copy generation');
     return fallback;
   }
 };
@@ -935,8 +1283,8 @@ export const enhanceProductImageDescription = async (base64Data: string, mimeTyp
     const tokens = (base64Data.length + JSON.stringify(result).length) / 4;
     await logUsage('Image Enhancement', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Image enhancement failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Image enhancement');
     return fallback;
   }
 };
@@ -955,8 +1303,8 @@ export const getAiAssistantResponse = async (query: string, context: any, langua
     const tokens = (query.length + JSON.stringify(context).length + result.length) / 4;
     await logUsage('AI Assistant', Math.ceil(tokens));
     return result || "I'm sorry, I couldn't process that.";
-  } catch (e) {
-    console.error('AI Assistant failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'AI Assistant');
     return fallback;
   }
 };
@@ -979,8 +1327,8 @@ export const summarizeChat = async (transcript: string, language: string): Promi
     const tokens = (transcript.length + (responseText?.length || 0)) / 4;
     await logUsage('Chat Summarization', Math.ceil(tokens));
     return responseText || fallback;
-  } catch (e) {
-    console.error('Chat summarization failed via proxy:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Chat summarization');
     return fallback;
   }
 };
@@ -1037,8 +1385,8 @@ export const analyzeChatRisk = async (transcript: string, language: string): Pro
     const tokens = (transcript.length + JSON.stringify(result).length) / 4;
     await logUsage('Chat Risk Analysis', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Chat risk analysis failed:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Chat risk analysis');
     return {
       riskScore: 0,
       riskLevel: 'low',
@@ -1079,8 +1427,8 @@ export const semanticSearch = async (query: string, items: any[], language: stri
     await logUsage('Semantic Search', Math.ceil(tokens));
 
     return data.results || [];
-  } catch (e) {
-    console.error('Semantic search failed:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Semantic search');
     return [];
   }
 };
@@ -1088,9 +1436,55 @@ export const semanticSearch = async (query: string, items: any[], language: stri
 export const analyzeImageForSearch = async (base64Data: string, mimeType: string, language: string): Promise<any> => {
   const fallback = { query: "Product from image", keywords: ["product"], category: "General", visualDescription: "A product image" };
   
+  const proxyCall = async () => {
+    const prompt = `Analyze this image for a B2B marketplace search. 
+      Provide:
+      1. A concise visual description.
+      2. 5-10 relevant keywords.
+      3. The most likely product category.
+      4. Specific attributes like color, material, and style.
+      Language: ${language.startsWith('ar') ? 'Arabic' : 'English'}
+      Return ONLY a JSON object.`;
+
+    const data = await executeProxyCall({
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { data: base64Data.replace(/^data:image\/\w+;base64,/, ""), mimeType } },
+          { text: prompt },
+        ],
+      }],
+      model: "gemini-3-flash-preview",
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    return JSON.parse(data.text);
+  };
+
+  const apiKey = await getApiKey();
+
+  if (!apiKey) {
+    console.log('DEBUG: No local API key found, falling back to server proxy for analyzeImageForSearch');
+    try {
+      const data = await proxyCall();
+      await logUsage('Image Search Analysis Proxy', 2000);
+      return data;
+    } catch (proxyError: any) {
+      handleAiError(proxyError, 'Proxy Image Search Analysis');
+      return fallback;
+    }
+  }
+
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      const ai = new GoogleGenAI({ apiKey });
+    return await retryWithBackoff(async (key) => {
+      if (!key) {
+        const error = new Error('No API key available');
+        (error as any).isMissingKey = true;
+        throw error;
+      }
+      const ai = new GoogleGenAI({ apiKey: key });
       const prompt = `Analyze this image for a B2B marketplace search. 
         Provide:
         1. A concise visual description.
@@ -1143,8 +1537,16 @@ export const analyzeImageForSearch = async (base64Data: string, mimeType: string
 
       return data;
     });
-  } catch (e) {
-    console.error('Image analysis failed:', e);
+  } catch (e: any) {
+    if (e.isMissingKey) {
+      console.log('DEBUG: Local keys exhausted during analyzeImageForSearch, falling back to proxy');
+      try {
+        return await proxyCall();
+      } catch (proxyError: any) {
+        handleAiError(proxyError, 'Proxy Image Search Analysis fallback');
+      }
+    }
+    handleAiError(e, 'Image analysis');
     return fallback;
   }
 };
@@ -1176,8 +1578,8 @@ export const analyzeMarketTrends = async (searches: string[], summaries: string[
     const tokens = (searches.join(',').length + summaries.join(',').length + JSON.stringify(result).length) / 4;
     await logUsage('Market Trends Analysis', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Market analysis failed:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Market analysis');
     return fallback;
   }
 };
@@ -1196,9 +1598,66 @@ export const analyzeSupplierDocument = async (
     recommendationEn: 'Please verify manually.'
   };
 
+  const proxyCall = async () => {
+    const prompt = `Analyze this commercial document (Commercial Registration, Tax ID, or License) for a supplier verification.
+      Language: ${language === 'ar' ? 'Arabic' : 'English'}
+      
+      Extract the following information if available:
+      - Company Name
+      - Registration Number
+      - Expiry Date
+      - Activity/Scope
+      
+      Evaluate if the document looks authentic and valid.
+      Return ONLY a JSON object with:
+      - isValid (boolean)
+      - confidence (number 0-100)
+      - extractedData (object with fields above)
+      - analysisAr (string)
+      - analysisEn (string)
+      - recommendationAr (string)
+      - recommendationEn (string)
+      - trustScore (number 0-100)`;
+
+    const data = await executeProxyCall({
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { data: base64Image.replace(/^data:image\/\w+;base64,/, ""), mimeType } },
+          { text: prompt },
+        ],
+      }],
+      model: "gemini-3-flash-preview",
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    return JSON.parse(data.text);
+  };
+
+  const apiKey = await getApiKey();
+
+  if (!apiKey) {
+    console.log('DEBUG: No local API key found, falling back to server proxy for analyzeSupplierDocument');
+    try {
+      const data = await proxyCall();
+      await logUsage('Supplier Document Analysis Proxy', 2000);
+      return data;
+    } catch (proxyError: any) {
+      handleAiError(proxyError, 'Proxy Document Analysis');
+      return fallback;
+    }
+  }
+
   try {
-    return await retryWithBackoff(async (apiKey) => {
-      const ai = new GoogleGenAI({ apiKey });
+    return await retryWithBackoff(async (key) => {
+      if (!key) {
+        const error = new Error('No API key available');
+        (error as any).isMissingKey = true;
+        throw error;
+      }
+      const ai = new GoogleGenAI({ apiKey: key });
       const prompt = `Analyze this commercial document (Commercial Registration, Tax ID, or License) for a supplier verification.
         Language: ${language === 'ar' ? 'Arabic' : 'English'}
         
@@ -1263,8 +1722,16 @@ export const analyzeSupplierDocument = async (
       await logUsage('Supplier Document Analysis', 2000); // Fixed cost for image analysis
       return data;
     });
-  } catch (e) {
-    console.error('Document analysis failed:', e);
+  } catch (e: any) {
+    if (e.isMissingKey) {
+      console.log('DEBUG: Local keys exhausted during analyzeSupplierDocument, falling back to proxy');
+      try {
+        return await proxyCall();
+      } catch (proxyError: any) {
+        handleAiError(proxyError, 'Proxy Document Analysis fallback');
+      }
+    }
+    handleAiError(e, 'Document analysis');
     return fallback;
   }
 };
@@ -1332,8 +1799,8 @@ export const analyzeSupplyDemandGap = async (
       await logUsage('Supply-Demand Gap Analysis', Math.ceil((JSON.stringify(categoryData).length + JSON.stringify(requestData).length + JSON.stringify(supplierData).length) / 4));
       return result;
     });
-  } catch (e) {
-    console.error('Gap analysis failed:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Gap analysis');
     return fallback;
   }
 };
@@ -1341,29 +1808,61 @@ export const generateNegotiationResponse = async (...args: any[]) => 'Response';
 export const extractKeywordsFromRequests = async (...args: any[]) => ['keyword'];
 export const formatCategoryName = async (...args: any[]) => ({ nameAr: args[0], nameEn: args[0] });
 export const suggestCategoryMerges = async (categories: Category[], language: string): Promise<{ sourceId: string; targetId: string; categoryIds: string[]; reasonAr: string; reasonEn: string }[]> => {
+  const prompt = `Analyze this list of categories and identify potential duplicates or highly similar categories that should be merged. 
+    Categories: ${JSON.stringify(categories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn, parentId: c.parentId })))}
+    
+    For each potential merge, provide:
+    - sourceId: The ID of the category to be removed.
+    - targetId: The ID of the category to keep.
+    - reasonAr: A brief reason for the merge in Arabic.
+    - reasonEn: A brief reason for the merge in English.
+    
+    Return ONLY a JSON array of objects. If no merges are suggested, return an empty array [].`;
+
+  const proxyCall = async () => {
+    const data = await executeProxyCall({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      model: 'gemini-3-flash-preview',
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    return JSON.parse(data.text);
+  };
+
+  const apiKey = await getApiKey();
+
+  if (!apiKey) {
+    console.log('DEBUG: No local API key found, falling back to server proxy for suggestCategoryMerges');
+    try {
+      const parsedResult = await proxyCall();
+      return parsedResult.map((s: any) => ({
+        ...s,
+        categoryIds: [s.sourceId, s.targetId]
+      }));
+    } catch (proxyError: any) {
+      handleAiError(proxyError, 'Proxy Category Merge Analysis');
+      return [];
+    }
+  }
+
   try {
-    return await retryWithBackoff(async (apiKey) => {
+    return await retryWithBackoff(async (key) => {
+      if (!key) {
+        const error = new Error('No API key available');
+        (error as any).isMissingKey = true;
+        throw error;
+      }
       if (categories.length < 2) return [];
       
-      const categoryList = categories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn, parentId: c.parentId }));
-      
-      const prompt = `Analyze this list of categories and identify potential duplicates or highly similar categories that should be merged. 
-        Categories: ${JSON.stringify(categoryList)}
-        
-        For each potential merge, provide:
-        - sourceId: The ID of the category to be removed.
-        - targetId: The ID of the category to keep.
-        - reasonAr: A brief reason for the merge in Arabic.
-        - reasonEn: A brief reason for the merge in English.
-        
-        Return ONLY a JSON array of objects. If no merges are suggested, return an empty array [].`;
-
-      const genAI = new GoogleGenAI({ apiKey });
-      const response = await genAI.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
+      const ai = new GoogleGenAI({ apiKey: key });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",
+          // @ts-ignore
           responseSchema: {
             type: Type.ARRAY,
             items: {
@@ -1390,8 +1889,20 @@ export const suggestCategoryMerges = async (categories: Category[], language: st
         categoryIds: [s.sourceId, s.targetId]
       }));
     });
-  } catch (e) {
-    console.error('Category merge suggestion failed:', e);
+  } catch (e: any) {
+    if (e.isMissingKey) {
+      console.log('DEBUG: Local keys exhausted during suggestCategoryMerges, falling back to proxy');
+      try {
+        const parsedResult = await proxyCall();
+        return parsedResult.map((s: any) => ({
+          ...s,
+          categoryIds: [s.sourceId, s.targetId]
+        }));
+      } catch (proxyError: any) {
+        handleAiError(proxyError, 'Proxy Category Merge Analysis fallback');
+      }
+    }
+    handleAiError(e, 'Category merge suggestion');
     return [];
   }
 };
@@ -1410,7 +1921,7 @@ export const suggestMainCategories = async (language: string, categoryType: 'pro
     await logUsage('Category Suggestion', Math.ceil(tokens));
     return result;
   } catch (e: any) {
-    console.error('Main category suggestion failed:', e);
+    handleAiError(e, 'Main category suggestion');
     if (e.message === 'QUOTA_EXHAUSTED' || e.status === 429 || (e.message && e.message.includes('429'))) {
       throw new Error('QUOTA_EXHAUSTED');
     }
@@ -1433,7 +1944,7 @@ export const suggestSubcategories = async (parentCategory: string, categoryType:
     await logUsage('Subcategory Suggestion', Math.ceil(tokens));
     return result;
   } catch (e: any) {
-    console.error('Subcategory suggestion failed via proxy:', e);
+    handleAiError(e, 'Subcategory suggestion');
     if (e.message === 'QUOTA_EXHAUSTED' || e.status === 429 || (e.message && e.message.includes('429'))) {
       throw new Error('QUOTA_EXHAUSTED');
     }
@@ -1466,8 +1977,8 @@ export const suggestNeuralCategories = async (productInfo: { title: string, desc
     
     neuralCategoryCache.set(cacheKey, { matches, timestamp: Date.now() });
     return matches;
-  } catch (e) {
-    console.error('Neural category suggestion failed:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Neural category suggestion');
     return [];
   }
 };
@@ -1493,12 +2004,7 @@ export const predictUserNextStep = async (profile: UserProfile, currentView: str
     });
     return result;
   } catch (e: any) {
-    const isQuotaError = e?.status === 429 || e?.error?.code === 429 || e?.message?.includes('429') || e?.message?.includes('RESOURCE_EXHAUSTED');
-    if (isQuotaError) {
-      console.warn('Prediction skipped: Quota exceeded');
-    } else {
-      console.error('Prediction failed:', e);
-    }
+    handleAiError(e, 'Prediction');
     return null;
   }
 };
@@ -1524,11 +2030,18 @@ export const preFetchNeuralPulse = async (profile: UserProfile): Promise<void> =
 
     neuralCache.set(cacheKey, result, 3600000); // Cache for 1 hour
   } catch (e: any) {
+    const isNoKey = e.message === 'No API key available' || e.isMissingKey;
+    const isInvalidKey = e.isInvalidKey || e.message?.includes('API key not valid') || e.message?.includes('API_KEY_INVALID');
     const isQuotaError = e?.status === 429 || e?.error?.code === 429 || e?.message?.includes('429') || e?.message?.includes('RESOURCE_EXHAUSTED');
-    if (isQuotaError) {
+
+    if (isNoKey) {
+      console.warn('Pre-fetch pulse skipped: No API key available');
+    } else if (isInvalidKey) {
+      console.warn('Pre-fetch pulse skipped: Invalid API key');
+    } else if (isQuotaError) {
       console.warn('Pre-fetch pulse skipped: Quota exceeded');
     } else {
-      console.error('Pre-fetch pulse failed:', e);
+      handleAiError(e, 'Pre-fetch pulse');
     }
   }
 };
@@ -1564,8 +2077,8 @@ export const analyzeChatSentiment = async (transcript: string, language: string)
     const tokens = (prompt.length + JSON.stringify(result).length) / 4;
     await logUsage('Chat Sentiment Analysis', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.error('Chat sentiment analysis failed:', e);
+  } catch (e: any) {
+    handleAiError(e, 'Chat sentiment analysis');
     return { sentiment: 'neutral', score: 0, reasoningEn: 'Analysis failed', reasoningAr: 'فشل التحليل', keyEmotions: [] };
   }
 };

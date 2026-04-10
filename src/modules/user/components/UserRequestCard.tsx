@@ -67,7 +67,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
   // Fetch suppliers for this request
   useEffect(() => {
     if (suppliers.length === 0) {
-      fetchSuppliers().catch(err => console.error("Unhandled fetchSuppliers error:", err));
+      fetchSuppliers().catch(err => handleFirestoreError(err, OperationType.LIST, 'users (suppliers)', false));
     }
   }, []);
 
@@ -155,7 +155,6 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
       // This is a mock implementation based on the legacy dashboard
       await new Promise(resolve => setTimeout(resolve, 1500));
       fetchSuppliers().catch(err => {
-        console.error("Unhandled fetchSuppliers error in handleSuggestMoreSuppliers:", err);
         handleFirestoreError(err, OperationType.LIST, 'users (suppliers)', false);
       }); // Refresh the list
     } catch (error) {

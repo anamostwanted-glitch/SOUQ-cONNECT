@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { UserProfile } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
-import { callAiJson } from '../../../core/services/geminiService';
+import { callAiJson, handleAiError } from '../../../core/services/geminiService';
 import { neuralCache } from '../../../core/utils/neuralCache';
 import { Type } from '@google/genai';
 
@@ -66,7 +66,7 @@ export const UserNeuralHub: React.FC<UserNeuralHubProps> = ({ profile, isRtl }) 
       
       setPulseData(result);
     } catch (error) {
-      console.error("Failed to analyze user pulse:", error);
+      handleAiError(error, "User pulse analysis");
       // Fallback data
       setPulseData({
         status: 'good',

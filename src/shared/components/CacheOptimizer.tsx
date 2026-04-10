@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { RefreshCcw, ShieldCheck, Cpu, Trash2, Zap, CheckCircle2 } from 'lucide-react';
 import { HapticButton } from './HapticButton';
+import { handleAiError } from '../../core/utils/errorHandling';
 
 interface CacheOptimizerProps {
   isOpen: boolean;
@@ -62,7 +63,7 @@ export const CacheOptimizer: React.FC<CacheOptimizerProps> = ({ isOpen, onClose,
       // We don't clear localStorage by default to avoid logging out users, 
       // but we could clear specific keys if needed.
     } catch (e) {
-      console.error('Cache clear error', e);
+      handleAiError(e, 'CacheOptimizer:runOptimization:cacheClear', false);
     }
 
     for (let i = 30; i <= 70; i += 10) {

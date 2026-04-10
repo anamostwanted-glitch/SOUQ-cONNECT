@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Palette, Layout, Type, Sparkles, Save, RotateCcw, ChevronLeft, Wand2, Loader2, Upload, Image as ImageIcon, X } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { useBranding } from '../../../core/providers/BrandingProvider';
-import { generateBrandingSuggestions, generateSupplierLogo } from '../../../core/services/geminiService';
+import { generateBrandingSuggestions, generateSupplierLogo, handleAiError } from '../../../core/services/geminiService';
 
 interface BrandingSettingsProps {
   onBack: () => void;
@@ -77,11 +77,11 @@ const BrandingSettings: React.FC<BrandingSettingsProps> = ({ onBack }) => {
             setAiDescription(data.bio || '');
           }
         } catch (error) {
-          console.error('Error fetching user profile for AI suggestions:', error);
+          handleFirestoreError(error, OperationType.GET, `users/${auth.currentUser.uid}`, false);
         }
       }
     };
-    fetchBranding().catch(err => console.error('Error in fetchBranding:', err));
+    fetchBranding().catch(err => handleFirestoreError(err, OperationType.GET, 'settings/site', false));
   }, []);
 
   const handleAiSuggest = async () => {
@@ -106,7 +106,7 @@ const BrandingSettings: React.FC<BrandingSettingsProps> = ({ onBack }) => {
       setMessage(i18n.language === 'ar' ? 'تم توليد اقتراحات ذكية بنجاح!' : 'AI suggestions generated successfully!');
       setShowAiPanel(false);
     } catch (error) {
-      console.error('AI Suggestion Error:', error);
+      handleAiError(error, 'Branding suggestions');
       setMessage(i18n.language === 'ar' ? 'فشل في الحصول على اقتراحات الذكاء الاصطناعي' : 'Failed to get AI suggestions');
     } finally {
       setIsAiLoading(false);
@@ -143,7 +143,7 @@ const BrandingSettings: React.FC<BrandingSettingsProps> = ({ onBack }) => {
       
       setMessage(i18n.language === 'ar' ? 'تم رفع الملف بنجاح' : 'File uploaded successfully');
     } catch (error) {
-      console.error(`Error uploading ${type}:`, error);
+      handleFirestoreError(error, OperationType.WRITE, `storage/site/${type}`, false);
       setMessage(i18n.language === 'ar' ? 'فشل رفع الملف' : 'Failed to upload file');
     } finally {
       if (type === 'logo') setIsUploadingLogo(false);
@@ -176,7 +176,7 @@ const BrandingSettings: React.FC<BrandingSettingsProps> = ({ onBack }) => {
       
       setMessage(i18n.language === 'ar' ? `تم اقتراح شعار نصي: ${result.logoText}` : `Suggested text logo: ${result.logoText}`);
     } catch (error) {
-      console.error('Logo Generation Error:', error);
+      handleAiError(error, 'Logo generation');
     } finally {
       setIsLogoLoading(false);
     }

@@ -8,6 +8,7 @@ import 'react-image-crop/dist/ReactCrop.css';
 import { analyzeImageForSearch, semanticSearch } from '../../../core/services/geminiService';
 import { ScanningOverlay } from './ScanningOverlay';
 import { MarketplaceItem } from '../../../core/types';
+import { handleAiError } from '../../../core/utils/errorHandling';
 
 interface VisualSearchModalProps {
   isOpen: boolean;
@@ -57,7 +58,7 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({ isOpen, on
       setCrop(undefined);
       setCompletedCrop(null);
     } catch (err: any) {
-      console.error("Image loading error:", err);
+      handleAiError(err, 'VisualSearchModal:handleImageSelection', false);
       setError(t('visualSearch.error', 'An error occurred while loading the image. Please try again.'));
     }
   };
@@ -148,7 +149,7 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({ isOpen, on
       onResultsFound(results, analysis.keywords);
       onClose();
     } catch (err: any) {
-      console.error("Visual search error:", err);
+      handleAiError(err, 'VisualSearchModal:executeSearch', false);
       setError(t('visualSearch.error', 'An error occurred while analyzing the image. Please try again.'));
       setIsScanning(false);
     }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { Chat, UserProfile, ProductRequest } from '../../../core/types';
 import { motion } from 'motion/react';
 import { User as UserIcon, Building2, Star } from 'lucide-react';
@@ -32,12 +33,12 @@ const ChatCard: React.FC<ChatCardProps> = ({ chat, onOpen, activeRole, otherUser
     if (!otherUser && otherUserId && otherUserId !== 'system' && otherUserId !== 'everyone') {
       getDoc(doc(db, 'users', otherUserId)).then(snap => {
         if (snap.exists()) setOtherUser(snap.data() as UserProfile);
-      }).catch(error => console.error("Error fetching user in ChatCard:", error));
+      }).catch(error => handleFirestoreError(error, OperationType.GET, `users/${otherUserId}`, false));
     }
     if (!request && chat.requestId && !chat.requestId.startsWith('category_')) {
       getDoc(doc(db, 'requests', chat.requestId)).then(snap => {
         if (snap.exists()) setRequest({ id: snap.id, ...snap.data() } as ProductRequest);
-      }).catch(error => console.error("Error fetching request in ChatCard:", error));
+      }).catch(error => handleFirestoreError(error, OperationType.GET, `requests/${chat.requestId}`, false));
     }
   }, [chat, activeRole, otherUser, request]);
 

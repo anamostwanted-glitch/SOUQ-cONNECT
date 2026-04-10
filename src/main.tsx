@@ -6,10 +6,11 @@ import App from './App.tsx';
 import './index.css';
 import './i18n';
 import ErrorBoundary from './core/components/ErrorBoundary';
+import { handleAiError } from './core/utils/errorHandling';
 
 // Global error handler for unhandled promises (e.g., async functions outside React render)
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled Promise Rejection:', event.reason);
+  handleAiError(event.reason, 'Global:unhandledrejection', false);
   // We don't necessarily want to crash the whole app for every background promise,
   // but logging it is crucial. You could also dispatch a custom event here to show a toast.
 });

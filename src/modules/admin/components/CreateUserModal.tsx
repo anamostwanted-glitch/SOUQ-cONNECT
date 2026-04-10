@@ -8,6 +8,8 @@ import { doc, setDoc } from 'firebase/firestore';
 import { db, firebaseConfig } from '../../../core/firebase';
 import { toast } from 'sonner';
 
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+
 interface CreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -57,7 +59,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
       onClose();
       setFormData({ name: '', email: '', password: '', role: 'customer' });
     } catch (error: any) {
-      console.error('Error creating user:', error);
+      handleFirestoreError(error, OperationType.CREATE, 'admin_create_user', false);
       toast.error(error.message || (isRtl ? 'فشل إنشاء المستخدم' : 'Failed to create user'));
     } finally {
       setLoading(false);

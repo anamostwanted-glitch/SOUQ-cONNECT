@@ -6,6 +6,8 @@ import { Quote, ProductRequest, AppFeatures } from '../../../../core/types';
 import { getPriceIntelligence } from '../../../../core/services/geminiService';
 import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { db } from '../../../../core/firebase';
+import { handleAiError } from '../../../../core/services/geminiService';
+import { handleFirestoreError, OperationType } from '../../../../core/utils/errorHandling';
 
 interface QuoteModalProps {
   isOpen: boolean;
@@ -70,8 +72,7 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
         setQuoteItems([{ ...quoteItems[0], unitPrice: insight.recommendedPrice }]);
       }
     } catch (error) {
-      console.error("Error getting price insight:", error);
-      // Optionally handle with handleFirestoreError
+      handleAiError(error, 'Price insight');
     } finally {
       setIsAnalyzingPrice(false);
     }
@@ -98,8 +99,7 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
       await onSendQuote(quoteData);
       onClose();
     } catch (error) {
-      console.error("Error sending quote:", error);
-      // Error is likely handled in onSendQuote, but good to have here too
+      handleFirestoreError(error, OperationType.WRITE, `chats/${chatId}/quote`, false);
     } finally {
       setIsSendingQuote(false);
     }

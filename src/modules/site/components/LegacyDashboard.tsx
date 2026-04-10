@@ -139,7 +139,8 @@ import {
   formatCategoryName,
   suggestCategoryMerges,
   generateSupplierLogo,
-  suggestColorHarmony
+  suggestColorHarmony,
+  handleAiError
 } from '../../../core/services/geminiService';
 import { createNotification } from '../../../core/services/notificationService';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
@@ -308,7 +309,7 @@ const BroadcastBox = ({ t, i18n, allUsers, size = 'default' }: { t: any, i18n: a
       setFile(null);
       alert(i18n.language === 'ar' ? 'تم إرسال الإشعار بنجاح' : 'Notification sent successfully');
     } catch (error) {
-      console.error(error);
+      handleFirestoreError(error, OperationType.WRITE, 'notifications', false);
       alert(i18n.language === 'ar' ? 'حدث خطأ أثناء الإرسال' : 'Error sending notification');
     } finally {
       setIsSending(false);
@@ -605,7 +606,7 @@ const MarketingView: React.FC<{
           url: referralUrl,
         });
       } catch (error) {
-        console.error('Error sharing:', error);
+        handleAiError(error, 'Native sharing');
       }
     } else {
       handleCopy();
@@ -712,7 +713,7 @@ const MarketingManager: React.FC<{
         referralPoints: 0
       });
     } catch (e) {
-      console.error("Reset failed:", e);
+      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}`, false);
     } finally {
       setResetting(null);
     }
@@ -911,7 +912,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           order: (overCategory.order || 0) + 0.5
         });
       } catch (error) {
-        console.error('Error moving category:', error);
+        handleFirestoreError(error, OperationType.UPDATE, `categories/${activeId}`, false);
       }
     } else if (activeId !== overId) {
       // If dropped directly ON another category (not just reordering)
@@ -925,7 +926,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           });
           return;
         } catch (error) {
-          console.error('Error nesting category:', error);
+          handleFirestoreError(error, OperationType.UPDATE, `categories/${activeId}`, false);
         }
       }
 
@@ -948,7 +949,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             }
           }
         } catch (error) {
-          console.error("Error reordering categories:", error);
+          handleFirestoreError(error, OperationType.UPDATE, 'categories', false);
         }
       }
     }
@@ -1010,7 +1011,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       const translation = await translateText(text, targetLang);
       setTranslatedRequests(prev => ({ ...prev, [requestId]: translation }));
     } catch (error) {
-      console.error('Translation error:', error);
+      handleAiError(error, 'Text translation');
     } finally {
       setIsTranslatingRequest(prev => ({ ...prev, [requestId]: false }));
     }
@@ -1200,7 +1201,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         });
       }
     } catch (error) {
-      console.error('Error generating pricing insights:', error);
+      handleAiError(error, 'Pricing insights generation');
     } finally {
       setIsGeneratingPricing(false);
     }
@@ -1242,7 +1243,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         createdAt: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Error generating trends:', error);
+      handleAiError(error, 'Market trends generation');
     } finally {
       setIsGeneratingTrends(false);
     }
@@ -1281,7 +1282,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
           setRecentActivity(activities);
         } catch (error) {
-          console.error('Error fetching recent activity:', error);
+          handleFirestoreError(error, OperationType.GET, 'activity', false);
         }
       };
       fetchActivity();
@@ -1346,7 +1347,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
-      console.error('Error updating features:', error);
+      handleFirestoreError(error, OperationType.UPDATE, 'settings/features', false);
     } finally {
       setIsUpdatingFeatures(false);
     }
@@ -1379,7 +1380,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setMergeSuggestions(validSuggestions);
       setShowMergeModal(true);
     } catch (error) {
-      console.error('Error suggesting merges:', error);
+      handleAiError(error, 'Category merge suggestions');
       setDashboardError(i18n.language === 'ar' ? 'فشل في توليد اقتراحات الدمج' : 'Failed to generate merge suggestions');
       setTimeout(() => setDashboardError(null), 3000);
     } finally {
@@ -1420,7 +1421,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     } catch (error) {
       // Revert optimistic update
       setCategories(previousCategories);
-      console.error(error);
       handleFirestoreError(error, OperationType.DELETE, 'categories', false);
     }
   };
@@ -1508,7 +1508,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       const suggestions = await suggestMainCategories(i18n.language, activeCategoryTab, existingNames);
       setAiSuggestions(suggestions);
     } catch (error: any) {
-      console.error('Suggestion error:', error);
+      handleAiError(error, 'Main category suggestions');
       if (error.message === 'QUOTA_EXHAUSTED') {
         toast.error(i18n.language === 'ar' ? 'عذراً، تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI quota exhausted. Please try again later.');
       } else {
@@ -1545,7 +1545,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       const suggestions = await suggestSubcategories(categoryName, activeCategoryTab, existingSubNames);
       setAiSuggestions(suggestions);
     } catch (error: any) {
-      console.error('Suggestion error:', error);
+      handleAiError(error, 'Subcategory suggestions');
       if (error.message === 'QUOTA_EXHAUSTED') {
         toast.error(i18n.language === 'ar' ? 'عذراً، تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI quota exhausted. Please try again later.');
       } else {
@@ -1570,7 +1570,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         setTimeout(() => setDashboardSuccess(null), 3000);
       }
     } catch (error) {
-      console.error('Formatting error:', error);
+      handleAiError(error, 'Category name formatting');
     } finally {
       setIsFormatting(false);
     }
@@ -1585,7 +1585,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setDashboardSuccess(i18n.language === 'ar' ? 'تم البحث بالذكاء الاصطناعي' : 'AI search completed');
       setTimeout(() => setDashboardSuccess(null), 3000);
     } catch (error) {
-      console.error('AI Search error:', error);
+      handleAiError(error, 'Semantic search');
     } finally {
       setIsSemanticSearching(false);
     }
@@ -1600,7 +1600,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setDashboardSuccess(i18n.language === 'ar' ? 'تم البحث بالذكاء الاصطناعي عن الموردين' : 'AI supplier search completed');
       setTimeout(() => setDashboardSuccess(null), 3000);
     } catch (error) {
-      console.error('AI Supplier Search error:', error);
+      handleAiError(error, 'Supplier semantic search');
     } finally {
       setIsSemanticSupplierSearching(false);
     }
@@ -1624,7 +1624,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       const relevantIds = await semanticSearch(requestSearch, requests, i18n.language);
       setFilteredRequests(requests.filter(req => relevantIds.includes(req.id)));
     } catch (error) {
-      console.error(error);
+      handleAiError(error, 'Semantic search');
     } finally {
       setIsSemanticSearching(false);
     }
@@ -1747,7 +1747,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setNewUserRole('manager');
       
     } catch (error: any) {
-      console.error('Error saving user:', error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${editingUser?.uid || 'new'}`, false);
       if (error.code === 'auth/email-already-in-use' || (error.message && error.message.includes('auth/email-already-in-use'))) {
         setDashboardError(i18n.language === 'ar' 
           ? 'هذا البريد الإلكتروني مستخدم بالفعل. يرجى استخدام بريد إلكتروني آخر.' 
@@ -1815,7 +1815,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       const summary = await summarizeChat(messages.join('\n'), i18n.language);
       setChatSummaries(prev => ({ ...prev, [chatId]: summary }));
     } catch (error) {
-      console.error('Summarization error:', error);
+      handleAiError(error, 'Chat summarization');
     } finally {
       setIsSummarizing(prev => ({ ...prev, [chatId]: false }));
     }
@@ -1846,7 +1846,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       
       toast.success(isRtl ? 'تم تحديث تحليل السوق بنجاح' : 'Market analysis updated successfully');
     } catch (error) {
-      console.error('Market analysis error:', error);
+      handleAiError(error, 'Market analysis');
     } finally {
       setIsAnalyzingMarket(false);
     }
@@ -2006,7 +2006,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           }
           if (changed) setChatUsers(newUsers);
         } catch (error) {
-          console.error('Error in onSnapshot callback for all chats:', error);
+          handleFirestoreError(error, OperationType.GET, 'chats', false);
         }
       }, (error) => {
         handleFirestoreError(error, OperationType.LIST, 'chats', false);
@@ -2141,7 +2141,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       
       setSiteLogo(url);
     } catch (error: any) {
-      console.error('Error uploading logo:', error);
+      handleFirestoreError(error, OperationType.WRITE, `storage/logos/site`, false);
       
       if (error.code === 'storage/unknown') {
         setLogoUploadError(i18n.language === 'ar' ? 'جاري استخدام وضع التوافق للرفع...' : 'Switching to compatibility mode for upload...');
@@ -2160,14 +2160,14 @@ const Dashboard: React.FC<DashboardProps> = ({
             setSiteLogo(base64Url);
             setLogoUploadError(i18n.language === 'ar' ? 'تم استخدام وضع التوافق للرفع.' : 'Using compatibility mode for upload.');
           } catch (error) {
-            console.error('Error in fallback logo upload:', error);
+            handleFirestoreError(error, OperationType.WRITE, 'settings/site', false);
             setLogoUploadError(i18n.language === 'ar' ? 'فشل تحميل الشعار في وضع التوافق' : 'Failed to upload logo in compatibility mode');
           }
         };
         reader.readAsDataURL(file);
       } catch (fallbackErr) {
-        console.error('Fallback error:', fallbackErr);
-        setLogoUploadError(i18n.language === 'ar' ? 'فشل تحميل الشعار' : 'Failed to upload logo');
+        handleAiError(fallbackErr, 'Logo upload fallback');
+        setLogoUploadError(isRtl ? 'فشل تحميل الشعار' : 'Failed to upload logo');
       }
     } finally {
       setIsUploadingLogo(false);
@@ -2205,7 +2205,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           
           setWatermarkLogo(base64Url);
         } catch (err) {
-          console.error("Error saving watermark to Firestore:", err);
+          handleFirestoreError(err, OperationType.WRITE, 'settings/site', false);
           setWatermarkUploadError(i18n.language === 'ar' ? 'فشل حفظ الشعار' : 'Failed to save logo');
         } finally {
           setIsUploadingWatermark(false);
@@ -2213,7 +2213,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       };
       reader.readAsDataURL(compressedFile);
     } catch (error: any) {
-      console.error('Error compressing watermark logo:', error);
+      handleAiError(error, 'Watermark logo compression');
       setWatermarkUploadError(i18n.language === 'ar' ? 'فشل معالجة الشعار' : 'Failed to process logo');
       setIsUploadingWatermark(false);
     }
@@ -2482,7 +2482,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         }
       }
     } catch (error) {
-      console.error('Error suggesting more suppliers:', error);
+      handleAiError(error, 'Suggesting more suppliers');
       setDashboardError(i18n.language === 'ar' ? 'فشل اقتراح موردين جدد. يرجى المحاولة مرة أخرى.' : 'Failed to suggest more suppliers. Please try again.');
       setTimeout(() => setDashboardError(null), 5000);
     } finally {
@@ -2554,13 +2554,13 @@ const Dashboard: React.FC<DashboardProps> = ({
           // If we want a real address, we could use a service, but let's keep it simple for now
           // or just tell the user we got the coordinates.
         } catch (error) {
-          console.error('Error getting address:', error);
+          handleAiError(error, 'Reverse geocoding');
         } finally {
           setIsDetectingLocation(false);
         }
       },
       (error) => {
-        console.error('Geolocation error:', error);
+        handleAiError(error, 'Geolocation detection');
         setIsDetectingLocation(false);
         setDashboardError(i18n.language === 'ar' ? 'فشل تحديد الموقع. يرجى التأكد من تفعيل الصلاحيات.' : 'Failed to get location. Please ensure permissions are enabled.');
         setTimeout(() => setDashboardError(null), 5000);
@@ -2605,7 +2605,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}`, false);
       }
     } catch (err) {
-      console.error(err);
+      handleAiError(err, 'Profile update');
     } finally {
       setIsSaving(false);
     }
@@ -2665,7 +2665,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         });
       }
     } catch (error) {
-      console.error("AI Logo generation failed:", error);
+      handleAiError(error, 'AI Logo generation');
       setUploadError(i18n.language === 'ar' ? 'فشل توليد الشعار، يرجى المحاولة مرة أخرى' : 'Failed to generate logo, please try again');
     } finally {
       setIsGeneratingLogo(false);
@@ -2707,7 +2707,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       setEditSuppLogoUrl(url);
       setGeneratedLogoPreview(url);
     } catch (error) {
-      console.error("AI Logo generation failed:", error);
+      handleAiError(error, 'Admin AI Logo generation');
       setUploadError(i18n.language === 'ar' ? 'فشل توليد الشعار، يرجى المحاولة مرة أخرى' : 'Failed to generate logo, please try again');
     } finally {
       setIsGeneratingLogo(false);
@@ -2752,7 +2752,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       const url = await getDownloadURL(storageRef);
       setEditLogoUrl(url);
     } catch (err: any) {
-      console.error('Upload error:', err);
+      handleFirestoreError(err, OperationType.WRITE, `storage/logos/${profile.uid}`, false);
       
       // If it's a storage/unknown error, it's likely a CORS issue
       if (err.code === 'storage/unknown') {
@@ -2770,7 +2770,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         };
         reader.readAsDataURL(file);
       } catch (fallbackErr) {
-        console.error('Fallback error:', fallbackErr);
+        handleAiError(fallbackErr, 'Logo upload fallback');
       }
     } finally {
       setIsUploading(false);
@@ -2820,7 +2820,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         setTimeout(() => setDashboardSuccess(null), 3000);
       }
     } catch (error) {
-      console.error('Error suggesting categories:', error);
+      handleAiError(error, 'Supplier category suggestions');
     } finally {
       setIsSuggestingNewSuppCategories(false);
     }
@@ -2841,7 +2841,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         setTimeout(() => setDashboardSuccess(null), 3000);
       }
     } catch (error) {
-      console.error('Error suggesting categories:', error);
+      handleAiError(error, 'Supplier category suggestions');
     } finally {
       setIsSuggestingEditSuppCategories(false);
     }
@@ -2862,7 +2862,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         setTimeout(() => setDashboardSuccess(null), 3000);
       }
     } catch (error) {
-      console.error('Error suggesting categories:', error);
+      handleAiError(error, 'Supplier category suggestions');
     } finally {
       setIsSuggestingOwnCategories(false);
     }
@@ -2979,7 +2979,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         throw authError;
       }
     } catch (error: any) {
-      console.error('Error adding supplier:', error);
+      handleFirestoreError(error, OperationType.CREATE, 'users', false);
       if (error.code === 'auth/email-already-in-use' || (error.message && error.message.includes('auth/email-already-in-use'))) {
         setDashboardError(i18n.language === 'ar' 
           ? 'هذا البريد الإلكتروني مستخدم بالفعل. يرجى استخدام بريد إلكتروني آخر.' 
@@ -3013,9 +3013,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             const url = new URL(reqData.imageUrl);
             const path = decodeURIComponent(url.pathname.split('/o/')[1].split('?')[0]);
             const imgRef = ref(storage, path);
-            deletePromises.push(deleteObject(imgRef).catch(e => console.error('Error deleting request image:', e)));
+            deletePromises.push(deleteObject(imgRef).catch(e => handleFirestoreError(e, OperationType.DELETE, `storage/${path}`, false)));
           } catch (e) {
-            console.error('Error parsing request image URL:', e);
+            handleAiError(e, 'Parsing request image URL');
           }
         }
 
@@ -3038,14 +3038,14 @@ const Dashboard: React.FC<DashboardProps> = ({
             try {
               const url = new URL(msgData.imageUrl);
               const path = decodeURIComponent(url.pathname.split('/o/')[1].split('?')[0]);
-              deletePromises.push(deleteObject(ref(storage, path)).catch(e => console.error('Error deleting message image:', e)));
+              deletePromises.push(deleteObject(ref(storage, path)).catch(e => handleFirestoreError(e, OperationType.DELETE, `storage/${path}`, false)));
             } catch (e) {}
           }
           if (msgData.audioUrl && msgData.audioUrl.includes('firebasestorage.googleapis.com')) {
             try {
               const url = new URL(msgData.audioUrl);
               const path = decodeURIComponent(url.pathname.split('/o/')[1].split('?')[0]);
-              deletePromises.push(deleteObject(ref(storage, path)).catch(e => console.error('Error deleting message audio:', e)));
+              deletePromises.push(deleteObject(ref(storage, path)).catch(e => handleFirestoreError(e, OperationType.DELETE, `storage/${path}`, false)));
             } catch (e) {}
           }
           deletePromises.push(updateDoc(doc(db, `chats/${docSnap.id}/messages`, msgSnap.id), { status: 'deleted', deletedAt: new Date().toISOString() }));
@@ -3064,14 +3064,14 @@ const Dashboard: React.FC<DashboardProps> = ({
             try {
               const url = new URL(msgData.imageUrl);
               const path = decodeURIComponent(url.pathname.split('/o/')[1].split('?')[0]);
-              deletePromises.push(deleteObject(ref(storage, path)).catch(e => console.error('Error deleting message image:', e)));
+              deletePromises.push(deleteObject(ref(storage, path)).catch(e => handleFirestoreError(e, OperationType.DELETE, `storage/${path}`, false)));
             } catch (e) {}
           }
           if (msgData.audioUrl && msgData.audioUrl.includes('firebasestorage.googleapis.com')) {
             try {
               const url = new URL(msgData.audioUrl);
               const path = decodeURIComponent(url.pathname.split('/o/')[1].split('?')[0]);
-              deletePromises.push(deleteObject(ref(storage, path)).catch(e => console.error('Error deleting message audio:', e)));
+              deletePromises.push(deleteObject(ref(storage, path)).catch(e => handleFirestoreError(e, OperationType.DELETE, `storage/${path}`, false)));
             } catch (e) {}
           }
           deletePromises.push(updateDoc(doc(db, `chats/${docSnap.id}/messages`, msgSnap.id), { status: 'deleted', deletedAt: new Date().toISOString() }));
@@ -3103,9 +3103,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             const url = new URL(userData.logoUrl);
             const path = decodeURIComponent(url.pathname.split('/o/')[1].split('?')[0]);
             const logoRef = ref(storage, path);
-            deletePromises.push(deleteObject(logoRef).catch(e => console.error('Error deleting logo:', e)));
+            deletePromises.push(deleteObject(logoRef).catch(e => handleFirestoreError(e, OperationType.DELETE, `storage/${path}`, false)));
           } catch (e) {
-            console.error('Error parsing logo URL:', e);
+            handleAiError(e, 'Parsing logo URL');
           }
         }
       }
@@ -3114,12 +3114,12 @@ const Dashboard: React.FC<DashboardProps> = ({
       const results = await Promise.allSettled(deletePromises);
       const failures = results.filter(r => r.status === 'rejected');
       if (failures.length > 0) {
-        console.error("Some deletions failed:", failures);
+        handleFirestoreError((failures[0] as PromiseRejectedResult).reason, OperationType.DELETE, 'bulk_deletion', false);
         // Throw the first error to be caught by the outer block
         throw (failures[0] as PromiseRejectedResult).reason;
       }
     } catch (error) {
-      console.error("Error deleting user data:", error);
+      handleFirestoreError(error, OperationType.DELETE, 'user_data', false);
       throw error;
     }
   };
@@ -3136,7 +3136,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     } catch (error) {
       // Revert optimistic update
       setAllUsers(previousAllUsers);
-      console.error('Error deleting user:', error);
       handleFirestoreError(error, OperationType.DELETE, 'users', false);
     }
   };
@@ -3156,7 +3155,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       // Revert optimistic update
       setSuppliers(previousSuppliers);
       setAllUsers(previousAllUsers);
-      console.error('Error deleting supplier:', error);
       handleFirestoreError(error, OperationType.DELETE, 'users', false);
     }
   };
@@ -3395,7 +3393,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                 </div>
                 <button 
-                  onClick={() => auth.signOut().catch(err => console.error("Sign out error:", err))}
+                  onClick={() => auth.signOut().catch(err => handleFirestoreError(err, OperationType.GET, 'auth', false))}
                   className="w-full py-2.5 bg-brand-surface text-brand-error text-xs font-bold rounded-xl border border-brand-border hover:bg-brand-error hover:text-white transition-all duration-200 flex items-center justify-center gap-2 group shadow-sm"
                 >
                   <LogOut size={14} className="group-hover:-translate-x-1 transition-transform" />
@@ -7007,7 +7005,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                           );
                           setEditBio(optimized.suggestedBio);
                         } catch (error) {
-                          console.error(error);
+                          handleAiError(error, 'bio_optimization');
                         } finally {
                           setIsOptimizingBio(false);
                         }
@@ -7229,7 +7227,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                           const merged = Array.from(new Set([...editKeywords, ...aiKeywords]));
                           setEditKeywords(merged);
                         } catch (error) {
-                          console.error('Failed to generate keywords:', error);
+                          handleAiError(error, 'keyword_generation');
                         } finally {
                           setIsGeneratingKeywords(false);
                         }
@@ -7650,7 +7648,7 @@ const OffersList: React.FC<{
         }
         if (changed) setSuppliersInfo(newInfo);
       } catch (error) {
-        console.error('Error in onSnapshot callback for offers:', error);
+        handleFirestoreError(error, OperationType.LIST, 'offers', false);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'offers', false);
@@ -7700,9 +7698,9 @@ const OffersList: React.FC<{
           }
         }
         if (changed) setSuppliersInfo(newInfo);
-      } catch (error) {
-        console.error('Error in onSnapshot callback for chats:', error);
-      }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.LIST, 'chats', false);
+        }
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'chats', false);
     });
@@ -7721,7 +7719,7 @@ const OffersList: React.FC<{
       // 2. Open chat immediately
       onChat(offer.supplierId);
     } catch (err) {
-      console.error('Error starting negotiation:', err);
+      handleFirestoreError(err, OperationType.UPDATE, 'offers', false);
     }
   };
 
@@ -7907,7 +7905,7 @@ const SupplierOfferAction: React.FC<{
         setMessage(generatedMessage);
       }
     } catch (err) {
-      console.error('Failed to generate AI message:', err);
+      handleAiError(err, 'proposal_generation');
     } finally {
       setIsGeneratingAi(false);
     }
@@ -7934,7 +7932,7 @@ const SupplierOfferAction: React.FC<{
     try {
       await onChat();
     } catch (err) {
-      console.error('Error opening chat:', err);
+      handleFirestoreError(err, OperationType.WRITE, 'chats', false);
       setError(i18n.language === 'ar' ? 'حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى.' : 'Connection error. Please try again.');
       setTimeout(() => setError(null), 5000);
     } finally {
@@ -7990,7 +7988,7 @@ const SupplierOfferAction: React.FC<{
     } catch (err) {
       // Revert optimistic update
       setOffer(previousOffer);
-      console.error('Error submitting offer:', err);
+      handleFirestoreError(err, OperationType.WRITE, 'offers', false);
       setError(i18n.language === 'ar' ? 'فشل تقديم العرض. يرجى التحقق من اتصالك بالإنترنت.' : 'Failed to submit offer. Please check your internet connection.');
       setTimeout(() => setError(null), 5000);
     } finally {

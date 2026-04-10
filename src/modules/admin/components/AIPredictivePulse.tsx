@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap, Activity, ShieldAlert, TrendingUp, Sparkles, BrainCircuit, ChevronRight, AlertCircle } from 'lucide-react';
-import { analyzeSystemPulse } from '../../../core/services/geminiService';
+import { analyzeSystemPulse, handleAiError } from '../../../core/services/geminiService';
 import { useTranslation } from 'react-i18next';
 
 interface AIPredictivePulseProps {
@@ -27,7 +27,7 @@ export const AIPredictivePulse: React.FC<AIPredictivePulseProps> = ({ systemData
         const result = await analyzeSystemPulse(systemData, i18n.language);
         setPulse(result);
       } catch (error: any) {
-        console.error('Pulse error:', error);
+        handleAiError(error, 'System pulse analysis');
         // Set a default state if it fails (e.g. due to missing API key)
         setPulse({
           status: 'stable',

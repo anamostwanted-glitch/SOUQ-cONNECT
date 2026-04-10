@@ -4,7 +4,7 @@ import { Search, Camera, Sparkles, ChevronRight, X, Coffee, Monitor, Sofa, Shirt
 import { useTranslation } from 'react-i18next';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { Category as FireCategory } from '../../../core/types';
-import { suggestCategoriesFromQuery } from '../../../core/services/geminiService';
+import { suggestCategoriesFromQuery, handleAiError } from '../../../core/services/geminiService';
 
 // --- Types ---
 interface Subcategory {
@@ -52,9 +52,10 @@ interface SmartCategoryExplorerProps {
   categories: FireCategory[];
   onSelectCategory?: (categoryId: string, subcategoryId?: string) => void;
   onVisualSearch?: () => void;
+  onHoverCategory?: (categoryId: string) => void;
 }
 
-export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ categories, onSelectCategory, onVisualSearch }) => {
+export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ categories, onSelectCategory, onVisualSearch, onHoverCategory }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const [searchQuery, setSearchQuery] = useState('');
@@ -166,7 +167,7 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ ca
         
       setSmartResults(matchedSubs);
     } catch (error) {
-      console.error('AI Search failed:', error);
+      handleAiError(error, 'Semantic search');
     } finally {
       setIsAiSearching(false);
       setAiThinking(false);
@@ -307,6 +308,7 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ ca
                 <HapticButton
                   key={`foryou-${cat.id}`}
                   onClick={() => setActiveCategory(cat)}
+                  onMouseEnter={() => onHoverCategory?.(cat.id)}
                   className="snap-start shrink-0 w-40 p-4 rounded-3xl bg-white dark:bg-gray-800 border border-brand-border/50 shadow-sm flex flex-col gap-3"
                 >
                   <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${cat.color} flex items-center justify-center text-white shadow-lg`}>
@@ -333,6 +335,7 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ ca
                   <HapticButton
                     key={cat.id}
                     onClick={() => setActiveCategory(cat)}
+                    onMouseEnter={() => onHoverCategory?.(cat.id)}
                     className={`relative overflow-hidden rounded-3xl p-4 flex flex-col justify-between group ${cat.span || ''} bg-gradient-to-br ${cat.color} shadow-md`}
                   >
                     <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />

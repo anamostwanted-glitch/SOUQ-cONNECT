@@ -19,7 +19,7 @@ import { ref, uploadBytes, getDownloadURL, getBlob } from 'firebase/storage';
 import { db, storage } from '../../../core/firebase';
 import imageCompression from 'browser-image-compression';
 import { UserProfile, Message, Chat, ProductRequest, Quote, QuoteItem, Offer, AppFeatures } from '../../../core/types';
-import { translateText, generateSmartReplies, moderateContent, translateAudio, negotiateOffer, getPriceIntelligence, summarizeChat, analyzeSentiment } from '../../../core/services/geminiService';
+import { translateText, generateSmartReplies, moderateContent, translateAudio, negotiateOffer, getPriceIntelligence, summarizeChat, analyzeSentiment, handleAiError } from '../../../core/services/geminiService';
 import { createNotification } from '../../../core/services/notificationService';
 import { motion, AnimatePresence } from 'motion/react';
 import { Send, Mic, Square, ArrowLeft, User as UserIcon, Play, Pause, MessageSquare, Image as ImageIcon, Upload, Tag, Phone, X, ZoomIn, Sparkles as SparklesIcon, Check, CheckCheck, FileText, PlusCircle, Trash2, Download, Printer, Star, Bot, MapPin, Reply, CheckCircle, Settings, Clock, SmilePlus, Search, MoreVertical, Copy, Forward, Pin, ShieldCheck, BrainCircuit, Sparkles, Info, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2 } from 'lucide-react';
@@ -113,7 +113,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       });
       setActiveReactionMessageId(null);
     } catch (error) {
-      console.error('Error updating reaction:', error);
+      handleFirestoreError(error, OperationType.UPDATE, `chats/${chatId}/messages/${messageId}`, false);
     }
   };
 
@@ -124,7 +124,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       });
       setActiveMessageMenuId(null);
     } catch (error) {
-      console.error('Error pinning message:', error);
+      handleFirestoreError(error, OperationType.UPDATE, `chats/${chatId}`, false);
     }
   };
 
@@ -161,7 +161,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       }
       setActiveMessageMenuId(null);
     } catch (error) {
-      console.error('Error deleting message:', error);
+      handleFirestoreError(error, OperationType.UPDATE, `chats/${chatId}/messages/${messageId}`, false);
     }
   };
   const isRtl = i18n.language === 'ar';
@@ -205,7 +205,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           label: isRtl ? 'تأكيد الاتفاق' : 'Confirm Deal',
           icon: CheckCircle2,
           action: () => {
-            handleSend(undefined, isRtl ? 'تم التأكيد، سأقوم بتجهيز الطلب الآن.' : 'Confirmed, I will prepare the order now.').catch(err => console.error("Confirm deal error:", err));
+            handleSend(undefined, isRtl ? 'تم التأكيد، سأقوم بتجهيز الطلب الآن.' : 'Confirmed, I will prepare the order now.').catch(err => handleFirestoreError(err, OperationType.WRITE, `chats/${chatId}/messages`, false));
           }
         });
       }
@@ -263,7 +263,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           id: 'summarize',
           label: isRtl ? 'لخص لي' : 'Summarize',
           icon: FileText,
-          action: () => handleSummarizeChat().catch(err => console.error("Summarize error:", err))
+          action: () => handleSummarizeChat().catch(err => handleAiError(err, "Summarize chat"))
         });
       }
 
@@ -289,7 +289,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       const summary = await summarizeChat(messageTexts.join('\n'), i18n.language);
       setChatSummary(summary);
     } catch (error) {
-      console.error('Summarization error:', error);
+      handleAiError(error, 'Chat summarization');
     } finally {
       setIsSummarizing(false);
     }
@@ -309,7 +309,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       const result = await analyzeSentiment(recentMessages);
       setSentimentResult(result);
     } catch (error) {
-      console.error('Sentiment analysis error:', error);
+      handleAiError(error, 'Sentiment analysis');
     } finally {
       setIsAnalyzingSentiment(false);
     }
@@ -376,13 +376,13 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           }
         }
       } catch (error) {
-        console.error('Negotiation error:', error);
+        handleAiError(error, 'Offer negotiation');
       } finally {
         setIsNegotiating(false);
       }
     };
 
-    checkNegotiation().catch(err => console.error("Negotiation check error:", err));
+    checkNegotiation().catch(err => handleAiError(err, "Negotiation check"));
   }, [messages, profile, chat, chatId, i18n.language]);
 
   useEffect(() => {
@@ -395,7 +395,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         setWatermarkPosition(data.watermarkPosition || 'bottom-right');
       }
     }, (error) => {
-      console.error('ChatView Settings Firestore Error:', error);
+      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
     });
     return () => unsubSettings();
   }, []);
@@ -465,7 +465,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           handleFirestoreError(error, OperationType.GET, `chats/${chatId} dependencies`, false);
         }
       } catch (error) {
-        console.error('Error in onSnapshot callback for chat:', error);
+        handleFirestoreError(error, OperationType.GET, `chats/${chatId}`, false);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, `chats/${chatId}`, false);
@@ -501,7 +501,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           if (unreadMsgs.length > 0) {
             await Promise.all(unreadMsgs.map(m => 
               updateDoc(doc(db, 'chats', chatId, 'messages', m.id), { read: true })
-                .catch(error => console.error("Error marking message as read:", error))
+                .catch(error => handleFirestoreError(error, OperationType.UPDATE, `chats/${chatId}/messages/${m.id}`, false))
             ));
           }
         }
@@ -523,7 +523,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
               if (error.message?.includes('Missing or insufficient permissions') || error.code === 'permission-denied') {
                 return { id, data: { uid: id, name: 'Customer', role: 'customer' } as UserProfile };
               }
-              console.error('Error fetching user profile in ChatView:', id, error);
+              handleFirestoreError(error, OperationType.GET, `users/${id}`, false);
               return { id, data: { uid: id, name: 'Customer', role: 'customer' } as UserProfile };
             }
           });
@@ -557,7 +557,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           }
         }
       } catch (error) {
-        console.error('Error in onSnapshot callback for messages:', error);
+        handleFirestoreError(error, OperationType.LIST, `chats/${chatId}/messages`, false);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, `chats/${chatId}/messages`, false);
@@ -603,7 +603,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
             setSmartReplies(replies);
           }
         } catch (error) {
-          console.error('Error generating smart replies:', error);
+          handleAiError(error, 'Smart replies generation');
         } finally {
           if (currentGenId === generationIdRef.current) {
             setIsGeneratingReplies(false);
@@ -616,7 +616,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       }
     };
 
-    generateReplies().catch(err => console.error("Generate replies error:", err));
+    generateReplies().catch(err => handleAiError(err, "Generate replies"));
   }, [messages, profile, isExpired, i18n.language]);
 
   const handleTranslateAudio = async (messageId: string, audioUrl: string) => {
@@ -641,12 +641,12 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           setTranslatedMessages(prev => ({ ...prev, [messageId]: translation }));
           setIsTranslating(prev => ({ ...prev, [messageId]: false }));
         } catch (error) {
-          console.error('Audio translation error in reader:', error);
+          handleAiError(error, 'Audio translation (reader)');
           setIsTranslating(prev => ({ ...prev, [messageId]: false }));
         }
       };
     } catch (error) {
-      console.error('Audio translation error:', error);
+      handleAiError(error, 'Audio translation');
       setIsTranslating(prev => ({ ...prev, [messageId]: false }));
     }
   };
@@ -666,7 +666,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       const translation = await translateText(text, targetLang);
       setTranslatedMessages(prev => ({ ...prev, [messageId]: translation }));
     } catch (error) {
-      console.error('Translation error:', error);
+      handleAiError(error, 'Text translation');
     } finally {
       setIsTranslating(prev => ({ ...prev, [messageId]: false }));
     }
@@ -730,7 +730,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         setIsSendingLocation(false);
       }
     }, (error) => {
-      console.error('Geolocation error:', error);
+      handleAiError(error, 'Geolocation');
       alert(i18n.language === 'ar' ? 'فشل الحصول على الموقع' : 'Failed to get location');
       setIsSendingLocation(false);
     });
@@ -753,7 +753,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           [`typing.${profile.uid}`]: true
         });
       } catch (error) {
-        console.error('Error updating typing status:', error);
+        handleFirestoreError(error, OperationType.UPDATE, `chats/${chatId}`, false);
       }
     }
 
@@ -764,7 +764,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           [`typing.${profile.uid}`]: false
         });
       } catch (error) {
-        console.error('Error clearing typing status:', error);
+        handleFirestoreError(error, OperationType.UPDATE, `chats/${chatId}`, false);
       }
     }, 3000);
   };
@@ -857,7 +857,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       }
     };
 
-    processSend().catch(err => console.error("Unhandled processSend error:", err));
+    processSend().catch(err => handleFirestoreError(err, OperationType.WRITE, `chats/${chatId}/messages`, false));
   };
 
   const startRecording = async () => {
@@ -927,7 +927,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         setRecordingTime(prev => prev + 1);
       }, 1000);
     } catch (err) {
-      console.error('Error accessing microphone:', err);
+      handleAiError(err, 'Microphone access');
     }
   };
 
@@ -1088,13 +1088,13 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
               if (isObjectUrl) URL.revokeObjectURL(finalLogoUrl);
             }, file.type);
           } catch (e) {
-            console.error("Canvas toBlob error (CORS):", e);
+            handleFirestoreError(e, OperationType.WRITE, 'image/watermark/blob', false);
             resolve(file);
             if (isObjectUrl) URL.revokeObjectURL(finalLogoUrl);
           }
         };
         watermark.onerror = (e) => {
-          console.error("Watermark image failed to load:", e);
+          handleFirestoreError(e, OperationType.GET, 'image/watermark/load', false);
           resolve(file);
           if (isObjectUrl) URL.revokeObjectURL(finalLogoUrl);
         };
@@ -1107,7 +1107,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         }
       };
       img.onerror = (e) => {
-        console.error("Original image failed to load:", e);
+        handleFirestoreError(e, OperationType.GET, 'image/original/load', false);
         resolve(file);
         if (isObjectUrl) URL.revokeObjectURL(finalLogoUrl);
       };
@@ -1179,7 +1179,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         soundService.play(SoundType.SENT);
       }
     } catch (err: any) {
-      console.error(`Error uploading image at step: ${step}`, err);
+      handleFirestoreError(err, OperationType.WRITE, `chats/${chatId}/images`, false);
       setChatError(i18n.language === 'ar' 
         ? `فشل رفع الصورة (${step}). يرجى التأكد من تفعيل خدمة Firebase Storage في لوحة التحكم وتعيين القواعد المناسبة.` 
         : `Failed to upload image (${step}). Please ensure Firebase Storage is enabled in your console and rules are set.`);
@@ -1305,7 +1305,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                   </h4>
                   <div className="space-y-2">
                     <button 
-                      onClick={() => { handleSummarizeChat().catch(err => console.error("Summarize error:", err)); setShowSmartActions(false); }}
+                      onClick={() => { handleSummarizeChat().catch(err => handleAiError(err, 'Summarize chat')); setShowSmartActions(false); }}
                       className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-colors text-left"
                     >
                       <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600">
@@ -1317,7 +1317,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                       </div>
                     </button>
                     <button 
-                      onClick={() => { handleAnalyzeSentiment().catch(err => console.error("Sentiment error:", err)); setShowSmartActions(false); }}
+                      onClick={() => { handleAnalyzeSentiment().catch(err => handleAiError(err, 'Sentiment analysis')); setShowSmartActions(false); }}
                       className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-colors text-left"
                     >
                       <div className="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600">
@@ -1490,7 +1490,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                handlePinMessage(chat.pinnedMessageId).catch(err => console.error("Pin message error:", err));
+                handlePinMessage(chat.pinnedMessageId).catch(err => handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}/pin`, false));
               }}
               className="p-2 text-brand-text-muted hover:text-brand-text-main rounded-full hover:bg-brand-background transition-colors"
             >
@@ -1787,7 +1787,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
               <div className="flex items-center gap-1 ml-auto">
                 <HapticButton
                   type="button"
-                  onClick={() => handleSendLocation().catch(err => console.error("Send location error:", err))}
+                  onClick={() => handleSendLocation().catch(err => handleFirestoreError(err, OperationType.WRITE, `chats/${chatId}/location`, false))}
                   disabled={isSendingLocation}
                   className="p-2 text-slate-400 hover:text-brand-warning hover:bg-brand-warning/10 rounded-xl transition-all"
                 >
@@ -1836,7 +1836,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                   value={inputText}
                   onChange={(e) => {
                     setInputText(e.target.value);
-                    handleTyping().catch(err => console.error("Typing status error:", err));
+                    handleTyping().catch(err => handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}/typing`, false));
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1972,7 +1972,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           <QuoteModal
             isOpen={showQuoteModal}
             onClose={() => setShowQuoteModal(false)}
-            onSendQuote={(data) => handleSendQuote(data).catch(err => console.error("Send quote error:", err))}
+            onSendQuote={(data) => handleSendQuote(data).catch(err => handleFirestoreError(err, OperationType.WRITE, `chats/${chatId}/quote`, false))}
             request={request}
             chatId={chatId}
             features={features}

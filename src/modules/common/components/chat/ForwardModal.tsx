@@ -4,6 +4,7 @@ import { X, Search, Check, Send } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '../../../../core/firebase';
+import { handleFirestoreError, OperationType } from '../../../../core/utils/errorHandling';
 import { Chat, Message, UserProfile } from '../../../../core/types';
 
 interface ForwardModalProps {
@@ -57,14 +58,14 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({ isOpen, onClose, mes
           }
           return chat;
         } catch (error) {
-          console.error('Error fetching user for forward modal:', error);
+          handleFirestoreError(error, OperationType.GET, 'users', false);
           return chat;
         }
       }));
       
       setChats(chatsWithUsers);
     } catch (error) {
-      console.error('Error loading chats:', error);
+      handleFirestoreError(error, OperationType.LIST, 'chats', false);
     }
   };
 
@@ -90,7 +91,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({ isOpen, onClose, mes
       await Promise.all(forwardPromises);
       onClose();
     } catch (error) {
-      console.error('Error forwarding message:', error);
+      handleFirestoreError(error, OperationType.CREATE, 'chats/messages/forward', false);
     } finally {
       setIsForwarding(false);
     }

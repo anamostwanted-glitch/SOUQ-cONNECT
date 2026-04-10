@@ -6,6 +6,7 @@ import { db } from '../../core/firebase';
 import { doc, updateDoc, collection, query, where, limit, getDocs } from 'firebase/firestore';
 import { extractKeywordsFromRequests } from '../../core/services/geminiService';
 import { HapticButton } from './HapticButton';
+import { handleFirestoreError, OperationType, handleAiError } from '../../core/utils/errorHandling';
 
 interface KeywordManagerModalProps {
   category: Category;
@@ -80,7 +81,7 @@ export const KeywordManagerModal: React.FC<KeywordManagerModalProps> = ({ catego
       const newSuggested = [...new Set([...suggestedKeywords, ...extracted])].filter(kw => !keywords.includes(kw));
       setSuggestedKeywords(newSuggested);
     } catch (error) {
-      console.error("Error extracting keywords:", error);
+      handleAiError(error, 'KeywordManagerModal:handleExtractAI', false);
     } finally {
       setIsExtracting(false);
     }
@@ -99,7 +100,7 @@ export const KeywordManagerModal: React.FC<KeywordManagerModalProps> = ({ catego
       onUpdate({ ...category, ...updatedData });
       onClose();
     } catch (error) {
-      console.error("Error saving keywords:", error);
+      handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`, false);
     } finally {
       setIsSaving(false);
     }

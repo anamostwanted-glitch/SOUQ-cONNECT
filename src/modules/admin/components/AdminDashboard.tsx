@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { handleAiError } from '../../../core/services/geminiService';
 import { db } from '../../../core/firebase';
 import { UserProfile, AppFeatures, ProductRequest, Category } from '../../../core/types';
 import { AdminSidebar } from './AdminSidebar';
@@ -60,6 +61,7 @@ import { AdminQuickActions } from './AdminQuickActions';
 import { AdminGrowthChart } from './AdminGrowthChart';
 import { AdminDeepControl } from './AdminDeepControl';
 import { AdminUserManagement } from './AdminUserManagement';
+import { DashboardCopilot } from './DashboardCopilot';
 import { toast } from 'sonner';
 import { deleteDoc, writeBatch, where } from 'firebase/firestore';
 
@@ -125,7 +127,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setMergeSuggestions(suggestions);
       setIsMergeModalOpen(true);
     } catch (error) {
-      console.error('Merge suggestion error:', error);
+      handleAiError(error, 'Merge suggestion');
       toast.error(isRtl ? 'حدث خطأ أثناء البحث عن فئات للدمج' : 'Error searching for categories to merge');
     } finally {
       setIsSuggestingMerges(false);
@@ -178,7 +180,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setIsMergeModalOpen(false);
       }
     } catch (error) {
-      console.error('Merge execution error:', error);
+      handleFirestoreError(error, OperationType.WRITE, 'categories/merge', false);
       toast.error(isRtl ? 'فشل تنفيذ عملية الدمج' : 'Failed to execute merge');
     }
   };
@@ -194,7 +196,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const suggestions = await suggestMainCategories(i18n.language, activeCategoryTab, existingNames);
       setAiSuggestions(suggestions);
     } catch (error: any) {
-      console.error('Suggestion error:', error);
+      handleAiError(error, 'Main category suggestion');
       if (error.message === 'QUOTA_EXHAUSTED') {
         toast.error(i18n.language === 'ar' ? 'عذراً، تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI quota exhausted. Please try again later.');
       } else {
@@ -226,7 +228,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const suggestions = await suggestSubcategories(categoryName, activeCategoryTab, existingSubNames);
       setAiSuggestions(suggestions);
     } catch (error: any) {
-      console.error('Suggestion error:', error);
+      handleAiError(error, 'Subcategory suggestion');
       if (error.message === 'QUOTA_EXHAUSTED') {
         toast.error(i18n.language === 'ar' ? 'عذراً، تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI quota exhausted. Please try again later.');
       } else {
@@ -254,7 +256,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setAiSuggestions(prev => prev.filter(s => s !== name));
       toast.success(i18n.language === 'ar' ? 'تمت إضافة الفئة بنجاح' : 'Category added successfully');
     } catch (error) {
-      console.error('Error adding category:', error);
+      handleFirestoreError(error, OperationType.CREATE, 'categories', false);
       toast.error(i18n.language === 'ar' ? 'فشل إضافة الفئة' : 'Failed to add category');
     }
   };
@@ -436,7 +438,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         ? `تم فحص التواريخ وإرسال ${notifiedCount} تنبيهات.` 
         : `Checked dates and sent ${notifiedCount} alerts.`);
     } catch (error) {
-      console.error('Error checking expirations:', error);
+      handleFirestoreError(error, OperationType.LIST, 'users/expirations', false);
       toast.error(isRtl ? 'فشل فحص تواريخ الانتهاء' : 'Failed to check expiration dates');
     } finally {
       setIsCheckingExpirations(false);
@@ -476,6 +478,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         break;
       case 'add_category':
         setActiveTab('categories');
+        break;
+      case 'create_campaign':
+        setActiveTab('marketing');
         break;
       case 'broadcast':
         setActiveTab('broadcast');
@@ -678,6 +683,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onCheckExpirations={handleCheckExpirations}
                 isCheckingExpirations={isCheckingExpirations}
                 onCreateUser={() => setIsCreateUserModalOpen(true)}
+                onBulkDelete={async (uids) => {
+                  // Placeholder for bulk delete logic
+                  console.log('Bulk delete:', uids);
+                  toast.success(isRtl ? 'تم حذف المستخدمين المحددين' : 'Selected users deleted');
+                }}
+                onBulkVerify={async (uids) => {
+                  // Placeholder for bulk verify logic
+                  console.log('Bulk verify:', uids);
+                  toast.success(isRtl ? 'تم توثيق المستخدمين المحددين' : 'Selected users verified');
+                }}
               />
 
               <CreateUserModal 
@@ -882,6 +897,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
         </AnimatePresence>
+        <DashboardCopilot />
       </main>
       {isCommandPaletteOpen && (
         <motion.div

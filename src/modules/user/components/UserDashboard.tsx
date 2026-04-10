@@ -31,6 +31,7 @@ import {
 import { collection, query, where, orderBy, onSnapshot, documentId, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../../../core/firebase';
 import { toast } from 'sonner';
+import { getUserImageUrl } from '../../../core/utils/imageUtils';
 import { UserProfile, AppFeatures, ProductRequest, MarketplaceItem } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { RequestSkeleton } from '../../../shared/components/Skeleton';
@@ -115,13 +116,13 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
         }
         setFavoriteItems(allItems);
       } catch (error) {
-        console.error("Error fetching favorite products:", error);
+        handleFirestoreError(error, OperationType.GET, 'marketplace', false);
       } finally {
         setIsLoadingFavorites(false);
       }
     };
 
-    fetchFavorites().catch(err => console.error("Unhandled fetchFavorites error:", err));
+    fetchFavorites().catch(err => handleFirestoreError(err, OperationType.GET, 'marketplace', false));
   }, [activeTab, profile?.favoriteProducts]);
   // Fetch user requests
   useEffect(() => {
@@ -158,7 +159,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
         });
         toast.success(isRtl ? 'تم حذف الطلب بنجاح' : 'Request deleted successfully');
       } catch (error) {
-        console.error('Error deleting request:', error);
+        handleFirestoreError(error, OperationType.UPDATE, `requests/${requestId}`, false);
         toast.error(isRtl ? 'حدث خطأ أثناء حذف الطلب' : 'Error deleting request');
       }
     }
@@ -545,11 +546,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           <div className="space-y-6">
             <div className={`${glassClass} rounded-3xl p-6 flex items-center gap-5`}>
               <div className="w-20 h-20 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary shrink-0">
-                {profile.photoURL ? (
-                  <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover rounded-2xl" />
-                ) : (
-                  <UserIcon size={32} />
-                )}
+                <img src={getUserImageUrl(profile)} alt={profile.name} className="w-full h-full object-cover rounded-2xl" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-xl font-black text-brand-text-main truncate">{profile.name}</h3>
@@ -578,7 +575,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 </div>
                 <ChevronRight size={20} className={`text-brand-text-muted ${isRtl ? 'rotate-180' : ''}`} />
               </div>
-              <div className="p-4 hover:bg-rose-500/5 transition-colors cursor-pointer flex items-center justify-between text-rose-500" onClick={() => auth.signOut().catch(err => console.error("Sign out error:", err))}>
+              <div className="p-4 hover:bg-rose-500/5 transition-colors cursor-pointer flex items-center justify-between text-rose-500" onClick={() => auth.signOut().catch(err => toast.error(isRtl ? 'حدث خطأ أثناء تسجيل الخروج' : 'Error signing out'))}>
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-rose-500/10 rounded-xl"><LogOut size={20} /></div>
                   <span className="font-bold">{isRtl ? 'تسجيل الخروج' : 'Sign Out'}</span>

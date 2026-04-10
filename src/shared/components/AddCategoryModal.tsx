@@ -4,6 +4,7 @@ import { addDoc, collection } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { translateText } from '../../core/services/geminiService';
 import { useTranslation } from 'react-i18next';
+import { handleFirestoreError, OperationType, handleAiError } from '../../core/utils/errorHandling';
 
 interface AddCategoryModalProps {
   isOpen: boolean;
@@ -29,7 +30,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ isOpen, onCl
       const translation = await translateText(nameAr, 'English');
       setNameEn(translation);
     } catch (error) {
-      console.error('Translation error:', error);
+      handleAiError(error, 'AddCategoryModal:handleTranslate', false);
     } finally {
       setIsTranslating(false);
     }
@@ -51,7 +52,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ isOpen, onCl
       setNameAr('');
       setNameEn('');
     } catch (error) {
-      console.error('Error adding category:', error);
+      handleFirestoreError(error, OperationType.WRITE, 'categories', false);
     } finally {
       setLoading(false);
     }

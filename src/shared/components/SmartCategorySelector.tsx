@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Category } from '../../core/types';
 import { semanticSearch } from '../../core/services/geminiService';
 import { Search, Sparkles, X, Check } from 'lucide-react';
+import { handleAiError } from '../../core/utils/errorHandling';
 
 interface SmartCategorySelectorProps {
   categories: Category[];
@@ -38,7 +39,7 @@ const SmartCategorySelector: React.FC<SmartCategorySelectorProps> = ({ categorie
         .filter((c): c is Category => !!c);
       setResults(relevantCategories);
     } catch (error) {
-      console.error('AI Search error:', error);
+      handleAiError(error, 'SmartCategorySelector:handleAiSearch', false);
     } finally {
       setIsSearching(false);
     }

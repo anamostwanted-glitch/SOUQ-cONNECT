@@ -1,13 +1,16 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
-import { X, UploadCloud, Camera, CheckCircle, AlertCircle, Loader2, Sparkles, Wifi, WifiOff, Wand2, MapPin, Phone, Tag, Plus, Trash2 } from 'lucide-react';
+import { X, UploadCloud, Camera, CheckCircle, AlertCircle, Loader2, Sparkles, Wifi, WifiOff, Wand2, MapPin, Phone, Tag, Plus, Trash2, Mic } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, onSnapshot } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../../../core/utils/errorHandling';
+import { handleFirestoreError, OperationType, handleAiError } from '../../../../core/utils/errorHandling';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '../../../../core/firebase';
 import { UserProfile, MarketplaceItem } from '../../../../core/types';
 import { HapticButton } from '../../../../shared/components/HapticButton';
+import { AINeuralCategorySelector } from '../../../../shared/components/AINeuralCategorySelector';
+import { processImageTo4x5WithWatermark } from '../../../../core/utils/imageManipulation';
+import { getProxiedImageUrl } from '../../../../core/utils/imageUtils';
 import { toast } from 'sonner';
 
 import { ImageFile, UploadStatus } from './ImageThumbnail';
@@ -15,9 +18,7 @@ import { DraggableGrid } from './DraggableGrid';
 import { useNetworkAwareness } from '../../hooks/useNetworkAwareness';
 import { useSmartCompression } from '../../hooks/useSmartCompression';
 import { analyzeProductImage, AIProductSuggestion, generateAlternativeProductImage } from '../../services/aiProductAnalyzer';
-import { processImageTo4x5WithWatermark } from '../../../../core/utils/imageManipulation';
-import { AINeuralCategorySelector } from '../../../../shared/components/AINeuralCategorySelector';
-import { translateText } from '../../../../core/services/geminiService';
+import { suggestPrice, translateText } from '../../../../core/services/geminiService';
 
 interface SmartUploadModalProps {
   onClose: () => void;
@@ -45,17 +46,46 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const [watermarkText, setWatermarkText] = useState('B2B2C Connect');
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.7);
   const [watermarkPosition, setWatermarkPosition] = useState<'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-right'>('bottom-right');
+  const [watermarkScale, setWatermarkScale] = useState(1);
   const [aiQuotaExhausted, setAiQuotaExhausted] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.lang = i18n.language;
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setDescription(prev => prev + ' ' + transcript);
+        setIsListening(false);
+      };
+      recognitionRef.current.onend = () => setIsListening(false);
+    }
+  }, [i18n.language]);
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+    } else {
+      recognitionRef.current?.start();
+      setIsListening(true);
+    }
+  };
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
+        console.log('Fetched watermark settings:', data);
         setWatermarkUrl(data.watermarkUrl || data.watermarkLogoUrl);
-        setWatermarkText(data.siteName || 'B2B2C Connect');
+        setWatermarkText(data.watermarkText || data.siteName || 'B2B2C Connect');
         setWatermarkOpacity(data.watermarkOpacity ?? 0.7);
         setWatermarkPosition(data.watermarkPosition || 'bottom-right');
+        setWatermarkScale(data.watermarkScale ?? 1);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'settings/site', false);
@@ -97,13 +127,15 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
           const country = data.address.country || '';
           setLocation(city && country ? `${city}, ${country}` : city || country || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`);
         } catch (err) {
-          console.error('Location error:', err);
+          toast.error(isRtl ? 'فشل في الحصول على الموقع' : 'Failed to get location');
+          handleFirestoreError(err, OperationType.GET, 'location_fetch', false);
         } finally {
           setIsLocating(false);
         }
       },
       (err) => {
-        console.error('Geolocation error:', err);
+        toast.error(isRtl ? 'تم رفض الوصول للموقع' : 'Location access denied');
+        handleFirestoreError(err, OperationType.GET, 'geolocation', false);
         setIsLocating(false);
         setErrorMessage(isRtl ? 'فشل تحديد الموقع. يرجى إدخاله يدوياً.' : 'Failed to get location. Please enter it manually.');
       }
@@ -131,7 +163,8 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
       const reader = new FileReader();
       reader.readAsDataURL(mainImage.originalFile || mainImage.file);
       reader.onerror = (error) => {
-        console.error("FileReader error:", error);
+        toast.error(isRtl ? 'فشل في قراءة الملف' : 'Failed to read file');
+        handleFirestoreError(error, OperationType.GET, 'file_reader', false);
         setErrorMessage(isRtl ? 'فشل قراءة الملف' : 'Error reading file');
         setIsGeneratingImage(false);
       };
@@ -149,7 +182,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
               const file = new File([blob], `ai-generated-${Date.now()}.png`, { type: 'image/png' });
               
               // Process to 4:5 and add watermark
-              const processedBlob = await processImageTo4x5WithWatermark(file, watermarkUrl, watermarkText, watermarkOpacity, watermarkPosition);
+              const processedBlob = await processImageTo4x5WithWatermark(file, getProxiedImageUrl(watermarkUrl), watermarkText, watermarkOpacity, watermarkPosition, watermarkScale);
               const processedFile = new File([processedBlob], `ai-generated-${Date.now()}.png`, { type: 'image/png' });
               
               const newImage: ImageFile = {
@@ -176,12 +209,14 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
             setIsGeneratingImage(false);
           }
         } catch (error) {
-          console.error("Error in reader.onloadend:", error);
+          toast.error(isRtl ? 'خطأ في معالجة الصورة' : 'Error processing image');
+          handleFirestoreError(error, OperationType.GET, 'reader_onloadend', false);
           setIsGeneratingImage(false);
         }
       };
     } catch (error) {
-      console.error(error);
+      handleAiError(error, 'image_generation');
+      toast.error(isRtl ? 'فشل في توليد الصورة' : 'Failed to generate image');
       setErrorMessage(isRtl ? 'حدث خطأ أثناء توليد الصورة.' : 'Error generating image.');
       setIsGeneratingImage(false);
     }
@@ -223,7 +258,8 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
         await processSingleImage(img.id, img.file, isMain);
       }
     } catch (error) {
-      console.error('Error processing files:', error);
+      toast.error(isRtl ? 'خطأ في معالجة الملفات' : 'Error processing files');
+      handleFirestoreError(error, OperationType.CREATE, 'process_files', false);
       setErrorMessage(isRtl ? 'حدث خطأ أثناء معالجة الملفات' : 'Error processing files');
     }
   };
@@ -250,7 +286,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
           console.log('Manual AI analysis started for image:', id);
           const suggestion = await analyzeProductImage(base64data, file.type);
           
-          if (suggestion) {
+          if (suggestion && !(suggestion as any).error) {
             console.log('Manual AI suggestion received:', suggestion);
             setAiSuggestion(suggestion);
             
@@ -284,8 +320,16 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
             toast.success(isRtl ? 'تم تحليل المنتج بنجاح' : 'Product analyzed successfully');
             updateImageStatus(id, 'success');
           } else {
-            setErrorMessage(isRtl ? 'لم يتمكن الذكاء الاصطناعي من تحليل الصورة.' : 'AI could not analyze the image.');
-            updateImageStatus(id, 'error', 0, 'AI analysis failed');
+            const errorMsg = suggestion && (suggestion as any).error;
+            if (errorMsg === 'MISSING_API_KEY') {
+              setErrorMessage(isRtl ? 'مفتاح الذكاء الاصطناعي مفقود. يرجى ضبطه في الإعدادات.' : 'AI API Key missing. Please set it in settings.');
+            } else if (errorMsg === 'QUOTA_EXHAUSTED') {
+              setAiQuotaExhausted(true);
+              setErrorMessage(isRtl ? 'تم استنفاد حصة الذكاء الاصطناعي.' : 'AI Quota exhausted.');
+            } else {
+              setErrorMessage(isRtl ? 'لم يتمكن الذكاء الاصطناعي من تحليل الصورة.' : 'AI could not analyze the image.');
+            }
+            updateImageStatus(id, 'error', 0, errorMsg || 'AI analysis failed');
           }
         } catch (error: any) {
           if (error.message === 'QUOTA_EXHAUSTED') {
@@ -296,21 +340,22 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
           } else {
             setErrorMessage(isRtl ? 'فشل تحليل الصورة.' : 'Image analysis failed.');
           }
-          console.error('AI Analysis error:', error);
+          handleAiError(error, 'image_analysis');
           updateImageStatus(id, 'error', 0, error.message || 'Analysis error');
         } finally {
           setIsAnalyzing(false);
         }
       };
       reader.onerror = (error) => {
-        console.error('FileReader error in analyzeSpecificImage:', error);
+        toast.error(isRtl ? 'فشل في قراءة الصورة للتحليل' : 'Failed to read image for analysis');
+        handleFirestoreError(error, OperationType.GET, 'analyze_specific_image_reader', false);
         setErrorMessage(isRtl ? 'خطأ في قراءة ملف الصورة.' : 'Error reading image file.');
         updateImageStatus(id, 'error', 0, 'Error reading file');
         setIsAnalyzing(false);
       };
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Error in analyzeSpecificImage:', error);
+      handleAiError(error, 'image_analysis_init');
       setIsAnalyzing(false);
       updateImageStatus(id, 'error', 0, 'Analysis initialization error');
     }
@@ -327,7 +372,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
 
       // 2. Process to 4:5 and add watermark
       updateImageStatus(id, 'processing');
-      const processedBlob = await processImageTo4x5WithWatermark(compressedFile, watermarkUrl, watermarkText, watermarkOpacity, watermarkPosition);
+      const processedBlob = await processImageTo4x5WithWatermark(compressedFile, getProxiedImageUrl(watermarkUrl), watermarkText, watermarkOpacity, watermarkPosition, watermarkScale);
       const processedFile = new File([processedBlob], file.name, { type: 'image/jpeg' });
       
       // Update the file reference to the processed one
@@ -350,7 +395,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                   console.log('Starting AI analysis for image:', id);
                   const suggestion = await analyzeProductImage(base64data, processedFile.type);
                   
-                  if (suggestion) {
+                  if (suggestion && !(suggestion as any).error) {
                     console.log('AI suggestion received:', suggestion);
                     setAiSuggestion(suggestion);
                     
@@ -383,7 +428,14 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                     setIsHighQuality(suggestion.isHighQuality);
                     if (features.length === 0) setFeatures(suggestion.features || []);
                   } else {
-                    console.warn('AI analysis returned no suggestion');
+                    const errorMsg = suggestion && (suggestion as any).error;
+                    if (errorMsg === 'MISSING_API_KEY') {
+                      setErrorMessage(isRtl ? 'مفتاح الذكاء الاصطناعي مفقود.' : 'AI API Key missing.');
+                    } else if (errorMsg === 'QUOTA_EXHAUSTED') {
+                      setAiQuotaExhausted(true);
+                      setErrorMessage(isRtl ? 'تم استنفاد حصة الذكاء الاصطناعي.' : 'AI Quota exhausted.');
+                    }
+                    console.warn('AI analysis returned no suggestion or error:', errorMsg);
                   }
                 } catch (error: any) {
                   if (error.message === 'QUOTA_EXHAUSTED') {
@@ -394,25 +446,27 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                   } else {
                     setErrorMessage(isRtl ? 'فشل تحليل الصورة بالذكاء الاصطناعي.' : 'AI image analysis failed.');
                   }
-                  console.error('AI Analysis error:', error);
+                  handleAiError(error, 'image_analysis');
                 } finally {
                   setIsAnalyzing(false);
                   updateImageStatus(id, 'success'); // Ready to upload
                 }
               } catch (error) {
-                console.error("Error in reader.onloadend analyzeProductImage:", error);
+                toast.error(isRtl ? 'خطأ في قراءة الصورة' : 'Error reading image');
+                handleFirestoreError(error, OperationType.GET, 'analyze_product_image_reader', false);
                 setIsAnalyzing(false);
                 updateImageStatus(id, 'error', 0, 'Error in analysis');
               }
             };
             reader.onerror = (error) => {
-              console.error('FileReader error:', error);
+              toast.error(isRtl ? 'فشل في قراءة الملف' : 'Failed to read file');
+              handleFirestoreError(error, OperationType.GET, 'file_reader_analyze', false);
               updateImageStatus(id, 'error', 0, 'Error reading file');
               setIsAnalyzing(false);
             };
             reader.readAsDataURL(compressedFile); // Use compressed but unwatermarked for analysis
           } catch (error) {
-            console.error('Error in analysis timeout:', error);
+            handleAiError(error, 'image_analysis_timeout');
             setIsAnalyzing(false);
             updateImageStatus(id, 'error', 0, 'Error in analysis');
           }
@@ -421,7 +475,8 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
         updateImageStatus(id, 'success'); // Ready to upload
       }
     } catch (error) {
-      console.error(`Error processing image ${id}:`, error);
+      toast.error(isRtl ? 'خطأ في معالجة الصورة' : 'Error processing image');
+      handleFirestoreError(error, OperationType.GET, `process_single_image_${id}`, false);
       updateImageStatus(id, 'error', 0, isRtl ? 'خطأ في معالجة الصورة' : 'Error processing image');
     }
   };
@@ -468,7 +523,8 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
         await processFiles(e.dataTransfer.files);
       }
     } catch (error) {
-      console.error('Error in handleDrop:', error);
+      toast.error(isRtl ? 'خطأ في سحب الملف' : 'Error in drop');
+      handleFirestoreError(error, OperationType.CREATE, 'handle_drop', false);
     }
   };
 
@@ -478,7 +534,8 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
         await processFiles(e.target.files);
       }
     } catch (error) {
-      console.error('Error in handleFileSelect:', error);
+      toast.error(isRtl ? 'خطأ في اختيار الملف' : 'Error selecting file');
+      handleFirestoreError(error, OperationType.CREATE, 'handle_file_select', false);
     }
   };
 
@@ -556,7 +613,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
           titleEn = tTitle;
           descriptionEn = tDesc;
         } catch (e) {
-          console.error('Translation error:', e);
+          handleAiError(e, 'translation');
           titleEn = title;
           descriptionEn = description;
         }
@@ -571,7 +628,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
           titleAr = tTitle;
           descriptionAr = tDesc;
         } catch (e) {
-          console.error('Translation error:', e);
+          handleAiError(e, 'translation');
           titleAr = title;
           descriptionAr = description;
         }
@@ -622,7 +679,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const glassClass = "bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/20 dark:border-slate-700/50 shadow-2xl";
 
   return (
-    <div 
+    <motion.div 
       className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm"
       onClick={(e) => {
         // Strictly prevent closure on backdrop click to avoid unexpected disappearance
@@ -892,8 +949,8 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                 </h3>
               </div>
 
-              <div className="space-y-4">
-                <div className="relative group">
+              <motion.div layout className="space-y-4">
+                <motion.div layout className="relative group">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors">
                     <Tag size={18} />
                   </div>
@@ -904,10 +961,10 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                     onChange={(e) => setTitle(e.target.value)}
                     className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
                   />
-                </div>
+                </motion.div>
 
-                <div className="flex gap-4">
-                  <div className="relative group flex-1">
+              <motion.div layout className="flex gap-4">
+                  <motion.div layout className="relative group flex-1">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors">
                       <span className="font-bold text-sm">{t('currency')}</span>
                     </div>
@@ -916,10 +973,21 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                       placeholder={isRtl ? 'السعر' : 'Price'}
                       value={price || ''}
                       onChange={(e) => setPrice(e.target.value)}
-                      className="w-full pl-14 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
+                      className="w-full pl-14 pr-12 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
                     />
-                  </div>
-                  <div className="relative group flex-1">
+                    <HapticButton 
+                      onClick={async () => {
+                        if (!title || selectedCategories.length === 0) return;
+                        const catName = categories.find(c => c.id === selectedCategories[0])?.nameEn || '';
+                        const suggestedPrice = await suggestPrice(title, catName, i18n.language);
+                        if (suggestedPrice > 0) setPrice(suggestedPrice.toString());
+                      }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-primary hover:text-brand-primary/80"
+                    >
+                      <Sparkles size={18} />
+                    </HapticButton>
+                  </motion.div>
+                  <motion.div layout className="relative group flex-1">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors">
                       <Sparkles size={18} />
                     </div>
@@ -930,9 +998,9 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                       onChange={(e) => setClassification(e.target.value)}
                       className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
                     />
-                  </div>
-                </div>
-              </div>
+                  </motion.div>
+                </motion.div>
+              </motion.div>
             </div>
 
             {/* Category Section */}
@@ -1012,11 +1080,19 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
 
             {/* Description Section */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-1 h-4 bg-brand-primary rounded-full" />
-                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                  {isRtl ? 'وصف المنتج' : 'Product Description'}
-                </h3>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-4 bg-brand-primary rounded-full" />
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    {isRtl ? 'وصف المنتج' : 'Product Description'}
+                  </h3>
+                </div>
+                <HapticButton 
+                  onClick={toggleListening}
+                  className={`p-2 rounded-full transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}
+                >
+                  <Mic size={16} />
+                </HapticButton>
               </div>
               <textarea 
                 placeholder={isRtl ? 'اكتب وصفاً تفصيلياً للمنتج...' : 'Write a detailed description...'}
@@ -1120,6 +1196,6 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
           </div>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 };

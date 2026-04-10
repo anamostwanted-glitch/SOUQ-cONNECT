@@ -45,7 +45,7 @@ export const VendorOffersList: React.FC<VendorOffersListProps> = ({ profile, onO
               offerData.requestDetails = { id: requestSnap.id, ...requestSnap.data() } as ProductRequest;
             }
           } catch (error) {
-            console.error("Error fetching request details for offer:", error);
+            handleFirestoreError(error, OperationType.GET, `requests/${offerData.requestId}`, false);
           }
           
           fetchedOffers.push(offerData);
@@ -54,7 +54,7 @@ export const VendorOffersList: React.FC<VendorOffersListProps> = ({ profile, onO
         setOffers(fetchedOffers);
         setLoading(false);
       } catch (error) {
-        console.error('Error in onSnapshot callback for vendor offers:', error);
+        handleFirestoreError(error, OperationType.LIST, 'offers', false);
         setLoading(false);
       }
     }, (error) => {
@@ -163,7 +163,7 @@ export const VendorOffersList: React.FC<VendorOffersListProps> = ({ profile, onO
                     onOpenChat(snap.docs[0].id);
                   }
                 };
-                findAndOpenChat().catch(err => console.error("Failed to open chat from offer:", err));
+                findAndOpenChat().catch(err => handleFirestoreError(err, OperationType.GET, 'chats', false));
               }}
               className="px-4 py-2 bg-brand-primary/10 text-brand-primary text-xs font-bold rounded-xl hover:bg-brand-primary/20 transition-colors flex items-center gap-2"
             >

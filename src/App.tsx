@@ -4,7 +4,7 @@ import { MarketInterface } from './modules/marketplace/components/MarketInterfac
 import Dashboard from './modules/site/components/Dashboard';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './core/firebase';
-import { UserProfile, AppFeatures, UserRole, SiteSettings } from './core/types';
+import { UserProfile, AppFeatures, UserRole, SiteSettings, ProductRequest } from './core/types';
 import { BrandingProvider } from './core/providers/BrandingProvider';
 import { Layout } from './modules/site/components/Layout';
 import Home from './modules/site/components/Home';
@@ -12,9 +12,10 @@ import Auth from './modules/site/components/Auth';
 import RoleSelection from './modules/site/components/RoleSelection';
 import { Skeleton } from './shared/components/Skeleton';
 import { HelpCircle } from 'lucide-react';
-import { handleFirestoreError, OperationType } from './core/utils/errorHandling';
+import { handleFirestoreError, OperationType, handleAiError } from './core/utils/errorHandling';
 import { PageLoader } from './shared/components/PageLoader';
 import { UserNeuralHub } from './modules/common/components/UserNeuralHub';
+import { usePredictiveNavigation } from './shared/hooks/usePredictiveNavigation';
 import { useTranslation } from 'react-i18next';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { preFetchNeuralPulse } from './core/services/geminiService';
@@ -49,6 +50,12 @@ export default function App() {
   const [settings, setSettings] = useState<SiteSettings>({});
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [recentRequests, setRecentRequests] = useState<ProductRequest[]>([]);
+  const [isMomentOfNeed, setIsMomentOfNeed] = useState(false);
+  
+  // Predictive Engine
+  usePredictiveNavigation(profile, recentSearches, recentRequests, setIsMomentOfNeed);
   const [dashboardTab, setDashboardTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState<number | null>(null);
@@ -65,7 +72,7 @@ export default function App() {
             setViewMode(prev => prev === 'customer' && userData.role !== 'customer' ? userData.role : prev);
             
             // Pre-fetch AI insights for smoother experience
-            preFetchNeuralPulse(userData).catch(err => console.error("Pre-fetch error:", err));
+            preFetchNeuralPulse(userData).catch(err => handleAiError(err, "Neural Pulse pre-fetch"));
           } else {
             setProfile(null);
           }
@@ -80,7 +87,7 @@ export default function App() {
         if (unsubscribeUser) unsubscribeUser();
       }
     }, (error) => {
-      console.error("Auth state change error:", error);
+      handleAiError(error, "App:onAuthStateChanged", false);
       setLoading(false);
     });
 
@@ -266,6 +273,7 @@ export default function App() {
                 uiStyle={uiStyle}
                 setUiStyle={setUiStyle}
                 onBack={onBack}
+                isMomentOfNeed={isMomentOfNeed}
               >
                 {renderView()}
               </Layout>

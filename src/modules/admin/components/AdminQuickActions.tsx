@@ -7,7 +7,8 @@ import {
   Settings, 
   Download, 
   FileText,
-  Wand2
+  Wand2,
+  Megaphone
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { HapticButton } from '../../../shared/components/HapticButton';
@@ -23,6 +24,7 @@ export const AdminQuickActions: React.FC<AdminQuickActionsProps> = ({ onAction }
   const actions = [
     { id: 'add_user', label: isRtl ? 'إضافة مستخدم' : 'Add User', icon: UserPlus, color: 'bg-blue-500' },
     { id: 'add_category', label: isRtl ? 'إضافة قسم' : 'Add Category', icon: PlusCircle, color: 'bg-emerald-500' },
+    { id: 'create_campaign', label: isRtl ? 'حملة إعلانية' : 'New Campaign', icon: Megaphone, color: 'bg-rose-500' },
     { id: 'broadcast', label: isRtl ? 'إشعار جماعي' : 'Broadcast', icon: Send, color: 'bg-purple-500' },
     { id: 'export_data', label: isRtl ? 'تصدير البيانات' : 'Export Data', icon: Download, color: 'bg-amber-500' },
     { id: 'system_report', label: isRtl ? 'تقرير النظام' : 'System Report', icon: FileText, color: 'bg-slate-500' },

@@ -6,6 +6,8 @@ import { UserProfile } from '../../../core/types';
 import { toast } from 'sonner';
 import { HapticButton } from '../../../shared/components/HapticButton';
 
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+
 interface BroadcastBoxProps {
   i18n: any;
   allUsers: UserProfile[];
@@ -54,7 +56,7 @@ export const BroadcastBox: React.FC<BroadcastBoxProps> = ({
       setFile(null);
       toast.success(i18n.language === 'ar' ? 'تم إرسال الإشعار بنجاح' : 'Notification sent successfully');
     } catch (error) {
-      console.error(error);
+      handleFirestoreError(error, OperationType.WRITE, 'broadcast_notification', false);
       toast.error(i18n.language === 'ar' ? 'حدث خطأ أثناء الإرسال' : 'Error sending notification');
     } finally {
       setIsSending(false);

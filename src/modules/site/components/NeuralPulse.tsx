@@ -17,15 +17,17 @@ import { useTranslation } from 'react-i18next';
 import { 
   analyzeNeuralPulseImage, 
   processNeuralPulseVoice, 
-  generateNeuralPulseGeoInsight 
+  generateNeuralPulseGeoInsight,
+  handleAiError
 } from '../../../core/services/geminiService';
 import { toast } from 'sonner';
 
 interface NeuralPulseProps {
   onAction?: (type: string, data: any) => void;
+  isMomentOfNeed?: boolean;
 }
 
-export const NeuralPulse: React.FC<NeuralPulseProps> = ({ onAction }) => {
+export const NeuralPulse: React.FC<NeuralPulseProps> = ({ onAction, isMomentOfNeed = false }) => {
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   
@@ -54,7 +56,7 @@ export const NeuralPulse: React.FC<NeuralPulseProps> = ({ onAction }) => {
           // Only auto-trigger if we haven't called it recently (e.g., in the last 5 minutes)
           const now = Date.now();
           if (now - lastGeoCall > 5 * 60 * 1000) {
-            handleGeoInsight(loc).catch(err => console.error("Geo insight error:", err));
+            handleGeoInsight(loc).catch(err => handleAiError(err, "Neural Pulse Geo auto-trigger"));
           }
         },
         (err) => console.warn('Location access denied', err)
@@ -83,7 +85,7 @@ export const NeuralPulse: React.FC<NeuralPulseProps> = ({ onAction }) => {
         toast.info(isRtl ? 'لا توجد فرص قريبة حالياً' : 'No nearby opportunities found right now');
       }
     } catch (e: any) {
-      console.error(e);
+      handleAiError(e, 'Neural Pulse Geo insight');
       if (e.message?.includes('429') || e.message?.includes('quota')) {
         toast.error(isRtl ? 'تم تجاوز حد الاستخدام للذكاء الاصطناعي، يرجى المحاولة لاحقاً' : 'AI quota exceeded, please try again later');
       } else {
@@ -109,7 +111,7 @@ export const NeuralPulse: React.FC<NeuralPulseProps> = ({ onAction }) => {
           const result = await analyzeNeuralPulseImage(base64, file.type);
           setInsight({ type: 'vision', ...result });
         } catch (aiError: any) {
-          console.error("Neural Pulse Vision AI Error:", aiError);
+          handleAiError(aiError, "Neural Pulse Vision AI");
           if (aiError.message?.includes('429') || aiError.message?.includes('quota')) {
             toast.error(isRtl ? 'تم تجاوز حد الاستخدام للذكاء الاصطناعي' : 'AI quota exceeded');
           } else {
@@ -145,7 +147,7 @@ export const NeuralPulse: React.FC<NeuralPulseProps> = ({ onAction }) => {
         setInsight({ type: 'voice', ...result, transcript: mockTranscript });
         setIsProcessing(false);
       } catch (error) {
-        console.error("Error in voice pulse simulation:", error);
+        handleAiError(error, "Neural Pulse Voice processing");
         toast.error(isRtl ? 'فشل معالجة الصوت' : 'Voice processing failed');
         setIsProcessing(false);
       }
@@ -190,6 +192,14 @@ export const NeuralPulse: React.FC<NeuralPulseProps> = ({ onAction }) => {
           transition={{ duration: 2, repeat: Infinity }}
           className="absolute inset-0 bg-white/20 rounded-full"
         />
+        {/* Pulse effect for moment of need */}
+        {isMomentOfNeed && (
+          <motion.div 
+            animate={{ scale: [1, 1.8, 1], opacity: [0.8, 0, 0.8] }}
+            transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 0.5 }}
+            className="absolute inset-0 border-2 border-white rounded-full pointer-events-none"
+          />
+        )}
       </motion.button>
 
       <AnimatePresence>

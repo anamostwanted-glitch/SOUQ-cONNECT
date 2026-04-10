@@ -18,10 +18,12 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { UserProfile } from '../../../core/types';
-import { analyzeSupplierDocument } from '../../../core/services/geminiService';
+import { analyzeSupplierDocument, handleAiError } from '../../../core/services/geminiService';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
 import { toast } from 'sonner';
+
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 
 interface SupplierVerificationModalProps {
   isOpen: boolean;
@@ -75,7 +77,7 @@ export const SupplierVerificationModal: React.FC<SupplierVerificationModalProps>
       setAnalysisResult(result);
       toast.success(isRtl ? 'اكتمل تحليل الذكاء الاصطناعي' : 'AI analysis completed');
     } catch (error) {
-      console.error('AI Analysis error:', error);
+      handleAiError(error, 'Supplier document analysis');
       toast.error(isRtl ? 'فشل تحليل المستند' : 'Document analysis failed');
     } finally {
       setIsAnalyzing(false);
@@ -94,7 +96,7 @@ export const SupplierVerificationModal: React.FC<SupplierVerificationModalProps>
       toast.success(isVerified ? (isRtl ? 'تم توثيق المورد' : 'Supplier verified') : (isRtl ? 'تم رفض التوثيق' : 'Verification rejected'));
       onClose();
     } catch (error) {
-      console.error('Verification error:', error);
+      handleFirestoreError(error, OperationType.UPDATE, 'supplier_verification', false);
       toast.error(isRtl ? 'فشل تحديث حالة التوثيق' : 'Failed to update verification status');
     } finally {
       setIsVerifying(false);

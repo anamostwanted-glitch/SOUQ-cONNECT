@@ -294,6 +294,7 @@ export interface AppFeatures {
 export interface SiteSettings {
   logoUrl?: string;
   watermarkUrl?: string;
+  watermarkText?: string;
   siteName?: string;
   heroTitleAr?: string;
   heroTitleEn?: string;
@@ -345,8 +346,8 @@ export interface SiteSettings {
   headerLogoAuraStyle?: 'solid' | 'gradient' | 'pulse' | 'mesh';
   headerLogoAuraSharpness?: number;
 
-  // Nexus Rewards System
-  enableNexusRewards?: boolean;
+  // Connect Rewards System
+  enableConnectRewards?: boolean;
   pointsPerShare?: number;
   pointsToCashRatio?: number;
   minWithdrawalAmount?: number;
@@ -357,6 +358,7 @@ export interface SiteSettings {
   gridSettings?: {
     mobileCols: number;
     webCols: number;
+    gap: number;
     aiAutoPilot: boolean;
   };
 

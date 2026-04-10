@@ -5,6 +5,7 @@ import { Sparkles, Check, X, Loader2, Tag, ChevronDown, Search, TrendingUp, Hist
 import { Category } from '../../../core/types';
 import { suggestSupplierCategories } from '../../../core/services/geminiService';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { handleAiError } from '../../../core/utils/errorHandling';
 
 interface AICategorySelectorProps {
   categories: Category[];
@@ -75,7 +76,7 @@ export const AICategorySelector: React.FC<AICategorySelectorProps> = ({
 
       setSuggestions(matchedCategories);
     } catch (error) {
-      console.error('Error analyzing categories:', error);
+      handleAiError(error, 'AICategorySelector:analyzeInput', false);
     } finally {
       setIsAnalyzing(false);
     }

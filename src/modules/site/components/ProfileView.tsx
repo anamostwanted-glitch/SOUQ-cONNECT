@@ -22,7 +22,8 @@ import { storage } from '../../../core/firebase';
 import imageCompression from 'browser-image-compression';
 import { 
   translateText, verifyDocument, optimizeSupplierProfile, 
-  generateSupplierLogo, suggestSupplierCategories, getProfileInsights 
+  generateSupplierLogo, suggestSupplierCategories, getProfileInsights,
+  handleAiError
 } from '../../../core/services/geminiService';
 import { motion, AnimatePresence } from 'motion/react';
 import { HapticButton } from '../../../shared/components/HapticButton';
@@ -110,7 +111,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
         const products = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MarketplaceItem));
         setSupplierProducts(products);
       } catch (error) {
-        console.error('Error fetching supplier products:', error);
+        handleFirestoreError(error, OperationType.GET, 'marketplace', false);
       }
     };
 
@@ -174,7 +175,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
           url: shareUrl,
         });
       } catch (error) {
-        console.error('Error sharing:', error);
+        handleAiError(error, 'Native sharing');
       }
     } else {
       handleCopyLink();
@@ -188,7 +189,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
       await navigator.clipboard.writeText(shareUrl);
       toast.success(isRtl ? 'تم نسخ رابط الملف الشخصي!' : 'Profile link copied to clipboard!');
     } catch (error) {
-      console.error('Failed to copy link:', error);
+      handleAiError(error, 'Copying profile link');
       toast.error(isRtl ? 'فشل نسخ الرابط' : 'Failed to copy link');
     }
   };
@@ -212,7 +213,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
         setProfile(updatedProfile);
       }
     } catch (error) {
-      console.error('Error generating insights:', error);
+      handleAiError(error, 'Profile AI insights');
     } finally {
       setIsGeneratingInsights(false);
     }
@@ -243,7 +244,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
         });
       }
     } catch (error) {
-      console.error('Error refreshing insights:', error);
+      handleAiError(error, 'Profile AI insights refresh');
     } finally {
       setIsRefreshingInsights(false);
     }
@@ -306,7 +307,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
       if (result.suggestedBio) setEditBio(result.suggestedBio);
       if (result.suggestedKeywords) setEditKeywords(result.suggestedKeywords);
     } catch (error) {
-      console.error('Optimization error:', error);
+      handleAiError(error, 'Profile optimization');
     } finally {
       setIsOptimizing(false);
     }
@@ -353,7 +354,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
         setVerificationError(isRtl ? 'لم نتمكن من التحقق من هذا المستند. يرجى التأكد من أنه سجل تجاري أو شهادة ضريبية صالحة.' : 'Could not verify this document. Please ensure it is a valid commercial registration or tax certificate.');
       }
     } catch (error) {
-      console.error('Verification error:', error);
+      handleAiError(error, 'Document verification');
       setVerificationError(isRtl ? 'حدث خطأ أثناء التحقق.' : 'An error occurred during verification.');
     } finally {
       setIsVerifying(false);
@@ -373,7 +374,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
       const translation = await translateText(profile.bio, targetLang);
       setTranslatedBio(translation);
     } catch (error) {
-      console.error('Translation error:', error);
+      handleAiError(error, 'Bio translation');
     } finally {
       setIsTranslatingBio(false);
     }
@@ -413,14 +414,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
             setEditLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
           }
         } catch (error) {
-          console.error("Error fetching location", error);
+          handleAiError(error, 'Reverse geocoding');
           setEditLocation(`${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`);
         } finally {
           setIsDetectingLocation(false);
         }
       },
       (error) => {
-        console.error("Geolocation error", error);
+        handleAiError(error, 'Geolocation detection');
         setIsDetectingLocation(false);
       }
     );
@@ -489,7 +490,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
         });
       }
     } catch (error) {
-      console.error("AI Logo generation failed:", error);
+      handleAiError(error, 'Logo generation');
       setUploadError(isRtl ? 'فشل توليد الشعار، يرجى المحاولة مرة أخرى' : 'Failed to generate logo, please try again');
     } finally {
       setIsGeneratingLogo(false);
@@ -517,7 +518,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
         toast.info(isRtl ? 'تم رفع الصورة، احفظ التغييرات للتأكيد' : 'Picture uploaded, save changes to confirm');
       }
     } catch (err) {
-      console.error('Upload error:', err);
+      handleFirestoreError(err, OperationType.WRITE, `storage/logos/${profile.uid}`, false);
       toast.error(isRtl ? 'فشل رفع الصورة' : 'Failed to upload picture');
     } finally {
       setIsUploading(false);
@@ -545,7 +546,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
         toast.info(isRtl ? 'تم رفع الغلاف، احفظ التغييرات للتأكيد' : 'Cover uploaded, save changes to confirm');
       }
     } catch (err) {
-      console.error('Upload error:', err);
+      handleFirestoreError(err, OperationType.WRITE, `storage/covers/${profile.uid}`, false);
       toast.error(isRtl ? 'فشل رفع الغلاف' : 'Failed to upload cover');
     } finally {
       setIsUploading(false);
@@ -565,7 +566,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
         setEditCategories(Array.from(new Set([...editCategories, ...suggested])));
       }
     } catch (error) {
-      console.error("Error suggesting categories:", error);
+      handleAiError(error, 'Category suggestion');
     } finally {
       setIsSuggestingCategories(false);
     }
@@ -669,7 +670,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
           }
         }
       } catch (error) {
-        console.error("Error fetching profile:", error);
+        handleFirestoreError(error, OperationType.GET, `users/${userId || initialProfile?.uid}`, false);
       } finally {
         setLoading(false);
       }

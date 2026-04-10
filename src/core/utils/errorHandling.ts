@@ -35,7 +35,44 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  console.error('Firestore Error:', JSON.stringify(errInfo, null, 2));
+  if (shouldThrow) {
+    throw new Error(JSON.stringify(errInfo));
+  }
+}
+
+export function handleAiError(error: unknown, context: string, shouldThrow: boolean = true) {
+  let errorMessage = 'Unknown error occurred';
+
+  if (error instanceof Error) {
+    errorMessage = error.message;
+  } else if (typeof error === 'string') {
+    errorMessage = error;
+  } else if (error && typeof error === 'object') {
+    // Handle GeolocationPositionError or other objects
+    const err = error as any;
+    if ('code' in err || err.constructor?.name === 'GeolocationPositionError') {
+      errorMessage = `Geolocation Error (Code ${err.code ?? 'unknown'}): ${err.message ?? 'unknown'}`;
+    } else if ('message' in err) {
+      errorMessage = err.message;
+    } else {
+      const stringified = JSON.stringify(err);
+      if (stringified !== '{}') {
+        errorMessage = stringified;
+      }
+    }
+  }
+
+  const errInfo = {
+    error: errorMessage || 'No error message',
+    context: context || 'Unknown context',
+    timestamp: new Date().toISOString(),
+    authInfo: {
+      userId: auth.currentUser?.uid || 'anonymous',
+      email: auth.currentUser?.email || 'none'
+    }
+  };
+  console.error('AI Error:', JSON.stringify(errInfo, null, 2));
   if (shouldThrow) {
     throw new Error(JSON.stringify(errInfo));
   }

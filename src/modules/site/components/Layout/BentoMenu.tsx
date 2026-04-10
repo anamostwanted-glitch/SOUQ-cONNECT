@@ -20,6 +20,7 @@ import {
   Activity
 } from 'lucide-react';
 import { HapticButton } from '../../../../shared/components/HapticButton';
+import { getUserImageUrl } from '../../../../core/utils/imageUtils';
 import { UserProfile, AppFeatures } from '../../../../core/types';
 import { useTranslation } from 'react-i18next';
 
@@ -67,7 +68,7 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
     { id: 'smart_pulse', icon: Activity, labelAr: 'النبض الذكي', labelEn: 'Smart Pulse', color: 'text-brand-teal', roles: ['customer', 'supplier', 'admin'] },
     { id: 'marketplace', icon: ShoppingBag, labelAr: 'السوق', labelEn: 'Market', color: 'text-green-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'chat', icon: MessageSquare, labelAr: 'المحادثات', labelEn: 'Chats', color: 'text-yellow-500', roles: ['customer', 'supplier', 'admin'] },
-    { id: 'connect', icon: Zap, labelAr: 'المكافآت', labelEn: 'Nexus', color: 'text-purple-500', roles: ['customer', 'supplier', 'admin'] },
+    { id: 'connect', icon: Zap, labelAr: 'المكافآت', labelEn: 'Connect', color: 'text-purple-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'dashboard', icon: LayoutGrid, labelAr: 'لوحة التحكم', labelEn: 'Dashboard', color: 'text-red-500', roles: ['supplier', 'admin'] },
     { id: 'profile', icon: User, labelAr: 'الملف الشخصي', labelEn: 'Profile', color: 'text-indigo-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'help', icon: HelpCircle, labelAr: 'مركز المساعدة', labelEn: 'Help Center', color: 'text-orange-500', roles: ['customer', 'supplier', 'admin'] },
@@ -103,13 +104,7 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
               {profile ? (
                 <div className="flex items-center gap-4 mb-8 p-4 bg-brand-surface rounded-[24px] border border-brand-border/30">
                   <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-brand-primary/20">
-                    {profile.photoURL ? (
-                      <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                      <div className="w-full h-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-                        <User size={24} />
-                      </div>
-                    )}
+                    <img src={getUserImageUrl(profile)} alt={profile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-bold text-brand-text-main truncate">{profile.name}</h4>

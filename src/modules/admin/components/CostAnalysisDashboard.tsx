@@ -54,7 +54,7 @@ export const CostAnalysisDashboard: React.FC = () => {
         setLogs(fetchedLogs);
         setLoading(false);
       } catch (err) {
-        console.error('Error processing usage logs:', err);
+        handleFirestoreError(err, OperationType.LIST, 'usage_logs/processing', false);
         setLoading(false);
       }
     }, (error) => {

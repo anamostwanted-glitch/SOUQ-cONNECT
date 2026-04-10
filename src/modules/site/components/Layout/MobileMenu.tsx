@@ -187,8 +187,8 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                 <nav className="flex-1 flex flex-col gap-1.5 overflow-y-auto custom-scrollbar pr-1">
                   {[
                     { id: 'home', label: t('home'), icon: HomeIcon, view: 'home' },
-                    { id: 'dashboard', label: isRtl ? 'مركز نكسوس' : 'Nexus Center', icon: LayoutGrid, view: 'dashboard', tab: 'dashboard' },
-                    { id: 'nexus', label: isRtl ? 'مكافآت النكسوس' : 'Nexus Rewards', icon: Zap, view: 'nexus' },
+                    { id: 'dashboard', label: isRtl ? 'مركز كونكت' : 'Connect Center', icon: LayoutGrid, view: 'dashboard', tab: 'dashboard' },
+                    { id: 'connect', label: isRtl ? 'مكافآت كونكت' : 'Connect Rewards', icon: Zap, view: 'connect' },
                     { id: 'marketing', label: isRtl ? 'التسويق والنمو' : 'Marketing & Growth', icon: Megaphone, view: 'dashboard', tab: 'marketing', condition: profile && viewMode !== 'admin' },
                     {id: 'help', label: isRtl ? 'مركز المساعدة' : 'Help Center', icon: BookOpen, action: onOpenHelpCenter},
                   ].map((item) => {

@@ -95,7 +95,7 @@ export const SupplierStorefront: React.FC<SupplierStorefrontProps> = ({ supplier
         toast.success(isRtl ? 'تمت المتابعة بنجاح!' : 'Following successfully!');
       }
     } catch (error) {
-      console.error('Follow error:', error);
+      handleFirestoreError(error, OperationType.UPDATE, 'users', false);
       toast.error(isRtl ? 'فشل تحديث حالة المتابعة' : 'Failed to update follow status');
     }
   };

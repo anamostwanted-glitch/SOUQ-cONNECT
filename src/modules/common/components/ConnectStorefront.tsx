@@ -27,7 +27,7 @@ import { ProductCard } from '../../marketplace/components/ProductCard';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import imageCompression from 'browser-image-compression';
-import { getProfileInsights, optimizeSupplierProfile } from '../../../core/services/geminiService';
+import { getProfileInsights, optimizeSupplierProfile, handleAiError } from '../../../core/services/geminiService';
 
 interface ConnectStorefrontProps {
   profile: UserProfile;
@@ -158,7 +158,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
       setProductFormData(prev => ({ ...prev, images: newImages }));
       toast.success(isRtl ? 'تم رفع الصور بنجاح' : 'Images uploaded successfully');
     } catch (error) {
-      console.error("Error uploading product images:", error);
+      handleFirestoreError(error, OperationType.WRITE, `marketplace/${profile.uid}/images`, false);
       toast.error(isRtl ? 'فشل رفع الصور' : 'Failed to upload images');
     } finally {
       setIsProductImageUploading(false);
@@ -205,7 +205,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
       const snap = await getDocs(q);
       setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as MarketplaceItem)));
     } catch (error) {
-      console.error("Error saving product:", error);
+      handleFirestoreError(error, OperationType.WRITE, 'marketplace', false);
       toast.error(isRtl ? 'فشل حفظ المنتج' : 'Failed to save product');
     } finally {
       setIsProductSaving(false);
@@ -220,7 +220,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
       setProducts(prev => prev.filter(p => p.id !== productId));
       toast.success(isRtl ? 'تم حذف المنتج بنجاح' : 'Product deleted successfully');
     } catch (error) {
-      console.error("Error deleting product:", error);
+      handleFirestoreError(error, OperationType.DELETE, `marketplace/${productId}`, false);
       toast.error(isRtl ? 'فشل حذف المنتج' : 'Failed to delete product');
     }
   };
@@ -245,7 +245,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
         toast.success(isRtl ? 'تم تحديث التحليلات الذكية' : 'Smart insights updated');
       }
     } catch (error) {
-      console.error("AI Insights error:", error);
+      handleAiError(error, "Profile AI insights");
       toast.error(isRtl ? 'فشل توليد التحليلات' : 'Failed to generate insights');
     } finally {
       setIsAiAnalyzing(false);
@@ -290,7 +290,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
           setSavedItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as MarketplaceItem)));
         }
       } catch (error) {
-        console.error("Error fetching storefront data:", error);
+        handleFirestoreError(error, OperationType.LIST, 'storefront/data', false);
       } finally {
         setLoading(false);
       }
@@ -341,7 +341,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
         toast.success(isRtl ? 'تمت المتابعة بنجاح!' : 'Following successfully!');
       }
     } catch (error) {
-      console.error('Follow error:', error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}/follow`, false);
       toast.error(isRtl ? 'فشل تحديث حالة المتابعة' : 'Failed to update follow status');
     }
   };
@@ -372,7 +372,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
         toast.success(isRtl ? 'تم تحديث الصورة بنجاح' : 'Image updated successfully');
       }
     } catch (error) {
-      console.error(`Error uploading ${type}:`, error);
+      handleFirestoreError(error, OperationType.WRITE, `users/${profile.uid}/${type}`, false);
       toast.error(isRtl ? 'فشل رفع الصورة' : 'Failed to upload image');
     } finally {
       setIsUploading(null);
@@ -399,7 +399,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
       toast.success(isRtl ? 'تم حفظ التغييرات بنجاح' : 'Changes saved successfully');
       setIsArchitectMode(false);
     } catch (error) {
-      console.error("Error saving profile:", error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}`, false);
       toast.error(isRtl ? 'فشل حفظ التغييرات' : 'Failed to save changes');
     } finally {
       setIsSaving(false);
@@ -426,7 +426,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
         toast.success(isRtl ? 'تم تحسين النبذة بواسطة الذكاء الاصطناعي' : 'Bio refined by AI');
       }
     } catch (error) {
-      console.error("AI Refine error:", error);
+      handleAiError(error, "Profile AI refinement");
       toast.error(isRtl ? 'فشل تحسين النبذة' : 'Failed to refine bio');
     } finally {
       setIsAiAnalyzing(false);

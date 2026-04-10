@@ -92,7 +92,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
           <LayoutGrid size={20} strokeWidth={currentView === 'dashboard' && dashboardTab === 'overview' ? 2.5 : 2} />
         </motion.div>
-        <span className="text-[9px] font-black tracking-tight uppercase">{isRtl ? 'المركز' : 'Nexus'}</span>
+        <span className="text-[9px] font-black tracking-tight uppercase">{isRtl ? 'المركز' : 'Connect'}</span>
       </HapticButton>
 
       <HapticButton 

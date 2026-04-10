@@ -5,7 +5,7 @@ import { X, Building2, MapPin, Mail, Phone, Globe, Info, User as UserIcon, Tag, 
 import { UserProfile, Category } from '../../core/types';
 import { db } from '../../core/firebase';
 import { collection, getDocs } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../core/utils/errorHandling';
+import { handleFirestoreError, OperationType, handleAiError } from '../../core/utils/errorHandling';
 import { translateText } from '../../core/services/geminiService';
 import { Sparkles } from 'lucide-react';
 
@@ -35,7 +35,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
       const translation = await translateText(user.bio, targetLang);
       setTranslatedBio(translation);
     } catch (error) {
-      console.error('Translation error:', error);
+      handleAiError(error, 'UserProfileModal:handleTranslateBio', false);
     } finally {
       setIsTranslatingBio(false);
     }

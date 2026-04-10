@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { UserProfile } from '../../core/types';
+import { handleFirestoreError, OperationType, handleAiError } from '../../core/utils/errorHandling';
 
 // Haversine formula to calculate distance in km
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -85,7 +86,7 @@ export function useNearbySuppliers(profile: UserProfile | null) {
         }
 
       } catch (error) {
-        console.error("Error checking nearby suppliers:", error);
+        handleFirestoreError(error, OperationType.LIST, 'users/nearby', false);
       } finally {
         isChecking = false;
       }
@@ -95,10 +96,15 @@ export function useNearbySuppliers(profile: UserProfile | null) {
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        checkNearbySuppliers(latitude, longitude).catch(err => console.error("Unhandled checkNearbySuppliers error:", err));
+        checkNearbySuppliers(latitude, longitude).catch(err => handleAiError(err, 'useNearbySuppliers:checkNearbySuppliers:unhandled', false));
       },
       (error) => {
-        console.error("Geolocation watch error:", error);
+        // Ignore permission denied errors (Code 1), as they are expected in some environments
+        if (error.code !== 1) {
+          handleAiError(error, 'useNearbySuppliers:watchPosition', false);
+        } else {
+          console.warn('Geolocation permission denied.');
+        }
       },
       {
         enableHighAccuracy: true,

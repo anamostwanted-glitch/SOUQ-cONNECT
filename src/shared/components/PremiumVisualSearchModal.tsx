@@ -25,7 +25,7 @@ import { UserProfile, Category } from '../../core/types';
 import { db, auth, storage } from '../../core/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { handleFirestoreError, OperationType } from '../../core/utils/errorHandling';
+import { handleFirestoreError, OperationType, handleAiError } from '../../core/utils/errorHandling';
 import { soundService, SoundType } from '../../core/utils/soundService';
 
 interface PremiumVisualSearchModalProps {
@@ -150,7 +150,7 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
           
           await performAnalysis(base64Data, 'image/jpeg');
         } catch (err) {
-          console.error('Image processing failed:', err);
+          handleAiError(err, 'PremiumVisualSearchModal:handleImageSelect', false);
           setError(isRtl ? 'فشل معالجة الصورة. يرجى المحاولة مرة أخرى.' : 'Image processing failed. Please try again.');
           setStep('upload');
         }
@@ -211,7 +211,7 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
         throw new Error('Analysis failed');
       }
     } catch (err) {
-      console.error(err);
+      handleAiError(err, 'Visual search analysis');
       setError(isRtl ? 'فشل تحليل الصورة. يرجى المحاولة مرة أخرى.' : 'Image analysis failed. Please try again.');
       setStep('upload');
     }

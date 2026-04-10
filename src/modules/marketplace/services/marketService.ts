@@ -1,8 +1,10 @@
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
 import { MarketplaceItem, Category, MarketTrend, UserProfile } from '../../../core/types';
+import { callAiJson, handleAiError } from '../../../core/services/geminiService';
+import { Type } from "@google/genai";
 
-export const fetchMarketplaceItems = async (activeTab: 'discover' | 'myshop', userId?: string): Promise<MarketplaceItem[]> => {
+export const fetchMarketplaceItems = async (activeTab: 'discover' | 'myshop', userId?: string, categoryId?: string): Promise<MarketplaceItem[]> => {
   const marketplaceRef = collection(db, 'marketplace');
   let q;
   
@@ -12,6 +14,13 @@ export const fetchMarketplaceItems = async (activeTab: 'discover' | 'myshop', us
       where('sellerId', '==', userId),
       where('status', '!=', 'deleted'),
       orderBy('status'),
+      orderBy('createdAt', 'desc')
+    );
+  } else if (categoryId) {
+    q = query(
+      marketplaceRef,
+      where('status', '==', 'active'),
+      where('categoryId', '==', categoryId),
       orderBy('createdAt', 'desc')
     );
   } else {
@@ -74,4 +83,33 @@ export const searchMarketplaceAndSuppliers = async (searchTerm: string): Promise
     );
     
   return { products, suppliers };
+};
+
+export const fetchPredictiveMatches = async (interests: string[], recentItems: string[]): Promise<{ supplierId: string, reason: string }[]> => {
+  try {
+    const result = await callAiJson(
+      `Analyze user interests: ${JSON.stringify(interests)} and recent items: ${JSON.stringify(recentItems)}. Suggest 3 matching suppliers from the marketplace. Return ONLY a JSON object with 'matches' array, where each match has 'supplierId' and 'reason'.`,
+      {
+        type: Type.OBJECT,
+        properties: {
+          matches: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                supplierId: { type: Type.STRING },
+                reason: { type: Type.STRING }
+              },
+              required: ["supplierId", "reason"]
+            }
+          }
+        },
+        required: ["matches"]
+      }
+    );
+    return result.matches;
+  } catch (e) {
+    handleAiError(e, 'predictive_matching');
+    return [];
+  }
 };

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import imageCompression from 'browser-image-compression';
 import { NetworkStatus } from './useNetworkAwareness';
 
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+
 export function useSmartCompression() {
   const [isCompressing, setIsCompressing] = useState(false);
 
@@ -22,7 +24,7 @@ export function useSmartCompression() {
       const compressedFile = await imageCompression(file, options);
       return compressedFile;
     } catch (error) {
-      console.error('Error compressing image:', error);
+      handleFirestoreError(error, OperationType.GET, 'image_compression', false);
       return file; // Return original if compression fails
     } finally {
       setIsCompressing(false);

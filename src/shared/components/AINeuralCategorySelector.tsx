@@ -16,6 +16,7 @@ import {
 import { Category } from '../../core/types';
 import { HapticButton } from './HapticButton';
 import { suggestNeuralCategories } from '../../core/services/geminiService';
+import { handleAiError } from '../../core/utils/errorHandling';
 
 interface AINeuralCategorySelectorProps {
   categories: Category[];
@@ -82,7 +83,7 @@ export const AINeuralCategorySelector: React.FC<AINeuralCategorySelectorProps> =
         );
         setAiSuggestions(matches);
       } catch (error) {
-        console.error("AI Category Analysis Error:", error);
+        handleAiError(error, 'AINeuralCategorySelector:analyze', false);
       } finally {
         setIsAnalyzing(false);
       }

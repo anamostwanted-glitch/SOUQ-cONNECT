@@ -25,6 +25,7 @@ import { HapticButton } from '../../../shared/components/HapticButton';
 import { soundService, SoundType } from '../../../core/utils/soundService';
 import { getProfileInsights } from '../../../core/services/geminiService';
 import { toast } from 'sonner';
+import { handleFirestoreError, OperationType, handleAiError } from '../../../core/utils/errorHandling';
 
 interface ConnectRewardsProps {
   profile: UserProfile;
@@ -56,7 +57,7 @@ export const ConnectRewards: React.FC<ConnectRewardsProps> = ({ profile, setting
           viralCoefficient: (snap.size / 10).toFixed(1) as any
         });
       } catch (err) {
-        console.error('Failed to fetch stats:', err);
+        handleFirestoreError(err, OperationType.GET, 'users', false);
       }
     };
     fetchStats();
@@ -71,12 +72,12 @@ export const ConnectRewards: React.FC<ConnectRewardsProps> = ({ profile, setting
           - Total Referrals: ${stats.totalReferrals}
           - Language: ${i18n.language}
           Provide a short, motivating, and strategic tip (max 2 sentences) on how to increase their viral growth. 
-          Focus on "Nexus" branding and "Neural Growth".`;
+          Focus on "Connect" branding and "Neural Growth".`;
         
         const result = await getProfileInsights(stats, isRtl ? 'ar' : 'en');
         setAiInsight(result?.summaryAr || result?.summaryEn || (isRtl ? 'شارك رابطك في مجموعات العمل لزيادة فرصك في الربح.' : 'Share your link in business groups to increase your earning potential.'));
       } catch (err) {
-        console.error('AI Insight failed:', err);
+        handleAiError(err, 'ConnectRewards:generateInsight', false);
       } finally {
         setIsGeneratingInsight(false);
       }
@@ -102,7 +103,7 @@ export const ConnectRewards: React.FC<ConnectRewardsProps> = ({ profile, setting
     if (navigator.share) {
       try {
         await navigator.share({
-          title: settings.siteName || 'B2B2C Nexus',
+          title: settings.siteName || 'B2B2C Connect',
           text: isRtl ? 'انضم إلينا واكتشف أفضل المنتجات والخدمات!' : 'Join us and discover the best products and services!',
           url: referralLink,
         });
@@ -160,7 +161,7 @@ export const ConnectRewards: React.FC<ConnectRewardsProps> = ({ profile, setting
           <div className="space-y-2 text-center md:text-left">
             <div className="flex items-center justify-center md:justify-start gap-2 opacity-80">
               <Award size={18} />
-              <span className="text-xs font-black uppercase tracking-widest">Nexus Ambassador</span>
+              <span className="text-xs font-black uppercase tracking-widest">Connect Ambassador</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-black tracking-tighter">
               {profile.referralPoints || 0}
@@ -245,7 +246,7 @@ export const ConnectRewards: React.FC<ConnectRewardsProps> = ({ profile, setting
               <TrendingUp size={24} />
             </div>
             <div>
-              <h3 className="font-black text-lg">{isRtl ? 'إحصائيات النكسوس' : 'Nexus Stats'}</h3>
+              <h3 className="font-black text-lg">{isRtl ? 'إحصائيات كونكت' : 'Connect Stats'}</h3>
               <p className="text-sm text-brand-text-muted">{isRtl ? 'تتبع نمو شبكتك وتأثيرك' : 'Track your network growth and impact'}</p>
             </div>
           </div>

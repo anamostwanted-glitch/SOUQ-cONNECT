@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { fetchMarketplaceItems, fetchCategories, fetchMarketTrends, fetchSuppliers, searchMarketplaceAndSuppliers } from '../services/marketService';
-import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { PredictiveMatchSection } from './PredictiveMatchSection';
+import { fetchMarketplaceItems, fetchCategories, fetchMarketTrends, fetchSuppliers, searchMarketplaceAndSuppliers, fetchPredictiveMatches } from '../services/marketService';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   collection, 
@@ -53,7 +54,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { handleFirestoreError, OperationType, handleAiError } from '../../../core/utils/errorHandling';
 import { Skeleton } from '../../../shared/components/Skeleton';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { ProductCard } from './ProductCard';
@@ -82,6 +83,18 @@ interface MarketInterfaceProps {
 import { BroadcastBox } from './BroadcastBox';
 import { ScrollDirection, useScrollDirection } from '../../../shared/hooks/useScrollDirection';
 
+const getGridColsClass = (cols: number) => {
+  switch (cols) {
+    case 1: return 'grid-cols-1';
+    case 2: return 'grid-cols-2';
+    case 3: return 'grid-cols-3';
+    case 4: return 'grid-cols-4';
+    case 5: return 'grid-cols-5';
+    case 6: return 'grid-cols-6';
+    default: return 'grid-cols-2';
+  }
+};
+
 export const MarketInterface: React.FC<MarketInterfaceProps> = ({ 
   profile, 
   features, 
@@ -90,9 +103,17 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   viewMode
 }) => {
   const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
   const isRtl = i18n.language === 'ar';
   const scrollDirection = useScrollDirection();
   const isMinimized = scrollDirection === ScrollDirection.DOWN;
+  
+  const prefetchCategoryItems = useCallback((categoryId: string) => {
+    queryClient.prefetchQuery({
+      queryKey: ['marketplace', 'discover', auth.currentUser?.uid, categoryId],
+      queryFn: () => fetchMarketplaceItems('discover', auth.currentUser?.uid, categoryId),
+    });
+  }, [queryClient]);
   
   // Header animation variants
   const headerVariants = {
@@ -138,6 +159,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const [sellerTypeFilter, setSellerTypeFilter] = useState<'all' | 'supplier' | 'customer' | 'followed'>('all');
   const [categoryClicks, setCategoryClicks] = useState<Record<string, number>>({});
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([]);
+  const [predictiveMatches, setPredictiveMatches] = useState<{ supplierId: string, reason: string }[]>([]);
   const [smartInsight, setSmartInsight] = useState<{ ar: string; en: string } | null>(null);
   const [neuralPulse, setNeuralPulse] = useState<{ ar: string; en: string } | null>(null);
   const [isNeuralPulseLoading, setIsNeuralPulseLoading] = useState(false);
@@ -148,30 +170,70 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     }
     return 'grid';
   });
+  const [gridSettings, setGridSettings] = useState({
+    mobileCols: 2,
+    webCols: 4,
+    gap: 16
+  });
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.gridSettings) {
+          setGridSettings(data.gridSettings);
+          toast.success(isRtl ? 'تم تحديث إعدادات الشبكة' : 'Grid settings updated');
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
+
   const [restoreBtnPos, setRestoreBtnPos] = useState(() => {
     const saved = localStorage.getItem('pulse_restore_pos');
     return saved ? JSON.parse(saved) : { x: 0, y: 0 };
   });
 
+  useEffect(() => {
+    if (profile && Object.keys(categoryClicks).length > 0) {
+      const interests = Object.keys(categoryClicks);
+      fetchPredictiveMatches(interests, recentlyViewed)
+        .then(setPredictiveMatches)
+        .catch(err => handleAiError(err, "Predictive matches"));
+    }
+  }, [profile, categoryClicks, recentlyViewed]);
+
   const { data: items = [], isLoading: itemsLoading } = useQuery({
     queryKey: ['marketplace', activeTab, auth.currentUser?.uid],
     queryFn: () => fetchMarketplaceItems(activeTab, auth.currentUser?.uid),
-    enabled: !!auth.currentUser || activeTab === 'discover'
+    enabled: !!auth.currentUser || activeTab === 'discover',
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    refetchOnWindowFocus: false
   });
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
-    queryFn: fetchCategories
+    queryFn: fetchCategories,
+    staleTime: 60 * 60 * 1000, // 1 hour
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours
+    refetchOnWindowFocus: false
   });
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ['suppliers'],
-    queryFn: fetchSuppliers
+    queryFn: fetchSuppliers,
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+    refetchOnWindowFocus: false
   });
 
   const { data: marketTrends = [] } = useQuery({
     queryKey: ['marketTrends'],
-    queryFn: fetchMarketTrends
+    queryFn: fetchMarketTrends,
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
+    refetchOnWindowFocus: false
   });
 
   const { data: searchResults, isLoading: isSearching } = useQuery({
@@ -262,7 +324,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
       try {
         setRecentlyViewed(JSON.parse(savedRecentlyViewed));
       } catch (e) {
-        console.error("Error parsing recently viewed", e);
+        handleAiError(e, "Parsing recently viewed");
       }
     }
   }, []);
@@ -618,6 +680,14 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           />
         )}
 
+        {/* Predictive Matches Section */}
+        <PredictiveMatchSection 
+          matches={predictiveMatches}
+          suppliers={suppliers}
+          onViewProfile={onViewProfile}
+          isRtl={isRtl}
+        />
+
         {/* Recommended for You Section */}
         {recommendedItems.length > 0 && !selectedCategory && searchTerm === '' && sellerTypeFilter === 'all' && (
           <motion.div 
@@ -641,9 +711,9 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
               </div>
             </div>
             
-            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+            <div className="flex gap-2 overflow-x-auto pb-6 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
               {recommendedItems.map((item) => (
-                <div key={item.id} className="w-[280px] shrink-0">
+                <div key={item.id} className="w-[200px] shrink-0">
                   <ProductCard
                     item={item}
                     onOpenChat={onOpenChat}
@@ -685,9 +755,9 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
               </div>
             </div>
             
-            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+            <div className="flex gap-2 overflow-x-auto pb-6 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
               {trendingItems.map((item) => (
-                <div key={item.id} className="w-[280px] shrink-0">
+                <div key={item.id} className="w-[200px] shrink-0">
                   <ProductCard
                     item={item}
                     onOpenChat={onOpenChat}
@@ -881,7 +951,8 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           ) : (
             <motion.div 
               layout
-              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"
+              className={`grid ${getGridColsClass(gridSettings.mobileCols)} md:${getGridColsClass(gridSettings.webCols)} gap-4 md:gap-6`}
+              style={{ gap: `${gridSettings.gap}px` }}
             >
               <AnimatePresence>
                 {itemsLoading ? (
@@ -985,7 +1056,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                   {isRtl ? 'إلغاء' : 'Cancel'}
                 </button>
                 <button 
-                  onClick={() => confirmDelete().catch(err => console.error("Delete confirmation failed:", err))}
+                  onClick={() => confirmDelete().catch(err => handleFirestoreError(err, OperationType.UPDATE, `marketplace/${itemToDelete?.id}`, false))}
                   className="flex-1 py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 transition-colors"
                 >
                   {isRtl ? 'حذف' : 'Delete'}
@@ -1032,6 +1103,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                 setSelectedCategory(categoryId);
                 setShowSmartCategories(false);
               }}
+              onHoverCategory={prefetchCategoryItems}
             />
           </motion.div>
         )}

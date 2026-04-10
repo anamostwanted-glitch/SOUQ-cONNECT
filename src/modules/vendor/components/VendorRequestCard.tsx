@@ -6,7 +6,7 @@ import {
   Sparkles, Send, DollarSign, FileText, CheckCircle2
 } from 'lucide-react';
 import { doc, updateDoc, collection, query, where, getDocs, addDoc, getDoc } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { handleFirestoreError, OperationType, handleAiError } from '../../../core/utils/errorHandling';
 import { db } from '../../../core/firebase';
 import { ProductRequest, UserProfile } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
@@ -46,7 +46,7 @@ export const VendorRequestCard: React.FC<VendorRequestCardProps> = ({
         setMessage(generatedMessage);
       }
     } catch (err) {
-      console.error('Failed to generate AI message:', err);
+      handleAiError(err, 'VendorRequestCard:handleGenerateAiMessage', false);
     } finally {
       setIsGeneratingAi(false);
     }

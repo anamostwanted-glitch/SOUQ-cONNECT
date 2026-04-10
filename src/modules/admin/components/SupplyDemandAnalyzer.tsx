@@ -18,8 +18,10 @@ import {
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
 import { Category, ProductRequest, UserProfile } from '../../../core/types';
-import { analyzeSupplyDemandGap } from '../../../core/services/geminiService';
+import { analyzeSupplyDemandGap, handleAiError } from '../../../core/services/geminiService';
 import { toast } from 'sonner';
+
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 
 interface SupplyDemandAnalyzerProps {
   categories: Category[];
@@ -42,7 +44,7 @@ export const SupplyDemandAnalyzer: React.FC<SupplyDemandAnalyzerProps> = ({ cate
         const fetchedRequests = requestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductRequest));
         setRequests(fetchedRequests);
       } catch (error) {
-        console.error('Error fetching requests:', error);
+        handleFirestoreError(error, OperationType.LIST, 'requests', false);
         toast.error(isRtl ? 'فشل تحميل بيانات الطلبات' : 'Failed to load requests data');
       } finally {
         setLoadingData(false);
@@ -59,7 +61,7 @@ export const SupplyDemandAnalyzer: React.FC<SupplyDemandAnalyzerProps> = ({ cate
       setAnalysisResult(result);
       toast.success(isRtl ? 'اكتمل التحليل بنجاح' : 'Analysis completed successfully');
     } catch (error) {
-      console.error('Analysis error:', error);
+      handleAiError(error, 'Supply-demand gap analysis');
       toast.error(isRtl ? 'فشل إجراء التحليل' : 'Failed to run analysis');
     } finally {
       setIsAnalyzing(false);

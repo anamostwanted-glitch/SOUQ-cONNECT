@@ -6,6 +6,8 @@ import { Chat, UserProfile } from '../../../../core/types';
 import { negotiateOffer } from '../../../../core/services/geminiService';
 import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../../core/firebase';
+import { handleAiError } from '../../../../core/services/geminiService';
+import { handleFirestoreError, OperationType } from '../../../../core/utils/errorHandling';
 
 interface NegotiationModalProps {
   isOpen: boolean;
@@ -44,8 +46,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       onGenerateReply(response.message || '');
       onClose();
     } catch (error) {
-      console.error('Negotiation error:', error);
-      // Optionally show a user-friendly error message here
+      handleAiError(error, 'Negotiation');
     } finally {
       setIsNegotiating(false);
     }
@@ -68,8 +69,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         });
       }
     } catch (error) {
-      console.error("Error updating auto-negotiate:", error);
-      // Use handleFirestoreError if applicable, or just log it
+      handleFirestoreError(error, OperationType.UPDATE, 'offers/auto-negotiate', false);
     }
   };
 

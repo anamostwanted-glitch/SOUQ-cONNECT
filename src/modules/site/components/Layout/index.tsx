@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import i18nInstance from '../../../../i18n';
 import { UserProfile, Notification, AppFeatures, Category, UserRole } from '../../../../core/types';
@@ -41,6 +42,7 @@ interface LayoutProps {
   onPrefetch?: (view: string) => void;
   chatUnreadCount?: number;
   progress?: number | null;
+  isMomentOfNeed?: boolean;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
@@ -59,7 +61,8 @@ export const Layout: React.FC<LayoutProps> = ({
   setUiStyle,
   onPrefetch,
   chatUnreadCount = 0,
-  progress = null
+  progress = null,
+  isMomentOfNeed = false
 }) => {
   const { t } = useTranslation();
   const { isDarkMode, toggleDarkMode } = useBranding();
@@ -136,14 +139,14 @@ export const Layout: React.FC<LayoutProps> = ({
               const state = data.address?.state || data.address?.region || data.address?.city || data.address?.county;
               setLocationName(state || (i18nInstance.language === 'ar' ? 'موقع غير معروف' : 'Unknown Location'));
             } catch (error) {
-              console.error("Error fetching location", error);
+              toast.error(i18nInstance.language === 'ar' ? 'فشل جلب الموقع' : 'Failed to fetch location');
               setLocationName(i18nInstance.language === 'ar' ? 'تعذر تحديد الموقع' : 'Location unavailable');
             } finally {
               setIsLoadingLocation(false);
             }
           },
           (error) => {
-            console.error("Geolocation error", error);
+            toast.error(i18nInstance.language === 'ar' ? 'خطأ في تحديد الموقع' : 'Geolocation error');
             setLocationName(i18nInstance.language === 'ar' ? 'تعذر تحديد الموقع' : 'Location unavailable');
             setIsLoadingLocation(false);
           }
@@ -306,7 +309,9 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const toggleLanguage = () => {
     const newLang = i18nInstance.language === 'ar' ? 'en' : 'ar';
-    i18nInstance.changeLanguage(newLang).catch(err => console.error("Language change error:", err));
+    i18nInstance.changeLanguage(newLang).catch(err => {
+      toast.error(newLang === 'ar' ? 'فشل تغيير اللغة' : 'Language change failed');
+    });
     document.documentElement.dir = newLang === 'ar' ? 'rtl' : 'ltr';
   };
 
@@ -374,9 +379,9 @@ export const Layout: React.FC<LayoutProps> = ({
                 sendEmailVerification(auth.currentUser)
                   .then(() => {
                     soundService.play(SoundType.SUCCESS);
+                    toast.success(isRtl ? 'تم إرسال رابط التفعيل' : 'Verification link sent');
                   })
                   .catch(err => {
-                    console.error("Email verification error:", err);
                     handleFirestoreError(err, OperationType.WRITE, 'auth/email-verification', false);
                   });
               }
@@ -519,7 +524,7 @@ export const Layout: React.FC<LayoutProps> = ({
         )}
       </AnimatePresence>
 
-      {enableNeuralPulse && <NeuralPulse />}
+      {enableNeuralPulse && <NeuralPulse isMomentOfNeed={isMomentOfNeed} />}
     </div>
   );
 };

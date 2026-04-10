@@ -27,7 +27,7 @@ import { collection, query, onSnapshot, getDocs, doc, updateDoc, deleteDoc, orde
 import { db } from '../../../core/firebase';
 import { Chat, UserProfile, ProductRequest, Message } from '../../../core/types';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
-import { summarizeChat, analyzeChatRisk, analyzeChatSentiment } from '../../../core/services/geminiService';
+import { summarizeChat, analyzeChatRisk, analyzeChatSentiment, handleAiError } from '../../../core/services/geminiService';
 import { toast } from 'sonner';
 import { HapticButton } from '../../../shared/components/HapticButton';
 
@@ -104,7 +104,7 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
           setProductRequests(newProductRequests);
         }
       } catch (err) {
-        console.error("Error in ChatArchiveManager onSnapshot callback:", err);
+        handleFirestoreError(err, OperationType.LIST, 'chats_snapshot_processing', false);
         setLoading(false);
       }
     }, (error) => {
@@ -159,7 +159,7 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
 
       toast.success(isRtl ? 'تم توليد الملخص بنجاح' : 'Summary generated successfully');
     } catch (error) {
-      console.error('Summary generation error:', error);
+      handleAiError(error, 'Summary generation');
       toast.error(isRtl ? 'فشل توليد الملخص' : 'Failed to generate summary');
     } finally {
       setIsSummarizing(false);
@@ -197,7 +197,7 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
 
       toast.success(isRtl ? 'تم تحليل المخاطر بنجاح' : 'Risk analysis completed successfully');
     } catch (error) {
-      console.error('Risk analysis error:', error);
+      handleAiError(error, 'Risk analysis');
       toast.error(isRtl ? 'فشل تحليل المخاطر' : 'Failed to analyze risk');
     } finally {
       setIsAnalyzingRisk(false);
@@ -235,7 +235,7 @@ export const ChatArchiveManager: React.FC<ChatArchiveManagerProps> = ({ onOpenCh
 
       toast.success(isRtl ? 'تم تحليل المشاعر بنجاح' : 'Sentiment analysis completed successfully');
     } catch (error) {
-      console.error('Sentiment analysis error:', error);
+      handleAiError(error, 'Sentiment analysis');
       toast.error(isRtl ? 'فشل تحليل المشاعر' : 'Failed to analyze sentiment');
     } finally {
       setIsAnalyzingSentiment(false);

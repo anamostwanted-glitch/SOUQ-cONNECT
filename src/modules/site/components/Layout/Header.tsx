@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sparkles, MapPin, Globe, Bell, Menu, UploadCloud, Bot, MessageSquare, BookOpen, Zap, ShieldCheck, LogOut, Settings, User as UserIcon, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
@@ -6,6 +7,7 @@ import { HapticButton } from '../../../../shared/components/HapticButton';
 import { NotificationDropdown } from './NotificationDropdown';
 import { BentoMenu } from './BentoMenu';
 import { auth } from '../../../../core/firebase';
+import { getUserImageUrl } from '../../../../core/utils/imageUtils';
 import { UserProfile, AppFeatures, UserRole, Notification } from '../../../../core/types';
 
 interface HeaderProps {
@@ -191,7 +193,9 @@ export const Header: React.FC<HeaderProps> = ({
             viewMode={viewMode}
             setViewMode={setViewMode}
             isRtl={isRtl}
-            onLogout={() => auth.signOut().catch(err => console.error("Sign out error:", err))}
+            onLogout={() => auth.signOut().catch(err => {
+              toast.error(isRtl ? 'فشل تسجيل الخروج' : 'Sign out failed');
+            })}
           />
         </div>
       </motion.div>

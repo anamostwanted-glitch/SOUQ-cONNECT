@@ -23,7 +23,7 @@
 - Always validate user roles (`isAdmin()`, `isSupplier()`) before rendering sensitive UI components or performing privileged actions.
 
 ## 5. Project Context Summary (Backup)
-- **Project Name:** Nexus AI Marketplace (Multi-User Platform)
+- **Project Name:** Connect AI Marketplace (Multi-User Platform)
 - **Core Stack:** React 18, Vite, Tailwind CSS, Firebase (Auth, Firestore, Storage).
 - **Architecture:** Modular structure (modules/marketplace, modules/site, modules/user, modules/admin).
 - **Key Features:**

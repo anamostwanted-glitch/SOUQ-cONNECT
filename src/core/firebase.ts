@@ -3,6 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
+import { handleFirestoreError, OperationType } from './utils/errorHandling';
 
 console.log('Firebase Config:', firebaseConfig);
 
@@ -36,14 +37,14 @@ async function testConnection() {
     await getDocFromServer(doc(db, 'test', 'connection'));
     console.log('Firestore connection verified successfully.');
   } catch (error: any) {
-    console.error("Firestore connection test failed:", error);
+    handleFirestoreError(error, OperationType.GET, 'test/connection', false);
     if (error.code === 'unavailable') {
-      console.error("The Firestore backend is unreachable. This could be a network issue or an incorrect database ID.");
+      console.warn("The Firestore backend is unreachable. This could be a network issue or an incorrect database ID.");
     } else if (error.code === 'permission-denied') {
-      console.error("Permission denied. Check your Firestore security rules.");
+      console.warn("Permission denied. Check your Firestore security rules.");
     }
   }
 }
-testConnection().catch(err => console.error("Critical: Firestore testConnection failed unexpectedly:", err));
+testConnection().catch(err => handleFirestoreError(err, OperationType.GET, 'test/connection:unhandled', false));
 
 export default app;

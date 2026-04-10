@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
 import { GeminiApiKey } from '../../../core/types';
+import { handleAiError } from '../../../core/services/geminiService';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -64,7 +65,7 @@ export const AdminNeuralHub: React.FC = () => {
         lastUpdated: new Date().toISOString()
       }, { merge: true });
     } catch (error) {
-      console.error('Error saving keys:', error);
+      handleFirestoreError(error, OperationType.WRITE, 'settings/gemini_config', false);
       toast.error(isRtl ? 'فشل حفظ المفاتيح' : 'Failed to save keys');
     }
   };
@@ -92,7 +93,7 @@ export const AdminNeuralHub: React.FC = () => {
     try {
       await testKey(id, newKey.trim(), updatedKeys);
     } catch (error) {
-      console.error("Error auto-testing new key:", error);
+      handleAiError(error, "Auto-testing new key");
     }
   };
 
@@ -139,7 +140,7 @@ export const AdminNeuralHub: React.FC = () => {
         toast.error(isRtl ? 'فشل اختبار المحرك' : 'Engine test failed');
       }
     } catch (error: any) {
-      console.error('Test error:', error);
+      handleAiError(error, 'AI key test');
       
       toast.error(isRtl ? 'خطأ في المفتاح أو الصلاحية' : 'Invalid key or permissions');
 

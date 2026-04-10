@@ -23,6 +23,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { UserProfile } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { BulkActionToolbar } from './BulkActionToolbar';
 
 interface AdminUserManagementProps {
   users: UserProfile[];
@@ -32,6 +33,8 @@ interface AdminUserManagementProps {
   onCheckExpirations: () => void;
   isCheckingExpirations: boolean;
   onCreateUser: () => void;
+  onBulkDelete: (uids: string[]) => void;
+  onBulkVerify: (uids: string[]) => void;
 }
 
 export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
@@ -41,13 +44,16 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   onViewProfile,
   onCheckExpirations,
   isCheckingExpirations,
-  onCreateUser
+  onCreateUser,
+  onBulkDelete,
+  onBulkVerify
 }) => {
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const [activeTab, setActiveTab] = useState<'all' | 'suppliers' | 'customers'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'verified' | 'unverified'>('all');
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
@@ -70,6 +76,18 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
       return matchesTab && matchesSearch && matchesStatus;
     });
   }, [users, activeTab, searchQuery, filterStatus]);
+
+  const toggleUserSelection = (uid: string) => {
+    setSelectedUsers(prev => 
+      prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedUsers(prev => 
+      prev.length === filteredUsers.length ? [] : filteredUsers.map(u => u.uid)
+    );
+  };
 
   const stats = useMemo(() => {
     const total = users.length;
@@ -186,6 +204,14 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-brand-background/50 border-b border-brand-border">
+                <th className="px-6 py-4">
+                  <input 
+                    type="checkbox" 
+                    checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                    onChange={toggleSelectAll}
+                    className="accent-brand-primary"
+                  />
+                </th>
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'المستخدم' : 'User'}</th>
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'الدور' : 'Role'}</th>
                 {activeTab !== 'customers' && (
@@ -210,6 +236,14 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                     transition={{ delay: i * 0.05 }}
                     className="hover:bg-brand-background/30 transition-colors group"
                   >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedUsers.includes(user.uid)}
+                        onChange={() => toggleUserSelection(user.uid)}
+                        className="accent-brand-primary"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-2xl bg-brand-background border border-brand-border flex items-center justify-center text-brand-primary font-black text-sm shrink-0 overflow-hidden group-hover:scale-110 transition-transform">
@@ -339,6 +373,23 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
           </div>
         )}
       </div>
+
+      {/* Bulk Action Toolbar */}
+      {selectedUsers.length > 0 && (
+        <BulkActionToolbar
+          selectedCount={selectedUsers.length}
+          onClearSelection={() => setSelectedUsers([])}
+          onBulkDelete={() => {
+            onBulkDelete(selectedUsers);
+            setSelectedUsers([]);
+          }}
+          onBulkVerify={() => {
+            onBulkVerify(selectedUsers);
+            setSelectedUsers([]);
+          }}
+          isRtl={isRtl}
+        />
+      )}
     </div>
   );
 };

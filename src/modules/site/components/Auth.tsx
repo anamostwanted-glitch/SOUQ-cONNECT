@@ -76,7 +76,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           localStorage.removeItem('referralCode');
         }
       } catch (e) {
-        console.error("Referral processing failed:", e);
+        handleFirestoreError(e, OperationType.UPDATE, 'users', false);
       }
     }
   };
@@ -268,7 +268,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
               docSnap = await getDoc(doc(db, 'users', auth.currentUser!.uid));
             }
           } catch (error) {
-            console.error("Error migrating pre-created user:", error);
+            handleFirestoreError(error, OperationType.UPDATE, `users/${email.toLowerCase()}`, false);
           }
         }
         
@@ -289,7 +289,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           try {
             await setDoc(doc(db, 'users', auth.currentUser!.uid), newProfileData);
           } catch (error) {
-            console.error("Failed to recreate missing user document:", error);
+            handleFirestoreError(error, OperationType.WRITE, `users/${auth.currentUser!.uid}`, false);
           }
           onAuthSuccess(newRole);
         }
@@ -302,7 +302,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
         try {
           await sendEmailVerification(user);
         } catch (verifyErr) {
-          console.error("Failed to send verification email:", verifyErr);
+          handleFirestoreError(verifyErr, OperationType.WRITE, 'auth/verification', false);
         }
 
         let logoUrl = '';
@@ -312,7 +312,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
             await uploadBytes(storageRef, logoFile);
             logoUrl = await getDownloadURL(storageRef);
           } catch (uploadErr) {
-            console.error('Storage upload failed, falling back to base64', uploadErr);
+            handleFirestoreError(uploadErr, OperationType.WRITE, `logos/${user.uid}`, false);
             const base64Promise = new Promise<string>((resolve) => {
               const reader = new FileReader();
               reader.onloadend = () => resolve(reader.result as string);
@@ -363,7 +363,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
               body: JSON.stringify({ email: user.email, name: name }),
             });
           } catch (emailErr) {
-            console.error("Failed to send welcome email:", emailErr);
+            handleFirestoreError(emailErr, OperationType.WRITE, 'api/welcome-email', false);
           }
         } catch (error) {
           handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`, false);
@@ -467,7 +467,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                   await uploadBytes(storageRef, logoFile);
                   logoUrl = await getDownloadURL(storageRef);
                 } catch (uploadErr) {
-                  console.error('Storage upload failed, falling back to base64', uploadErr);
+                  handleFirestoreError(uploadErr, OperationType.WRITE, `logos/${user.uid}`, false);
                   const base64Promise = new Promise<string>((resolve) => {
                     const reader = new FileReader();
                     reader.onloadend = () => resolve(reader.result as string);
@@ -488,7 +488,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
             }
           }
         } catch (error) {
-          console.error("Error checking pre-created user:", error);
+          handleFirestoreError(error, OperationType.GET, `users/${user.email}`, false);
           assignedRole = isLogin ? 'customer' : role;
         }
       } else {

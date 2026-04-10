@@ -5,11 +5,12 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../../core/firebase';
 import { SiteSettings } from '../../../core/types';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { handleAiError, generateLoadingScreenSettings } from '../../../core/services/geminiService';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { 
   Save, Loader2, Zap, Sparkles, Type, 
   Settings2, Palette, Eye, Layout, 
-  MousePointer2, Activity, Upload, X, Image as ImageIcon
+  MousePointer2, Activity, Upload, X, Image as ImageIcon, Bot
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -23,6 +24,8 @@ export const LoadingCustomizer: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
@@ -36,6 +39,28 @@ export const LoadingCustomizer: React.FC = () => {
     });
     return () => unsub();
   }, []);
+
+  const handleGenerateTheme = async () => {
+    if (!aiPrompt.trim()) {
+      toast.error(isRtl ? 'يرجى كتابة وصف للنمط المطلوب' : 'Please enter a description for the desired theme');
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      const newSettings = await generateLoadingScreenSettings(aiPrompt);
+      if (newSettings) {
+        setSettings({ ...settings!, ...newSettings });
+        toast.success(isRtl ? 'تم توليد النمط بنجاح' : 'Theme generated successfully');
+      } else {
+        toast.error(isRtl ? 'فشل توليد النمط' : 'Failed to generate theme');
+      }
+    } catch (error) {
+      handleAiError(error, 'Loading screen theme generation');
+      toast.error(isRtl ? 'حدث خطأ أثناء التوليد' : 'Error generating theme');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -55,7 +80,7 @@ export const LoadingCustomizer: React.FC = () => {
       setSettings({ ...settings, loaderLogoUrl: url });
       toast.success(isRtl ? 'تم رفع شعار شاشة التحميل بنجاح' : 'Loader logo uploaded successfully');
     } catch (error) {
-      console.error('Error uploading loader logo:', error);
+      handleFirestoreError(error, OperationType.WRITE, 'storage/loader-logo', false);
       toast.error(isRtl ? 'فشل رفع الشعار' : 'Failed to upload logo');
     } finally {
       setIsUploadingLogo(false);
@@ -114,6 +139,31 @@ export const LoadingCustomizer: React.FC = () => {
           >
             {saving ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
             {isRtl ? 'حفظ الإعدادات' : 'Save Settings'}
+          </HapticButton>
+        </div>
+      </div>
+
+      {/* AI Generation Section */}
+      <div className="bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border shadow-sm space-y-4">
+        <h3 className="font-black text-brand-text-main flex items-center gap-2">
+          <Bot className="text-brand-primary" size={20} />
+          {isRtl ? 'توليد النمط بالذكاء الاصطناعي' : 'AI Theme Generator'}
+        </h3>
+        <div className="flex gap-4">
+          <input
+            type="text"
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            placeholder={isRtl ? 'صف النمط الذي تريده (مثلاً: عصري، هادئ، تقني...)' : 'Describe the theme you want (e.g., modern, calm, tech...)'}
+            className="flex-1 bg-brand-background border border-brand-border rounded-2xl p-4 text-sm font-medium outline-none focus:ring-2 focus:ring-brand-primary/20"
+          />
+          <HapticButton
+            onClick={handleGenerateTheme}
+            disabled={isGenerating}
+            className="flex items-center gap-2 bg-brand-primary text-white px-8 py-3 rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all disabled:opacity-50"
+          >
+            {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
+            {isRtl ? 'توليد' : 'Generate'}
           </HapticButton>
         </div>
       </div>

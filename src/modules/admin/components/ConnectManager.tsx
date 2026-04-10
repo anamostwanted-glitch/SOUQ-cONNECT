@@ -26,6 +26,7 @@ import { HapticButton } from '../../../shared/components/HapticButton';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { handleAiError } from '../../../core/services/geminiService';
 
 import { analyzeWithdrawalFraud } from '../../../core/services/geminiService';
 
@@ -76,12 +77,11 @@ export const ConnectManager: React.FC = () => {
         setWithdrawals(snap.docs.map(d => ({ id: d.id, ...d.data() } as WithdrawalRequest)));
         setLoading(false);
       }, (error) => {
-        console.error('Withdrawals listener error:', error);
         handleFirestoreError(error, OperationType.LIST, 'withdrawal_requests', false);
         setLoading(false);
       });
     } catch (err) {
-      console.error('Failed to setup withdrawals listener:', err);
+      handleFirestoreError(err, OperationType.LIST, 'withdrawal_requests/setup', false);
       setLoading(false);
     }
 
@@ -104,7 +104,7 @@ export const ConnectManager: React.FC = () => {
           viralGrowthRate: usersSnap.size > 0 ? (usersSnap.size * 1.5).toFixed(1) as any : 0
         });
       } catch (err) {
-        console.error('Stats error:', err);
+        handleFirestoreError(err, OperationType.LIST, 'users/stats', false);
       }
     };
     fetchStats();
@@ -148,7 +148,7 @@ export const ConnectManager: React.FC = () => {
       
       toast.success(isRtl ? 'اكتمل تحليل الاحتيال' : 'Fraud analysis completed');
     } catch (error) {
-      console.error('Fraud analysis error:', error);
+      handleAiError(error, 'Fraud analysis');
       toast.error(isRtl ? 'فشل التحليل' : 'Analysis failed');
     } finally {
       setAnalyzingId(null);
@@ -235,10 +235,10 @@ export const ConnectManager: React.FC = () => {
                   <span className="text-[10px] font-bold text-brand-text-muted uppercase">{isRtl ? 'تشغيل نظام الإحالات' : 'Turn on referral system'}</span>
                 </div>
                 <button
-                  onClick={() => setSettings(s => s ? { ...s, enableNexusRewards: !s.enableNexusRewards } : null)}
-                  className={`w-12 h-6 rounded-full transition-all relative ${settings?.enableNexusRewards ? 'bg-brand-primary' : 'bg-brand-border'}`}
+                  onClick={() => setSettings(s => s ? { ...s, enableConnectRewards: !s.enableConnectRewards } : null)}
+                  className={`w-12 h-6 rounded-full transition-all relative ${settings?.enableConnectRewards ? 'bg-brand-primary' : 'bg-brand-border'}`}
                 >
-                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings?.enableNexusRewards ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings?.enableConnectRewards ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
                 </button>
               </div>
 

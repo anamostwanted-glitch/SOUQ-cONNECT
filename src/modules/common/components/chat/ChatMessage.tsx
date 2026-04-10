@@ -2,6 +2,9 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User as UserIcon, CheckCircle, Sparkles as SparklesIcon, FileText, Printer, MapPin, ZoomIn, CheckCheck, Check, Reply, Play, Pause, SmilePlus, MoreVertical, Copy, Forward, Pin, Trash2, Clock, BrainCircuit, ShieldCheck, Sparkles, Info, Languages, MessageSquare, Quote } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { handleFirestoreError, OperationType } from '../../../../core/utils/errorHandling';
+import { handleAiError } from '../../../../core/services/geminiService';
 import { Message, UserProfile } from '../../../../core/types';
 import { extractUrls, renderTextWithLinks } from '../../../../core/utils/linkParser';
 import { LinkPreview } from './LinkPreview';
@@ -34,7 +37,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = React.memo(({ url, isOwn,
     if (playing) {
       audioRef.current?.pause();
     } else {
-      audioRef.current?.play().catch(e => console.error("Error playing audio:", e));
+      audioRef.current?.play().catch(e => {
+        // Silent fail for audio play as it's often blocked by browser
+      });
     }
     setPlaying(!playing);
   };
@@ -329,7 +334,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
                 )}
                 {!isOwn && (
                   <button 
-                    onClick={() => handleTranslate(msg.id, msg.text!).catch(err => console.error("Translate text error:", err))}
+                    onClick={() => handleTranslate(msg.id, msg.text!).catch(err => handleAiError(err, 'Text translation'))}
                     disabled={isTranslating[msg.id]}
                     className={`text-[10px] font-bold uppercase tracking-widest mt-1 py-2 px-3 -mx-2 rounded-lg flex items-center gap-1 hover:opacity-70 transition-opacity ${
                       isOwn ? 'text-white/60' : 'text-brand-primary'
@@ -350,7 +355,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
               <AudioPlayer 
                 url={msg.audioUrl} 
                 isOwn={isOwn} 
-                onTranslate={msg.audioUrl ? () => handleTranslateAudio(msg.id, msg.audioUrl!).catch(err => console.error("Translate audio error:", err)) : undefined}
+                onTranslate={msg.audioUrl ? () => handleTranslateAudio(msg.id, msg.audioUrl!).catch(err => handleAiError(err, 'Audio translation')) : undefined}
                 translation={translatedMessages[msg.id]}
                 isTranslating={isTranslating[msg.id]}
               />
@@ -517,7 +522,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
                   {EMOJI_REACTIONS.map(emoji => (
                     <button
                       key={emoji}
-                      onClick={() => handleReaction?.(msg.id, emoji).catch(err => console.error("Reaction error:", err))}
+                      onClick={() => handleReaction?.(msg.id, emoji).catch(err => handleFirestoreError(err, OperationType.UPDATE, `messages/${msg.id}/reactions`, false))}
                       className={`text-xl hover:scale-125 transition-transform ${msg.reactions?.[emoji]?.includes(profile?.uid || '') ? 'bg-brand-primary/10 rounded-full' : ''}`}
                     >
                       {emoji}
@@ -557,7 +562,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
                 >
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(msg.text || '').catch(err => console.error("Clipboard error:", err));
+                      navigator.clipboard.writeText(msg.text || '').then(() => {
+                        toast.success(i18n.language === 'ar' ? 'تم النسخ' : 'Copied to clipboard');
+                      }).catch(err => {
+                        toast.error(i18n.language === 'ar' ? 'فشل النسخ' : 'Failed to copy');
+                      });
                       setActiveMessageMenuId?.(null);
                     }}
                     className="px-4 py-2 text-sm text-left hover:bg-brand-surface text-brand-text-main flex items-center gap-2 transition-colors"
@@ -577,7 +586,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
                     {i18n.language === 'ar' ? 'إعادة توجيه' : 'Forward'}
                   </button>
                   <button
-                    onClick={() => handlePinMessage?.(msg.id).catch(err => console.error("Pin error:", err))}
+                    onClick={() => handlePinMessage?.(msg.id).catch(err => handleFirestoreError(err, OperationType.UPDATE, `messages/${msg.id}/pin`, false))}
                     className="px-4 py-2 text-sm text-left hover:bg-brand-surface text-brand-text-main flex items-center gap-2 transition-colors"
                   >
                     <Pin size={14} />
@@ -587,7 +596,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
                   </button>
                   <div className="h-px bg-brand-border-light my-1" />
                   <button
-                    onClick={() => handleDeleteMessage?.(msg.id, false).catch(err => console.error("Delete error:", err))}
+                    onClick={() => handleDeleteMessage?.(msg.id, false).catch(err => handleFirestoreError(err, OperationType.DELETE, `messages/${msg.id}`, false))}
                     className="px-4 py-2 text-sm text-left hover:bg-brand-error/10 text-brand-error flex items-center gap-2 transition-colors"
                   >
                     <Trash2 size={14} />
@@ -595,7 +604,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
                   </button>
                   {isOwn && (
                     <button
-                      onClick={() => handleDeleteMessage?.(msg.id, true).catch(err => console.error("Delete for everyone error:", err))}
+                      onClick={() => handleDeleteMessage?.(msg.id, true).catch(err => handleFirestoreError(err, OperationType.DELETE, `messages/${msg.id}/everyone`, false))}
                       className="px-4 py-2 text-sm text-left hover:bg-brand-error/10 text-brand-error flex items-center gap-2 transition-colors"
                     >
                       <Trash2 size={14} />
@@ -614,7 +623,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
             {Object.entries(msg.reactions).map(([emoji, users]) => (
               <button
                 key={emoji}
-                onClick={() => handleReaction?.(msg.id, emoji).catch(err => console.error("Reaction error:", err))}
+                onClick={() => handleReaction?.(msg.id, emoji).catch(err => handleFirestoreError(err, OperationType.UPDATE, `messages/${msg.id}/reactions`, false))}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
                   users.includes(profile?.uid || '') 
                     ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary' 

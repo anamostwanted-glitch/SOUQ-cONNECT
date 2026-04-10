@@ -5,6 +5,7 @@ import { db } from '../../core/firebase';
 import { SiteSettings } from '../../core/types';
 import { Building2, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { handleFirestoreError, OperationType } from '../../core/utils/errorHandling';
 
 interface PageLoaderProps {
   previewSettings?: SiteSettings | null;
@@ -27,7 +28,7 @@ export const PageLoader: React.FC<PageLoaderProps> = ({ previewSettings, isInlin
         setSettings(snap.data() as SiteSettings);
       }
     }, (error) => {
-      console.error('Error fetching site settings in PageLoader:', error);
+      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
     });
 
     return () => unsub();

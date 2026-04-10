@@ -87,7 +87,7 @@ export const NeuralEconomyHub: React.FC<NeuralEconomyHubProps> = ({
             </div>
             <div>
               <h2 className="text-2xl font-black text-brand-text-main flex items-center gap-2">
-                {isRtl ? 'اقتصاد نكسوس العصبي' : 'Nexus Neural Economy'}
+                {isRtl ? 'اقتصاد كونكت العصبي' : 'Connect Neural Economy'}
                 <Sparkles size={18} className="text-brand-primary animate-pulse" />
               </h2>
               <p className="text-brand-text-muted text-sm font-medium">
@@ -170,7 +170,7 @@ export const NeuralEconomyHub: React.FC<NeuralEconomyHubProps> = ({
                   <div className="p-8 rounded-[2.5rem] bg-brand-surface border border-brand-border flex flex-col justify-center">
                     <h3 className="text-lg font-black text-brand-text-main mb-4 flex items-center gap-2">
                       <Gift size={20} className="text-brand-primary" />
-                      {isRtl ? 'مكافآت نكسوس' : 'Nexus Rewards'}
+                      {isRtl ? 'مكافآت كونكت' : 'Connect Rewards'}
                     </h3>
                     <div className="space-y-4">
                       <div className="flex items-center justify-between p-4 rounded-2xl bg-brand-background border border-brand-border">
@@ -309,7 +309,7 @@ export const NeuralEconomyHub: React.FC<NeuralEconomyHubProps> = ({
         <div className="p-8 pt-4 border-t border-brand-border bg-brand-surface/50 flex items-center justify-between">
           <div className="flex items-center gap-2 text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">
             <ShieldCheck size={14} className="text-emerald-500" />
-            {isRtl ? 'جميع المعاملات مؤمنة بتشفير نكسوس' : 'All transactions secured by Nexus Encryption'}
+            {isRtl ? 'جميع المعاملات مؤمنة بتشفير كونكت' : 'All transactions secured by Connect Encryption'}
           </div>
           <div className="flex items-center gap-4">
             <button className="text-[10px] font-black text-brand-text-muted hover:text-brand-primary transition-colors uppercase tracking-widest">

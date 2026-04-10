@@ -261,6 +261,38 @@
         "fraudRecommendations": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["userId", "points", "amount", "status", "createdAt"]
+    },
+    "Campaign": {
+      "title": "Campaign",
+      "description": "Marketing campaigns for platform growth",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "active", "paused", "completed"] },
+        "platform": { "type": "string", "enum": ["meta", "google"] },
+        "budget": { "type": "number" },
+        "spent": { "type": "number" },
+        "conversions": { "type": "integer" },
+        "clicks": { "type": "integer" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "status", "platform", "budget", "createdAt"]
+    },
+    "CampaignAd": {
+      "title": "CampaignAd",
+      "description": "Individual ads within a campaign",
+      "type": "object",
+      "properties": {
+        "campaignId": { "type": "string" },
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "active", "paused"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["campaignId", "title", "text", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -279,6 +311,8 @@
     "/market_trends/{trendId}": { "schema": "MarketTrend", "description": "AI analyzed market trends" },
     "/marketplace/{itemId}": { "schema": "MarketplaceItem", "description": "Marketplace listings" },
     "/usage_logs/{logId}": { "schema": "UsageLog", "description": "AI usage and cost logs" },
-    "/withdrawal_requests/{requestId}": { "schema": "WithdrawalRequest", "description": "User withdrawal requests" }
+    "/withdrawal_requests/{requestId}": { "schema": "WithdrawalRequest", "description": "User withdrawal requests" },
+    "/campaigns/{campaignId}": { "schema": "Campaign", "description": "Marketing campaigns" },
+    "/campaigns/{campaignId}/ads/{adId}": { "schema": "CampaignAd", "description": "Campaign ads" }
   }
 }
