@@ -21,6 +21,12 @@ export function usePredictiveNavigation(
         console.log('Predictive Engine: Analyzing user behavior...');
         const behavior = await analyzeUserBehavior(profile, recentSearches, recentRequests);
         
+        if (!behavior) {
+          console.warn('Predictive Engine: analyzeUserBehavior returned null/undefined, using fallback.');
+          setIsMomentOfNeed(false);
+          return;
+        }
+
         setIsMomentOfNeed(behavior.isMomentOfNeed);
 
         if (behavior.isMomentOfNeed) {

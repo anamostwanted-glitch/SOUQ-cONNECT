@@ -131,8 +131,9 @@ export const callAiJson = async (contents: any, schema: any, model: string = "ge
         return JSON.parse(text);
       });
     } catch (e: any) {
-      if (e.isMissingKey) {
-        console.log('DEBUG: Local keys exhausted during callAiJson, falling back to proxy');
+      console.error(`DEBUG: callAiJson - Error: ${e.message}`);
+      if (e.isMissingKey || e.isInvalidKey || e.message?.includes('API key not valid')) {
+        console.log('DEBUG: Local keys exhausted or invalid during callAiJson, falling back to proxy');
         return await proxyCall();
       }
       throw e;
@@ -183,8 +184,9 @@ export const callAiText = async (contents: any, model: string = "gemini-3-flash-
         return response.text || '';
       });
     } catch (e: any) {
-      if (e.isMissingKey) {
-        console.log('DEBUG: Local keys exhausted during callAiText, falling back to proxy');
+      console.error(`DEBUG: callAiText - Error: ${e.message}`);
+      if (e.isMissingKey || e.isInvalidKey || e.message?.includes('API key not valid')) {
+        console.log('DEBUG: Local keys exhausted or invalid during callAiText, falling back to proxy');
         return await proxyCall();
       }
       throw e;
@@ -256,6 +258,8 @@ const getApiKey = async () => {
     if (!expiry || now >= expiry) {
       console.log('DEBUG: Using key from env');
       return envKey;
+    } else {
+      console.log('DEBUG: Env key is exhausted');
     }
   }
   
@@ -270,6 +274,7 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
     try {
       const apiKey = await getApiKey();
       if (!apiKey) {
+        console.error('DEBUG: retryWithBackoff - No API key available');
         const error = new Error('No API key available');
         (error as any).isMissingKey = true;
         throw error;
@@ -277,6 +282,7 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
       lastUsedKey = apiKey;
       return await fn(apiKey);
     } catch (error: any) {
+      console.error(`DEBUG: retryWithBackoff - Error: ${error.message}`);
       if (error.isMissingKey) {
         throw error;
       }

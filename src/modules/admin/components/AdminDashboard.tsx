@@ -453,7 +453,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'marketing', label: isRtl ? 'التسويق' : 'Marketing', icon: Megaphone },
     { id: 'broadcast', label: isRtl ? 'إشعار جماعي' : 'Broadcast', icon: Send },
     { id: 'categories', label: isRtl ? 'الأقسام' : 'Categories', icon: ListTree },
-    { id: 'loader', label: isRtl ? 'شاشة التحميل' : 'Loading Screen', icon: Loader2, isNew: true },
+    ...(profile.role === 'admin' ? [{ id: 'loader', label: isRtl ? 'شاشة التحميل' : 'Loading Screen', icon: Loader2, isNew: true }] : []),
     { id: 'site', label: isRtl ? 'إعدادات الواجهة' : 'Interface Settings', icon: Zap },
     { id: 'ai', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu },
     { id: 'cost', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
@@ -839,7 +839,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'loader' && (
+          {activeTab === 'loader' && profile.role === 'admin' && (
             <motion.div
               key="loader"
               initial={{ opacity: 0, y: 20 }}
@@ -848,6 +848,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             >
               <LoadingCustomizer />
             </motion.div>
+          )}
+          
+          {activeTab === 'loader' && profile.role !== 'admin' && (
+            <div className="p-8 text-center text-brand-text-muted font-bold">
+              {isRtl ? 'عذراً، ليس لديك صلاحية للوصول إلى هذه الإعدادات.' : 'Sorry, you do not have permission to access these settings.'}
+            </div>
           )}
 
           {activeTab === 'site' && (

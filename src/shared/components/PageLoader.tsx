@@ -120,12 +120,23 @@ export const PageLoader: React.FC<PageLoaderProps> = ({ previewSettings, isInlin
           {settings?.enableNeuralPulse !== false && (
             <motion.div
               animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.2, 0.4, 0.2],
+                scale: [1, settings?.logoAuraSpread || 1.2, 1],
+                opacity: [
+                  (settings?.logoAuraOpacity || 0.4) * 0.5,
+                  settings?.logoAuraOpacity || 0.4,
+                  (settings?.logoAuraOpacity || 0.4) * 0.5
+                ],
               }}
-              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute inset-0 -z-10 rounded-full blur-3xl"
-              style={{ backgroundColor: settings?.logoAuraColor || '#1b97a7' }}
+              transition={{
+                duration: settings?.animationSpeed === 'slow' ? 6 : settings?.animationSpeed === 'fast' ? 1.5 : 3,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="absolute inset-0 -z-10 rounded-full"
+              style={{
+                backgroundColor: settings?.logoAuraColor || '#1b97a7',
+                filter: `blur(${settings?.logoAuraBlur || 40}px)`,
+              }}
             />
           )}
         </motion.div>
