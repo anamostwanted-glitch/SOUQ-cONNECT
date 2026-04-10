@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { UserProfile, ProductRequest } from '../../core/types';
 import { fetchMarketplaceItems, fetchCategories, fetchSuppliers } from '../../modules/marketplace/services/marketService';
-import { analyzeUserBehavior } from '../../core/services/geminiService';
+import { analyzeUserBehavior, checkAiStatus } from '../../core/services/geminiService';
 import { handleAiError } from '../../core/utils/errorHandling';
 
 export function usePredictiveNavigation(
@@ -18,6 +18,14 @@ export function usePredictiveNavigation(
     const analyzeAndPrefetch = async () => {
       isPrefetching.current = true;
       try {
+        // Check if AI is even available before trying
+        const status = await checkAiStatus();
+        if (!status.available) {
+          console.warn('Predictive Engine: AI is currently unavailable.', status.reason);
+          setIsMomentOfNeed(false);
+          return;
+        }
+
         console.log('Predictive Engine: Analyzing user behavior...');
         const behavior = await analyzeUserBehavior(profile, recentSearches, recentRequests);
         

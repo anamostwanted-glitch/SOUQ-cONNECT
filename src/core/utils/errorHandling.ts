@@ -72,6 +72,13 @@ export function handleAiError(error: unknown, context: string, shouldThrow: bool
       email: auth.currentUser?.email || 'none'
     }
   };
+
+  const isInvalidKey = errorMessage.includes('API key not valid') || errorMessage.includes('INVALID_API_KEY') || errorMessage.includes('MISSING_API_KEY');
+  
+  if (isInvalidKey) {
+    console.error('CRITICAL: AI API Key is invalid or missing. Please check your AI Studio Secrets (Settings -> Secrets) and ensure GEMINI_API_KEY is set correctly.');
+  }
+
   console.error('AI Error:', JSON.stringify(errInfo, null, 2));
   if (shouldThrow) {
     throw new Error(JSON.stringify(errInfo));

@@ -2,13 +2,15 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getAnalytics } from 'firebase/analytics';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { handleFirestoreError, OperationType } from './utils/errorHandling';
 
 console.log('Firebase Config:', firebaseConfig);
 
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const analytics = getAnalytics(app);
 
 // Use the named database if provided, otherwise default to '(default)'
 const databaseId = firebaseConfig.firestoreDatabaseId || '(default)';

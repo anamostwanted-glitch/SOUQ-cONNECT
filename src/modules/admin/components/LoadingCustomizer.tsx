@@ -113,6 +113,33 @@ export const LoadingCustomizer: React.FC = () => {
 
   if (!settings) return null;
 
+  // Ensure default values for aura settings if they are missing
+  const auraSettings = {
+    enableNeuralPulse: settings.enableNeuralPulse ?? true,
+    enableOrbitalRings: settings.enableOrbitalRings ?? false,
+    enableShimmerEffect: settings.enableShimmerEffect ?? false,
+    logoAuraStyle: settings.logoAuraStyle || 'solid',
+    animationSpeed: settings.animationSpeed || 'normal',
+    logoAuraColor: settings.logoAuraColor || '#1b97a7',
+    logoAuraOpacity: settings.logoAuraOpacity ?? 0.4,
+    logoAuraSpread: settings.logoAuraSpread ?? 1.2,
+    logoAuraBlur: settings.logoAuraBlur ?? 40,
+    loaderBackgroundStyle: settings.loaderBackgroundStyle || 'solid',
+    loaderLogoShape: settings.loaderLogoShape || 'square',
+    loaderLogoAnimation: settings.loaderLogoAnimation || 'float',
+    loaderBackgroundColor: settings.loaderBackgroundColor || '#0f172a',
+    loaderProgressBarColor: settings.loaderProgressBarColor || '#1b97a7',
+    loaderCenterText: settings.loaderCenterText || '',
+    loaderStatusTextAr: settings.loaderStatusTextAr || '',
+    loaderStatusTextEn: settings.loaderStatusTextEn || '',
+    loaderFooterTextAr: settings.loaderFooterTextAr || '',
+    loaderFooterTextEn: settings.loaderFooterTextEn || '',
+  };
+
+  const updateSettings = (newSettings: Partial<SiteSettings>) => {
+    setSettings({ ...settings, ...newSettings });
+  };
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border shadow-sm">
@@ -186,10 +213,10 @@ export const LoadingCustomizer: React.FC = () => {
                     <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-tighter">{isRtl ? 'هالة مضيئة خلف الشعار' : 'Glowing aura behind logo'}</span>
                   </div>
                   <button
-                    onClick={() => setSettings({ ...settings, enableNeuralPulse: !settings.enableNeuralPulse })}
-                    className={`w-12 h-6 rounded-full transition-all relative ${settings.enableNeuralPulse ? 'bg-brand-primary' : 'bg-brand-border'}`}
+                    onClick={() => updateSettings({ enableNeuralPulse: !auraSettings.enableNeuralPulse })}
+                    className={`w-12 h-6 rounded-full transition-all relative ${auraSettings.enableNeuralPulse ? 'bg-brand-primary' : 'bg-brand-border'}`}
                   >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings.enableNeuralPulse ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${auraSettings.enableNeuralPulse ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
                   </button>
                 </div>
 
@@ -199,10 +226,10 @@ export const LoadingCustomizer: React.FC = () => {
                     <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-tighter">{isRtl ? 'حلقات دائرية متحركة' : 'Rotating circular rings'}</span>
                   </div>
                   <button
-                    onClick={() => setSettings({ ...settings, enableOrbitalRings: !settings.enableOrbitalRings })}
-                    className={`w-12 h-6 rounded-full transition-all relative ${settings.enableOrbitalRings ? 'bg-brand-primary' : 'bg-brand-border'}`}
+                    onClick={() => updateSettings({ enableOrbitalRings: !auraSettings.enableOrbitalRings })}
+                    className={`w-12 h-6 rounded-full transition-all relative ${auraSettings.enableOrbitalRings ? 'bg-brand-primary' : 'bg-brand-border'}`}
                   >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings.enableOrbitalRings ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${auraSettings.enableOrbitalRings ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
                   </button>
                 </div>
 
@@ -212,10 +239,10 @@ export const LoadingCustomizer: React.FC = () => {
                     <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-tighter">{isRtl ? 'لمعان متحرك فوق النص' : 'Moving light over text'}</span>
                   </div>
                   <button
-                    onClick={() => setSettings({ ...settings, enableShimmerEffect: !settings.enableShimmerEffect })}
-                    className={`w-12 h-6 rounded-full transition-all relative ${settings.enableShimmerEffect ? 'bg-brand-primary' : 'bg-brand-border'}`}
+                    onClick={() => updateSettings({ enableShimmerEffect: !auraSettings.enableShimmerEffect })}
+                    className={`w-12 h-6 rounded-full transition-all relative ${auraSettings.enableShimmerEffect ? 'bg-brand-primary' : 'bg-brand-border'}`}
                   >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings.enableShimmerEffect ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${auraSettings.enableShimmerEffect ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
                   </button>
                 </div>
               </div>
@@ -230,9 +257,9 @@ export const LoadingCustomizer: React.FC = () => {
                     {(['solid', 'gradient', 'pulse', 'mesh'] as const).map((style) => (
                       <button
                         key={style}
-                        onClick={() => setSettings({ ...settings, logoAuraStyle: style })}
+                        onClick={() => updateSettings({ logoAuraStyle: style })}
                         className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          settings.logoAuraStyle === style 
+                          auraSettings.logoAuraStyle === style 
                             ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20' 
                             : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/30'
                         }`}
@@ -251,9 +278,9 @@ export const LoadingCustomizer: React.FC = () => {
                     {(['slow', 'normal', 'fast'] as const).map((speed) => (
                       <button
                         key={speed}
-                        onClick={() => setSettings({ ...settings, animationSpeed: speed })}
+                        onClick={() => updateSettings({ animationSpeed: speed })}
                         className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          settings.animationSpeed === speed 
+                          auraSettings.animationSpeed === speed 
                             ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20' 
                             : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/30'
                         }`}
@@ -273,24 +300,24 @@ export const LoadingCustomizer: React.FC = () => {
                   <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
                     {isRtl ? 'لون الهالة' : 'Aura Color'}
                   </label>
-                  <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{settings.logoAuraColor}</span>
+                  <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{auraSettings.logoAuraColor}</span>
                 </div>
                 <div className="flex gap-3">
                   <div 
                     className="w-12 h-12 rounded-2xl shadow-inner border-2 border-white relative overflow-hidden ring-1 ring-brand-border"
-                    style={{ backgroundColor: settings.logoAuraColor }}
+                    style={{ backgroundColor: auraSettings.logoAuraColor }}
                   >
                     <input 
                       type="color" 
-                      value={settings.logoAuraColor}
-                      onChange={(e) => setSettings({ ...settings, logoAuraColor: e.target.value })}
+                      value={auraSettings.logoAuraColor}
+                      onChange={(e) => updateSettings({ logoAuraColor: e.target.value })}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                     />
                   </div>
                   <input 
                     type="text" 
-                    value={settings.logoAuraColor}
-                    onChange={(e) => setSettings({ ...settings, logoAuraColor: e.target.value })}
+                    value={auraSettings.logoAuraColor}
+                    onChange={(e) => updateSettings({ logoAuraColor: e.target.value })}
                     className="flex-1 px-4 py-3 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-mono text-sm"
                   />
                 </div>
@@ -301,12 +328,12 @@ export const LoadingCustomizer: React.FC = () => {
                   <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
                     {isRtl ? 'شفافية الهالة' : 'Aura Opacity'}
                   </label>
-                  <span className="text-[10px] font-black text-brand-primary">{Math.round((settings.logoAuraOpacity || 0.4) * 100)}%</span>
+                  <span className="text-[10px] font-black text-brand-primary">{Math.round((auraSettings.logoAuraOpacity) * 100)}%</span>
                 </div>
                 <input 
                   type="range" min="0" max="1" step="0.05"
-                  value={settings.logoAuraOpacity || 0.4}
-                  onChange={e => setSettings({ ...settings, logoAuraOpacity: parseFloat(e.target.value) })}
+                  value={auraSettings.logoAuraOpacity}
+                  onChange={e => updateSettings({ logoAuraOpacity: parseFloat(e.target.value) })}
                   className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
                 />
               </div>
@@ -316,12 +343,12 @@ export const LoadingCustomizer: React.FC = () => {
                   <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
                     {isRtl ? 'مدى الانتشار' : 'Aura Spread'}
                   </label>
-                  <span className="text-[10px] font-black text-brand-primary">{settings.logoAuraSpread}x</span>
+                  <span className="text-[10px] font-black text-brand-primary">{auraSettings.logoAuraSpread}x</span>
                 </div>
                 <input 
                   type="range" min="1" max="3" step="0.1"
-                  value={settings.logoAuraSpread || 1.2}
-                  onChange={e => setSettings({ ...settings, logoAuraSpread: parseFloat(e.target.value) })}
+                  value={auraSettings.logoAuraSpread}
+                  onChange={e => updateSettings({ logoAuraSpread: parseFloat(e.target.value) })}
                   className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
                 />
               </div>
@@ -331,12 +358,12 @@ export const LoadingCustomizer: React.FC = () => {
                   <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
                     {isRtl ? 'درجة التمويه' : 'Aura Blur'}
                   </label>
-                  <span className="text-[10px] font-black text-brand-primary">{settings.logoAuraBlur}px</span>
+                  <span className="text-[10px] font-black text-brand-primary">{auraSettings.logoAuraBlur}px</span>
                 </div>
                 <input 
                   type="range" min="0" max="150" step="5"
-                  value={settings.logoAuraBlur || 20}
-                  onChange={e => setSettings({ ...settings, logoAuraBlur: parseInt(e.target.value) })}
+                  value={auraSettings.logoAuraBlur}
+                  onChange={e => updateSettings({ logoAuraBlur: parseInt(e.target.value) })}
                   className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
                 />
               </div>
@@ -353,9 +380,9 @@ export const LoadingCustomizer: React.FC = () => {
                     {(['solid', 'gradient', 'mesh', 'animated'] as const).map((style) => (
                       <button
                         key={style}
-                        onClick={() => setSettings({ ...settings, loaderBackgroundStyle: style })}
+                        onClick={() => updateSettings({ loaderBackgroundStyle: style })}
                         className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          settings.loaderBackgroundStyle === style 
+                          auraSettings.loaderBackgroundStyle === style 
                             ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20' 
                             : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/30'
                         }`}
@@ -374,9 +401,9 @@ export const LoadingCustomizer: React.FC = () => {
                     {(['square', 'circle', 'squircle'] as const).map((shape) => (
                       <button
                         key={shape}
-                        onClick={() => setSettings({ ...settings, loaderLogoShape: shape })}
+                        onClick={() => updateSettings({ loaderLogoShape: shape })}
                         className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          settings.loaderLogoShape === shape 
+                          auraSettings.loaderLogoShape === shape 
                             ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20' 
                             : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/30'
                         }`}
@@ -397,9 +424,9 @@ export const LoadingCustomizer: React.FC = () => {
                     {(['none', 'bounce', 'rotate', 'scale', 'float'] as const).map((anim) => (
                       <button
                         key={anim}
-                        onClick={() => setSettings({ ...settings, loaderLogoAnimation: anim })}
+                        onClick={() => updateSettings({ loaderLogoAnimation: anim })}
                         className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          settings.loaderLogoAnimation === anim 
+                          auraSettings.loaderLogoAnimation === anim 
                             ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20' 
                             : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/30'
                         }`}
@@ -415,24 +442,24 @@ export const LoadingCustomizer: React.FC = () => {
                     <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
                       {isRtl ? 'لون الخلفية' : 'Background Color'}
                     </label>
-                    <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{settings.loaderBackgroundColor || '#0f172a'}</span>
+                    <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{auraSettings.loaderBackgroundColor}</span>
                   </div>
                   <div className="flex gap-3">
                     <div 
                       className="w-10 h-10 rounded-xl shadow-inner border-2 border-white relative overflow-hidden ring-1 ring-brand-border"
-                      style={{ backgroundColor: settings.loaderBackgroundColor || '#0f172a' }}
+                      style={{ backgroundColor: auraSettings.loaderBackgroundColor }}
                     >
                       <input 
                         type="color" 
-                        value={settings.loaderBackgroundColor || '#0f172a'}
-                        onChange={(e) => setSettings({ ...settings, loaderBackgroundColor: e.target.value })}
+                        value={auraSettings.loaderBackgroundColor}
+                        onChange={(e) => updateSettings({ loaderBackgroundColor: e.target.value })}
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                       />
                     </div>
                     <input 
                       type="text" 
-                      value={settings.loaderBackgroundColor || '#0f172a'}
-                      onChange={(e) => setSettings({ ...settings, loaderBackgroundColor: e.target.value })}
+                      value={auraSettings.loaderBackgroundColor}
+                      onChange={(e) => updateSettings({ loaderBackgroundColor: e.target.value })}
                       className="flex-1 px-4 py-2 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-mono text-xs"
                     />
                   </div>
@@ -443,24 +470,24 @@ export const LoadingCustomizer: React.FC = () => {
                     <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
                       {isRtl ? 'لون شريط التقدم' : 'Progress Bar Color'}
                     </label>
-                    <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{settings.loaderProgressBarColor || settings.logoAuraColor}</span>
+                    <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{auraSettings.loaderProgressBarColor}</span>
                   </div>
                   <div className="flex gap-3">
                     <div 
                       className="w-10 h-10 rounded-xl shadow-inner border-2 border-white relative overflow-hidden ring-1 ring-brand-border"
-                      style={{ backgroundColor: settings.loaderProgressBarColor || settings.logoAuraColor }}
+                      style={{ backgroundColor: auraSettings.loaderProgressBarColor }}
                     >
                       <input 
                         type="color" 
-                        value={settings.loaderProgressBarColor || settings.logoAuraColor}
-                        onChange={(e) => setSettings({ ...settings, loaderProgressBarColor: e.target.value })}
+                        value={auraSettings.loaderProgressBarColor}
+                        onChange={(e) => updateSettings({ loaderProgressBarColor: e.target.value })}
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                       />
                     </div>
                     <input 
                       type="text" 
-                      value={settings.loaderProgressBarColor || settings.logoAuraColor}
-                      onChange={(e) => setSettings({ ...settings, loaderProgressBarColor: e.target.value })}
+                      value={auraSettings.loaderProgressBarColor}
+                      onChange={(e) => updateSettings({ loaderProgressBarColor: e.target.value })}
                       className="flex-1 px-4 py-2 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-mono text-xs"
                     />
                   </div>
@@ -495,7 +522,7 @@ export const LoadingCustomizer: React.FC = () => {
                           referrerPolicy="no-referrer"
                         />
                         <button
-                          onClick={() => setSettings({ ...settings, loaderLogoUrl: '' })}
+                          onClick={() => updateSettings({ loaderLogoUrl: '' })}
                           className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                         >
                           <X size={16} />
@@ -533,8 +560,8 @@ export const LoadingCustomizer: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={settings.loaderCenterText}
-                  onChange={(e) => setSettings({ ...settings, loaderCenterText: e.target.value })}
+                  value={auraSettings.loaderCenterText}
+                  onChange={(e) => updateSettings({ loaderCenterText: e.target.value })}
                   className="w-full bg-brand-background border border-brand-border rounded-xl p-3.5 text-brand-text-main font-black text-lg focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
                   placeholder="DFEI"
                 />
@@ -546,8 +573,8 @@ export const LoadingCustomizer: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={settings.loaderStatusTextAr}
-                  onChange={(e) => setSettings({ ...settings, loaderStatusTextAr: e.target.value })}
+                  value={auraSettings.loaderStatusTextAr}
+                  onChange={(e) => updateSettings({ loaderStatusTextAr: e.target.value })}
                   className="w-full bg-brand-background border border-brand-border rounded-xl p-3.5 text-brand-text-main font-bold focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
                   dir="rtl"
                 />
@@ -559,8 +586,8 @@ export const LoadingCustomizer: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={settings.loaderStatusTextEn}
-                  onChange={(e) => setSettings({ ...settings, loaderStatusTextEn: e.target.value })}
+                  value={auraSettings.loaderStatusTextEn}
+                  onChange={(e) => updateSettings({ loaderStatusTextEn: e.target.value })}
                   className="w-full bg-brand-background border border-brand-border rounded-xl p-3.5 text-brand-text-main font-bold focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
                   dir="ltr"
                 />
@@ -572,8 +599,8 @@ export const LoadingCustomizer: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={settings.loaderFooterTextAr}
-                  onChange={(e) => setSettings({ ...settings, loaderFooterTextAr: e.target.value })}
+                  value={auraSettings.loaderFooterTextAr}
+                  onChange={(e) => updateSettings({ loaderFooterTextAr: e.target.value })}
                   className="w-full bg-brand-background border border-brand-border rounded-xl p-3.5 text-brand-text-main font-bold focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
                   dir="rtl"
                 />
@@ -585,8 +612,8 @@ export const LoadingCustomizer: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={settings.loaderFooterTextEn}
-                  onChange={(e) => setSettings({ ...settings, loaderFooterTextEn: e.target.value })}
+                  value={auraSettings.loaderFooterTextEn}
+                  onChange={(e) => updateSettings({ loaderFooterTextEn: e.target.value })}
                   className="w-full bg-brand-background border border-brand-border rounded-xl p-3.5 text-brand-text-main font-bold focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
                   dir="ltr"
                 />

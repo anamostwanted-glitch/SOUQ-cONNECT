@@ -1,38 +1,53 @@
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, startAfter } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
 import { MarketplaceItem, Category, MarketTrend, UserProfile } from '../../../core/types';
 import { callAiJson, handleAiError } from '../../../core/services/geminiService';
 import { Type } from "@google/genai";
 
-export const fetchMarketplaceItems = async (activeTab: 'discover' | 'myshop', userId?: string, categoryId?: string): Promise<MarketplaceItem[]> => {
+export const fetchMarketplaceItems = async (
+  activeTab: 'discover' | 'myshop', 
+  userId?: string, 
+  categoryId?: string,
+  lastDoc?: any, // For pagination
+  pageSize: number = 10
+): Promise<{ items: MarketplaceItem[], lastDoc: any }> => {
   const marketplaceRef = collection(db, 'marketplace');
   let q;
   
+  const constraints: any[] = [
+    orderBy('createdAt', 'desc'),
+    limit(pageSize)
+  ];
+
+  if (lastDoc) {
+    constraints.push(startAfter(lastDoc));
+  }
+
   if (activeTab === 'myshop' && userId) {
     q = query(
       marketplaceRef,
       where('sellerId', '==', userId),
       where('status', '!=', 'deleted'),
-      orderBy('status'),
-      orderBy('createdAt', 'desc')
+      ...constraints
     );
   } else if (categoryId) {
     q = query(
       marketplaceRef,
       where('status', '==', 'active'),
       where('categoryId', '==', categoryId),
-      orderBy('createdAt', 'desc')
+      ...constraints
     );
   } else {
     q = query(
       marketplaceRef,
       where('status', '==', 'active'),
-      orderBy('createdAt', 'desc')
+      ...constraints
     );
   }
   
   const snap = await getDocs(q);
-  return snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) } as MarketplaceItem));
+  const items = snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) } as MarketplaceItem));
+  return { items, lastDoc: snap.docs[snap.docs.length - 1] || null };
 };
 
 export const fetchCategories = async (): Promise<Category[]> => {

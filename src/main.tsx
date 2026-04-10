@@ -7,6 +7,9 @@ import './index.css';
 import './i18n';
 import ErrorBoundary from './core/components/ErrorBoundary';
 import { handleAiError } from './core/utils/errorHandling';
+import { initSentry } from './core/utils/sentry';
+
+initSentry();
 
 // Global error handler for unhandled promises (e.g., async functions outside React render)
 window.addEventListener('unhandledrejection', (event) => {

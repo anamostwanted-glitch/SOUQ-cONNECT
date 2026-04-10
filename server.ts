@@ -84,13 +84,19 @@ async function startServer() {
     }
 
     if (!apiKey) {
-      return res.status(500).json({ error: "MISSING_API_KEY", details: "GEMINI_API_KEY not found in server environment" });
+      console.error("Gemini Proxy: GEMINI_API_KEY is missing in server environment.");
+      return res.status(500).json({ 
+        error: "MISSING_API_KEY", 
+        details: "The server is not configured with a Gemini API key. Please add GEMINI_API_KEY to your environment variables.",
+        isInvalidKey: true 
+      });
     }
 
     try {
       const { GoogleGenAI } = await import("@google/genai");
       const genAI = new GoogleGenAI({ apiKey });
       
+      console.log(`Gemini Proxy: Calling model ${model || "gemini-3-flash-preview"}...`);
       const result = await genAI.models.generateContent({
         model: model || "gemini-3-flash-preview",
         contents,
@@ -99,21 +105,24 @@ async function startServer() {
       
       res.json({ text: result.text });
     } catch (error: any) {
+      const errorString = error.message || "";
+      const isQuotaError = errorString.includes('429') || errorString.includes('quota') || errorString.includes('RESOURCE_EXHAUSTED');
       const isInvalidKey = 
-        error.message?.includes('API key not valid') || 
-        error.message?.includes('API_KEY_INVALID') ||
-        error.message?.includes('INVALID_ARGUMENT') ||
-        error.message?.includes('403') ||
+        errorString.includes('API key not valid') || 
+        errorString.includes('API_KEY_INVALID') ||
+        errorString.includes('INVALID_ARGUMENT') ||
+        errorString.includes('403') ||
         error.status === 'INVALID_ARGUMENT';
       
-      if (isInvalidKey) {
+      if (isQuotaError) {
+        console.warn("Gemini Proxy: Quota exceeded (429).");
+      } else if (isInvalidKey) {
         console.warn("Gemini Proxy: Invalid API Key detected.");
       } else {
         console.error("Gemini Server Error:", error);
       }
       
-      // Try to extract a cleaner error message if it's a JSON string from the API
-      let errorMessage = error.message || "Gemini API error";
+      let errorMessage = errorString || "Gemini API error";
       try {
         if (errorMessage.includes('{')) {
           const jsonStart = errorMessage.indexOf('{');
@@ -123,20 +132,12 @@ async function startServer() {
             errorMessage = parsed.error.message;
           }
         }
-      } catch (e) {
-        // Ignore parsing errors
-      }
+      } catch (e) { /* ignore */ }
 
-      const finalIsInvalidKey = isInvalidKey || 
-        errorMessage.includes('API key not valid') || 
-        errorMessage.includes('API_KEY_INVALID') || 
-        errorMessage.includes('INVALID_ARGUMENT') ||
-        errorMessage.includes('403');
-
-      res.status(500).json({ 
+      res.status(isQuotaError ? 429 : 500).json({ 
         error: errorMessage,
-        rawError: error.message,
-        isInvalidKey: finalIsInvalidKey
+        isInvalidKey: isInvalidKey || errorMessage.includes('API key not valid'),
+        isQuota: isQuotaError
       });
     }
   });

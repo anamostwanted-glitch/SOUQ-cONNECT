@@ -203,7 +203,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     }
   }, [profile, categoryClicks, recentlyViewed]);
 
-  const { data: items = [], isLoading: itemsLoading } = useQuery({
+  const { data: itemsData = { items: [], lastDoc: null }, isLoading: itemsLoading } = useQuery({
     queryKey: ['marketplace', activeTab, auth.currentUser?.uid],
     queryFn: () => fetchMarketplaceItems(activeTab, auth.currentUser?.uid),
     enabled: !!auth.currentUser || activeTab === 'discover',
@@ -211,6 +211,8 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     gcTime: 30 * 60 * 1000, // 30 minutes
     refetchOnWindowFocus: false
   });
+  
+  const items = itemsData.items;
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],

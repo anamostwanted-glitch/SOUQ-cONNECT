@@ -12,6 +12,40 @@ let lastFetch = 0;
 const exhaustedKeys = new Map<string, number>(); // key -> expiry timestamp
 const EXHAUST_COOLDOWN = 60 * 60 * 1000; // 1 hour cooldown for an exhausted key
 
+const markKeyAsExhaustedInFirestore = async (key: string) => {
+  try {
+    const docRef = doc(db, 'settings', 'gemini_config');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const keys = docSnap.data().keys || [];
+      const updatedKeys = keys.map((k: GeminiApiKey) => {
+        if (k.key === key) {
+          return { ...k, status: 'exhausted', exhaustedAt: new Date().toISOString() };
+        }
+        return k;
+      });
+      // We don't want to block the main thread for this
+      // updateDoc(docRef, { keys: updatedKeys }).catch(e => console.error('Failed to update key status:', e));
+    }
+  } catch (e) {
+    console.error('Error marking key as exhausted:', e);
+  }
+};
+
+export const checkAiStatus = async (): Promise<{ available: boolean; reason?: string }> => {
+  const apiKey = await getApiKey();
+  if (apiKey) return { available: true };
+  
+  // If no local key, check if proxy is likely to work
+  const envKey = process.env.GEMINI_API_KEY;
+  if (envKey) return { available: true };
+
+  return { 
+    available: false, 
+    reason: 'No API key configured. Please check Settings -> Secrets in AI Studio.' 
+  };
+};
+
 export const getResponseText = (response: any): string => {
   try {
     return typeof response.text === 'function' ? response.text() : (response.text || '');
@@ -77,6 +111,10 @@ const executeProxyCall = async (payload: any) => {
   return data;
 };
 
+const isFailure = (error: any) => {
+  return !(error.isMissingKey || error.isInvalidKey || error.message?.includes('API key not valid') || error.message?.includes('No API key available'));
+};
+
 export const callAiJson = async (contents: any, schema: any, model: string = "gemini-3-flash-preview") => {
   return AIResilienceManager.execute(async () => {
     const proxyCall = async () => {
@@ -131,14 +169,23 @@ export const callAiJson = async (contents: any, schema: any, model: string = "ge
         return JSON.parse(text);
       });
     } catch (e: any) {
-      console.error(`DEBUG: callAiJson - Error: ${e.message}`);
-      if (e.isMissingKey || e.isInvalidKey || e.message?.includes('API key not valid')) {
+      const isKeyError = e.isMissingKey || e.isInvalidKey || e.message?.includes('API key not valid') || e.message?.includes('No API key available');
+      
+      if (isKeyError) {
         console.log('DEBUG: Local keys exhausted or invalid during callAiJson, falling back to proxy');
-        return await proxyCall();
+        try {
+          return await proxyCall();
+        } catch (proxyError: any) {
+          console.error('DEBUG: Proxy call also failed:', proxyError.message);
+          if (proxyError.message?.includes('API key not valid')) {
+            console.error('CRITICAL: Server-side GEMINI_API_KEY is invalid. Please update it in AI Studio Secrets.');
+          }
+          throw proxyError; // Throw so AIResilienceManager can return the proper fallback
+        }
       }
-      throw e;
+      throw e; // Throw so AIResilienceManager can return the proper fallback
     }
-  }, null, 'callAiJson'); // Fallback null for JSON
+  }, null, 'callAiJson', isFailure); // Fallback null for JSON
 };
 
 export const callAiText = async (contents: any, model: string = "gemini-3-flash-preview") => {
@@ -187,11 +234,19 @@ export const callAiText = async (contents: any, model: string = "gemini-3-flash-
       console.error(`DEBUG: callAiText - Error: ${e.message}`);
       if (e.isMissingKey || e.isInvalidKey || e.message?.includes('API key not valid')) {
         console.log('DEBUG: Local keys exhausted or invalid during callAiText, falling back to proxy');
-        return await proxyCall();
+        try {
+          return await proxyCall();
+        } catch (proxyError: any) {
+          console.error('DEBUG: Proxy call also failed:', proxyError.message);
+          if (proxyError.message?.includes('API key not valid')) {
+            console.error('CRITICAL: Server-side GEMINI_API_KEY is invalid. Please update it in AI Studio Secrets.');
+          }
+          throw proxyError;
+        }
       }
       throw e;
     }
-  }, '', 'callAiText'); // Fallback empty string for text
+  }, '', 'callAiText', isFailure); // Fallback empty string for text
 };
 
 const logUsage = async (feature: string, tokens: number, isCached: boolean = false) => {
@@ -300,6 +355,7 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
       if (isQuotaError && lastUsedKey) {
         console.warn(`Quota exceeded for key ${lastUsedKey.substring(0, 5)}... marking as exhausted.`);
         exhaustedKeys.set(lastUsedKey, Date.now() + EXHAUST_COOLDOWN);
+        markKeyAsExhaustedInFirestore(lastUsedKey);
       }
       
       const isInvalidKeyError = 
@@ -401,7 +457,7 @@ export const analyzeUserBehavior = async (profile: UserProfile, recentSearches: 
     const tokens = (prompt.length + JSON.stringify(result).length) / 4;
     await logUsage('Behavior Analysis', Math.ceil(tokens));
     return result;
-  }, fallback, 'Behavior analysis');
+  }, fallback, 'Behavior analysis', isFailure);
 };
 
 export const analyzeNeuralPulseImage = async (base64Data: string, mimeType: string): Promise<any> => {
@@ -439,7 +495,7 @@ export const analyzeNeuralPulseImage = async (base64Data: string, mimeType: stri
     // Store in Semantic Memory
     neuralCache.set(fingerprint, result);
     return result;
-  }, fallback, 'Neural Pulse Image Analysis');
+  }, fallback, 'Neural Pulse Image Analysis', isFailure);
 };
 
 export const processNeuralPulseVoice = async (transcript: string): Promise<any> => {
@@ -475,7 +531,7 @@ export const processNeuralPulseVoice = async (transcript: string): Promise<any> 
     // Store in Semantic Memory
     neuralCache.set(fingerprint, result);
     return result;
-  }, fallback, 'Neural Pulse Voice Processing');
+  }, fallback, 'Neural Pulse Voice Processing', isFailure);
 };
 
 export const generateNeuralPulseGeoInsight = async (lat: number, lng: number, recentInterests: string[]): Promise<any> => {

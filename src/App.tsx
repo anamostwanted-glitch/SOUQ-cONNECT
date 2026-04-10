@@ -7,23 +7,24 @@ import { auth, db } from './core/firebase';
 import { UserProfile, AppFeatures, UserRole, SiteSettings, ProductRequest } from './core/types';
 import { BrandingProvider } from './core/providers/BrandingProvider';
 import { Layout } from './modules/site/components/Layout';
-import Home from './modules/site/components/Home';
-import Auth from './modules/site/components/Auth';
-import RoleSelection from './modules/site/components/RoleSelection';
 import { Skeleton } from './shared/components/Skeleton';
 import { HelpCircle } from 'lucide-react';
 import { handleFirestoreError, OperationType, handleAiError } from './core/utils/errorHandling';
 import { PageLoader } from './shared/components/PageLoader';
-import { UserNeuralHub } from './modules/common/components/UserNeuralHub';
 import { usePredictiveNavigation } from './shared/hooks/usePredictiveNavigation';
 import { useTranslation } from 'react-i18next';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { preFetchNeuralPulse } from './core/services/geminiService';
-import { DiscoveryCanvas } from './components/Discovery/DiscoveryCanvas';
-import { ChatHub } from './modules/common/components/ChatHub';
-import ChatView from './modules/common/components/ChatView';
-import { ProfileView } from './modules/site/components/ProfileView';
-import { ConnectRewards } from './modules/user/components/ConnectRewards';
+
+const Home = lazy(() => import('./modules/site/components/Home').then(m => ({ default: m.default })));
+const Auth = lazy(() => import('./modules/site/components/Auth').then(m => ({ default: m.default })));
+const RoleSelection = lazy(() => import('./modules/site/components/RoleSelection').then(m => ({ default: m.default })));
+const DiscoveryCanvas = lazy(() => import('./components/Discovery/DiscoveryCanvas').then(m => ({ default: m.DiscoveryCanvas })));
+const ChatHub = lazy(() => import('./modules/common/components/ChatHub').then(m => ({ default: m.ChatHub })));
+const ChatView = lazy(() => import('./modules/common/components/ChatView').then(m => ({ default: m.default })));
+const ProfileView = lazy(() => import('./modules/site/components/ProfileView').then(m => ({ default: m.ProfileView })));
+const ConnectRewards = lazy(() => import('./modules/user/components/ConnectRewards').then(m => ({ default: m.ConnectRewards })));
+const UserNeuralHub = lazy(() => import('./modules/common/components/UserNeuralHub').then(m => ({ default: m.UserNeuralHub })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -110,19 +111,29 @@ export default function App() {
     switch (currentView) {
       case 'home':
         return (
-          <Home 
-            profile={profile} 
-            onNavigate={setView} 
-            onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
-            onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
-            viewMode={viewMode as any}
-            uiStyle={uiStyle}
-          />
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <Home 
+              profile={profile} 
+              onNavigate={setView} 
+              onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+              onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
+              viewMode={viewMode as any}
+              uiStyle={uiStyle}
+            />
+          </Suspense>
         );
       case 'role-selection':
-        return <RoleSelection onSelect={(role) => { setViewMode(role); setView('auth'); }} />;
+        return (
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <RoleSelection onSelect={(role) => { setViewMode(role); setView('auth'); }} />
+          </Suspense>
+        );
       case 'auth':
-        return <Auth onAuthSuccess={(role) => { setView('home'); }} initialRole={viewMode} />;
+        return (
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <Auth onAuthSuccess={(role) => { setView('home'); }} initialRole={viewMode} />
+          </Suspense>
+        );
       case 'marketplace':
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>
@@ -136,32 +147,42 @@ export default function App() {
           </Suspense>
         );
       case 'discovery':
-        return <DiscoveryCanvas />;
+        return (
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <DiscoveryCanvas />
+          </Suspense>
+        );
       case 'chat':
         if (activeChatId) {
           return (
-            <ChatView 
-              chatId={activeChatId}
-              profile={profile}
-              features={features}
-              onBack={() => setActiveChatId(null)}
-              onViewProfile={(uid) => { /* handle profile view */ }}
-            />
+            <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+              <ChatView 
+                chatId={activeChatId}
+                profile={profile}
+                features={features}
+                onBack={() => setActiveChatId(null)}
+                onViewProfile={(uid) => { /* handle profile view */ }}
+              />
+            </Suspense>
           );
         }
         return (
-          <ChatHub 
-            profile={profile} 
-            onOpenChat={(id) => setActiveChatId(id)}
-            onBack={() => setView('home')}
-          />
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <ChatHub 
+              profile={profile} 
+              onOpenChat={(id) => setActiveChatId(id)}
+              onBack={() => setView('home')}
+            />
+          </Suspense>
         );
       case 'smart_pulse':
         if (!profile) return <Auth onAuthSuccess={() => setView('smart_pulse')} />;
         return (
-          <div className="pt-24 px-4 min-h-screen bg-brand-background">
-            <UserNeuralHub profile={profile} isRtl={i18n.language === 'ar'} />
-          </div>
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <div className="pt-24 px-4 min-h-screen bg-brand-background">
+              <UserNeuralHub profile={profile} isRtl={i18n.language === 'ar'} />
+            </div>
+          </Suspense>
         );
       case 'dashboard':
         if (!profile) return <Auth onAuthSuccess={() => setView('dashboard')} />;
@@ -207,21 +228,31 @@ export default function App() {
           return null;
         }
         return (
-          <ProfileView 
-            userId={selectedProfileId || profile?.uid} 
-            profile={selectedProfileId ? null : profile} 
-            features={features} 
-            onBack={() => {
-              setSelectedProfileId(null);
-              setView('home');
-            }} 
-          />
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <ProfileView 
+              userId={selectedProfileId || profile?.uid} 
+              profile={selectedProfileId ? null : profile} 
+              features={features} 
+              onBack={() => {
+                setSelectedProfileId(null);
+                setView('home');
+              }} 
+            />
+          </Suspense>
         );
       case 'connect':
         if (!profile) return <Auth onAuthSuccess={() => setView('connect')} />;
-        return <ConnectRewards profile={profile} settings={settings} onBack={() => setView('home')} />;
+        return (
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <ConnectRewards profile={profile} settings={settings} onBack={() => setView('home')} />
+          </Suspense>
+        );
       default:
-        return <Home profile={profile} onNavigate={setView} viewMode={viewMode as any} uiStyle={uiStyle} />;
+        return (
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <Home profile={profile} onNavigate={setView} viewMode={viewMode as any} uiStyle={uiStyle} />
+          </Suspense>
+        );
     }
   };
 
