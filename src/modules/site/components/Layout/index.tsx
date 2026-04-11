@@ -524,7 +524,11 @@ export const Layout: React.FC<LayoutProps> = ({
         )}
       </AnimatePresence>
 
-      {enableNeuralPulse && <NeuralPulse isMomentOfNeed={isMomentOfNeed} />}
+      {enableNeuralPulse && (
+        <div className="hidden md:block">
+          <NeuralPulse isMomentOfNeed={isMomentOfNeed} />
+        </div>
+      )}
     </div>
   );
 };

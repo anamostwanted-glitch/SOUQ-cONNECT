@@ -662,23 +662,30 @@ const Home: React.FC<HomeProps> = ({
             
             if (categorySuppliers.length > 0) {
               const batch = writeBatch(db);
-              categorySuppliers.forEach((supplier) => {
-                const notifRef = doc(collection(db, 'notifications'));
-                batch.set(notifRef, {
-                  userId: supplier.uid,
-                  titleAr: 'طلب جديد',
-                  titleEn: 'New Request',
-                  bodyAr: `هناك طلب جديد لـ "${trimmedQuery}" قد يهمك.`,
-                  bodyEn: `There is a new request for "${trimmedQuery}" that might interest you.`,
-                  link: 'dashboard',
-                  actionType: 'submit_offer',
-                  targetId: requestRef.id,
-                  read: false,
-                  createdAt: new Date().toISOString()
-                });
-              });
+              
+              // Fetch preferences for all suppliers in one go or check individually
+              // For now, we will fetch preferences for each supplier
+              for (const supplier of categorySuppliers) {
+                const prefs = supplier.notificationPreferences || { newRequests: true, offers: true, aiInsights: true };
+                
+                if (prefs.newRequests) {
+                  const notifRef = doc(collection(db, 'notifications'));
+                  batch.set(notifRef, {
+                    userId: supplier.uid,
+                    titleAr: 'طلب جديد',
+                    titleEn: 'New Request',
+                    bodyAr: `هناك طلب جديد لـ "${trimmedQuery}" قد يهمك.`,
+                    bodyEn: `There is a new request for "${trimmedQuery}" that might interest you.`,
+                    link: 'dashboard',
+                    actionType: 'submit_offer',
+                    targetId: requestRef.id,
+                    read: false,
+                    createdAt: new Date().toISOString()
+                  });
+                }
+              }
               await batch.commit();
-              console.log('Notifications created for', categorySuppliers.length, 'suppliers.');
+              console.log('Notifications created for suppliers who enabled newRequests.');
 
               // Smart Matchmaking
               setIsMatching(true);
@@ -789,6 +796,24 @@ const Home: React.FC<HomeProps> = ({
         />
       ) : (
         <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-200px)] md:min-h-[calc(100vh-80px)] py-12 md:py-24 relative overflow-hidden">
+          {/* Social Proof Section */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-4xl mt-12 mb-16 px-4"
+          >
+            {[
+              { label: t('suppliers'), value: '1,200+' },
+              { label: t('requests'), value: '5,500+' },
+              { label: t('satisfied'), value: '98%' }
+            ].map((stat, i) => (
+              <div key={i} className="bg-brand-surface/50 backdrop-blur-sm p-6 rounded-3xl border border-brand-border-light text-center">
+                <div className="text-3xl font-bold text-brand-primary mb-1">{stat.value}</div>
+                <div className="text-sm text-brand-text-muted font-medium">{stat.label}</div>
+              </div>
+            ))}
+          </motion.div>
+
           {/* Dynamic Background Effects */}
           <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
             <motion.div 

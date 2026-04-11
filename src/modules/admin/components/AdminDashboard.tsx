@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -31,7 +31,7 @@ import {
   Bell,
   X
 } from 'lucide-react';
-import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc, orderBy, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { handleAiError } from '../../../core/services/geminiService';
 import { db } from '../../../core/firebase';
@@ -42,8 +42,10 @@ import { KeywordManagerModal } from '../../../shared/components/KeywordManagerMo
 import BrandingSettings from '../../site/components/BrandingSettings';
 import { SiteSettingsManager } from './SiteSettingsManager';
 import { LoadingCustomizer } from './LoadingCustomizer';
-import { AdminNeuralHub } from './AdminNeuralHub';
-import { CostAnalysisDashboard } from './CostAnalysisDashboard';
+import * as Sentry from "@sentry/react";
+// ... (imports)
+const AdminNeuralHub = lazy(() => import('./AdminNeuralHub').then(m => ({ default: Sentry.withProfiler(m.AdminNeuralHub) })));
+const CostAnalysisDashboard = lazy(() => import('./CostAnalysisDashboard').then(m => ({ default: Sentry.withProfiler(m.CostAnalysisDashboard) })));
 import { MarketingManager } from './MarketingManager';
 import { UserDataManager } from './UserDataManager';
 import { BroadcastBox } from './BroadcastBox';
@@ -265,7 +267,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   useEffect(() => {
     setLoading(true);
     
-    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snap) => {
+    const unsubscribeUsers = onSnapshot(query(collection(db, 'users'), orderBy('createdAt', 'desc')), (snap) => {
       const fetchedUsers: UserProfile[] = [];
       snap.forEach(doc => fetchedUsers.push({ uid: doc.id, ...doc.data() } as UserProfile));
       setUsers(fetchedUsers);
@@ -273,7 +275,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       handleFirestoreError(error, OperationType.LIST, 'users', false);
     });
 
-    const unsubscribeRequests = onSnapshot(collection(db, 'requests'), (snap) => {
+    const unsubscribeRequests = onSnapshot(query(collection(db, 'requests'), orderBy('createdAt', 'desc'), limit(500)), (snap) => {
       const fetchedRequests: ProductRequest[] = [];
       snap.forEach(doc => fetchedRequests.push({ id: doc.id, ...doc.data() } as ProductRequest));
       setRequests(fetchedRequests);
@@ -281,7 +283,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       handleFirestoreError(error, OperationType.LIST, 'requests', false);
     });
 
-    const unsubscribeCategories = onSnapshot(collection(db, 'categories'), (snap) => {
+    const unsubscribeCategories = onSnapshot(query(collection(db, 'categories'), orderBy('nameEn', 'asc')), (snap) => {
       const fetchedCategories: Category[] = [];
       snap.forEach(doc => fetchedCategories.push({ id: doc.id, ...doc.data() } as Category));
       setCategories(fetchedCategories);
@@ -784,7 +786,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               exit={{ opacity: 0, y: -20 }}
               className="w-full -m-4 md:-m-8"
             >
-              <AdminNeuralHub />
+              <Suspense fallback={<div className="p-8 text-center">{isRtl ? 'جاري التحميل...' : 'Loading...'}</div>}>
+                <AdminNeuralHub />
+              </Suspense>
             </motion.div>
           )}
           {activeTab === 'categories' && (
@@ -876,7 +880,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               exit={{ opacity: 0, y: -20 }}
               className="max-w-6xl mx-auto"
             >
-              <CostAnalysisDashboard />
+              <Suspense fallback={<div className="p-8 text-center">{isRtl ? 'جاري التحميل...' : 'Loading...'}</div>}>
+                <CostAnalysisDashboard />
+              </Suspense>
             </motion.div>
           )}
 
@@ -948,6 +954,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </motion.div>
         </motion.div>
       )}
+      <DashboardCopilot />
     </div>
   );
 };

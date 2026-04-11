@@ -4,6 +4,7 @@ import { Category, UserProfile, GeminiApiKey, ProductRequest } from "../types";
 import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { neuralCache } from '../utils/neuralCache';
+import { getCachedData, setCachedData } from '../utils/cache';
 import { handleFirestoreError, OperationType, handleAiError as handleAiErrorCentral } from '../utils/errorHandling';
 import { AIResilienceManager } from '../utils/AIResilienceManager';
 
@@ -740,7 +741,12 @@ export const suggestCategoriesFromQuery = async (query: string, categories: Cate
 
 export const askGemini = async (prompt: string): Promise<string> => {
   try {
-    return await callAiText(prompt);
+    const cached = await getCachedData(prompt);
+    if (cached) return cached;
+
+    const response = await callAiText(prompt);
+    await setCachedData(prompt, response);
+    return response;
   } catch (e: any) {
     handleAiError(e, 'Gemini query');
     return 'Sorry, I could not process your request.';

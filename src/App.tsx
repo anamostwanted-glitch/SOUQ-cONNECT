@@ -25,6 +25,7 @@ const ChatView = lazy(() => import('./modules/common/components/ChatView').then(
 const ProfileView = lazy(() => import('./modules/site/components/ProfileView').then(m => ({ default: m.ProfileView })));
 const ConnectRewards = lazy(() => import('./modules/user/components/ConnectRewards').then(m => ({ default: m.ConnectRewards })));
 const UserNeuralHub = lazy(() => import('./modules/common/components/UserNeuralHub').then(m => ({ default: m.UserNeuralHub })));
+const Partnerships = lazy(() => import('./modules/site/components/Partnerships').then(m => ({ default: m.Partnerships })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -221,6 +222,12 @@ export default function App() {
               {i18n.language === 'ar' ? 'العودة للرئيسية' : 'Back to Home'}
             </button>
           </div>
+        );
+      case 'partnerships':
+        return (
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <Partnerships />
+          </Suspense>
         );
       case 'profile':
         if (selectedProfileId === profile?.uid || (!selectedProfileId && profile)) {

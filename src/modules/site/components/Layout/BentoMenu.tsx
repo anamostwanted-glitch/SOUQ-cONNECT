@@ -17,7 +17,8 @@ import {
   Building2,
   ShieldCheck,
   Smartphone,
-  Activity
+  Activity,
+  Handshake
 } from 'lucide-react';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { getUserImageUrl } from '../../../../core/utils/imageUtils';
@@ -71,6 +72,7 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
     { id: 'connect', icon: Zap, labelAr: 'المكافآت', labelEn: 'Connect', color: 'text-purple-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'dashboard', icon: LayoutGrid, labelAr: 'لوحة التحكم', labelEn: 'Dashboard', color: 'text-red-500', roles: ['supplier', 'admin'] },
     { id: 'profile', icon: User, labelAr: 'الملف الشخصي', labelEn: 'Profile', color: 'text-indigo-500', roles: ['customer', 'supplier', 'admin'] },
+    { id: 'partnerships', icon: Handshake, labelAr: 'الشراكات', labelEn: 'Partnerships', color: 'text-pink-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'help', icon: HelpCircle, labelAr: 'مركز المساعدة', labelEn: 'Help Center', color: 'text-orange-500', roles: ['customer', 'supplier', 'admin'] },
   ].filter(item => item.roles.includes(viewMode));
 

@@ -7,7 +7,8 @@ import {
   orderBy, 
   limit 
 } from 'firebase/firestore';
-import { db } from '../../../core/firebase';
+import { db, auth } from '../../../core/firebase';
+import { createNotification } from '../../../core/services/notificationService';
 import { UsageLog } from '../../../core/types';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { motion } from 'motion/react';
@@ -76,15 +77,24 @@ export const CostAnalysisDashboard: React.FC = () => {
     const costPerUser = totalCost / uniqueUsers;
     const projected1MCost = costPerUser * 1000000;
 
+    // AI Cost Insights
+    const avgCostPerRequest = totalCost / (totalRequests || 1);
+    const anomalies = logs.filter(log => (log.estimatedCost || 0) > avgCostPerRequest * 5);
+    const recommendations = [];
+    if (anomalies.length > 5) recommendations.push(isRtl ? 'تم اكتشاف نشاط غير طبيعي في التكاليف، يرجى مراجعة سجلات العمليات.' : 'Anomalous cost activity detected, please review operation logs.');
+    if (cachedRequests / totalRequests < 0.2) recommendations.push(isRtl ? 'نسبة التخزين المؤقت منخفضة، نقترح تفعيل الكاش لميزات أكثر.' : 'Low cache ratio, consider enabling caching for more features.');
+
     return {
       totalCost,
       totalRequests,
       cachedRequests,
       savings,
       projected1MCost,
-      uniqueUsers
+      uniqueUsers,
+      anomalies,
+      recommendations
     };
-  }, [logs]);
+  }, [logs, isRtl]);
 
   const featureDistribution = useMemo(() => {
     const distribution: Record<string, number> = {};
@@ -120,6 +130,23 @@ export const CostAnalysisDashboard: React.FC = () => {
       .sort((a, b) => b.cost - a.cost)
       .slice(0, 10);
   }, [logs]);
+
+  const lastNotificationRef = React.useRef<number>(0);
+
+  useEffect(() => {
+    const now = Date.now();
+    if (stats.anomalies.length > 0 && auth.currentUser && now - lastNotificationRef.current > 3600000) {
+      lastNotificationRef.current = now;
+      createNotification({
+        userId: auth.currentUser.uid,
+        titleAr: 'تنبيه: نشاط تكاليف غير طبيعي',
+        titleEn: 'Alert: Anomalous Cost Activity',
+        bodyAr: `تم اكتشاف ${stats.anomalies.length} عملية استهلاك غير طبيعية. يرجى مراجعة لوحة تحكم التكاليف.`,
+        bodyEn: `${stats.anomalies.length} anomalous cost operations detected. Please review the cost dashboard.`,
+        actionType: 'cost_alert'
+      });
+    }
+  }, [stats.anomalies]);
 
   if (loading) {
     return (
