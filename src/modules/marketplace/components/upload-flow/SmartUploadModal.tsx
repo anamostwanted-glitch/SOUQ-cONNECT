@@ -327,7 +327,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
               setAiQuotaExhausted(true);
               setErrorMessage(isRtl ? 'تم استنفاد حصة الذكاء الاصطناعي.' : 'AI Quota exhausted.');
             } else {
-              setErrorMessage(isRtl ? 'لم يتمكن الذكاء الاصطناعي من تحليل الصورة.' : 'AI could not analyze the image.');
+              setErrorMessage(isRtl ? 'لم يتمكن الذكاء الاصطناعي من تحليل الصورة. يرجى التأكد من إعدادات مفتاح الـ API.' : 'AI could not analyze the image. Please check your API key settings.');
             }
             updateImageStatus(id, 'error', 0, errorMsg || 'AI analysis failed');
           }
