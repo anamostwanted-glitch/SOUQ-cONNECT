@@ -86,6 +86,7 @@ const Home: React.FC<HomeProps> = ({
   const [success, setSuccess] = useState(false);
   const [aiStatus, setAiStatus] = useState('');
   const [matchedSuppliers, setMatchedSuppliers] = useState<UserProfile[]>([]);
+  const [stats, setStats] = useState({ suppliers: 0, requests: 0, satisfaction: 98 });
   const [isMatching, setIsMatching] = useState(false);
   const [lastRequestId, setLastRequestId] = useState<string | null>(null);
   const [lastRequest, setLastRequest] = useState<ProductRequest | null>(null);
@@ -110,6 +111,7 @@ const Home: React.FC<HomeProps> = ({
   const [primaryTextColor, setPrimaryTextColor] = useState('#ffffff');
   const [secondaryTextColor, setSecondaryTextColor] = useState('#94a3b8');
   const [enableNeuralPulse, setEnableNeuralPulse] = useState(true);
+  const [socialProof, setSocialProof] = useState({ enabled: true });
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [showConciergeTrigger, setShowConciergeTrigger] = useState(false);
   const [conciergeReason, setConciergeReason] = useState('');
@@ -203,6 +205,7 @@ const Home: React.FC<HomeProps> = ({
         setPrimaryTextColor(data.primaryTextColor || '#ffffff');
         setSecondaryTextColor(data.secondaryTextColor || '#94a3b8');
         setEnableNeuralPulse(data.enableNeuralPulse ?? true);
+        if (data.socialProof) setSocialProof(data.socialProof);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'settings/site', false);
@@ -366,6 +369,16 @@ const Home: React.FC<HomeProps> = ({
       setAiStatus('');
     }
   };
+
+  useEffect(() => {
+    const unsubSuppliers = onSnapshot(query(collection(db, 'users'), where('role', '==', 'supplier')), (snap) => {
+      setStats(prev => ({ ...prev, suppliers: snap.size }));
+    });
+    const unsubRequests = onSnapshot(collection(db, 'requests'), (snap) => {
+      setStats(prev => ({ ...prev, requests: snap.size }));
+    });
+    return () => { unsubSuppliers(); unsubRequests(); };
+  }, []);
 
   useEffect(() => {
     const analyzeBehavior = async () => {
@@ -796,24 +809,6 @@ const Home: React.FC<HomeProps> = ({
         />
       ) : (
         <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-200px)] md:min-h-[calc(100vh-80px)] py-12 md:py-24 relative overflow-hidden">
-          {/* Social Proof Section */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-4xl mt-12 mb-16 px-4"
-          >
-            {[
-              { label: t('suppliers'), value: '1,200+' },
-              { label: t('requests'), value: '5,500+' },
-              { label: t('satisfied'), value: '98%' }
-            ].map((stat, i) => (
-              <div key={i} className="bg-brand-surface/50 backdrop-blur-sm p-6 rounded-3xl border border-brand-border-light text-center">
-                <div className="text-3xl font-bold text-brand-primary mb-1">{stat.value}</div>
-                <div className="text-sm text-brand-text-muted font-medium">{stat.label}</div>
-              </div>
-            ))}
-          </motion.div>
-
           {/* Dynamic Background Effects */}
           <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
             <motion.div 
@@ -968,6 +963,25 @@ const Home: React.FC<HomeProps> = ({
                 ? (heroDescriptionAr || 'المنصة الأولى التي تجمع بين قوة الذكاء الاصطناعي وشبكة واسعة من الموردين الموثوقين لتلبية جميع احتياجاتك بضغطة زر.') 
                 : (heroDescriptionEn || 'The first platform combining AI power with a vast network of trusted suppliers to fulfill all your needs with a single click.')}
             </p>
+
+            {socialProof.enabled && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="grid grid-cols-3 gap-4 w-full max-w-2xl mx-auto mb-12 px-4"
+              >
+                {[
+                  { label: t('suppliers'), value: `${stats.suppliers}+` },
+                  { label: t('requests'), value: `${stats.requests}+` },
+                  { label: t('satisfied'), value: `${stats.satisfaction}%` }
+                ].map((stat, i) => (
+                  <div key={i} className="bg-brand-surface/30 backdrop-blur-sm p-3 rounded-2xl border border-brand-border-light text-center">
+                    <div className="text-xl font-bold text-brand-primary mb-0.5">{stat.value}</div>
+                    <div className="text-[10px] text-brand-text-muted font-medium uppercase tracking-wider">{stat.label}</div>
+                  </div>
+                ))}
+              </motion.div>
+            )}
           </motion.div>
         </div>
 

@@ -16,6 +16,7 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({ prof
   const [prefs, setPrefs] = useState(profile.notificationPreferences || {
     newMessages: true,
     newOffers: true,
+    newRequests: true,
     requestUpdates: true,
     verificationStatus: true,
   });

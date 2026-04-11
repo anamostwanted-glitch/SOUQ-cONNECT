@@ -3,6 +3,7 @@ export type UserRole = 'admin' | 'supplier' | 'customer' | 'manager' | 'supervis
 export interface NotificationPreferences {
   newMessages: boolean;
   newOffers: boolean;
+  newRequests: boolean;
   requestUpdates: boolean;
   verificationStatus: boolean;
 }
@@ -327,6 +328,11 @@ export interface SiteSettings {
   logoAuraOpacity?: number;
   logoAuraStyle?: 'solid' | 'gradient' | 'pulse' | 'mesh';
   logoAuraSharpness?: number;
+
+  // Social Proof Settings
+  socialProof?: {
+    enabled: boolean;
+  };
 
   // New Loading Screen Settings
   loaderBackgroundStyle?: 'solid' | 'gradient' | 'mesh' | 'animated';

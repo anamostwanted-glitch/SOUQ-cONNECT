@@ -16,6 +16,7 @@ import { HeroSettings } from './settings/HeroSettings';
 import { SearchSettings } from './settings/SearchSettings';
 import { NeuralLogoSettings } from './settings/NeuralLogoSettings';
 import { MarketSettings } from './settings/MarketSettings';
+import { SocialProofSettings } from './settings/SocialProofSettings';
 
 export const SiteSettingsManager: React.FC = () => {
   const { i18n } = useTranslation();
@@ -76,6 +77,9 @@ export const SiteSettingsManager: React.FC = () => {
       showVisualSearch: true,
       pulseSpeed: 'normal',
       themeColor: '#1b97a7'
+    },
+    socialProof: {
+      enabled: true
     }
   });
   const [loading, setLoading] = useState(true);
@@ -83,7 +87,7 @@ export const SiteSettingsManager: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [activeLogoTab, setActiveLogoTab] = useState<'hero' | 'header'>('hero');
-  const [currentTab, setCurrentTab] = useState<'identity' | 'hero' | 'search' | 'neural' | 'market'>('identity');
+  const [currentTab, setCurrentTab] = useState<'identity' | 'hero' | 'search' | 'neural' | 'market' | 'social'>('identity');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'watermark' | 'loaderLogo') => {
     const file = e.target.files?.[0];
@@ -197,6 +201,7 @@ export const SiteSettingsManager: React.FC = () => {
           { id: 'search', label: isRtl ? 'البحث' : 'Search', icon: Search },
           { id: 'neural', label: isRtl ? 'الشعار العصبي' : 'Neural Logo', icon: Sparkles },
           { id: 'market', label: isRtl ? 'السوق' : 'Market', icon: LayoutGrid },
+          { id: 'social', label: isRtl ? 'الإحصائيات' : 'Social Proof', icon: Layout },
         ].map(tab => (
           <button
             key={tab.id}
@@ -225,6 +230,7 @@ export const SiteSettingsManager: React.FC = () => {
         {currentTab === 'search' && <SearchSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'neural' && <NeuralLogoSettings settings={settings} setSettings={setSettings} isRtl={isRtl} activeLogoTab={activeLogoTab} setActiveLogoTab={setActiveLogoTab} />}
         {currentTab === 'market' && <MarketSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
+        {currentTab === 'social' && <SocialProofSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
       </motion.div>
     </div>
   );
