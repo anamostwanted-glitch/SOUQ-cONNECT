@@ -13,7 +13,10 @@ initSentry();
 
 // Global error handler for unhandled promises (e.g., async functions outside React render)
 window.addEventListener('unhandledrejection', (event) => {
-  handleAiError(event.reason, 'Global:unhandledrejection', false);
+  if (!event.reason) {
+    console.error('Unhandled rejection with no reason:', event);
+  }
+  handleAiError(event.reason || 'Unknown unhandled rejection', 'Global:unhandledrejection', false);
   // We don't necessarily want to crash the whole app for every background promise,
   // but logging it is crucial. You could also dispatch a custom event here to show a toast.
 });
