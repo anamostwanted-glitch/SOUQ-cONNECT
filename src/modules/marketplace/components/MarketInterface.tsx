@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PredictiveMatchSection } from './PredictiveMatchSection';
+import { NeuralCommandCenter } from './NeuralCommandCenter';
 import { fetchMarketplaceItems, fetchCategories, fetchMarketTrends, fetchSuppliers, searchMarketplaceAndSuppliers, fetchPredictiveMatches } from '../services/marketService';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -48,7 +49,9 @@ import {
   Trash2,
   LayoutGrid,
   List,
+  BarChart3,
   ArrowLeft,
+  Menu,
   Mic,
   Database,
   Wallet
@@ -144,6 +147,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isCommandCenterOpen, setIsCommandCenterOpen] = useState(false);
   const [showSmartCategories, setShowSmartCategories] = useState(false);
   const [showVisualSearch, setShowVisualSearch] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
@@ -593,86 +597,6 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           </motion.div>
         )}
 
-        {/* Role-Specific Intelligent Dashboard */}
-        {profile && (isAdmin || isSupplier) && !selectedCategory && searchTerm === '' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-12 grid grid-cols-1 lg:grid-cols-3 gap-6"
-          >
-            {/* Market Health (Admin) or Store Stats (Supplier) */}
-            <div className={`lg:col-span-2 p-8 rounded-[2.5rem] ${glassClass} relative overflow-hidden group`}>
-              <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
-                {isAdmin ? <Shield size={120} /> : <TrendingUp size={120} />}
-              </div>
-              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-                    {isAdmin ? <ShieldCheck size={24} /> : <TrendingUp size={24} />}
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-                      {isAdmin 
-                        ? (isRtl ? 'نظرة عامة على النظام' : 'System Overview') 
-                        : (isRtl ? 'أداء متجرك' : 'Store Performance')}
-                    </h2>
-                    <p className="text-slate-500 text-sm font-medium">
-                      {isAdmin 
-                        ? (isRtl ? 'تحليلات الذكاء الاصطناعي لصحة السوق' : 'AI Analytics for Market Health') 
-                        : (isRtl ? 'رؤى ذكية لزيادة مبيعاتك' : 'Smart insights to boost your sales')}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {[
-                    { label: isRtl ? 'المنتجات النشطة' : 'Active Items', value: items.length, icon: Package, color: 'text-blue-500' },
-                    { label: isRtl ? 'الموردين' : 'Suppliers', value: suppliers.length, icon: Building2, color: 'text-brand-primary' },
-                    { label: isRtl ? 'المشاهدات' : 'Total Views', value: items.reduce((acc, i) => acc + (i.views || 0), 0), icon: Star, color: 'text-amber-500' },
-                    { label: isRtl ? 'النمو' : 'Growth', value: '+12%', icon: TrendingUp, color: 'text-emerald-500' }
-                  ].map((stat, idx) => (
-                    <div key={idx} className="p-4 rounded-2xl bg-white/40 dark:bg-slate-800/40 border border-white/40 dark:border-slate-700/50">
-                      <stat.icon size={16} className={`${stat.color} mb-2`} />
-                      <div className="text-xl font-black text-slate-900 dark:text-white">{stat.value}</div>
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{stat.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Smart AI Recommendation Card */}
-            <div className="p-8 rounded-[2.5rem] bg-gradient-to-br from-brand-primary to-brand-teal text-white relative overflow-hidden shadow-2xl shadow-brand-primary/20">
-              <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
-              <div className="relative z-10 h-full flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <Sparkles size={20} className="text-white/80" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/80">AI Strategy</span>
-                  </div>
-                  <h3 className="text-xl font-black mb-3 leading-tight">
-                    {isAdmin 
-                      ? (isRtl ? 'استراتيجية المنصة' : 'Platform Strategy')
-                      : (isRtl ? 'استراتيجية النمو المقترحة' : 'Suggested Growth Strategy')}
-                  </h3>
-                  <p className="text-white/80 text-sm font-medium leading-relaxed">
-                    {isAdmin
-                      ? (isRtl 
-                          ? 'تحليل الذكاء الاصطناعي يشير إلى استقرار عالي في المعاملات هذا الأسبوع.' 
-                          : 'AI analysis indicates high transaction stability this week.')
-                      : (isRtl 
-                          ? 'بناءً على تحليلاتنا، ننصحك بالتركيز على فئة الإلكترونيات هذا الأسبوع لزيادة الوصول.' 
-                          : 'Based on our analytics, we recommend focusing on the Electronics category this week to maximize reach.')}
-                  </p>
-                </div>
-                <HapticButton className="mt-6 w-full py-3 bg-white text-brand-primary rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl">
-                  {isRtl ? 'عرض التفاصيل' : 'View Details'}
-                </HapticButton>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
         {/* Supplier Spotlight */}
         {searchTerm === '' && !selectedCategory && sellerTypeFilter === 'all' && (
           <SupplierSpotlight 
@@ -771,55 +695,6 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                     onEdit={(item) => setEditingItem(item)}
                   />
                 </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Market Insights Section */}
-        {marketTrends.length > 0 && !selectedCategory && searchTerm === '' && sellerTypeFilter === 'all' && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-12"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-                  <TrendingUp size={20} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                    {isRtl ? 'تحليلات السوق' : 'Market Insights'}
-                  </h2>
-                  <p className="text-slate-500 text-xs font-medium">
-                    {isRtl ? 'آخر التوجهات والفرص في السوق' : 'Latest trends and opportunities in the market'}
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {marketTrends.map((trend) => (
-                <motion.div
-                  key={trend.id}
-                  whileHover={{ scale: 1.01 }}
-                  className={`p-5 rounded-3xl ${glassClass} border-l-4 border-l-brand-primary`}
-                >
-                  <h3 className="font-black text-slate-900 dark:text-white mb-2">
-                    {isRtl ? trend.titleAr : trend.titleEn}
-                  </h3>
-                  <p className="text-slate-500 text-xs leading-relaxed mb-4">
-                    {isRtl ? trend.descriptionAr : trend.descriptionEn}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {trend.suggestions.slice(0, 3).map((s, idx) => (
-                      <span key={idx} className="px-2 py-1 rounded-lg bg-brand-primary/5 text-brand-primary text-[10px] font-bold">
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </motion.div>
               ))}
             </div>
           </motion.div>
@@ -1120,24 +995,50 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Mobile Floating Action Button (FAB) */}
-      <AnimatePresence>
-        {profile && isMinimized && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.5, y: 50 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.5, y: 50 }}
-            className="fixed bottom-24 right-6 z-[60] sm:hidden"
-          >
-            <HapticButton
-              onClick={() => setShowAddModal(true)}
-              className="w-14 h-14 bg-brand-primary text-white rounded-full shadow-2xl shadow-brand-primary/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-4 border-white dark:border-slate-900"
+      {/* Neural Command Center */}
+      <NeuralCommandCenter 
+        isOpen={isCommandCenterOpen}
+        onClose={() => setIsCommandCenterOpen(false)}
+        isRtl={isRtl}
+        tabs={[
+          { id: 'overview', label: isRtl ? 'نظرة عامة' : 'Overview', icon: LayoutGrid },
+          { id: 'strategy', label: isRtl ? 'استراتيجية المنصة' : 'Platform Strategy', icon: Shield },
+          { id: 'suppliers', label: isRtl ? 'موردون موثوقون' : 'Trusted Suppliers', icon: Building2 },
+          { id: 'analysis', label: isRtl ? 'تحليل السوق' : 'Market Analysis', icon: BarChart3 },
+          { id: 'trends', label: isRtl ? 'ماركت ترند' : 'Market Trends', icon: TrendingUp },
+        ]}
+        onNavigate={(tab) => {
+          // Handle navigation logic here
+          console.log('Navigate to:', tab);
+        }}
+      />
+
+      {/* Mobile Floating Action Buttons */}
+      <div className="fixed bottom-24 right-6 z-[60] sm:hidden flex flex-col gap-4">
+        <HapticButton
+          onClick={() => setIsCommandCenterOpen(true)}
+          className="w-14 h-14 bg-brand-surface text-brand-primary rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border border-brand-border"
+        >
+          <Menu size={28} />
+        </HapticButton>
+        
+        <AnimatePresence>
+          {profile && isMinimized && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5, y: 50 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.5, y: 50 }}
             >
-              <Plus size={28} />
-            </HapticButton>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <HapticButton
+                onClick={() => setShowAddModal(true)}
+                className="w-14 h-14 bg-brand-primary text-white rounded-full shadow-2xl shadow-brand-primary/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-4 border-white dark:border-slate-900"
+              >
+                <Plus size={28} />
+              </HapticButton>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };
