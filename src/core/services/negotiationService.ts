@@ -41,6 +41,7 @@ export const analyzeNegotiation = async (messages: Message[], product: ProductRe
       }
     );
     
+    if (!result) throw new Error('AI returned null');
     return result;
   }, fallback, 'Negotiation Analysis');
 };
@@ -62,6 +63,7 @@ export const generateSmartReplies = async (messages: Message[]): Promise<string[
       }
     );
     
+    if (!result) throw new Error('AI returned null');
     return result.slice(0, 3);
   }, fallback, 'Smart Replies Generation');
 };

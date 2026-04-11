@@ -2,7 +2,7 @@
   "entities": {
     "User": {
       "title": "User",
-      "description": "System users (Customers, Suppliers, Admins)",
+      "description": "System users (Customers, Suppliers, Admins) - Private Data",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
@@ -38,6 +38,25 @@
         }
       },
       "required": ["uid", "email", "role"]
+    },
+    "UserPublic": {
+      "title": "UserPublic",
+      "description": "Public profile data for suppliers/users",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["supplier", "customer"] },
+        "companyName": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "categories": { "type": "array", "items": { "type": "string" } },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "integer" },
+        "isOnline": { "type": "boolean" },
+        "averageResponseTime": { "type": "number" }
+      },
+      "required": ["uid", "name", "role"]
     },
     "Category": {
       "title": "Category",
@@ -296,7 +315,8 @@
     }
   },
   "firestore": {
-    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/users/{userId}": { "schema": "User", "description": "User profiles - Private Data" },
+    "/users_public/{userId}": { "schema": "UserPublic", "description": "Public user profiles" },
     "/categories/{categoryId}": { "schema": "Category", "description": "Product categories" },
     "/requests/{requestId}": { "schema": "Request", "description": "Customer requests" },
     "/offers/{offerId}": { "schema": "Offer", "description": "Supplier offers" },

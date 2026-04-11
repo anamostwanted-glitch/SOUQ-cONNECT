@@ -62,7 +62,7 @@ export const fetchMarketTrends = async (): Promise<MarketTrend[]> => {
 };
 
 export const fetchSuppliers = async (): Promise<UserProfile[]> => {
-  const q = query(collection(db, 'users'), where('role', '==', 'supplier'));
+  const q = query(collection(db, 'users_public'), where('role', '==', 'supplier'));
   const snap = await getDocs(q);
   return snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as object) } as UserProfile));
 };
@@ -76,8 +76,8 @@ export const searchMarketplaceAndSuppliers = async (searchTerm: string): Promise
   // We'll do a simple fetch and filter for this implementation.
   
   const [itemsSnap, suppliersSnap] = await Promise.all([
-    getDocs(query(collection(db, 'marketplace'), where('status', '==', 'active'))),
-    getDocs(query(collection(db, 'users'), where('role', '==', 'supplier')))
+    getDocs(query(collection(db, 'marketplace'), where('status', '==', 'active'), limit(50))),
+    getDocs(query(collection(db, 'users_public'), where('role', '==', 'supplier'), limit(50)))
   ]);
   
   const products = itemsSnap.docs

@@ -124,11 +124,9 @@ service cloud.firestore {
 
     match /users/{userId} {
       // PII Protection: Only owner or admin can read full profile.
-      // Suppliers are public so customers can find them.
       allow read: if isAuthenticated() && (
         request.auth.uid == userId || 
-        isAdmin() || 
-        resource.data.role == 'supplier'
+        isAdmin()
       );
       allow create: if isAuthenticated() && (
         request.auth.uid == userId || 
@@ -142,6 +140,12 @@ service cloud.firestore {
         isValidReferralUpdate()
       );
       // Soft delete only: Prevent hard deletion of user accounts to maintain data integrity
+      allow delete: if false;
+    }
+
+    match /users_public/{userId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow delete: if false;
     }
 
@@ -229,7 +233,12 @@ service cloud.firestore {
     }
 
     match /requests/{requestId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid || 
+        (resource.data.approvedSuppliers is list && request.auth.uid in resource.data.approvedSuppliers) ||
+        (resource.data.suggestedSupplierIds is list && request.auth.uid in resource.data.suggestedSupplierIds) ||
+        isAdmin()
+      );
       allow create: if isAuthenticated() && (request.resource.data.customerId == request.auth.uid || isAdmin()) && isValidRequest(request.resource.data);
       allow update: if isAuthenticated() && (
         (resource.data.customerId == request.auth.uid && isValidRequest(request.resource.data)) || 
@@ -261,16 +270,12 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
         resource.data.supplierId == request.auth.uid || 
         resource.data.customerId == request.auth.uid ||
-        (exists(/databases/$(database)/documents/requests/$(resource.data.requestId)) && 
-         get(/databases/$(database)/documents/requests/$(resource.data.requestId)).data.customerId == request.auth.uid) ||
         isAdmin()
       );
       allow create: if (isSupplier() || isAdmin()) && request.resource.data.supplierId == request.auth.uid && isValidOffer(request.resource.data);
       allow update: if isAuthenticated() && (
         (resource.data.supplierId == request.auth.uid && isValidOffer(request.resource.data)) || 
         (resource.data.customerId == request.auth.uid && isValidOffer(request.resource.data)) ||
-        (exists(/databases/$(database)/documents/requests/$(resource.data.requestId)) && 
-         get(/databases/$(database)/documents/requests/$(resource.data.requestId)).data.customerId == request.auth.uid && isValidOffer(request.resource.data)) ||
         isAdmin()
       );
       allow delete: if false; // Soft delete only
@@ -548,7 +553,11 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAuthenticated() && request.resource.data.sellerId == request.auth.uid && isValidMarketplaceItem(request.resource.data);
       allow update: if isAuthenticated() && (
-        (resource.data.sellerId == request.auth.uid && isValidMarketplaceItem(request.resource.data)) || 
+        (resource.data.sellerId == request.auth.uid && 
+         isValidMarketplaceItem(request.resource.data) &&
+         request.resource.data.sellerId == resource.data.sellerId && 
+         request.resource.data.createdAt == resource.data.createdAt
+        ) || 
         isAdmin()
       );
       allow delete: if false; // Soft delete only

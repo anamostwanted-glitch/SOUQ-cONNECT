@@ -34,7 +34,7 @@ export function useNearbySuppliers(profile: UserProfile | null) {
         const now = Date.now();
         // Fetch suppliers if cache is empty or older than 5 minutes
         if (cachedSuppliers.length === 0 || now - lastFetchTime > 5 * 60 * 1000) {
-          const suppliersQuery = query(collection(db, 'users'), where('role', '==', 'supplier'));
+          const suppliersQuery = query(collection(db, 'users_public'), where('role', '==', 'supplier'));
           const snapshot = await getDocs(suppliersQuery);
           cachedSuppliers = snapshot.docs.map(doc => doc.data() as UserProfile);
           lastFetchTime = now;

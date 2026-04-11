@@ -4,6 +4,7 @@ import path from "path";
 import twilio from "twilio";
 import dotenv from "dotenv";
 import axios from "axios";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -14,27 +15,62 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-  // Messaging API route
-  app.post("/api/send-concierge-alert", async (req, res) => {
-    const { phoneNumber, message } = req.body;
-    
-    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
-      return res.status(500).json({ error: "Messaging service not configured" });
-    }
+// Generic Email API
+app.post("/api/send-email", async (req, res) => {
+  const { email, name, template, data } = req.body;
+  
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    return res.status(500).json({ error: "Email service not configured" });
+  }
 
-    try {
-      const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-      await client.messages.create({
-        body: message,
-        from: `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`,
-        to: `whatsapp:${phoneNumber}`
-      });
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Twilio error:", error);
-      res.status(500).json({ error: "Failed to send message" });
-    }
-  });
+  let subject = "";
+  let text = "";
+  let html = "";
+
+  switch (template) {
+    case 'welcome':
+      subject = "Welcome to Souq Connect!";
+      text = `Hello ${name}, welcome to Souq Connect! We are excited to have you on board.`;
+      html = `<h1>Welcome to Souq Connect!</h1><p>Hello ${name}, welcome to Souq Connect! We are excited to have you on board.</p>`;
+      break;
+    case 'notification':
+      subject = "New Notification from Souq Connect";
+      text = `Hello ${name}, you have a new notification: ${data?.message}`;
+      html = `<h1>New Notification</h1><p>Hello ${name},</p><p>${data?.message}</p>`;
+      break;
+    case 'order_notification':
+      subject = "New Order Notification";
+      text = `Hello ${name}, you have a new order: ${data?.orderId}. Status: ${data?.status}`;
+      html = `<h1>New Order</h1><p>Hello ${name},</p><p>Order ID: ${data?.orderId}</p><p>Status: ${data?.status}</p>`;
+      break;
+    default:
+      return res.status(400).json({ error: "Invalid template" });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.FROM_EMAIL || "noreply@souq-connect.com",
+      to: email,
+      subject,
+      text,
+      html,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Email error:", error);
+    res.status(500).json({ error: "Failed to send email" });
+  }
+});
 
   // Meta Ads Proxy
   app.all("/api/meta/*", async (req, res) => {

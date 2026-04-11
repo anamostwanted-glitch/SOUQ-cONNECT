@@ -41,6 +41,9 @@ const RADIUS_MAP: Record<string, string> = {
 
 // Helper to convert hex to HSL for generating shades
 const hexToHSL = (hex: string) => {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) {
+    return { h: 0, s: 0, l: 0 };
+  }
   let r = 0, g = 0, b = 0;
   if (hex.length === 4) {
     r = parseInt(hex[1] + hex[1], 16);

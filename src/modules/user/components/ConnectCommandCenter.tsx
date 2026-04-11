@@ -106,7 +106,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
 
   // Fetch requests based on perspective
   useEffect(() => {
-    if (!profile?.uid) return;
+    if (!profile?.uid || auth.currentUser?.isAnonymous) return;
     
     setIsLoadingRequests(true);
     let q;
@@ -137,6 +137,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
       setRequests(reqs);
       setIsLoadingRequests(false);
     }, (error) => {
+      console.error('Firestore Error in requests listener:', error, 'Auth:', auth.currentUser?.uid, 'Perspective:', perspective);
       handleFirestoreError(error, OperationType.GET, 'requests', false);
       setIsLoadingRequests(false);
     });

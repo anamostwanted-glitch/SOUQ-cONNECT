@@ -371,14 +371,19 @@ const Home: React.FC<HomeProps> = ({
   };
 
   useEffect(() => {
-    const unsubSuppliers = onSnapshot(query(collection(db, 'users'), where('role', '==', 'supplier')), (snap) => {
+    if (!profile?.uid) return;
+    const unsubSuppliers = onSnapshot(query(collection(db, 'users_public'), where('role', '==', 'supplier')), (snap) => {
       setStats(prev => ({ ...prev, suppliers: snap.size }));
     });
-    const unsubRequests = onSnapshot(collection(db, 'requests'), (snap) => {
+    const qRequests = query(
+      collection(db, 'requests'), 
+      where('customerId', '==', profile.uid)
+    );
+    const unsubRequests = onSnapshot(qRequests, (snap) => {
       setStats(prev => ({ ...prev, requests: snap.size }));
     });
     return () => { unsubSuppliers(); unsubRequests(); };
-  }, []);
+  }, [profile?.uid]);
 
   useEffect(() => {
     const analyzeBehavior = async () => {
@@ -639,7 +644,7 @@ const Home: React.FC<HomeProps> = ({
               if (currentCat?.parentId) {
                 console.log('No suppliers in subcategory, checking parent category:', currentCat.parentId);
                 const parentSuppliersQuery = query(
-                  collection(db, 'users'),
+                  collection(db, 'users_public'),
                   where('role', '==', 'supplier'),
                   where('categories', 'array-contains', currentCat.parentId)
                 );
@@ -654,7 +659,7 @@ const Home: React.FC<HomeProps> = ({
             if (categorySuppliers.length === 0) {
               console.log('No suppliers found in categories, performing broad search...');
               const allSuppliersQuery = query(
-                collection(db, 'users'),
+                collection(db, 'users_public'),
                 where('role', '==', 'supplier'),
                 limit(50)
               );

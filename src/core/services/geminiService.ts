@@ -113,7 +113,11 @@ const executeProxyCall = async (payload: any) => {
 };
 
 const isFailure = (error: any) => {
-  return !(error.isMissingKey || error.isInvalidKey || error.message?.includes('API key not valid') || error.message?.includes('No API key available'));
+  const isQuota = error.status === 429 || 
+    error.message?.includes('429') || 
+    error.message?.includes('RESOURCE_EXHAUSTED') ||
+    error.message?.includes('quota');
+  return !(error.isMissingKey || error.isInvalidKey || error.message?.includes('API key not valid') || error.message?.includes('No API key available') || isQuota);
 };
 
 export const callAiJson = async (contents: any, schema: any, model: string = "gemini-3-flash-preview") => {
@@ -177,9 +181,9 @@ export const callAiJson = async (contents: any, schema: any, model: string = "ge
         try {
           return await proxyCall();
         } catch (proxyError: any) {
-          console.error('DEBUG: Proxy call also failed:', proxyError.message);
+          console.warn('DEBUG: Proxy call also failed:', proxyError.message);
           if (proxyError.message?.includes('API key not valid')) {
-            console.error('CRITICAL: Server-side GEMINI_API_KEY is invalid. Please update it in AI Studio Secrets.');
+            console.warn('CRITICAL: Server-side GEMINI_API_KEY is invalid. Please update it in AI Studio Secrets.');
           }
           throw proxyError; // Throw so AIResilienceManager can return the proper fallback
         }
@@ -232,15 +236,15 @@ export const callAiText = async (contents: any, model: string = "gemini-3-flash-
         return response.text || '';
       });
     } catch (e: any) {
-      console.error(`DEBUG: callAiText - Error: ${e.message}`);
+      console.warn(`DEBUG: callAiText - Error: ${e.message}`);
       if (e.isMissingKey || e.isInvalidKey || e.message?.includes('API key not valid')) {
         console.log('DEBUG: Local keys exhausted or invalid during callAiText, falling back to proxy');
         try {
           return await proxyCall();
         } catch (proxyError: any) {
-          console.error('DEBUG: Proxy call also failed:', proxyError.message);
+          console.warn('DEBUG: Proxy call also failed:', proxyError.message);
           if (proxyError.message?.includes('API key not valid')) {
-            console.error('CRITICAL: Server-side GEMINI_API_KEY is invalid. Please update it in AI Studio Secrets.');
+            console.warn('CRITICAL: Server-side GEMINI_API_KEY is invalid. Please update it in AI Studio Secrets.');
           }
           throw proxyError;
         }
@@ -330,7 +334,7 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
     try {
       const apiKey = await getApiKey();
       if (!apiKey) {
-        console.error('DEBUG: retryWithBackoff - No API key available');
+        console.warn('DEBUG: retryWithBackoff - No API key available');
         const error = new Error('No API key available');
         (error as any).isMissingKey = true;
         throw error;
@@ -338,7 +342,7 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
       lastUsedKey = apiKey;
       return await fn(apiKey);
     } catch (error: any) {
-      console.error(`DEBUG: retryWithBackoff - Error: ${error.message}`);
+      console.warn(`DEBUG: retryWithBackoff - Error: ${error.message}`);
       if (error.isMissingKey) {
         throw error;
       }

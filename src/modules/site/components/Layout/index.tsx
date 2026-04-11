@@ -162,6 +162,7 @@ export const Layout: React.FC<LayoutProps> = ({
     const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
       setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
     }, (error) => {
+      console.error('Firestore Error in categories listener:', error);
       handleFirestoreError(error, OperationType.LIST, 'categories', false);
     });
     return () => unsub();
@@ -175,6 +176,7 @@ export const Layout: React.FC<LayoutProps> = ({
     const unsub = onSnapshot(query(collection(db, 'users'), where('role', '==', 'supplier')), (snap) => {
       setAllSuppliers(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
     }, (error) => {
+      console.error('Firestore Error in suppliers listener:', error);
       handleFirestoreError(error, OperationType.LIST, 'users (suppliers)', false);
     });
     return () => unsub();
@@ -236,19 +238,21 @@ export const Layout: React.FC<LayoutProps> = ({
         setEnableNeuralPulse(data.enableNeuralPulse ?? true);
       }
     }, (error) => {
+      console.error('Firestore Error in settings/site listener:', error);
       handleFirestoreError(error, OperationType.GET, 'settings/site', false);
     });
     return () => unsub();
   }, []);
 
   useEffect(() => {
-    if (!profile) return;
+    if (!profile || auth.currentUser?.isAnonymous) return;
     const q = query(
       collection(db, 'notifications'),
       where('userId', '==', profile.uid),
       orderBy('createdAt', 'desc')
     );
     const unsub = onSnapshot(q, (snap) => {
+      console.log('Notifications:', snap.docs.map(d => d.data()));
       const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Notification));
       if (!isInitialNotifLoad.current && notifs.length > 0) {
         const latest = notifs[0];
@@ -262,6 +266,7 @@ export const Layout: React.FC<LayoutProps> = ({
       isInitialNotifLoad.current = false;
       setNotifications(notifs);
     }, (error) => {
+      console.error('Firestore Error in notifications listener:', error);
       handleFirestoreError(error, OperationType.LIST, 'notifications', false);
     });
     return () => unsub();

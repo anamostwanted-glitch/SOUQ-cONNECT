@@ -1,7 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MarketInterface } from './modules/marketplace/components/MarketInterface';
-import Dashboard from './modules/site/components/Dashboard';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './core/firebase';
 import { UserProfile, AppFeatures, UserRole, SiteSettings, ProductRequest } from './core/types';
@@ -16,12 +14,14 @@ import { useTranslation } from 'react-i18next';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { preFetchNeuralPulse } from './core/services/geminiService';
 
-const Home = lazy(() => import('./modules/site/components/Home').then(m => ({ default: m.default })));
-const Auth = lazy(() => import('./modules/site/components/Auth').then(m => ({ default: m.default })));
-const RoleSelection = lazy(() => import('./modules/site/components/RoleSelection').then(m => ({ default: m.default })));
+const Home = lazy(() => import('./modules/site/components/Home'));
+const Auth = lazy(() => import('./modules/site/components/Auth'));
+const RoleSelection = lazy(() => import('./modules/site/components/RoleSelection'));
+const MarketInterface = lazy(() => import('./modules/marketplace/components/MarketInterface').then(m => ({ default: m.MarketInterface })));
+const Dashboard = lazy(() => import('./modules/site/components/Dashboard'));
 const DiscoveryCanvas = lazy(() => import('./components/Discovery/DiscoveryCanvas').then(m => ({ default: m.DiscoveryCanvas })));
 const ChatHub = lazy(() => import('./modules/common/components/ChatHub').then(m => ({ default: m.ChatHub })));
-const ChatView = lazy(() => import('./modules/common/components/ChatView').then(m => ({ default: m.default })));
+const ChatView = lazy(() => import('./modules/common/components/ChatView'));
 const ProfileView = lazy(() => import('./modules/site/components/ProfileView').then(m => ({ default: m.ProfileView })));
 const ConnectRewards = lazy(() => import('./modules/user/components/ConnectRewards').then(m => ({ default: m.ConnectRewards })));
 const UserNeuralHub = lazy(() => import('./modules/common/components/UserNeuralHub').then(m => ({ default: m.UserNeuralHub })));
@@ -99,6 +99,8 @@ export default function App() {
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'settings/site', false);
+      // Set default settings if fetch fails to prevent white screen
+      setSettings({});
     });
 
     return () => {
