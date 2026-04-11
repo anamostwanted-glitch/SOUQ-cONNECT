@@ -79,7 +79,7 @@ export function handleAiError(error: unknown, context: string, shouldThrow: bool
     console.error('CRITICAL: AI API Key is invalid or missing. Please check your AI Studio Secrets (Settings -> Secrets) and ensure GEMINI_API_KEY is set correctly.');
   }
 
-  console.error('AI Error:', JSON.stringify(errInfo, null, 2));
+  console.error(`AI Error [${context}]:`, JSON.stringify(errInfo, null, 2));
   if (shouldThrow) {
     throw new Error(JSON.stringify(errInfo));
   }
