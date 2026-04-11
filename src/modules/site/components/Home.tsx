@@ -779,7 +779,7 @@ const Home: React.FC<HomeProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-brand-background relative overflow-hidden" style={{ 
+    <div className="min-h-screen bg-brand-background relative overflow-x-hidden" style={{ 
       '--primary-text': primaryTextColor,
       '--secondary-text': secondaryTextColor
     } as React.CSSProperties}>
@@ -958,11 +958,6 @@ const Home: React.FC<HomeProps> = ({
                 </>
               )}
             </h1>
-            <p className="text-lg md:text-2xl max-w-3xl mx-auto mb-12 leading-relaxed font-medium" style={{ color: 'var(--secondary-text)' }}>
-              {isRtl 
-                ? (heroDescriptionAr || 'المنصة الأولى التي تجمع بين قوة الذكاء الاصطناعي وشبكة واسعة من الموردين الموثوقين لتلبية جميع احتياجاتك بضغطة زر.') 
-                : (heroDescriptionEn || 'The first platform combining AI power with a vast network of trusted suppliers to fulfill all your needs with a single click.')}
-            </p>
 
             {socialProof.enabled && (
               <motion.div 
@@ -982,6 +977,12 @@ const Home: React.FC<HomeProps> = ({
                 ))}
               </motion.div>
             )}
+
+            <p className="text-lg md:text-2xl max-w-3xl mx-auto mb-12 leading-relaxed font-medium" style={{ color: 'var(--secondary-text)' }}>
+              {isRtl 
+                ? (heroDescriptionAr || 'المنصة الأولى التي تجمع بين قوة الذكاء الاصطناعي وشبكة واسعة من الموردين الموثوقين لتلبية جميع احتياجاتك بضغطة زر.') 
+                : (heroDescriptionEn || 'The first platform combining AI power with a vast network of trusted suppliers to fulfill all your needs with a single click.')}
+            </p>
           </motion.div>
         </div>
 

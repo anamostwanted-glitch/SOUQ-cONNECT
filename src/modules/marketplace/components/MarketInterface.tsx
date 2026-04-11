@@ -433,7 +433,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-brand-background pb-32">
+    <div className="min-h-screen bg-brand-background pb-32 overflow-x-hidden">
       {/* Smart Insight Toast */}
       <AnimatePresence>
         {smartInsight && (

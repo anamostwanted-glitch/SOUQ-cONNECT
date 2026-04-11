@@ -455,6 +455,8 @@ export const analyzeUserBehavior = async (profile: UserProfile, recentSearches: 
       }
     );
     
+    if (!result) return fallback;
+
     const tokens = (prompt.length + JSON.stringify(result).length) / 4;
     await logUsage('Behavior Analysis', Math.ceil(tokens));
     return result;
