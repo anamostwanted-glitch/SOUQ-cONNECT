@@ -49,11 +49,18 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../
 interface ProfileViewProps {
   userId?: string;
   profile?: UserProfile | null;
+  currentUserProfile?: UserProfile | null;
   features: AppFeatures;
   onBack?: () => void;
 }
 
-export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initialProfile, features, onBack }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({ 
+  userId, 
+  profile: initialProfile, 
+  currentUserProfile,
+  features, 
+  onBack 
+}) => {
   const { t, i18n } = useTranslation();
   const [profile, setProfile] = useState<UserProfile | null>(initialProfile || null);
   const [loading, setLoading] = useState(!initialProfile);
@@ -711,6 +718,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
   }
 
   const isOwner = auth.currentUser?.uid === profile.uid;
+  const isAdmin = currentUserProfile?.role === 'admin';
   const isSupplier = profile.role === 'supplier';
   const displayedCategories = categories.filter(c => profile.categories?.includes(c.id));
 
@@ -734,7 +742,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userId, profile: initi
     handleCategoryClick,
     isChangingEmail, setIsChangingEmail, newEmail, setNewEmail,
     emailChangeStatus, emailChangeMessage, handleEmailChange,
-    onViewProduct: setSelectedItem
+    onViewProduct: setSelectedItem,
+    isAdmin
   };
 
   return (

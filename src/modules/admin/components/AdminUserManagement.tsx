@@ -57,6 +57,20 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   const [filterStatus, setFilterStatus] = useState<'all' | 'verified' | 'unverified'>('all');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDeleteUser(userToDelete);
+      setUserToDelete(null);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
       const matchesTab = 
@@ -349,11 +363,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                           <ArrowUpRight size={18} />
                         </HapticButton>
                         <HapticButton
-                          onClick={() => {
-                            if (window.confirm(isRtl ? 'هل أنت متأكد من حذف هذا المستخدم؟' : 'Are you sure you want to delete this user?')) {
-                              onDeleteUser(user.uid);
-                            }
-                          }}
+                          onClick={() => setUserToDelete(user.uid)}
                           className="p-2 bg-brand-background border border-brand-border rounded-xl text-brand-text-muted hover:text-brand-error hover:border-brand-error/30 transition-all"
                         >
                           <UserX size={18} />
@@ -392,8 +402,10 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
           selectedCount={selectedUsers.length}
           onClearSelection={() => setSelectedUsers([])}
           onBulkDelete={() => {
-            onBulkDelete(selectedUsers);
-            setSelectedUsers([]);
+            if (window.confirm(isRtl ? 'هل أنت متأكد من حذف المستخدمين المحددين نهائياً؟' : 'Are you sure you want to permanently delete selected users?')) {
+              onBulkDelete(selectedUsers);
+              setSelectedUsers([]);
+            }
           }}
           onBulkVerify={() => {
             onBulkVerify(selectedUsers);
@@ -402,6 +414,55 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
           isRtl={isRtl}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {userToDelete && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-brand-surface w-full max-w-md rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-brand-error/10 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-error">
+                  <AlertTriangle size={40} />
+                </div>
+                <h2 className="text-2xl font-black text-brand-text-main mb-2">
+                  {isRtl ? 'تأكيد الحذف النهائي' : 'Confirm Permanent Deletion'}
+                </h2>
+                <p className="text-brand-text-muted font-medium mb-8">
+                  {isRtl 
+                    ? 'هل أنت متأكد من حذف هذا المستخدم؟ سيتم مسح كافة بياناته نهائياً من قاعدة البيانات ولا يمكن التراجع عن هذا الإجراء.' 
+                    : 'Are you sure you want to delete this user? All their data will be permanently removed from the database and this action cannot be undone.'}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => setUserToDelete(null)}
+                    disabled={isDeleting}
+                    className="flex-1 px-6 py-4 bg-brand-background border border-brand-border rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-surface transition-all disabled:opacity-50"
+                  >
+                    {isRtl ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    onClick={handleDeleteConfirm}
+                    disabled={isDeleting}
+                    className="flex-1 px-6 py-4 bg-brand-error text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-error/90 transition-all shadow-lg shadow-brand-error/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isDeleting ? (
+                      <Clock size={16} className="animate-spin" />
+                    ) : (
+                      <UserX size={16} />
+                    )}
+                    {isRtl ? 'حذف نهائي' : 'Delete Permanently'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -255,6 +255,7 @@ export default function App() {
             <ProfileView 
               userId={selectedProfileId || profile?.uid} 
               profile={selectedProfileId ? null : profile} 
+              currentUserProfile={profile}
               features={features} 
               onBack={() => {
                 setSelectedProfileId(null);

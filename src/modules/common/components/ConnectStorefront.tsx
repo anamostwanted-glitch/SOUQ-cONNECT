@@ -20,6 +20,8 @@ import {
   FileText, Bookmark, ExternalLink, Trash2, ImagePlus
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { AICategorySelector } from '../../site/components/AICategorySelector';
+import { Category } from '../../../core/types';
 import { Badge } from "../../../shared/components/ui/badge";
 import { Card, CardContent } from "../../../shared/components/ui/card";
 import { Skeleton } from "../../../shared/components/ui/skeleton";
@@ -32,12 +34,38 @@ import { getProfileInsights, optimizeSupplierProfile, handleAiError } from '../.
 interface ConnectStorefrontProps {
   profile: UserProfile;
   isOwner: boolean;
+  isAdmin?: boolean;
   onViewProduct: (item: MarketplaceItem) => void;
   onBack?: () => void;
   onOpenChat: (id: string) => void;
+  categories?: Category[];
+  editKeywords?: string[];
+  setEditKeywords?: (keywords: string[]) => void;
+  editCategories?: string[];
+  setEditCategories?: (categories: string[]) => void;
+  keywordInput?: string;
+  setKeywordInput?: (input: string) => void;
+  handleAddKeyword?: (e: React.KeyboardEvent) => void;
+  handleRemoveKeyword?: (kw: string) => void;
 }
 
-export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, isOwner, onViewProduct, onBack, onOpenChat }) => {
+export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ 
+  profile, 
+  isOwner, 
+  isAdmin,
+  onViewProduct, 
+  onBack, 
+  onOpenChat,
+  categories = [],
+  editKeywords = [],
+  setEditKeywords,
+  editCategories = [],
+  setEditCategories,
+  keywordInput = '',
+  setKeywordInput,
+  handleAddKeyword,
+  handleRemoveKeyword
+}) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   
@@ -394,8 +422,19 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
         logoUrl: editData.logoUrl,
         coverUrl: editData.coverUrl,
         socialLinks: editData.socialLinks,
+        categories: editCategories,
+        keywords: editKeywords,
         updatedAt: new Date().toISOString()
       });
+
+      // Update public profile as well
+      await updateDoc(doc(db, 'users_public', profile.uid), {
+        name: editData.name,
+        logoUrl: editData.logoUrl,
+        categories: editCategories,
+        updatedAt: new Date().toISOString()
+      });
+
       toast.success(isRtl ? 'تم حفظ التغييرات بنجاح' : 'Changes saved successfully');
       setIsArchitectMode(false);
     } catch (error) {
@@ -468,7 +507,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
           )}
           
           <div className="flex items-center gap-3">
-            {isOwner && (
+            {(isOwner || isAdmin) && (
               <HapticButton 
                 onClick={() => setIsArchitectMode(!isArchitectMode)}
                 className={`px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all ${
@@ -1005,7 +1044,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
                 </motion.div>
               )}
 
-              {activeTab === 'settings' && isOwner && (
+              {activeTab === 'settings' && (isOwner || isAdmin) && (
                 <motion.div 
                   key="settings"
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -1050,8 +1089,8 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
                           <label className="block text-xs font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'النبذة التعريفية' : 'Bio / Description'}</label>
                           <HapticButton 
                             onClick={handleAiRefineBio}
-                            disabled={isAiAnalyzing}
-                            className="text-[10px] font-black text-brand-primary uppercase tracking-widest flex items-center gap-2 hover:opacity-80 transition-opacity"
+                            disabled={isAiAnalyzing || isAdmin}
+                            className="text-[10px] font-black text-brand-primary uppercase tracking-widest flex items-center gap-2 hover:opacity-80 transition-opacity disabled:opacity-50"
                           >
                             <Sparkles size={12} />
                             {isRtl ? 'تحسين بالذكاء الاصطناعي' : 'Refine with AI'}
@@ -1063,6 +1102,78 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({ profile, i
                           rows={4}
                           className="w-full px-6 py-4 bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-bold resize-none"
                         />
+                      </div>
+
+                      {/* Specialized Information: Categories & Keywords */}
+                      <div className="space-y-6 md:col-span-2 p-8 bg-brand-background/50 border border-brand-border rounded-3xl">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                              <Tag size={20} />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-black text-brand-text-main">{isRtl ? 'المعلومات المتخصصة' : 'Specialized Information'}</h4>
+                              <p className="text-[10px] text-brand-text-muted font-bold uppercase tracking-widest">{isRtl ? 'الفئات والكلمات المفتاحية' : 'Categories & Keywords'}</p>
+                            </div>
+                          </div>
+                          {isAdmin && (
+                            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px] font-black uppercase tracking-widest">
+                              {isRtl ? 'للقراءة فقط للمدراء' : 'Read-only for Admins'}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                          {/* Categories */}
+                          <div className="space-y-4">
+                            <label className="block text-[10px] font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'تصنيفات المورد' : 'Supplier Categories'}</label>
+                            <div className={isAdmin ? 'pointer-events-none opacity-60 grayscale-[0.5]' : ''}>
+                              <AICategorySelector 
+                                categories={categories}
+                                selectedCategoryIds={editCategories}
+                                onChange={setEditCategories || (() => {})}
+                                isRtl={isRtl}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Keywords */}
+                          <div className="space-y-4">
+                            <label className="block text-[10px] font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'الكلمات المفتاحية' : 'Keywords'}</label>
+                            <div className={`space-y-4 ${isAdmin ? 'pointer-events-none opacity-60' : ''}`}>
+                              <div className="relative">
+                                <Plus className={`absolute ${isRtl ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 text-brand-text-muted`} size={16} />
+                                <input 
+                                  type="text"
+                                  value={keywordInput}
+                                  onChange={(e) => setKeywordInput?.(e.target.value)}
+                                  onKeyDown={handleAddKeyword}
+                                  placeholder={isRtl ? 'أضف كلمة مفتاحية واضغط Enter...' : 'Add keyword and press Enter...'}
+                                  className={`w-full ${isRtl ? 'pr-12 pl-4' : 'pl-12 pr-4'} py-3 bg-brand-background border border-brand-border rounded-xl outline-none focus:border-brand-primary transition-all text-xs font-bold`}
+                                />
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {editKeywords.map((kw, i) => (
+                                  <Badge 
+                                    key={i} 
+                                    variant="secondary" 
+                                    className="px-3 py-1.5 rounded-lg bg-brand-surface border border-brand-border text-brand-text-main flex items-center gap-2 group"
+                                  >
+                                    {kw}
+                                    {!isAdmin && (
+                                      <button 
+                                        onClick={() => handleRemoveKeyword?.(kw)}
+                                        className="text-brand-text-muted hover:text-brand-error transition-colors"
+                                      >
+                                        <X size={12} />
+                                      </button>
+                                    )}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="space-y-6">

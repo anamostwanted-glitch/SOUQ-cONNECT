@@ -139,14 +139,14 @@ service cloud.firestore {
          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['referralPoints', 'role', 'logoUrl', 'coverUrl', 'photoURL']) || isAdmin())) || 
         isAdmin()
       );
-      // Soft delete only: Prevent hard deletion of user accounts to maintain data integrity
-      allow delete: if false;
+      // Allow admins to hard delete users
+      allow delete: if isAdmin();
     }
 
     match /users_public/{userId} {
       allow read: if isAuthenticated() && resource.data.get('status', '') != 'deleted';
       allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     function isValidCategory(data) {
