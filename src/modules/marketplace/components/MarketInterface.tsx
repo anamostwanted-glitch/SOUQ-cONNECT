@@ -14,7 +14,10 @@ import {
   updateDoc,
   doc,
   limit,
-  writeBatch
+  writeBatch,
+  increment,
+  getDoc,
+  setDoc
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../../../core/firebase';
@@ -354,7 +357,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     }
   }, []);
 
-  const handleViewProduct = (item: MarketplaceItem) => {
+  const handleViewProduct = async (item: MarketplaceItem) => {
     setSelectedItem(item);
     // Add to recently viewed
     setRecentlyViewed(prev => {
@@ -366,6 +369,29 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
       }
       return updated;
     });
+
+    // Increment view count
+    try {
+      const adAnalyticsRef = doc(db, 'ad_analytics', item.id);
+      const adAnalyticsSnap = await getDoc(adAnalyticsRef);
+      
+      if (adAnalyticsSnap.exists()) {
+        await updateDoc(adAnalyticsRef, {
+          views: increment(1),
+          lastUpdated: new Date().toISOString()
+        });
+      } else {
+        await setDoc(adAnalyticsRef, {
+          adId: item.id,
+          sellerId: item.sellerId,
+          views: 1,
+          clicks: 0,
+          lastUpdated: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Failed to increment view count:', error);
+    }
   };
 
   const recentlyViewedItems = items.filter(item => recentlyViewed.includes(item.id))

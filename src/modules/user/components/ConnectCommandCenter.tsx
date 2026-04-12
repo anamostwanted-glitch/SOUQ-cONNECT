@@ -52,6 +52,7 @@ import { calculateProfileCompletion } from '../../../core/utils/profileUtils';
 import { UserRequestCard } from './UserRequestCard';
 import { VendorRequestCard } from '../../vendor/components/VendorRequestCard';
 import { VendorOffersList } from '../../vendor/components/VendorOffersList';
+import { MarketplaceAnalytics } from '../../marketplace/components/MarketplaceAnalytics';
 import { MyAdsDashboard } from '../../vendor/components/MyAdsDashboard';
 import { SubscriptionManager } from '../../../components/SubscriptionManager';
 import { ProductCard } from '../../marketplace/components/ProductCard';
@@ -363,7 +364,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
       { id: 'available_requests', title: isRtl ? 'طلبات السوق' : 'Market RFQs', icon: Globe, color: 'text-indigo-500', bg: 'bg-indigo-500/10', stat: '20+' },
       { id: 'my_offers', title: isRtl ? 'عروضي' : 'My Offers', icon: FileText, color: 'text-emerald-500', bg: 'bg-emerald-500/10', stat: '12' },
       { id: 'my_ads', title: isRtl ? 'إعلاناتي' : 'My Ads', icon: Megaphone, color: 'text-purple-500', bg: 'bg-purple-500/10', stat: 'Active' },
-      { id: 'analytics', title: isRtl ? 'التحليلات' : 'Analytics', icon: BarChart3, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: '94%' },
+      { id: 'ad_analytics', title: isRtl ? 'التحليلات' : 'Analytics', icon: BarChart3, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: '94%' },
       { id: 'subscription', title: isRtl ? 'الاشتراك' : 'Subscription', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-500/10', stat: 'Pro' },
       { id: 'store_settings', title: isRtl ? 'إعدادات المتجر' : 'Store Settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-500/10', stat: 'Active' },
       { id: 'branding_settings', title: isRtl ? 'الهوية البصرية' : 'Visual Identity', icon: Palette, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: 'Custom' }
@@ -485,6 +486,9 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
             )}
             {activeSubView === 'my_ads' && (
               <MyAdsDashboard />
+            )}
+            {activeSubView === 'ad_analytics' && (
+              <MarketplaceAnalytics />
             )}
             {activeSubView === 'subscription' && (
               <SubscriptionManager isRtl={isRtl} />

@@ -23,11 +23,14 @@ export const fetchMarketplaceItems = async (
     constraints.push(startAfter(lastDoc));
   }
 
+  const now = new Date().toISOString();
+  
   if (activeTab === 'myshop' && userId) {
     q = query(
       marketplaceRef,
       where('sellerId', '==', userId),
-      where('status', '!=', 'deleted'),
+      where('status', '==', 'active'),
+      // where('expiryDate', '>', now), // تحتاج إلى تحديث البيانات الموجودة أولاً
       ...constraints
     );
   } else if (categoryId) {
@@ -35,12 +38,14 @@ export const fetchMarketplaceItems = async (
       marketplaceRef,
       where('status', '==', 'active'),
       where('categoryId', '==', categoryId),
+      // where('expiryDate', '>', now),
       ...constraints
     );
   } else {
     q = query(
       marketplaceRef,
       where('status', '==', 'active'),
+      // where('expiryDate', '>', now),
       ...constraints
     );
   }

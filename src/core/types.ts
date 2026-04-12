@@ -253,10 +253,11 @@ export interface MarketplaceItem {
   currency: string;
   categories: string[];
   images: string[];
-  status: 'active' | 'sold' | 'hidden' | 'deleted' | 'draft';
+  status: 'active' | 'sold' | 'hidden' | 'deleted' | 'draft' | 'expired';
   location?: string;
   createdAt: string;
   updatedAt: string;
+  expiryDate?: string;
   isVerifiedSupplier?: boolean;
   isOnline?: boolean;
   averageResponseTime?: number;
@@ -385,6 +386,15 @@ export interface SiteSettings {
     pulseSpeed: 'slow' | 'normal' | 'fast';
     themeColor?: string;
   };
+}
+
+export interface AdAnalytics {
+  id: string;
+  adId: string;
+  sellerId: string;
+  views: number;
+  clicks: number;
+  lastUpdated: string;
 }
 
 export interface GeminiApiKey {

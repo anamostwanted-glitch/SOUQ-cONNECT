@@ -138,7 +138,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
     currency: 'SAR',
     categories: [] as string[],
     images: [] as string[],
-    status: 'active' as 'active' | 'sold' | 'hidden' | 'deleted' | 'draft'
+    status: 'active' as 'active' | 'sold' | 'hidden' | 'deleted' | 'draft' | 'expired'
   });
   const [isProductImageUploading, setIsProductImageUploading] = useState(false);
 
