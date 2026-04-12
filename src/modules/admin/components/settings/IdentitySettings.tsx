@@ -1,5 +1,5 @@
 import React from 'react';
-import { ImageIcon, Upload, Loader2, X } from 'lucide-react';
+import { ImageIcon, Upload, Loader2, X, Type } from 'lucide-react';
 import { SiteSettings } from '../../../../core/types';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 
@@ -16,6 +16,21 @@ export const IdentitySettings: React.FC<IdentitySettingsProps> = ({ settings, se
     <div className="bg-brand-surface p-6 rounded-2xl border border-brand-border space-y-6">
       <h2 className="text-xl font-bold text-brand-text-main">{isRtl ? 'هوية الموقع البصرية' : 'Site Visual Identity'}</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <div className="space-y-4 md:col-span-2">
+          <label className="text-sm font-bold text-brand-text-muted flex items-center gap-2">
+            <Type size={14} />
+            {isRtl ? 'اسم الموقع (يظهر في عنوان المتصفح)' : 'Site Name (Browser Title)'}
+          </label>
+          <input 
+            type="text" 
+            value={settings.siteName || ''}
+            onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
+            className="w-full p-3 bg-brand-background rounded-xl border border-brand-border text-brand-text-main"
+            placeholder={isRtl ? 'أدخل اسم الموقع' : 'Enter site name'}
+          />
+        </div>
+
         <div className="space-y-4">
           <label className="text-sm font-bold text-brand-text-muted flex items-center gap-2">
             <ImageIcon size={14} />

@@ -104,7 +104,24 @@ export default function App() {
 
     const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
       if (snap.exists()) {
-        setSettings(snap.data() as SiteSettings);
+        const newSettings = snap.data() as SiteSettings;
+        setSettings(newSettings);
+        
+        // Update document title
+        if (newSettings.siteName) {
+          document.title = newSettings.siteName;
+        }
+        
+        // Update favicon
+        if (newSettings.logoUrl) {
+          let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+          if (!link) {
+            link = document.createElement('link');
+            link.rel = 'icon';
+            document.head.appendChild(link);
+          }
+          link.href = newSettings.logoUrl;
+        }
       } else {
         setSettings({});
       }

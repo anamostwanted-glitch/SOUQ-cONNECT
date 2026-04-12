@@ -17,7 +17,7 @@ import {
   Plus, Camera, Edit3, Save, X, Settings, 
   CheckCircle2, Info, ArrowLeft, MoreHorizontal,
   Mail, Link as LinkIcon, Facebook, Instagram, Twitter,
-  FileText, Bookmark, ExternalLink, Trash2, ImagePlus
+  FileText, Bookmark, ExternalLink, Trash2, ImagePlus, Tag
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { AICategorySelector } from '../../site/components/AICategorySelector';
@@ -98,6 +98,22 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
     coverUrl: profile.coverUrl || 'https://picsum.photos/seed/cover/1200/400',
     socialLinks: profile.socialLinks || { facebook: '', instagram: '', twitter: '' }
   });
+
+  // Sync editData with profile changes when not in architect mode
+  useEffect(() => {
+    if (!isArchitectMode) {
+      setEditData({
+        name: profile.name || profile.companyName || '',
+        bio: profile.bio || '',
+        location: profile.location || '',
+        phone: profile.phone || '',
+        website: profile.website || '',
+        logoUrl: profile.logoUrl || '',
+        coverUrl: profile.coverUrl || 'https://picsum.photos/seed/cover/1200/400',
+        socialLinks: profile.socialLinks || { facebook: '', instagram: '', twitter: '' }
+      });
+    }
+  }, [profile, isArchitectMode]);
 
   // AI State
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
@@ -397,6 +413,15 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
           [`${type}Url`]: url,
           updatedAt: new Date().toISOString()
         });
+        
+        // Update public profile as well
+        await updateDoc(doc(db, 'users_public', profile.uid), {
+          [`${type}Url`]: url,
+          updatedAt: new Date().toISOString()
+        }).catch(err => {
+          console.error("Failed to update users_public:", err);
+        });
+        
         toast.success(isRtl ? 'تم تحديث الصورة بنجاح' : 'Image updated successfully');
       }
     } catch (error) {
@@ -431,8 +456,11 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
       await updateDoc(doc(db, 'users_public', profile.uid), {
         name: editData.name,
         logoUrl: editData.logoUrl,
+        coverUrl: editData.coverUrl,
         categories: editCategories,
         updatedAt: new Date().toISOString()
+      }).catch(err => {
+        console.error("Failed to update users_public:", err);
       });
 
       toast.success(isRtl ? 'تم حفظ التغييرات بنجاح' : 'Changes saved successfully');
@@ -526,7 +554,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
           </div>
         </div>
 
-        {isArchitectMode && (
+        {(isOwner || isAdmin) && (
           <label className="absolute bottom-6 right-6 p-4 bg-brand-primary text-white rounded-2xl cursor-pointer shadow-2xl hover:scale-105 transition-all z-20">
             <Camera size={20} />
             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'cover')} />
@@ -542,7 +570,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
             <div className="relative w-32 h-32 md:w-44 md:h-44 rounded-[3rem] p-1.5 bg-gradient-to-tr from-brand-primary via-brand-warning to-brand-primary animate-gradient-xy shadow-2xl">
               <div className="w-full h-full rounded-[2.7rem] bg-brand-surface overflow-hidden border-4 border-brand-surface relative">
                 <img 
-                  src={editData.logoUrl || 'https://picsum.photos/seed/logo/200/200'} 
+                  src={editData.logoUrl || profile.logoUrl || 'https://picsum.photos/seed/logo/200/200'} 
                   alt={editData.name} 
                   className="w-full h-full object-cover"
                 />
@@ -551,7 +579,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary" />
                   </div>
                 )}
-                {isArchitectMode && (
+                {(isOwner || isAdmin) && (
                   <label className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
                     <Camera size={32} />
                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} />
