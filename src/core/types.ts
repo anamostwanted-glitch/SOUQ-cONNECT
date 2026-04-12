@@ -353,6 +353,10 @@ export interface SiteSettings {
   headerLogoAuraOpacity?: number;
   headerLogoAuraStyle?: 'solid' | 'gradient' | 'pulse' | 'mesh';
   headerLogoAuraSharpness?: number;
+  headerEnableNeuralPulse?: boolean;
+  headerEnableOrbitalRings?: boolean;
+  headerEnableShimmerEffect?: boolean;
+  headerAnimationSpeed?: 'slow' | 'normal' | 'fast';
 
   // Connect Rewards System
   enableConnectRewards?: boolean;

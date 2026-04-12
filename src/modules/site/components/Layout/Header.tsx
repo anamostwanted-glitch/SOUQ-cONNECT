@@ -21,6 +21,7 @@ interface HeaderProps {
   logoAuraSharpness: number;
   logoScale: number;
   showNeuralLogo: boolean;
+  animationSpeed: 'slow' | 'normal' | 'fast';
   currentView: string;
   setView: (view: any) => void;
   dashboardTab?: string;
@@ -58,6 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
   logoAuraSharpness,
   logoScale,
   showNeuralLogo,
+  animationSpeed,
   currentView,
   setView,
   dashboardTab,
@@ -85,6 +87,14 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
 
+  const getSpeed = () => {
+    switch (animationSpeed) {
+      case 'slow': return 4;
+      case 'fast': return 1.5;
+      default: return 2.5;
+    }
+  };
+
   return (
     <header className="fixed top-4 left-4 right-4 z-50 pointer-events-none flex justify-center">
       <motion.div 
@@ -109,12 +119,35 @@ export const Header: React.FC<HeaderProps> = ({
           </HapticButton>
         )}
 
-        {/* Profile / Login */}
+        {/* Profile / Login with Neural Aura */}
         <div className="relative shrink-0">
+          {/* Neural Aura Effect */}
+          {showNeuralLogo && (
+            <motion.div
+              animate={{
+                scale: [1, logoAuraSpread, 1],
+                opacity: [logoAuraOpacity * 0.5, logoAuraOpacity, logoAuraOpacity * 0.5],
+              }}
+              transition={{
+                duration: getSpeed(),
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="absolute inset-0 rounded-full pointer-events-none"
+              style={{
+                backgroundColor: logoAuraColor,
+                filter: `blur(${logoAuraBlur}px)`,
+                transform: `scale(${logoScale})`,
+                zIndex: 0
+              }}
+            />
+          )}
+
           {profile ? (
             <HapticButton
               onClick={() => setView('profile')}
               className="w-10 h-10 rounded-full overflow-hidden border-2 border-white dark:border-gray-800 shadow-sm relative z-10 hover:ring-2 hover:ring-brand-primary/20 transition-all"
+              style={{ transform: `scale(${logoScale})` }}
             >
               {profile.photoURL ? (
                 <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -130,6 +163,7 @@ export const Header: React.FC<HeaderProps> = ({
             <HapticButton 
               onClick={() => setView('role-selection')}
               className="px-4 h-10 rounded-full bg-brand-primary text-white flex items-center gap-2 shadow-lg shadow-brand-primary/20 relative z-10 transition-all hover:scale-105 active:scale-95"
+              style={{ transform: `scale(${logoScale})` }}
             >
               <UserIcon size={16} />
               <span className="text-xs font-bold whitespace-nowrap">

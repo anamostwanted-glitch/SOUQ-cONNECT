@@ -88,6 +88,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const [headerLogoAuraSharpness, setHeaderLogoAuraSharpness] = useState(50);
   const [headerLogoScale, setHeaderLogoScale] = useState(1);
   const [headerShowNeuralLogo, setHeaderShowNeuralLogo] = useState(true);
+  const [headerAnimationSpeed, setHeaderAnimationSpeed] = useState<'slow' | 'normal' | 'fast'>('normal');
   const [enableNeuralPulse, setEnableNeuralPulse] = useState(true);
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -244,6 +245,7 @@ export const Layout: React.FC<LayoutProps> = ({
       if (data.headerLogoAuraSharpness !== undefined) setHeaderLogoAuraSharpness(data.headerLogoAuraSharpness);
       if (data.headerLogoScale !== undefined) setHeaderLogoScale(data.headerLogoScale);
       if (data.headerShowNeuralLogo !== undefined) setHeaderShowNeuralLogo(data.headerShowNeuralLogo);
+      if (data.headerAnimationSpeed !== undefined) setHeaderAnimationSpeed(data.headerAnimationSpeed);
       if (data.enableNeuralPulse !== undefined) setEnableNeuralPulse(data.enableNeuralPulse);
     };
     window.addEventListener('site-settings-preview', handlePreview);
@@ -274,6 +276,7 @@ export const Layout: React.FC<LayoutProps> = ({
         setHeaderLogoAuraSharpness(data.headerLogoAuraSharpness ?? data.logoAuraSharpness ?? 50);
         setHeaderLogoScale(data.headerLogoScale ?? data.logoScale ?? 1);
         setHeaderShowNeuralLogo(data.headerShowNeuralLogo ?? data.showNeuralLogo ?? true);
+        setHeaderAnimationSpeed(data.headerAnimationSpeed ?? data.animationSpeed ?? 'normal');
         setEnableNeuralPulse(data.enableNeuralPulse ?? true);
       }
     }, (error) => {
@@ -374,6 +377,7 @@ export const Layout: React.FC<LayoutProps> = ({
           logoAuraSharpness={headerLogoAuraSharpness}
           logoScale={headerLogoScale}
           showNeuralLogo={headerShowNeuralLogo}
+          animationSpeed={headerAnimationSpeed}
           currentView={currentView}
           setView={setView}
           dashboardTab={dashboardTab}

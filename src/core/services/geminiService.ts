@@ -59,7 +59,7 @@ export const getResponseText = (response: any): string => {
 /**
  * Consolidates AI error handling to provide consistent logging and UX.
  */
-export const handleAiError = (error: any, context: string, shouldThrow: boolean = true) => {
+export const handleAiError = (error: any, context: string, shouldThrow: boolean = false) => {
   const isInvalid = error.isInvalidKey || 
     error.message?.includes('API key not valid') || 
     error.message?.includes('API_KEY_INVALID') ||

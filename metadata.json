@@ -1,6 +1,6 @@
 {
   "name": "Souq Connect",
-  "description": "A professional marketplace platform connecting customers with suppliers, featuring real-time AI-powered chat, dynamic branding, and advanced theme personalization.",
+  "description": "Souq Connect: A professional B2B marketplace connecting customers with verified suppliers. Features AI-powered chat, smart matching, and dynamic branding.",
   "requestFramePermissions": [
     "microphone",
     "geolocation",

@@ -10,7 +10,8 @@ import { HelpCircle } from 'lucide-react';
 import { handleFirestoreError, OperationType, handleAiError } from './core/utils/errorHandling';
 import { PageLoader } from './shared/components/PageLoader';
 import { usePredictiveNavigation } from './shared/hooks/usePredictiveNavigation';
-import { useTranslation } from 'react-i18next';
+import { I18nextProvider, useTranslation } from 'react-i18next';
+import i18n from './i18n';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { preFetchNeuralPulse } from './core/services/geminiService';
 
@@ -37,7 +38,7 @@ const queryClient = new QueryClient({
 });
 
 export default function App() {
-  const { i18n } = useTranslation();
+  const { i18n: i18nInstance } = useTranslation();
   const [currentView, setView] = useState('home');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [features, setFeatures] = useState<AppFeatures>({
@@ -286,38 +287,40 @@ export default function App() {
   };
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrandingProvider>
-        <AnimatePresence mode="wait">
-          {(loading || !settings) ? (
-            <PageLoader key="loader" previewSettings={settings} />
-          ) : (
-            <motion.div
-              key="content"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-              className="min-h-screen"
-            >
-              <Layout 
-                profile={profile}
-                features={features}
-                currentView={currentView}
-                setView={setView}
-                setActiveChatId={setActiveChatId}
-                viewMode={viewMode}
-                setViewMode={setViewMode}
-                uiStyle={uiStyle}
-                setUiStyle={setUiStyle}
-                onBack={onBack}
-                isMomentOfNeed={isMomentOfNeed}
+    <I18nextProvider i18n={i18n}>
+      <QueryClientProvider client={queryClient}>
+        <BrandingProvider>
+          <AnimatePresence mode="wait">
+            {(loading || !settings) ? (
+              <PageLoader key="loader" previewSettings={settings} />
+            ) : (
+              <motion.div
+                key="content"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                className="min-h-screen"
               >
-                {renderView()}
-              </Layout>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </BrandingProvider>
-    </QueryClientProvider>
+                <Layout 
+                  profile={profile}
+                  features={features}
+                  currentView={currentView}
+                  setView={setView}
+                  setActiveChatId={setActiveChatId}
+                  viewMode={viewMode}
+                  setViewMode={setViewMode}
+                  uiStyle={uiStyle}
+                  setUiStyle={setUiStyle}
+                  onBack={onBack}
+                  isMomentOfNeed={isMomentOfNeed}
+                >
+                  {renderView()}
+                </Layout>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </BrandingProvider>
+      </QueryClientProvider>
+    </I18nextProvider>
   );
 }

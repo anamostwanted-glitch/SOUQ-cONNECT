@@ -125,25 +125,25 @@ export const PageLoader: React.FC<PageLoaderProps> = ({ previewSettings, isInlin
           )}
 
           {/* Neural Pulse Aura */}
-          {settings?.enableNeuralPulse !== false && (
+          {(settings?.headerEnableNeuralPulse ?? settings?.enableNeuralPulse ?? true) && (
             <motion.div
               animate={{
-                scale: [1, settings?.logoAuraSpread || 1.2, 1],
+                scale: [1, (settings?.headerLogoAuraSpread ?? settings?.logoAuraSpread ?? 1.2), 1],
                 opacity: [
-                  (settings?.logoAuraOpacity || 0.4) * 0.5,
-                  settings?.logoAuraOpacity || 0.4,
-                  (settings?.logoAuraOpacity || 0.4) * 0.5
+                  ((settings?.headerLogoAuraOpacity ?? settings?.logoAuraOpacity ?? 0.4) * 0.5),
+                  (settings?.headerLogoAuraOpacity ?? settings?.logoAuraOpacity ?? 0.4),
+                  ((settings?.headerLogoAuraOpacity ?? settings?.logoAuraOpacity ?? 0.4) * 0.5)
                 ],
               }}
               transition={{
-                duration: settings?.animationSpeed === 'slow' ? 6 : settings?.animationSpeed === 'fast' ? 1.5 : 3,
+                duration: (settings?.headerAnimationSpeed ?? settings?.animationSpeed) === 'slow' ? 6 : (settings?.headerAnimationSpeed ?? settings?.animationSpeed) === 'fast' ? 1.5 : 3,
                 repeat: Infinity,
                 ease: "easeInOut"
               }}
               className="absolute inset-0 -z-10 rounded-full"
               style={{
-                backgroundColor: settings?.logoAuraColor || '#1b97a7',
-                filter: `blur(${settings?.logoAuraBlur || 40}px)`,
+                backgroundColor: settings?.headerLogoAuraColor ?? settings?.logoAuraColor ?? '#1b97a7',
+                filter: `blur(${settings?.headerLogoAuraBlur ?? settings?.logoAuraBlur ?? 40}px)`,
               }}
             />
           )}

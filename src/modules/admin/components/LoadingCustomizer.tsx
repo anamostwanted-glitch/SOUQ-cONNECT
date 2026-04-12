@@ -124,6 +124,15 @@ export const LoadingCustomizer: React.FC = () => {
     logoAuraOpacity: settings.logoAuraOpacity ?? 0.4,
     logoAuraSpread: settings.logoAuraSpread ?? 1.2,
     logoAuraBlur: settings.logoAuraBlur ?? 40,
+    
+    // Header specific
+    headerEnableNeuralPulse: settings.headerEnableNeuralPulse ?? true,
+    headerLogoAuraColor: settings.headerLogoAuraColor || '#1b97a7',
+    headerLogoAuraOpacity: settings.headerLogoAuraOpacity ?? 0.4,
+    headerLogoAuraSpread: settings.headerLogoAuraSpread ?? 1.2,
+    headerLogoAuraBlur: settings.headerLogoAuraBlur ?? 40,
+    headerAnimationSpeed: settings.headerAnimationSpeed || 'normal',
+
     loaderBackgroundStyle: settings.loaderBackgroundStyle || 'solid',
     loaderLogoShape: settings.loaderLogoShape || 'square',
     loaderLogoAnimation: settings.loaderLogoAnimation || 'float',
@@ -141,7 +150,8 @@ export const LoadingCustomizer: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-20">
+    <>
+      <div className="space-y-8 max-w-5xl mx-auto pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border shadow-sm">
         <div>
           <h1 className="text-3xl font-black text-brand-text-main tracking-tight">
@@ -298,7 +308,7 @@ export const LoadingCustomizer: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
-                    {isRtl ? 'لون الهالة' : 'Aura Color'}
+                    {isRtl ? 'لون الهالة (شاشة التحميل)' : 'Aura Color (Loader)'}
                   </label>
                   <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{auraSettings.logoAuraColor}</span>
                 </div>
@@ -322,6 +332,35 @@ export const LoadingCustomizer: React.FC = () => {
                   />
                 </div>
               </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
+                    {isRtl ? 'لون الهالة (الهيدر)' : 'Aura Color (Header)'}
+                  </label>
+                  <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{auraSettings.headerLogoAuraColor}</span>
+                </div>
+                <div className="flex gap-3">
+                  <div 
+                    className="w-12 h-12 rounded-2xl shadow-inner border-2 border-white relative overflow-hidden ring-1 ring-brand-border"
+                    style={{ backgroundColor: auraSettings.headerLogoAuraColor }}
+                  >
+                    <input 
+                      type="color" 
+                      value={auraSettings.headerLogoAuraColor}
+                      onChange={(e) => updateSettings({ headerLogoAuraColor: e.target.value })}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                  </div>
+                  <input 
+                    type="text" 
+                    value={auraSettings.headerLogoAuraColor}
+                    onChange={(e) => updateSettings({ headerLogoAuraColor: e.target.value })}
+                    className="flex-1 px-4 py-3 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-mono text-sm"
+                  />
+                </div>
+              </div>
+            </div>
 
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
@@ -495,6 +534,99 @@ export const LoadingCustomizer: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Header Aura Settings Section */}
+          <div className="bg-brand-surface p-8 rounded-[2rem] border border-brand-border shadow-sm space-y-8">
+            <div className="flex items-center gap-3 pb-4 border-b border-brand-border">
+              <Layout className="text-brand-primary" size={24} />
+              <h2 className="text-xl font-black text-brand-text-main">{isRtl ? 'إعدادات هالة الهيدر' : 'Header Aura Settings'}</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-black text-brand-text-main">{isRtl ? 'تفعيل النبض في الهيدر' : 'Header Neural Pulse'}</span>
+                    <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-tighter">{isRtl ? 'هالة مضيئة خلف شعار الهيدر' : 'Glowing aura behind header logo'}</span>
+                  </div>
+                  <button
+                    onClick={() => updateSettings({ headerEnableNeuralPulse: !auraSettings.headerEnableNeuralPulse })}
+                    className={`w-12 h-6 rounded-full transition-all relative ${auraSettings.headerEnableNeuralPulse ? 'bg-brand-primary' : 'bg-brand-border'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${auraSettings.headerEnableNeuralPulse ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest block">
+                    {isRtl ? 'سرعة أنيميشن الهيدر' : 'Header Animation Speed'}
+                  </label>
+                  <div className="flex gap-2">
+                    {(['slow', 'normal', 'fast'] as const).map((speed) => (
+                      <button
+                        key={speed}
+                        onClick={() => updateSettings({ headerAnimationSpeed: speed })}
+                        className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                          auraSettings.headerAnimationSpeed === speed 
+                            ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20' 
+                            : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/30'
+                        }`}
+                      >
+                        {speed === 'slow' ? (isRtl ? 'بطيء' : 'Slow') : speed === 'normal' ? (isRtl ? 'عادي' : 'Normal') : (isRtl ? 'سريع' : 'Fast')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
+                      {isRtl ? 'شفافية هالة الهيدر' : 'Header Aura Opacity'}
+                    </label>
+                    <span className="text-[10px] font-black text-brand-primary">{Math.round((auraSettings.headerLogoAuraOpacity) * 100)}%</span>
+                  </div>
+                  <input 
+                    type="range" min="0" max="1" step="0.05"
+                    value={auraSettings.headerLogoAuraOpacity}
+                    onChange={e => updateSettings({ headerLogoAuraOpacity: parseFloat(e.target.value) })}
+                    className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
+                      {isRtl ? 'مدى انتشار هالة الهيدر' : 'Header Aura Spread'}
+                    </label>
+                    <span className="text-[10px] font-black text-brand-primary">{auraSettings.headerLogoAuraSpread}x</span>
+                  </div>
+                  <input 
+                    type="range" min="1" max="3" step="0.1"
+                    value={auraSettings.headerLogoAuraSpread}
+                    onChange={e => updateSettings({ headerLogoAuraSpread: parseFloat(e.target.value) })}
+                    className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
+                      {isRtl ? 'تمويه هالة الهيدر' : 'Header Aura Blur'}
+                    </label>
+                    <span className="text-[10px] font-black text-brand-primary">{auraSettings.headerLogoAuraBlur}px</span>
+                  </div>
+                  <input 
+                    type="range" min="0" max="150" step="5"
+                    value={auraSettings.headerLogoAuraBlur}
+                    onChange={e => updateSettings({ headerLogoAuraBlur: parseInt(e.target.value) })}
+                    className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Content & Texts */}
@@ -623,7 +755,6 @@ export const LoadingCustomizer: React.FC = () => {
         </div>
       </div>
 
-      {/* Full Screen Preview Modal */}
       <AnimatePresence>
         {showPreview && (
           <motion.div
@@ -647,6 +778,6 @@ export const LoadingCustomizer: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 };

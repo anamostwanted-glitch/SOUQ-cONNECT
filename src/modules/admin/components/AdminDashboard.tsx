@@ -31,7 +31,7 @@ import {
   Bell,
   X
 } from 'lucide-react';
-import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc, orderBy, limit, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { handleAiError } from '../../../core/services/geminiService';
 import { db } from '../../../core/firebase';
@@ -692,12 +692,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       batch.update(doc(db, 'users', uid), { 
                         status: 'deleted', 
                         deletedAt: new Date().toISOString(),
-                        deletedBy: profile.uid
+                        deletedBy: profile?.uid || 'unknown'
                       });
-                      batch.update(doc(db, 'users_public', uid), { 
+                      batch.set(doc(db, 'users_public', uid), { 
                         status: 'deleted',
                         isOnline: false
-                      });
+                      }, { merge: true });
                     });
                     await batch.commit();
                     toast.success(isRtl ? 'تم حذف المستخدمين المحددين (حذف ناعم)' : 'Selected users deleted (Soft Delete)');
@@ -716,12 +716,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     await updateDoc(doc(db, 'users', uid), { 
                       status: 'deleted', 
                       deletedAt: new Date().toISOString(),
-                      deletedBy: profile.uid
+                      deletedBy: profile?.uid || 'unknown'
                     });
-                    await updateDoc(doc(db, 'users_public', uid), { 
+                    await setDoc(doc(db, 'users_public', uid), { 
                       status: 'deleted',
                       isOnline: false
-                    });
+                    }, { merge: true });
                     toast.success(isRtl ? 'تم حذف المستخدم (حذف ناعم)' : 'User deleted (Soft Delete)');
                   } catch (error) {
                     handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`, false);
