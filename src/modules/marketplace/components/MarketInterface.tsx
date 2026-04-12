@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { NeuralFluidSlider } from './NeuralFluidSlider';
 import { PredictiveMatchSection } from './PredictiveMatchSection';
 import { NeuralCommandCenter } from './NeuralCommandCenter';
 import { fetchMarketplaceItems, fetchCategories, fetchMarketTrends, fetchSuppliers, searchMarketplaceAndSuppliers, fetchPredictiveMatches } from '../services/marketService';
@@ -483,6 +484,9 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
 
   return (
     <div className="min-h-screen bg-brand-background pb-32 overflow-x-hidden">
+      <div className="p-4">
+        <NeuralFluidSlider />
+      </div>
       {/* Smart Insight Toast */}
       <AnimatePresence>
         {smartInsight && (

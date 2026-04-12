@@ -63,6 +63,11 @@ export function handleAiError(error: unknown, context: string, shouldThrow: bool
     }
   }
 
+  // Ignore dynamic import errors completely (they are handled by auto-reload)
+  if (errorMessage.includes('Failed to fetch dynamically imported module')) {
+    return;
+  }
+
   const errInfo = {
     error: errorMessage || 'No error message',
     context: context || 'Unknown context',

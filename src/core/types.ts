@@ -388,6 +388,26 @@ export interface SiteSettings {
   };
 }
 
+export interface SliderItem {
+  id: string;
+  imageUrl: string;
+  targetType: 'product' | 'supplier' | 'custom_url';
+  targetId?: string;
+  customUrl?: string;
+  ctaText?: string;
+  ctaColor?: string;
+}
+
+export interface SliderSettings {
+  items: SliderItem[];
+  globalSettings: {
+    speed: number; // in ms
+    transition: 'fade' | 'slide' | 'morph';
+    width: string;
+    height: string;
+  };
+}
+
 export interface AdAnalytics {
   id: string;
   adId: string;

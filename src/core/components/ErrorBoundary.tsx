@@ -23,10 +23,32 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public static getDerivedStateFromError(error: Error): State {
+    // Automatically reload if it's a dynamic import error (chunk loading failed)
+    const isDynamicImportError = 
+      error.message && (
+        error.message.includes('Failed to fetch dynamically imported module') ||
+        error.message.includes('Importing a module script failed') ||
+        error.message.includes('error loading dynamically imported module')
+      );
+
+    if (isDynamicImportError) {
+      window.location.reload();
+    }
     return { hasError: true, error, isRtl: document.documentElement.dir === 'rtl' || localStorage.getItem('i18nextLng') === 'ar' };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    const isDynamicImportError = 
+      error.message && (
+        error.message.includes('Failed to fetch dynamically imported module') ||
+        error.message.includes('Importing a module script failed') ||
+        error.message.includes('error loading dynamically imported module')
+      );
+
+    if (isDynamicImportError) {
+      // Do not log this error to AI Studio, as we are already reloading the page
+      return;
+    }
     console.error("ErrorBoundary caught an error:", error, errorInfo);
     handleAiError(error, `ErrorBoundary:${errorInfo.componentStack}`, false);
   }

@@ -46,6 +46,7 @@ import * as Sentry from "@sentry/react";
 // ... (imports)
 const AdminNeuralHub = lazy(() => import('./AdminNeuralHub').then(m => ({ default: Sentry.withProfiler(m.AdminNeuralHub) })));
 const CostAnalysisDashboard = lazy(() => import('./CostAnalysisDashboard').then(m => ({ default: Sentry.withProfiler(m.CostAnalysisDashboard) })));
+import { SliderSettingsAdmin } from './SliderSettings';
 import { MarketingManager } from './MarketingManager';
 import { UserDataManager } from './UserDataManager';
 import { BroadcastBox } from './BroadcastBox';
@@ -461,8 +462,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'cost', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
     { id: 'connect', label: isRtl ? 'نمو كونكت' : 'Connect Growth', icon: Zap, isNew: true },
     { id: 'gap-analysis', label: isRtl ? 'تحليل الفجوة' : 'Gap Analysis', icon: BarChart3, isNew: true },
+    { id: 'slider', label: isRtl ? 'إعدادات السلايدر' : 'Slider Settings', icon: Zap },
     { id: 'settings', label: isRtl ? 'الهوية البصرية' : 'Brand Identity', icon: Palette },
   ];
+
+  console.log('DEBUG: Admin Tabs:', tabs);
 
   const totalSuppliers = users.filter(u => u.role === 'supplier').length;
   const totalCustomers = users.filter(u => u.role === 'customer').length;
@@ -627,8 +631,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <AdminGrowthChart />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <AdminSystemHealth />
-                    <AdminDeepControl />
+                    <div className="min-h-[200px]">
+                      <AdminSystemHealth />
+                    </div>
+                    <div className="min-h-[200px]">
+                      <AdminDeepControl />
+                    </div>
                   </div>
                 </div>
                 <div className="lg:col-span-1 space-y-6">
@@ -917,6 +925,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               exit={{ opacity: 0, y: -20 }}
             >
               <ConnectManager />
+            </motion.div>
+          )}
+
+          {activeTab === 'slider' && (
+            <motion.div
+              key="slider"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-6xl mx-auto"
+            >
+              <SliderSettingsAdmin />
             </motion.div>
           )}
 

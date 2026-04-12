@@ -778,6 +778,71 @@ export const suggestPrice = async (title: string, category: string, language: st
   }
 };
 
+export const generateSliderMetadata = async (base64Data: string, mimeType: string): Promise<{ ctaText: string, ctaColor: string }> => {
+  try {
+    const result = await callAiJson(
+      [
+        { inlineData: { data: base64Data.replace(/^data:image\/\w+;base64,/, ""), mimeType } },
+        { text: "[SLIDER-METADATA:JSON] Analyze this image. Suggest a short, catchy Call-To-Action (CTA) text in Arabic (max 3 words) suitable for an e-commerce slider. Also, suggest a matching hex color code for the button that contrasts well with the image. Return JSON: {ctaText, ctaColor}." }
+      ],
+      {
+        type: Type.OBJECT,
+        properties: {
+          ctaText: { type: Type.STRING },
+          ctaColor: { type: Type.STRING }
+        },
+        required: ["ctaText", "ctaColor"]
+      }
+    );
+    return result || { ctaText: 'تسوق الآن', ctaColor: '#1b97a7' };
+  } catch (e: any) {
+    handleAiError(e, 'Slider metadata generation');
+    return { ctaText: 'تسوق الآن', ctaColor: '#1b97a7' };
+  }
+};
+
+export const enhanceBio = async (currentBio: string, language: string): Promise<string> => {
+  try {
+    const prompt = `[BIO-ENHANCEMENT] You are an expert copywriter. Rewrite and enhance the following professional bio to make it sound more luxurious, professional, and engaging. Keep it concise (max 3 sentences).
+    
+    Current Bio: "${currentBio}"
+    Language: ${language === 'ar' ? 'Arabic' : 'English'}
+    
+    Return ONLY the enhanced text without any quotes or explanations.`;
+
+    const result = await callAiText([{ text: prompt }]);
+    return result || currentBio;
+  } catch (e: any) {
+    handleAiError(e, 'Bio enhancement');
+    return currentBio;
+  }
+};
+
+export const analyzeSliderImageForFocus = async (base64Data: string, mimeType: string): Promise<{ x: number, y: number, width: number, height: number }> => {
+  try {
+    const result = await callAiJson(
+      [
+        { inlineData: { data: base64Data.replace(/^data:image\/\w+;base64,/, ""), mimeType } },
+        { text: "[FOCUS-POINT:JSON] Identify the main product in the image. Return the bounding box as a JSON object: {x, y, width, height} (normalized 0-1000)." }
+      ],
+      {
+        type: Type.OBJECT,
+        properties: {
+          x: { type: Type.NUMBER },
+          y: { type: Type.NUMBER },
+          width: { type: Type.NUMBER },
+          height: { type: Type.NUMBER }
+        },
+        required: ["x", "y", "width", "height"]
+      }
+    );
+    return result || { x: 500, y: 500, width: 500, height: 500 };
+  } catch (e: any) {
+    handleAiError(e, 'Slider image focus analysis');
+    return { x: 500, y: 500, width: 500, height: 500 }; // Fallback to center
+  }
+};
+
 export const classifyAndOptimizeSupplier = async (description: string, allCategories: Category[], language: string): Promise<any> => {
   try {
     const categoryList = allCategories.map(c => ({ 

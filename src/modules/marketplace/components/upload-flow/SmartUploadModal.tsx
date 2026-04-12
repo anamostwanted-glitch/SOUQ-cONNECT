@@ -25,9 +25,10 @@ interface SmartUploadModalProps {
   onAdd: () => void;
   categories: { id: string; nameEn: string; nameAr: string }[];
   profile: UserProfile;
+  item?: MarketplaceItem;
 }
 
-export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onAdd, categories, profile }) => {
+export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onAdd, categories, profile, item }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language.startsWith('ar');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -36,10 +37,23 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const { networkStatus, isOnline } = useNetworkAwareness();
   const { compressImage } = useSmartCompression();
 
-  const [images, setImages] = useState<ImageFile[]>([]);
+  const [images, setImages] = useState<ImageFile[]>(item?.images.map((url, i) => ({ 
+    id: i.toString(), 
+    previewUrl: url, 
+    status: 'success',
+    file: new File([], 'existing-image'),
+    progress: 100
+  })) || []);
   const [isDragging, setIsDragging] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<AIProductSuggestion | null>(null);
-  const [bilingualContent, setBilingualContent] = useState({ titleAr: '', titleEn: '', descriptionAr: '', descriptionEn: '', keywordsAr: [] as string[], keywordsEn: [] as string[] });
+  const [bilingualContent, setBilingualContent] = useState({ 
+    titleAr: item?.titleAr || '', 
+    titleEn: item?.titleEn || '', 
+    descriptionAr: item?.descriptionAr || '', 
+    descriptionEn: item?.descriptionEn || '', 
+    keywordsAr: [] as string[], 
+    keywordsEn: [] as string[] 
+  });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [watermarkUrl, setWatermarkUrl] = useState<string | undefined>();
@@ -94,19 +108,19 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   }, []);
 
   // Form State
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [isHighQuality, setIsHighQuality] = useState(false);
-  const [features, setFeatures] = useState<string[]>([]);
-  const [classification, setClassification] = useState('');
+  const [title, setTitle] = useState(item?.title || '');
+  const [description, setDescription] = useState(item?.description || '');
+  const [price, setPrice] = useState(item?.price?.toString() || '');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(item?.categories || []);
+  const [isHighQuality, setIsHighQuality] = useState(item?.isHighQuality || false);
+  const [features, setFeatures] = useState<string[]>(item?.features || []);
+  const [classification, setClassification] = useState(item?.classification || '');
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [location, setLocation] = useState(profile.location || '');
-  const [phone, setPhone] = useState(profile.phone || '');
+  const [location, setLocation] = useState(item?.location || profile.location || '');
+  const [phone, setPhone] = useState(item?.sellerPhone || profile.phone || '');
   const [isLocating, setIsLocating] = useState(false);
   const [featureInput, setFeatureInput] = useState('');
 

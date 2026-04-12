@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import imageCompression from 'browser-image-compression';
 import { getProfileInsights, optimizeSupplierProfile, handleAiError } from '../../../core/services/geminiService';
+import { ProfileSettings } from '../../user/components/ProfileSettings';
 
 interface ConnectStorefrontProps {
   profile: UserProfile;
@@ -86,6 +87,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
   const [isArchitectMode, setIsArchitectMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState<'logo' | 'cover' | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
   
   // Editable Fields
   const [editData, setEditData] = useState({
@@ -95,9 +97,14 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
     phone: profile.phone || '',
     website: profile.website || '',
     logoUrl: profile.logoUrl || '',
-    coverUrl: profile.coverUrl || 'https://picsum.photos/seed/cover/1200/400',
+    coverUrl: profile.coverUrl || 'https://picsum.photos/seed/neural/1200/400',
     socialLinks: profile.socialLinks || { facebook: '', instagram: '', twitter: '' }
   });
+
+  const handleFieldChange = (field: string, value: any) => {
+    setEditData(prev => ({ ...prev, [field]: value }));
+    setHasChanges(true);
+  };
 
   // Sync editData with profile changes when not in architect mode
   useEffect(() => {
@@ -511,24 +518,35 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
   const uniqueCategories = Array.from(new Set(products.flatMap(p => p.categories || [])));
 
   return (
-    <div className="min-h-screen bg-brand-background pb-32">
-      {/* Immersive Header */}
-      <div className="relative h-64 md:h-80 w-full overflow-hidden">
-        <motion.img 
+    <div className="min-h-screen bg-brand-background pb-32 font-sans">
+      {/* Immersive Header (Neural Identity Studio Style) */}
+      <div className="relative h-72 md:h-96 w-full overflow-hidden">
+        <motion.div 
           initial={{ scale: 1.1 }}
           animate={{ scale: 1 }}
-          src={editData.coverUrl} 
-          className="w-full h-full object-cover"
-          alt="Cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-brand-background via-brand-background/20 to-transparent" />
+          className="w-full h-full"
+        >
+          {editData.coverUrl ? (
+            <img 
+              src={editData.coverUrl} 
+              className="w-full h-full object-cover"
+              alt="Cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-brand-primary/20 via-brand-surface to-brand-secondary/20" />
+          )}
+        </motion.div>
+        
+        {/* Neural Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-brand-background via-brand-background/40 to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.2)_100%)]" />
         
         {/* Top Controls */}
         <div className="absolute top-6 left-6 right-6 flex justify-between items-center z-20">
           {onBack && (
             <HapticButton 
               onClick={onBack}
-              className="p-3 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl text-white hover:bg-white/20 transition-all"
+              className="p-3 bg-black/30 backdrop-blur-xl border border-white/10 rounded-2xl text-white hover:bg-black/50 transition-all"
             >
               <ArrowLeft size={20} />
             </HapticButton>
@@ -538,123 +556,133 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
             {(isOwner || isAdmin) && (
               <HapticButton 
                 onClick={() => setIsArchitectMode(!isArchitectMode)}
-                className={`px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all ${
+                className={`px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-2xl ${
                   isArchitectMode 
-                    ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/30' 
-                    : 'bg-white/10 backdrop-blur-xl border border-white/20 text-white hover:bg-white/20'
+                    ? 'bg-brand-primary text-white scale-105' 
+                    : 'bg-black/30 backdrop-blur-xl border border-white/10 text-white hover:bg-black/50'
                 }`}
               >
                 <Zap size={14} className={isArchitectMode ? 'animate-pulse' : ''} />
                 {isArchitectMode ? (isRtl ? 'وضع المعماري نشط' : 'Architect Mode Active') : (isRtl ? 'وضع المعماري' : 'Architect Mode')}
               </HapticButton>
             )}
-            <HapticButton className="p-3 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl text-white hover:bg-white/20 transition-all">
+            <HapticButton className="p-3 bg-black/30 backdrop-blur-xl border border-white/10 rounded-2xl text-white hover:bg-black/50 transition-all">
               <Share2 size={20} />
             </HapticButton>
           </div>
         </div>
 
-        {(isOwner || isAdmin) && (
-          <label className="absolute bottom-6 right-6 p-4 bg-brand-primary text-white rounded-2xl cursor-pointer shadow-2xl hover:scale-105 transition-all z-20">
-            <Camera size={20} />
+        {isArchitectMode && (
+          <label className="absolute bottom-8 right-8 p-4 bg-brand-primary text-white rounded-2xl cursor-pointer shadow-[0_8px_32px_rgba(var(--brand-primary-rgb),0.4)] hover:scale-110 transition-all z-20">
+            {isUploading === 'cover' ? <div className="animate-spin h-5 w-5 border-b-2 border-white rounded-full" /> : <Camera size={20} />}
             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'cover')} />
           </label>
         )}
       </div>
 
-      {/* Profile Identity Card */}
-      <div className="max-w-6xl mx-auto px-6 -mt-24 relative z-30">
-        <div className="bg-brand-surface rounded-[3rem] border border-brand-border shadow-2xl p-8 md:p-12 flex flex-col md:flex-row gap-8 items-center md:items-end">
+      {/* Profile Identity Card (Floating Over Cover) */}
+      <div className="max-w-6xl mx-auto px-6 -mt-32 relative z-30">
+        <div className="bg-brand-surface/80 backdrop-blur-3xl rounded-[3.5rem] border border-brand-border shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-8 md:p-12 flex flex-col md:flex-row gap-10 items-center md:items-end">
           {/* Logo Section */}
-          <div className="relative -mt-20 md:-mt-24 group">
-            <div className="relative w-32 h-32 md:w-44 md:h-44 rounded-[3rem] p-1.5 bg-gradient-to-tr from-brand-primary via-brand-warning to-brand-primary animate-gradient-xy shadow-2xl">
-              <div className="w-full h-full rounded-[2.7rem] bg-brand-surface overflow-hidden border-4 border-brand-surface relative">
-                <img 
-                  src={editData.logoUrl || profile.logoUrl || 'https://picsum.photos/seed/logo/200/200'} 
-                  alt={editData.name} 
-                  className="w-full h-full object-cover"
-                />
-                {isUploading === 'logo' && (
-                  <div className="absolute inset-0 bg-brand-surface/80 backdrop-blur-sm flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary" />
+          <div className="relative -mt-24 md:-mt-32 group">
+            <div className="relative w-40 h-40 md:w-52 md:h-52 rounded-[3.5rem] p-1.5 bg-gradient-to-tr from-brand-primary via-brand-warning to-brand-primary animate-gradient-xy shadow-2xl">
+              <div className="w-full h-full rounded-[3.2rem] bg-brand-surface overflow-hidden border-4 border-brand-surface relative">
+                {editData.logoUrl || profile.logoUrl ? (
+                  <img 
+                    src={editData.logoUrl || profile.logoUrl} 
+                    alt={editData.name} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-brand-primary/5 flex items-center justify-center text-brand-primary text-5xl font-black">
+                    {editData.name?.charAt(0)?.toUpperCase() || '?'}
                   </div>
                 )}
-                {(isOwner || isAdmin) && (
-                  <label className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
-                    <Camera size={32} />
+                
+                {isUploading === 'logo' && (
+                  <div className="absolute inset-0 bg-brand-surface/80 backdrop-blur-sm flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-primary" />
+                  </div>
+                )}
+                
+                {isArchitectMode && (
+                  <label className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity backdrop-blur-sm">
+                    <Camera size={40} />
                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} />
                   </label>
                 )}
               </div>
             </div>
             {profile.isVerified && (
-              <div className="absolute -bottom-2 -right-2 bg-brand-primary text-white p-3 rounded-2xl shadow-lg border-4 border-brand-surface">
-                <ShieldCheck size={24} />
+              <div className="absolute -bottom-2 -right-2 bg-brand-primary text-white p-4 rounded-[1.5rem] shadow-2xl border-4 border-brand-surface">
+                <ShieldCheck size={28} />
               </div>
             )}
           </div>
 
           {/* Info Section */}
-          <div className="flex-1 text-center md:text-left rtl:md:text-right space-y-4">
-            <div className="space-y-2">
+          <div className="flex-1 text-center md:text-left rtl:md:text-right space-y-6">
+            <div className="space-y-3">
               {isArchitectMode ? (
                 <input 
                   type="text"
                   value={editData.name}
-                  onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}
-                  className="text-3xl md:text-4xl font-black text-brand-text-main bg-brand-background border border-brand-border rounded-2xl px-4 py-2 w-full outline-none focus:ring-2 focus:ring-brand-primary/20"
+                  onChange={(e) => handleFieldChange('name', e.target.value)}
+                  className="text-4xl md:text-5xl font-black text-brand-text-main bg-brand-background/50 border border-brand-border rounded-[1.5rem] px-6 py-3 w-full outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all"
                 />
               ) : (
-                <h1 className="text-3xl md:text-4xl font-black text-brand-text-main tracking-tight flex items-center justify-center md:justify-start gap-3">
-                  {editData.name}
-                  <Badge className="bg-brand-primary/10 text-brand-primary border-none text-[10px] uppercase tracking-widest font-black py-1 px-3">
+                <div className="flex flex-col md:flex-row items-center md:items-end gap-4">
+                  <h1 className="text-4xl md:text-6xl font-black text-brand-text-main tracking-tight leading-none">
+                    {editData.name}
+                  </h1>
+                  <Badge className="bg-brand-primary/10 text-brand-primary border-none text-[10px] uppercase tracking-widest font-black py-2 px-4 rounded-full mb-1">
                     {profile.role === 'supplier' ? (isRtl ? 'مورد معتمد' : 'Verified Supplier') : (isRtl ? 'عضو' : 'Member')}
                   </Badge>
-                </h1>
+                </div>
               )}
               
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-brand-text-muted font-bold text-sm">
-                <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 text-brand-text-muted font-bold text-sm">
+                <div className="flex items-center gap-2 px-4 py-2 bg-brand-background/50 rounded-full border border-brand-border">
                   <MapPin size={16} className="text-brand-primary" />
                   {isArchitectMode ? (
                     <input 
                       type="text"
                       value={editData.location}
-                      onChange={(e) => setEditData(prev => ({ ...prev, location: e.target.value }))}
-                      className="bg-transparent border-b border-brand-border outline-none focus:border-brand-primary"
+                      onChange={(e) => handleFieldChange('location', e.target.value)}
+                      className="bg-transparent border-none outline-none focus:ring-0 w-32"
                     />
                   ) : (
                     <span>{editData.location || (isRtl ? 'المملكة العربية السعودية' : 'Saudi Arabia')}</span>
                   )}
                 </div>
-                <div className="w-1 h-1 rounded-full bg-brand-border" />
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2 px-4 py-2 bg-brand-background/50 rounded-full border border-brand-border">
                   <Star size={16} className="text-brand-warning fill-brand-warning" />
-                  <span>4.9 (120 {isRtl ? 'تقييم' : 'Reviews'})</span>
+                  <span className="text-brand-text-main">4.9</span>
+                  <span className="text-xs opacity-60">(120 {isRtl ? 'تقييم' : 'Reviews'})</span>
                 </div>
               </div>
             </div>
 
-            {/* Bio Section with AI Refine */}
-            <div className="relative group">
+            {/* Bio Section */}
+            <div className="relative group max-w-3xl">
               {isArchitectMode ? (
-                <div className="space-y-2">
+                <div className="relative">
                   <textarea 
                     value={editData.bio}
-                    onChange={(e) => setEditData(prev => ({ ...prev, bio: e.target.value }))}
+                    onChange={(e) => handleFieldChange('bio', e.target.value)}
                     placeholder={isRtl ? 'اكتب نبذة عن متجرك...' : 'Write a bio about your store...'}
-                    className="w-full h-24 bg-brand-background border border-brand-border rounded-2xl p-4 text-sm font-medium outline-none focus:ring-2 focus:ring-brand-primary/20 resize-none"
+                    className="w-full h-32 bg-brand-background/50 border border-brand-border rounded-[1.5rem] p-6 text-sm font-medium outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all resize-none"
                   />
                   <HapticButton 
                     onClick={handleAiRefineBio}
                     disabled={isAiAnalyzing}
-                    className="absolute bottom-4 right-4 p-2 bg-brand-primary text-white rounded-xl shadow-lg hover:scale-110 transition-all disabled:opacity-50"
+                    className="absolute bottom-4 right-4 p-3 bg-brand-primary text-white rounded-2xl shadow-xl hover:scale-110 transition-all disabled:opacity-50"
                   >
-                    {isAiAnalyzing ? <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full" /> : <Sparkles size={16} />}
+                    {isAiAnalyzing ? <div className="animate-spin h-5 w-5 border-b-2 border-white rounded-full" /> : <Sparkles size={20} />}
                   </HapticButton>
                 </div>
               ) : (
-                <p className="text-brand-text-muted text-sm leading-relaxed max-w-2xl mx-auto md:mx-0">
+                <p className="text-brand-text-muted text-lg leading-relaxed font-medium">
                   {editData.bio || (isRtl ? 'لا يوجد وصف متاح لهذا المتجر حالياً.' : 'No description available for this store yet.')}
                 </p>
               )}
@@ -662,38 +690,29 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto">
-            {isArchitectMode ? (
-              <HapticButton 
-                onClick={handleSaveProfile}
-                disabled={isSaving}
-                className="w-full md:w-48 py-4 bg-brand-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-brand-primary/20 flex items-center justify-center gap-2"
-              >
-                {isSaving ? <div className="animate-spin h-5 w-5 border-b-2 border-white rounded-full" /> : <Save size={18} />}
-                {isRtl ? 'حفظ التغييرات' : 'Save Changes'}
-              </HapticButton>
-            ) : (
+          <div className="flex flex-col gap-4 shrink-0 w-full md:w-auto pb-2">
+            {!isArchitectMode && (
               <>
                 {!isOwner && (
                   <HapticButton 
                     onClick={handleFollow}
-                    className={`w-full md:w-48 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 ${
+                    className={`w-full md:w-56 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest transition-all shadow-2xl flex items-center justify-center gap-3 ${
                       isFollowing 
                         ? 'bg-brand-surface text-brand-text-main border border-brand-border' 
-                        : 'bg-brand-primary text-white shadow-brand-primary/20'
+                        : 'bg-brand-primary text-white shadow-brand-primary/30'
                     }`}
                   >
-                    {isFollowing ? <UserMinus size={18} /> : <UserPlus size={18} />}
+                    {isFollowing ? <UserMinus size={20} /> : <UserPlus size={20} />}
                     {isFollowing ? (isRtl ? 'إلغاء المتابعة' : 'Unfollow') : (isRtl ? 'متابعة' : 'Follow')}
                   </HapticButton>
                 )}
-                <div className="flex gap-2">
-                  <HapticButton className="flex-1 py-4 bg-brand-surface text-brand-text-main border border-brand-border rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2">
-                    <MessageCircle size={18} />
+                <div className="flex gap-3">
+                  <HapticButton className="flex-1 py-5 bg-brand-surface text-brand-text-main border border-brand-border rounded-[1.5rem] font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-brand-background transition-colors">
+                    <MessageCircle size={20} />
                     {isRtl ? 'مراسلة' : 'Message'}
                   </HapticButton>
-                  <HapticButton className="p-4 bg-brand-surface text-brand-text-main border border-brand-border rounded-2xl">
-                    <MoreHorizontal size={20} />
+                  <HapticButton className="p-5 bg-brand-surface text-brand-text-main border border-brand-border rounded-[1.5rem] hover:bg-brand-background transition-colors">
+                    <MoreHorizontal size={24} />
                   </HapticButton>
                 </div>
               </>
@@ -1080,204 +1099,10 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                   exit={{ opacity: 0, scale: 0.95 }}
                   className="space-y-8"
                 >
-                  <Card className="bg-brand-surface border-brand-border rounded-[2.5rem] p-8 md:p-12 shadow-sm">
-                    <div className="flex justify-between items-center mb-12">
-                      <div>
-                        <h3 className="text-2xl font-black text-brand-text-main">{isRtl ? 'إعدادات الملف الشخصي' : 'Profile Settings'}</h3>
-                        <p className="text-sm text-brand-text-muted font-medium mt-1">{isRtl ? 'إدارة بياناتك وتفضيلات الظهور' : 'Manage your data and visibility preferences'}</p>
-                      </div>
-                      <div className="p-4 bg-brand-primary/5 rounded-2xl text-brand-primary">
-                        <Settings size={32} />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                      <div className="space-y-6">
-                        <label className="block text-xs font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'الاسم الكامل / الشركة' : 'Full Name / Company'}</label>
-                        <input 
-                          type="text" 
-                          value={editData.name}
-                          onChange={e => setEditData(prev => ({ ...prev, name: e.target.value }))}
-                          className="w-full px-6 py-4 bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-bold"
-                        />
-                      </div>
-
-                      <div className="space-y-6">
-                        <label className="block text-xs font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'رقم الهاتف' : 'Phone Number'}</label>
-                        <input 
-                          type="tel" 
-                          value={editData.phone}
-                          onChange={e => setEditData(prev => ({ ...prev, phone: e.target.value }))}
-                          className="w-full px-6 py-4 bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-bold"
-                        />
-                      </div>
-
-                      <div className="space-y-6 md:col-span-2">
-                        <div className="flex justify-between items-center">
-                          <label className="block text-xs font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'النبذة التعريفية' : 'Bio / Description'}</label>
-                          <HapticButton 
-                            onClick={handleAiRefineBio}
-                            disabled={isAiAnalyzing || isAdmin}
-                            className="text-[10px] font-black text-brand-primary uppercase tracking-widest flex items-center gap-2 hover:opacity-80 transition-opacity disabled:opacity-50"
-                          >
-                            <Sparkles size={12} />
-                            {isRtl ? 'تحسين بالذكاء الاصطناعي' : 'Refine with AI'}
-                          </HapticButton>
-                        </div>
-                        <textarea 
-                          value={editData.bio}
-                          onChange={e => setEditData(prev => ({ ...prev, bio: e.target.value }))}
-                          rows={4}
-                          className="w-full px-6 py-4 bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-bold resize-none"
-                        />
-                      </div>
-
-                      {/* Specialized Information: Categories & Keywords */}
-                      <div className="space-y-6 md:col-span-2 p-8 bg-brand-background/50 border border-brand-border rounded-3xl">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-                              <Tag size={20} />
-                            </div>
-                            <div>
-                              <h4 className="text-sm font-black text-brand-text-main">{isRtl ? 'المعلومات المتخصصة' : 'Specialized Information'}</h4>
-                              <p className="text-[10px] text-brand-text-muted font-bold uppercase tracking-widest">{isRtl ? 'الفئات والكلمات المفتاحية' : 'Categories & Keywords'}</p>
-                            </div>
-                          </div>
-                          {isAdmin && (
-                            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px] font-black uppercase tracking-widest">
-                              {isRtl ? 'للقراءة فقط للمدراء' : 'Read-only for Admins'}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                          {/* Categories */}
-                          <div className="space-y-4">
-                            <label className="block text-[10px] font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'تصنيفات المورد' : 'Supplier Categories'}</label>
-                            <div className={isAdmin ? 'pointer-events-none opacity-60 grayscale-[0.5]' : ''}>
-                              <AICategorySelector 
-                                categories={categories}
-                                selectedCategoryIds={editCategories}
-                                onChange={setEditCategories || (() => {})}
-                                isRtl={isRtl}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Keywords */}
-                          <div className="space-y-4">
-                            <label className="block text-[10px] font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'الكلمات المفتاحية' : 'Keywords'}</label>
-                            <div className={`space-y-4 ${isAdmin ? 'pointer-events-none opacity-60' : ''}`}>
-                              <div className="relative">
-                                <Plus className={`absolute ${isRtl ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 text-brand-text-muted`} size={16} />
-                                <input 
-                                  type="text"
-                                  value={keywordInput}
-                                  onChange={(e) => setKeywordInput?.(e.target.value)}
-                                  onKeyDown={handleAddKeyword}
-                                  placeholder={isRtl ? 'أضف كلمة مفتاحية واضغط Enter...' : 'Add keyword and press Enter...'}
-                                  className={`w-full ${isRtl ? 'pr-12 pl-4' : 'pl-12 pr-4'} py-3 bg-brand-background border border-brand-border rounded-xl outline-none focus:border-brand-primary transition-all text-xs font-bold`}
-                                />
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {editKeywords.map((kw, i) => (
-                                  <Badge 
-                                    key={i} 
-                                    variant="secondary" 
-                                    className="px-3 py-1.5 rounded-lg bg-brand-surface border border-brand-border text-brand-text-main flex items-center gap-2 group"
-                                  >
-                                    {kw}
-                                    {!isAdmin && (
-                                      <button 
-                                        onClick={() => handleRemoveKeyword?.(kw)}
-                                        className="text-brand-text-muted hover:text-brand-error transition-colors"
-                                      >
-                                        <X size={12} />
-                                      </button>
-                                    )}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-6">
-                        <label className="block text-xs font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'الموقع' : 'Location'}</label>
-                        <div className="relative">
-                          <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-text-muted" size={18} />
-                          <input 
-                            type="text" 
-                            value={editData.location}
-                            onChange={e => setEditData(prev => ({ ...prev, location: e.target.value }))}
-                            className="w-full pl-14 pr-6 py-4 bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-bold"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-6">
-                        <label className="block text-xs font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'الموقع الإلكتروني' : 'Website'}</label>
-                        <div className="relative">
-                          <Globe className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-text-muted" size={18} />
-                          <input 
-                            type="url" 
-                            value={editData.website}
-                            onChange={e => setEditData(prev => ({ ...prev, website: e.target.value }))}
-                            className="w-full pl-14 pr-6 py-4 bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-bold"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-6 md:col-span-2">
-                        <label className="block text-xs font-black text-brand-text-muted uppercase tracking-widest mb-4">{isRtl ? 'روابط التواصل الاجتماعي' : 'Social Links'}</label>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="relative">
-                            <Facebook className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-muted" size={16} />
-                            <input 
-                              type="text" 
-                              placeholder="Facebook"
-                              value={editData.socialLinks?.facebook}
-                              onChange={e => setEditData(prev => ({ ...prev, socialLinks: { ...prev.socialLinks, facebook: e.target.value } }))}
-                              className="w-full pl-12 pr-4 py-3 bg-brand-background border border-brand-border rounded-xl outline-none text-sm font-medium"
-                            />
-                          </div>
-                          <div className="relative">
-                            <Instagram className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-muted" size={16} />
-                            <input 
-                              type="text" 
-                              placeholder="Instagram"
-                              value={editData.socialLinks?.instagram}
-                              onChange={e => setEditData(prev => ({ ...prev, socialLinks: { ...prev.socialLinks, instagram: e.target.value } }))}
-                              className="w-full pl-12 pr-4 py-3 bg-brand-background border border-brand-border rounded-xl outline-none text-sm font-medium"
-                            />
-                          </div>
-                          <div className="relative">
-                            <Twitter className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-muted" size={16} />
-                            <input 
-                              type="text" 
-                              placeholder="Twitter"
-                              value={editData.socialLinks?.twitter}
-                              onChange={e => setEditData(prev => ({ ...prev, socialLinks: { ...prev.socialLinks, twitter: e.target.value } }))}
-                              className="w-full pl-12 pr-4 py-3 bg-brand-background border border-brand-border rounded-xl outline-none text-sm font-medium"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-12 pt-8 border-t border-brand-border flex justify-end">
-                      <HapticButton 
-                        onClick={handleSaveProfile}
-                        disabled={isSaving}
-                        className="px-12 py-4 bg-brand-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-brand-primary/20 flex items-center gap-3"
-                      >
-                        {isSaving ? <div className="animate-spin h-5 w-5 border-b-2 border-white rounded-full" /> : <Save size={18} />}
-                        {isRtl ? 'حفظ كافة الإعدادات' : 'Save All Settings'}
-                      </HapticButton>
-                    </div>
-                  </Card>
+                  <ProfileSettings 
+                    profile={profile} 
+                    forceShowSupplierSettings={profile.role === 'supplier'} 
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1339,6 +1164,51 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
           </div>
         </div>
       </div>
+      {/* Floating Save Bar for Architect Mode */}
+      <AnimatePresence>
+        {isArchitectMode && hasChanges && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-8 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-auto md:min-w-[500px] bg-brand-surface/80 backdrop-blur-3xl border border-brand-border p-5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] z-[60] flex items-center justify-between gap-8"
+          >
+            <div className="flex items-center gap-4 px-2">
+              <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                <Sparkles size={20} className="animate-pulse" />
+              </div>
+              <div>
+                <p className="text-sm font-black text-brand-text-main">
+                  {isRtl ? 'لديك تغييرات ذكية غير محفوظة' : 'Unsaved smart changes'}
+                </p>
+                <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">
+                  {isRtl ? 'سيتم تحديث الهوية البصرية فور الحفظ' : 'Identity will update upon saving'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <HapticButton 
+                onClick={() => {
+                  setIsArchitectMode(false);
+                  setHasChanges(false);
+                }}
+                className="px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest text-brand-text-muted hover:text-brand-text-main transition-colors"
+              >
+                {isRtl ? 'إلغاء' : 'Cancel'}
+              </HapticButton>
+              <HapticButton 
+                onClick={handleSaveProfile}
+                disabled={isSaving}
+                className="bg-brand-primary text-white px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-brand-primary/30 hover:-translate-y-1 transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                {isSaving ? <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full" /> : <Save size={16} />}
+                {isRtl ? 'حفظ التغييرات' : 'Save Identity'}
+              </HapticButton>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Product Editor Modal */}
       <AnimatePresence>
         {isProductEditorOpen && (

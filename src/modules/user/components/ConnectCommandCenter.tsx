@@ -48,12 +48,15 @@ import { handleFirestoreError, OperationType, handleAiError } from '../../../cor
 import { ProfileSettings } from './ProfileSettings';
 import { UserSettings } from './UserSettings';
 import { ProfileCompletionMeter } from '../../../shared/components/ProfileCompletionMeter';
+import { Badge } from '../../../shared/components/ui/badge';
+import { Card } from '../../../shared/components/ui/card';
 import { calculateProfileCompletion } from '../../../core/utils/profileUtils';
 import { UserRequestCard } from './UserRequestCard';
 import { VendorRequestCard } from '../../vendor/components/VendorRequestCard';
 import { VendorOffersList } from '../../vendor/components/VendorOffersList';
 import { MarketplaceAnalytics } from '../../marketplace/components/MarketplaceAnalytics';
 import { MyAdsDashboard } from '../../vendor/components/MyAdsDashboard';
+import { MyProductsDashboard } from '../../vendor/components/MyProductsDashboard';
 import { SubscriptionManager } from '../../../components/SubscriptionManager';
 import { ProductCard } from '../../marketplace/components/ProductCard';
 import { SmartUploadModal } from '../../marketplace/components/upload-flow/SmartUploadModal';
@@ -81,7 +84,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
   const isRtl = i18n.language === 'ar';
   
   const [perspective, setPerspective] = useState<Perspective>(
-    profile.role === 'supplier' ? 'supplier' : 'customer'
+    (profile.role === 'supplier' || profile.role === 'admin') ? 'supplier' : 'customer'
   );
   
   const [activeSubView, setActiveSubView] = useState<string | null>(null);
@@ -237,80 +240,90 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
       animate={{ opacity: 1, y: 0 }}
       className="relative mb-12"
     >
-      <div className={`relative overflow-hidden rounded-[3rem] ${glassClass} p-8 md:p-12 border-2 border-white/50 dark:border-slate-700/50`}>
-        {/* Animated Background Gradients */}
-        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-96 h-96 bg-brand-primary/10 rounded-full blur-[100px] animate-pulse" />
-        <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-96 h-96 bg-brand-teal/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s' }} />
+      <div className={`relative overflow-hidden rounded-[3.5rem] ${glassClass} p-8 md:p-14 border-2 border-white/50 dark:border-slate-700/50 shadow-2xl`}>
+        {/* Immersive Neural Background */}
+        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-[500px] h-[500px] bg-brand-primary/10 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-[500px] h-[500px] bg-brand-teal/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '3s' }} />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.05)_100%)]" />
         
-        <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 md:gap-12">
-          {/* Profile Photo with Aura */}
+        <div className="relative z-10 flex flex-col md:flex-row items-center gap-10 md:gap-16">
+          {/* Profile Photo with Neural Aura */}
           <div className="relative group">
-            <div className="absolute -inset-4 bg-gradient-to-tr from-brand-primary to-brand-teal rounded-[2rem] blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-700" />
-            <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-[2.5rem] bg-white dark:bg-slate-800 p-1 shadow-2xl overflow-hidden">
-              {profile.photoURL ? (
-                <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover rounded-[2.3rem]" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-brand-primary bg-brand-primary/5">
-                  <UserIcon size={64} strokeWidth={1.5} />
-                </div>
-              )}
+            <div className="absolute -inset-6 bg-gradient-to-tr from-brand-primary via-brand-warning to-brand-teal rounded-[3rem] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity duration-1000 animate-gradient-xy" />
+            <div className="relative w-36 h-36 md:w-48 md:h-48 rounded-[3rem] p-1 bg-gradient-to-tr from-brand-primary/20 to-brand-teal/20 shadow-2xl overflow-hidden">
+              <div className="w-full h-full rounded-[2.8rem] bg-white dark:bg-slate-800 overflow-hidden border-4 border-white dark:border-slate-800">
+                {profile.photoURL ? (
+                  <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-brand-primary bg-brand-primary/5">
+                    <UserIcon size={80} strokeWidth={1} />
+                  </div>
+                )}
+              </div>
             </div>
             <HapticButton 
               onClick={() => setActiveSubView('settings')}
-              className="absolute -bottom-2 -right-2 w-10 h-10 bg-white dark:bg-slate-700 rounded-xl shadow-xl flex items-center justify-center text-brand-primary hover:scale-110 transition-transform border border-brand-border/50"
+              className="absolute -bottom-2 -right-2 w-12 h-12 bg-brand-primary text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 transition-transform border-4 border-white dark:border-slate-900"
             >
-              <Camera size={18} />
+              <Camera size={20} />
             </HapticButton>
           </div>
 
-          {/* Identity Info */}
-          <div className="flex-1 text-center md:text-right">
-            <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 mb-4">
-              <h1 className="text-3xl md:text-5xl font-black text-brand-text-main tracking-tight">
+          {/* Identity Info & Neural Stats */}
+          <div className="flex-1 text-center md:text-left rtl:md:text-right">
+            <div className="flex flex-col md:flex-row items-center md:items-end gap-4 mb-6">
+              <h1 className="text-4xl md:text-6xl font-black text-brand-text-main tracking-tight leading-none">
                 {profile.name}
               </h1>
               {profile.isVerified && (
-                <div className="p-1.5 bg-brand-primary/10 text-brand-primary rounded-full" title="Verified Account">
-                  <ShieldCheck size={24} fill="currentColor" fillOpacity={0.1} />
-                </div>
+                <Badge className="bg-brand-primary/10 text-brand-primary border-none text-[10px] uppercase tracking-widest font-black py-2 px-4 rounded-full mb-1">
+                  {isRtl ? 'حساب موثق' : 'Verified Identity'}
+                </Badge>
               )}
             </div>
             
-            <p className="text-brand-text-muted text-lg font-medium mb-6 max-w-lg">
-              {profile.bio || (isRtl ? 'لم يتم إضافة نبذة شخصية بعد...' : 'No bio added yet...')}
+            <p className="text-brand-text-muted text-lg font-medium mb-8 max-w-2xl mx-auto md:mx-0 leading-relaxed">
+              {profile.bio || (isRtl ? 'لم يتم إضافة نبذة شخصية بعد. ابدأ بتعريف نفسك للعالم!' : 'No bio added yet. Start by introducing yourself to the world!')}
             </p>
 
-            <div className="flex flex-wrap justify-center md:justify-start gap-4">
-              <ProfileCompletionMeter percentage={calculateProfileCompletion(profile)} isRtl={isRtl} />
-              <div className="px-5 py-2.5 rounded-2xl bg-brand-primary/5 border border-brand-primary/10 flex items-center gap-3">
-                <Wallet size={20} className="text-brand-primary" />
+            <div className="flex flex-wrap justify-center md:justify-start gap-6">
+              {/* Neural Credits Bento Card */}
+              <div className="px-6 py-3 rounded-[1.5rem] bg-brand-primary/5 border border-brand-primary/10 flex items-center gap-4 group hover:bg-brand-primary/10 transition-colors">
+                <div className="w-10 h-10 rounded-xl bg-brand-primary text-white flex items-center justify-center shadow-lg shadow-brand-primary/20">
+                  <Zap size={20} className="animate-pulse" />
+                </div>
                 <div className="text-right">
                   <p className="text-[10px] font-black text-brand-primary uppercase tracking-widest">{isRtl ? 'رصيد نيرال' : 'Neural Credits'}</p>
-                  <p className="text-lg font-black text-brand-text-main">{profile.neuralCredits || 0}</p>
+                  <p className="text-xl font-black text-brand-text-main">{profile.neuralCredits || 0}</p>
                 </div>
               </div>
-              <div className="px-5 py-2.5 rounded-2xl bg-brand-teal/5 border border-brand-teal/10 flex items-center gap-3">
-                <Star size={20} className="text-brand-teal" />
+
+              {/* Trust Score Bento Card */}
+              <div className="px-6 py-3 rounded-[1.5rem] bg-brand-teal/5 border border-brand-teal/10 flex items-center gap-4 group hover:bg-brand-teal/10 transition-colors">
+                <div className="w-10 h-10 rounded-xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20">
+                  <ShieldCheck size={20} />
+                </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-black text-brand-teal uppercase tracking-widest">{isRtl ? 'التقييم' : 'Rating'}</p>
-                  <p className="text-lg font-black text-brand-text-main">4.9</p>
+                  <p className="text-[10px] font-black text-brand-teal uppercase tracking-widest">{isRtl ? 'مؤشر الثقة' : 'Trust Index'}</p>
+                  <p className="text-xl font-black text-brand-text-main">98%</p>
                 </div>
               </div>
-              
-              <div className="flex gap-2">
+
+              {/* Action Circle Buttons */}
+              <div className="flex gap-3 items-center">
                 <HapticButton 
                   onClick={handleShare}
-                  className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 border border-brand-border/50 flex items-center justify-center text-brand-primary shadow-sm hover:bg-brand-primary hover:text-white transition-all"
+                  className="w-14 h-14 rounded-2xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-primary shadow-xl hover:bg-brand-primary hover:text-white transition-all"
                   title={isRtl ? 'مشاركة' : 'Share'}
                 >
-                  <Share2 size={20} />
+                  <Share2 size={24} />
                 </HapticButton>
                 <HapticButton 
                   onClick={() => onViewProfile(profile.uid)}
-                  className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 border border-brand-border/50 flex items-center justify-center text-brand-teal shadow-sm hover:bg-brand-teal hover:text-white transition-all"
+                  className="w-14 h-14 rounded-2xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-teal shadow-xl hover:bg-brand-teal hover:text-white transition-all"
                   title={isRtl ? 'معاينة المتجر' : 'Preview Store'}
                 >
-                  <ExternalLink size={20} />
+                  <ExternalLink size={24} />
                 </HapticButton>
               </div>
             </div>
@@ -487,56 +500,14 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
             {activeSubView === 'my_ads' && (
               <MyAdsDashboard />
             )}
+            {activeSubView === 'my_products' && (
+              <MyProductsDashboard />
+            )}
             {activeSubView === 'ad_analytics' && (
               <MarketplaceAnalytics />
             )}
             {activeSubView === 'subscription' && (
               <SubscriptionManager isRtl={isRtl} />
-            )}
-            {(activeSubView === 'my_products' || activeSubView === 'my_ads') && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-black text-brand-text-main">
-                    {activeSubView === 'my_products' ? (isRtl ? 'منتجاتي المعروضة' : 'My Listed Products') : (isRtl ? 'إعلاناتي النشطة' : 'My Active Ads')}
-                  </h3>
-                  <HapticButton 
-                    onClick={() => setShowUploadModal(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-brand-primary/20"
-                  >
-                    <Plus size={16} />
-                    {isRtl ? 'إضافة جديد' : 'Add New'}
-                  </HapticButton>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {myMarketItems.length > 0 ? (
-                    myMarketItems.map(item => (
-                      <ProductCard 
-                        key={item.id}
-                        item={item}
-                        onOpenChat={onOpenChat}
-                        onViewDetails={() => {}}
-                        onViewProfile={onViewProfile}
-                        isOwner={true}
-                      />
-                    ))
-                  ) : (
-                    <div className="col-span-full py-20 text-center">
-                      <div className="w-20 h-20 bg-brand-primary/5 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-primary/20">
-                        <Package size={40} />
-                      </div>
-                      <h3 className="text-xl font-black text-brand-text-main mb-2">
-                        {isRtl ? 'لا توجد منتجات بعد' : 'No products yet'}
-                      </h3>
-                      <p className="text-brand-text-muted max-w-xs mx-auto">
-                        {isRtl 
-                          ? 'ابدأ بإضافة منتجاتك أو إعلاناتك لتظهر هنا وفي السوق العام.' 
-                          : 'Start adding your products or ads to see them here and in the public marketplace.'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
             )}
           </div>
         </div>

@@ -39,7 +39,10 @@ service cloud.firestore {
     }
 
     function hasRole(role) {
-      return isAuthenticated() && (request.auth.token.role == role || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role);
+      return isAuthenticated() && (
+        request.auth.token.role == role || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role)
+      );
     }
 
     function isMasterAdmin() {
@@ -52,12 +55,15 @@ service cloud.firestore {
       return isAuthenticated() && (
         (request.auth.token.email == 'anamostwanted@gmail.com' && request.auth.token.email_verified == true) ||
         request.auth.token.role in ['admin', 'manager', 'supervisor'] ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'manager', 'supervisor']
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'manager', 'supervisor'])
       );
     }
 
     function isSupplier() {
-      return isAuthenticated() && (request.auth.token.role == 'supplier' || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'supplier');
+      return isAuthenticated() && (
+        request.auth.token.role == 'supplier' || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'supplier')
+      );
     }
 
     function isValidUser(data) {
@@ -125,9 +131,8 @@ service cloud.firestore {
       // Also allow reading if the user is a participant in a chat (handled via public profiles usually)
       allow read: if isAuthenticated() && (
         request.auth.uid == userId || 
-        resource.data.role == 'supplier' ||
-        resource.data.role == 'admin' ||
-        isAdmin()
+        isAdmin() ||
+        (resource != null && (resource.data.get('role', '') in ['supplier', 'admin'] || resource.data.get('role', '') == 'supplier'))
       );
       allow create: if isAuthenticated() && (
         request.auth.uid == userId || 
@@ -686,6 +691,38 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isAuthenticated();
       allow update, delete: if false;
+    }
+
+    // Ad Analytics collection rules
+    function isValidAdAnalytics(data) {
+      let allowedFields = ['adId', 'sellerId', 'views', 'clicks', 'lastUpdated'];
+      return data.keys().hasAll(['adId', 'sellerId', 'views', 'clicks', 'lastUpdated']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.adId is string && data.adId.size() > 0 &&
+             data.sellerId is string && data.sellerId.size() > 0 &&
+             data.views is number && data.views >= 0 &&
+             data.clicks is number && data.clicks >= 0 &&
+             data.lastUpdated is string && data.lastUpdated.size() < 64;
+    }
+
+    match /ad_analytics/{adId} {
+      allow read: if isAuthenticated() && (resource.data.sellerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.sellerId == request.auth.uid && isValidAdAnalytics(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (resource.data.sellerId == request.auth.uid &&
+         isValidAdAnalytics(request.resource.data) &&
+         request.resource.data.sellerId == resource.data.sellerId &&
+         request.resource.data.adId == resource.data.adId
+        ) ||
+        (
+          // Allow anyone to increment views/clicks
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'clicks', 'lastUpdated']) &&
+          (request.resource.data.views == resource.data.views + 1 || request.resource.data.views == resource.data.views) &&
+          (request.resource.data.clicks == resource.data.clicks + 1 || request.resource.data.clicks == resource.data.clicks)
+        ) ||
+        isAdmin()
+      );
+      allow delete: if false; // Soft delete only
     }
 
     // Ads collection rules

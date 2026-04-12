@@ -1,16 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User as UserIcon, Mail, Phone, MapPin, Save, Cpu, Zap, BookOpen, FileText, ShieldCheck, Lock, Sparkles, Tag, BrainCircuit, Store, Briefcase, Layers, AlertCircle } from 'lucide-react';
+import { 
+  User as UserIcon, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Save, 
+  Globe, 
+  Sparkles, 
+  Camera, 
+  Loader2, 
+  Briefcase, 
+  Tag, 
+  Building2, 
+  AlertCircle, 
+  Cpu, 
+  Zap, 
+  BookOpen, 
+  FileText, 
+  ShieldCheck, 
+  Lock,
+  Palette,
+  Wand2,
+  LayoutGrid,
+  X,
+  Plus,
+  CheckCircle2,
+  Search
+} from 'lucide-react';
 import { doc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
-import { db, auth } from '../../../core/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { handleFirestoreError, OperationType, handleAiError } from '../../../core/utils/errorHandling';
+import { db, auth, storage } from '../../../core/firebase';
 import { UserProfile, Category } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { CacheOptimizer } from '../../../shared/components/CacheOptimizer';
 import HelpCenter from '../../site/components/HelpCenter';
 import { AnimatePresence, motion } from 'motion/react';
-import { classifyAndOptimizeSupplier } from '../../../core/services/geminiService';
+import { enhanceBio, suggestSupplierCategories } from '../../../core/services/geminiService';
+import { compressImage } from '../../../core/utils/imageCropper';
 import { toast } from 'sonner';
+import { Badge } from '../../../shared/components/ui/badge';
 
 interface ProfileSettingsProps {
   profile: UserProfile;
@@ -21,102 +51,189 @@ interface ProfileSettingsProps {
 export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBack, forceShowSupplierSettings }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
-
   const isSupplierView = profile.role === 'supplier' || forceShowSupplierSettings;
 
-  const [editName, setEditName] = useState(profile.name || '');
-  const [editEmail, setEditEmail] = useState(profile.email || '');
-  const [editPhone, setEditPhone] = useState(profile.phone || '');
-  const [editLocation, setEditLocation] = useState(profile.location || '');
-  const [editBio, setEditBio] = useState(profile.bio || '');
-  const [businessDescription, setBusinessDescription] = useState(profile.businessDescription || '');
-  const [supplierType, setSupplierType] = useState<'merchant' | 'service_provider' | 'both'>(profile.supplierType || 'merchant');
-  const [keywords, setKeywords] = useState<string[]>(profile.keywords || []);
+  // Form State
+  const [formData, setFormData] = useState({
+    name: profile.name || '',
+    companyName: profile.companyName || '',
+    email: profile.email || '',
+    phone: profile.phone || '',
+    location: profile.location || '',
+    website: profile.website || '',
+    bio: profile.bio || profile.businessDescription || '',
+    keywords: profile.keywords || [],
+    categories: profile.categories || [],
+    logoUrl: profile.logoUrl || profile.photoURL || '',
+    coverUrl: profile.coverUrl || ''
+  });
+
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [keywordInput, setKeywordInput] = useState('');
   
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(profile.categories || []);
-  const [allCategories, setAllCategories] = useState<Category[]>([]);
-  const [categorySearch, setCategorySearch] = useState('');
-  
-  const [isSaving, setIsSaving] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
   const [isOptimizerOpen, setIsOptimizerOpen] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
+  const [isAiSuggestingCategories, setIsAiSuggestingCategories] = useState(false);
+  const [suggestedCategoryIds, setSuggestedCategoryIds] = useState<string[]>([]);
+  const [categorySearch, setCategorySearch] = useState('');
 
-  React.useEffect(() => {
+  const glassClass = "bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/40 dark:border-slate-700/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]";
+  const bentoCardClass = `${glassClass} rounded-[2.5rem] p-8 md:p-10 transition-all duration-500 hover:shadow-2xl hover:scale-[1.01] border-2 border-transparent hover:border-brand-primary/20`;
+
+  useEffect(() => {
     const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
       setAllCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
     });
     return () => unsub();
-  }, [profile]);
+  }, []);
 
-  const handleNeuralAnalysis = async () => {
-    if (!businessDescription.trim()) return;
-    
+  const handleChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setHasChanges(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'cover') => {
+    const file = e.target.files?.[0];
+    if (!file || !profile.uid) return;
+
+    const setUploading = type === 'logo' ? setIsUploadingLogo : setIsUploadingCover;
+    setUploading(true);
+    toast.info(isRtl ? 'جاري معالجة الصورة...' : 'Processing image...');
+
     try {
-      setIsAnalyzing(true);
-      const result = await classifyAndOptimizeSupplier(businessDescription, allCategories, i18n.language);
-      
-      if (result) {
-        setSupplierType(result.supplierType);
-        setKeywords(result.suggestedKeywords);
-        setEditBio(result.optimizedBio);
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        // Smart Compress
+        const compressedBase64 = await compressImage(base64, type === 'cover' ? 1200 : 400);
+        const response = await fetch(compressedBase64);
+        const blob = await response.blob();
         
-        // Match categories
-        if (result.suggestedCategoryIds && result.suggestedCategoryIds.length > 0) {
-          setSelectedCategories(prev => {
-            const newSet = new Set([...prev, ...result.suggestedCategoryIds]);
-            return Array.from(newSet);
-          });
-        }
-      }
+        const storageRef = ref(storage, `users/${profile.uid}/${type}_${Date.now()}`);
+        await uploadBytes(storageRef, blob);
+        const url = await getDownloadURL(storageRef);
+        
+        handleChange(type === 'logo' ? 'logoUrl' : 'coverUrl', url);
+        
+        // Auto-save image to profile
+        await updateDoc(doc(db, 'users', profile.uid), {
+          [type === 'logo' ? 'logoUrl' : 'coverUrl']: url,
+          ...(type === 'logo' ? { photoURL: url } : {}) // Sync photoURL with logoUrl
+        });
+        
+        toast.success(isRtl ? 'تم تحديث الصورة بنجاح' : 'Image updated successfully');
+        setUploading(false);
+      };
+      reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Neural analysis failed:', error);
-    } finally {
-      setIsAnalyzing(false);
+      toast.error(isRtl ? 'حدث خطأ أثناء رفع الصورة' : 'Error uploading image');
+      setUploading(false);
     }
   };
+
+  const handleEnhanceBio = async () => {
+    if (!formData.bio.trim()) return;
+    setIsEnhancing(true);
+    try {
+      const enhanced = await enhanceBio(formData.bio, i18n.language);
+      handleChange('bio', enhanced);
+      toast.success(isRtl ? 'تم تحسين النبذة بذكاء!' : 'Bio enhanced smartly!');
+      
+      // Auto-suggest categories based on the new bio
+      handleAiSuggestCategories(enhanced);
+    } catch (error) {
+      toast.error(isRtl ? 'فشل التحسين' : 'Enhancement failed');
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const handleAiSuggestCategories = async (bioText?: string) => {
+    const textToAnalyze = bioText || formData.bio;
+    if (!textToAnalyze || allCategories.length === 0) return;
+
+    setIsAiSuggestingCategories(true);
+    try {
+      const suggestedIds = await suggestSupplierCategories(
+        { ...formData, bio: textToAnalyze },
+        allCategories,
+        i18n.language
+      );
+      
+      if (suggestedIds && suggestedIds.length > 0) {
+        setSuggestedCategoryIds(suggestedIds);
+        toast.info(isRtl ? 'تم العثور على فئات مقترحة لنشاطك' : 'Suggested categories found for your business');
+      }
+    } catch (err) {
+      console.error('Category suggestion failed:', err);
+    } finally {
+      setIsAiSuggestingCategories(false);
+    }
+  };
+
+  const applySuggestedCategories = () => {
+    const newCategories = Array.from(new Set([...formData.categories, ...suggestedCategoryIds]));
+    handleChange('categories', newCategories);
+    setSuggestedCategoryIds([]);
+    toast.success(isRtl ? 'تم تطبيق الفئات المقترحة' : 'Suggested categories applied');
+  };
+
+  const filteredCategories = allCategories.filter(cat => {
+    const name = isRtl ? cat.nameAr : cat.nameEn;
+    return name.toLowerCase().includes(categorySearch.toLowerCase());
+  });
+
+  const selectedCategories = allCategories.filter(cat => formData.categories.includes(cat.id));
+  const suggestedCategories = allCategories.filter(cat => 
+    suggestedCategoryIds.includes(cat.id) && !formData.categories.includes(cat.id)
+  );
+  const otherCategories = filteredCategories.filter(cat => 
+    !formData.categories.includes(cat.id) && !suggestedCategoryIds.includes(cat.id)
+  );
 
   const handleAddKeyword = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && keywordInput.trim()) {
       e.preventDefault();
-      if (!keywords.includes(keywordInput.trim())) {
-        setKeywords([...keywords, keywordInput.trim()]);
+      if (!formData.keywords.includes(keywordInput.trim())) {
+        handleChange('keywords', [...formData.keywords, keywordInput.trim()]);
       }
       setKeywordInput('');
     }
   };
 
-  const removeKeyword = (tag: string) => {
-    setKeywords(keywords.filter(k => k !== tag));
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async () => {
     if (!profile.uid) return;
-
     try {
       setIsSaving(true);
       const updateData: any = {
-        name: editName,
-        email: editEmail,
-        phone: editPhone,
-        location: editLocation,
-        bio: editBio,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        location: formData.location,
+        website: formData.website,
+        bio: formData.bio,
+        companyName: formData.companyName,
         updatedAt: new Date().toISOString()
       };
       
       if (isSupplierView) {
-        updateData.categories = selectedCategories;
-        updateData.businessDescription = businessDescription;
-        updateData.supplierType = supplierType;
-        updateData.keywords = keywords;
+        updateData.categories = formData.categories;
+        updateData.keywords = formData.keywords;
+        updateData.businessDescription = formData.bio; // Keep in sync
       }
 
       await updateDoc(doc(db, 'users', profile.uid), updateData);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setHasChanges(false);
+      toast.success(isRtl ? 'تم حفظ التحديثات بنجاح' : 'Updates saved successfully');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}`, false);
     } finally {
@@ -124,385 +241,446 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
     }
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-brand-background pb-32 font-sans relative" dir={isRtl ? 'rtl' : 'ltr'}>
+      
       <AnimatePresence>
-        {showHelpCenter && (
-          <HelpCenter 
-            onClose={() => setShowHelpCenter(false)} 
-            isRtl={isRtl} 
-          />
-        )}
+        {showHelpCenter && <HelpCenter onClose={() => setShowHelpCenter(false)} isRtl={isRtl} />}
       </AnimatePresence>
 
       {onBack && (
-        <button onClick={onBack} className="text-brand-primary font-bold text-sm mb-4">
-          {isRtl ? '← عودة' : '← Back'}
-        </button>
-      )}
-      
-      <div className="bg-brand-surface rounded-3xl border border-brand-border shadow-sm overflow-hidden">
-        <div className="bg-brand-primary px-6 py-4 flex justify-between items-center">
-          <h3 className="text-lg font-bold text-white">
-            {isRtl ? 'تعديل البيانات الشخصية' : 'Edit Personal Info'}
-          </h3>
-          {saveSuccess && (
-            <span className="text-white text-sm font-bold bg-white/20 px-3 py-1 rounded-lg">
-              {isRtl ? 'تم الحفظ' : 'Saved'}
-            </span>
-          )}
+        <div className="absolute top-4 left-4 right-4 z-50 flex justify-between">
+          <button onClick={onBack} className="bg-black/50 backdrop-blur-md text-white px-4 py-2 rounded-full font-bold text-sm hover:bg-black/70 transition-colors">
+            {isRtl ? '← عودة' : '← Back'}
+          </button>
         </div>
+      )}
 
-        <form onSubmit={handleSave} className="p-6 space-y-6">
-          {/* Basic Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-brand-text-muted uppercase ml-1">{isRtl ? 'الاسم' : 'Name'}</label>
-              <div className="relative">
-                <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-muted" size={18} />
-                <input 
-                  type="text" 
-                  value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-brand-text-main"
-                  required
-                />
+      {/* 1. Immersive Header (Cover & Avatar) */}
+      <div className="relative w-full h-80 md:h-[450px] bg-brand-surface border-b border-brand-border overflow-hidden">
+        {formData.coverUrl ? (
+          <img src={formData.coverUrl} className="w-full h-full object-cover" alt="Cover" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-brand-primary/20 via-brand-secondary/10 to-brand-primary/20 flex items-center justify-center">
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+            <ImageIcon size={64} className="text-brand-primary/30 relative z-10" />
+          </div>
+        )}
+        
+        <div className="absolute inset-0 bg-gradient-to-t from-brand-background via-transparent to-transparent"></div>
+
+        {/* Cover Upload Button */}
+        <button 
+          onClick={() => coverInputRef.current?.click()}
+          className="absolute bottom-8 right-8 bg-white/20 backdrop-blur-xl text-white p-4 rounded-3xl hover:bg-white/30 transition-all shadow-2xl border border-white/20 group"
+        >
+          {isUploadingCover ? <Loader2 size={24} className="animate-spin" /> : <Camera size={24} className="group-hover:scale-110 transition-transform" />}
+        </button>
+        <input type="file" ref={coverInputRef} onChange={(e) => handleImageUpload(e, 'cover')} className="hidden" accept="image/*" />
+      </div>
+
+      {/* 2. Identity Section */}
+      <div className="px-6 md:px-12 relative -mt-32 sm:-mt-40 flex flex-col sm:flex-row items-center sm:items-end gap-8 mb-16 max-w-7xl mx-auto">
+        {/* Floating Avatar */}
+        <div className="relative group">
+          <div className="w-40 h-40 sm:w-56 sm:h-56 rounded-[3rem] bg-brand-surface border-[6px] border-brand-background shadow-[0_20px_60px_rgba(0,0,0,0.2)] overflow-hidden relative">
+            {formData.logoUrl ? (
+              <img src={formData.logoUrl} className="w-full h-full object-cover" alt="Logo" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-tr from-brand-primary/10 to-brand-primary/20 flex items-center justify-center text-brand-primary text-6xl font-black">
+                {formData.name?.charAt(0)?.toUpperCase() || '?'}
               </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-brand-text-muted uppercase ml-1">{t('email')}</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-muted" size={18} />
-                <input 
-                  type="email" 
-                  value={editEmail}
-                  onChange={e => setEditEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-brand-text-main"
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-brand-text-muted uppercase ml-1">{isRtl ? 'رقم التواصل' : 'Contact Number'}</label>
-              <div className="relative">
-                <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-muted" />
-                <input 
-                  type="tel" 
-                  value={editPhone}
-                  onChange={e => setEditPhone(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-brand-text-main"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-brand-text-muted uppercase ml-1">{isRtl ? 'الموقع' : 'Location'}</label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-muted" size={18} />
-                <input 
-                  type="text" 
-                  value={editLocation}
-                  onChange={e => setEditLocation(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-brand-text-main"
-                />
-              </div>
+            )}
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-md">
+              <button onClick={() => logoInputRef.current?.click()} className="text-white bg-brand-primary p-5 rounded-2xl shadow-2xl hover:scale-110 transition-transform">
+                {isUploadingLogo ? <Loader2 size={28} className="animate-spin" /> : <Camera size={28} />}
+              </button>
             </div>
           </div>
+          <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-brand-primary rounded-2xl flex items-center justify-center text-white shadow-xl border-4 border-brand-background">
+            <ShieldCheck size={24} />
+          </div>
+          <input type="file" ref={logoInputRef} onChange={(e) => handleImageUpload(e, 'logo')} className="hidden" accept="image/*" />
+        </div>
 
-          {/* Supplier Specific Section */}
+        {/* Identity Details */}
+        <div className="flex-1 text-center sm:text-start pb-4 space-y-2">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand-primary/10 text-brand-primary rounded-full text-[10px] font-black uppercase tracking-widest mb-2">
+            <Zap size={12} />
+            {isRtl ? 'هوية معتمدة' : 'Verified Identity'}
+          </div>
+          <input 
+            type="text" 
+            value={formData.name}
+            onChange={(e) => handleChange('name', e.target.value)}
+            placeholder={isRtl ? 'الاسم الكامل' : 'Full Name'}
+            className="text-4xl sm:text-6xl font-black text-brand-text-main bg-transparent border-none outline-none w-full text-center sm:text-start placeholder-brand-text-muted/30 focus:ring-0 p-0 tracking-tight"
+          />
           {isSupplierView && (
-            <div className="space-y-6 pt-4 border-t border-brand-border/50">
-              <div className="flex items-center gap-3 mb-2">
-                <BrainCircuit className="text-brand-primary" size={20} />
-                <h4 className="font-bold text-brand-text-main">{isRtl ? 'إعدادات المورد الذكية' : 'Smart Supplier Settings'}</h4>
+            <div className="flex items-center justify-center sm:justify-start gap-3 mt-4">
+              <div className="p-2 bg-brand-primary/10 rounded-lg text-brand-primary">
+                <Building2 size={20} />
               </div>
-
-              {/* Supplier Type Selection */}
-              <div className="space-y-3">
-                <label className="text-[10px] font-bold text-brand-text-muted uppercase ml-1">
-                  {isRtl ? 'نوع النشاط التجاري' : 'Business Type'}
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { id: 'merchant', labelAr: 'تاجر', labelEn: 'Merchant', icon: Store },
-                    { id: 'service_provider', labelAr: 'مقدم خدمة', labelEn: 'Service Provider', icon: Briefcase },
-                    { id: 'both', labelAr: 'كلاهما', labelEn: 'Both', icon: Layers }
-                  ].map((type) => (
-                    <button
-                      key={type.id}
-                      type="button"
-                      onClick={() => setSupplierType(type.id as any)}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${
-                        supplierType === type.id
-                          ? 'bg-brand-primary/10 border-brand-primary text-brand-primary shadow-sm'
-                          : 'bg-brand-background border-brand-border text-brand-text-muted hover:border-brand-primary/50'
-                      }`}
-                    >
-                      <type.icon size={20} />
-                      <span className="text-xs font-bold">{isRtl ? type.labelAr : type.labelEn}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Neural Description & Analysis */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-end">
-                  <label className="text-[10px] font-bold text-brand-text-muted uppercase ml-1">
-                    {isRtl ? 'وصف العمل (للتصنيف الذكي)' : 'Business Description (for Smart Classification)'}
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleNeuralAnalysis}
-                    disabled={isAnalyzing || !businessDescription.trim()}
-                    className="flex items-center gap-1.5 text-[10px] font-bold text-brand-primary hover:opacity-80 disabled:opacity-30 transition-all bg-brand-primary/5 px-3 py-1.5 rounded-full border border-brand-primary/20"
-                  >
-                    {isAnalyzing ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-brand-primary"></div>
-                    ) : (
-                      <Sparkles size={12} />
-                    )}
-                    {isRtl ? 'تحليل ذكي' : 'Neural Analysis'}
-                  </button>
-                </div>
-                <textarea
-                  value={businessDescription}
-                  onChange={e => setBusinessDescription(e.target.value)}
-                  placeholder={isRtl ? 'صف عملك بالتفصيل (مثلاً: أبيع قطع غيار السيارات وأقدم خدمات الصيانة)...' : 'Describe your business in detail (e.g., I sell car parts and provide maintenance services)...'}
-                  className="w-full px-4 py-3 bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-brand-text-main min-h-[100px] text-sm"
-                />
-              </div>
-
-              {/* Keywords / Tags */}
-              <div className="space-y-3">
-                <label className="text-[10px] font-bold text-brand-text-muted uppercase ml-1">
-                  {isRtl ? 'الكلمات المفتاحية للأعمال' : 'Business Keywords'}
-                </label>
-                <div className="flex flex-wrap gap-2 p-3 bg-brand-background border border-brand-border rounded-2xl min-h-[50px]">
-                  {keywords.map((tag, idx) => (
-                    <motion.span
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      key={idx}
-                      className="flex items-center gap-1.5 bg-brand-primary/10 text-brand-primary px-3 py-1 rounded-lg text-xs font-bold border border-brand-primary/20"
-                    >
-                      {tag}
-                      <button type="button" onClick={() => removeKeyword(tag)} className="hover:text-red-500">×</button>
-                    </motion.span>
-                  ))}
-                  <input
-                    type="text"
-                    value={keywordInput}
-                    onChange={e => setKeywordInput(e.target.value)}
-                    onKeyDown={handleAddKeyword}
-                    placeholder={isRtl ? 'أضف كلمة واضغط Enter...' : 'Add keyword and press Enter...'}
-                    className="flex-1 bg-transparent outline-none text-xs text-brand-text-main min-w-[150px]"
-                  />
-                </div>
-              </div>
-
-              {/* Categories Selection */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-brand-text-muted uppercase ml-1">{isRtl ? 'فئات العمل المختارة' : 'Selected Work Categories'}</label>
-                <input
-                  type="text"
-                  placeholder={isRtl ? 'ابحث عن فئة لإضافتها يدوياً...' : 'Search categories to add manually...'}
-                  value={categorySearch}
-                  onChange={(e) => setCategorySearch(e.target.value)}
-                  className="w-full pl-4 pr-4 py-2.5 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-brand-text-main mb-2"
-                />
-                <div className="flex flex-wrap gap-2 mt-2 max-h-60 overflow-y-auto p-2 bg-brand-background/50 rounded-xl border border-brand-border/50">
-                  {allCategories
-                    .filter(cat => (isRtl ? cat.nameAr : cat.nameEn).toLowerCase().includes(categorySearch.toLowerCase()))
-                    .map(cat => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedCategories(prev => 
-                            prev.includes(cat.id) ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
-                          );
-                        }}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                          selectedCategories.includes(cat.id)
-                            ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20'
-                            : 'bg-brand-background border border-brand-border text-brand-text-muted hover:border-brand-primary'
-                        }`}
-                      >
-                        {isRtl ? cat.nameAr : cat.nameEn}
-                      </button>
-                    ))}
-                </div>
-              </div>
-
-              {/* Professional Bio */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-brand-text-muted uppercase ml-1">{isRtl ? 'النبذة التعريفية (Bio)' : 'Professional Bio'}</label>
-                <textarea
-                  value={editBio}
-                  onChange={e => setEditBio(e.target.value)}
-                  className="w-full px-4 py-3 bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-brand-text-main min-h-[120px] text-sm"
-                />
-              </div>
+              <input 
+                type="text" 
+                value={formData.companyName}
+                onChange={(e) => handleChange('companyName', e.target.value)}
+                placeholder={isRtl ? 'اسم الشركة / المتجر' : 'Company / Store Name'}
+                className="text-xl sm:text-2xl font-bold text-brand-text-muted bg-transparent border-none outline-none flex-1 placeholder-brand-text-muted/30 focus:ring-0 p-0"
+              />
             </div>
           )}
+        </div>
+      </div>
 
-          <div className="pt-4 flex justify-end">
-            <HapticButton
-              type="submit"
-              disabled={isSaving}
-              className="bg-brand-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-brand-primary-hover transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-brand-primary/20"
+      {/* 3. Bento Grid Data Section */}
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="px-4 md:px-8 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8"
+      >
+        {/* Bio Card (Spans 8 columns on desktop) */}
+        <motion.div variants={itemVariants} className={`lg:col-span-8 ${bentoCardClass} group relative`}>
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                <FileText size={28} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-brand-text-main">{isRtl ? 'النبذة الاحترافية' : 'Professional Bio'}</h3>
+                <p className="text-xs font-bold text-brand-text-muted uppercase tracking-widest">{isRtl ? 'قصة نجاحك' : 'Your Success Story'}</p>
+              </div>
+            </div>
+            <HapticButton 
+              onClick={handleEnhanceBio}
+              disabled={isEnhancing || !formData.bio}
+              className="flex items-center gap-3 bg-brand-primary text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-brand-primary/20 hover:-translate-y-1 transition-all disabled:opacity-50"
             >
-              {isSaving ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              ) : (
-                <>
-                  <Save size={18} />
-                  {isRtl ? 'حفظ التغييرات' : 'Save Changes'}
-                </>
-              )}
+              {isEnhancing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+              {isRtl ? 'تحسين ذكي' : 'AI Enhance'}
             </HapticButton>
           </div>
-        </form>
-      </div>
+          <textarea 
+            value={formData.bio}
+            onChange={(e) => handleChange('bio', e.target.value)}
+            placeholder={isRtl ? 'اكتب نبذة عنك أو عن شركتك...' : 'Write a bio about yourself or your company...'}
+            className="w-full h-48 bg-brand-background/50 border border-brand-border rounded-[2rem] p-8 text-brand-text-main outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all font-medium leading-relaxed resize-none text-lg"
+          />
+        </motion.div>
 
-      {/* System Optimization Section */}
-      <div className="bg-brand-surface rounded-3xl border border-brand-border shadow-sm p-6">
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary shadow-inner">
-            <Cpu size={24} />
-          </div>
-          <div>
-            <h4 className="font-bold text-brand-text-main">
-              {isRtl ? 'تحسين أداء التطبيق' : 'App Performance Optimization'}
-            </h4>
-            <p className="text-[10px] text-brand-text-muted font-medium uppercase tracking-wider">
-              {isRtl ? 'تنظيف ذاكرة التخزين المؤقت وتحسين سرعة التصفح' : 'Clear cache and optimize browsing speed'}
-            </p>
-          </div>
-        </div>
-        
-        <div className="bg-brand-background/50 rounded-2xl p-4 mb-4 border border-brand-border/50">
-          <p className="text-xs text-brand-text-muted leading-relaxed">
-            {isRtl 
-              ? 'إذا كنت تواجه بطئاً في تحميل الصور أو البيانات، يمكنك استخدام أداة التحسين الذكية لتنظيف الملفات المؤقتة وإعادة ضبط أداء الواجهة بشكل فخم وسلس.'
-              : 'If you experience slow loading of images or data, use our smart optimizer to purge temporary files and reset the UI performance for a smooth, premium experience.'}
-          </p>
-        </div>
-
-        <HapticButton
-          onClick={() => setIsOptimizerOpen(true)}
-          className="w-full bg-brand-background border border-brand-border text-brand-text-main py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-brand-surface transition-all group shadow-sm"
-        >
-          <Zap size={18} className="text-brand-primary group-hover:scale-125 transition-transform" />
-          {isRtl ? 'تشغيل أداة التحسين الذكية' : 'Run Smart Optimizer Tool'}
-        </HapticButton>
-      </div>
-
-      <CacheOptimizer 
-        isOpen={isOptimizerOpen} 
-        onClose={() => setIsOptimizerOpen(false)} 
-      />
-
-      {/* User Guide & Policies Section */}
-      <div className="bg-brand-surface rounded-3xl border border-brand-border shadow-sm p-6">
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary shadow-inner">
-            <BookOpen size={24} />
-          </div>
-          <div>
-            <h4 className="font-bold text-brand-text-main">
-              {isRtl ? 'دليل المستخدم والسياسات' : 'User Guide & Policies'}
-            </h4>
-            <p className="text-[10px] text-brand-text-muted font-medium uppercase tracking-wider">
-              {isRtl ? 'عرض الدليل الكامل وشروط الاستخدام' : 'View full guide and terms of use'}
-            </p>
-          </div>
-        </div>
-        
-        <div className="bg-brand-background/50 rounded-2xl p-4 mb-4 border border-brand-border/50">
-          <p className="text-xs text-brand-text-muted leading-relaxed">
-            {isRtl 
-              ? 'تعرف على كيفية استخدام المنصة بشكل احترافي، واطلع على سياسة الخصوصية وشروط الاستخدام لضمان تجربة آمنة وموثوقة.'
-              : 'Learn how to use the platform professionally, and review the privacy policy and terms of use to ensure a safe and reliable experience.'}
-          </p>
-        </div>
-
-        <HapticButton
-          onClick={() => setShowHelpCenter(true)}
-          className="w-full bg-brand-primary text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-brand-primary-hover transition-all group shadow-lg shadow-brand-primary/20"
-        >
-          <FileText size={18} className="group-hover:rotate-12 transition-transform" />
-          {isRtl ? 'فتح مركز المساعدة' : 'Open Help Center'}
-        </HapticButton>
-
-        <div className="grid grid-cols-3 gap-2 mt-4">
-          {[
-            { label: isRtl ? 'دليل الميزات' : 'Guide', icon: Sparkles },
-            { label: isRtl ? 'الشروط' : 'Terms', icon: ShieldCheck },
-            { label: isRtl ? 'الخصوصية' : 'Privacy', icon: Lock }
-          ].map((item, idx) => (
-            <div key={idx} className="flex flex-col items-center gap-1 p-2 bg-brand-background/30 rounded-xl border border-brand-border/30">
-              <item.icon size={12} className="text-brand-primary/60" />
-              <span className="text-[8px] font-black uppercase tracking-tighter text-brand-text-muted">{item.label}</span>
+        {/* Contact Card (Spans 4 columns) */}
+        <motion.div variants={itemVariants} className={`lg:col-span-4 ${bentoCardClass} space-y-6`}>
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-brand-warning/10 flex items-center justify-center text-brand-warning">
+              <Phone size={28} />
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Danger Zone */}
-      <div className="bg-red-50/50 dark:bg-red-900/10 rounded-3xl border border-red-200 dark:border-red-900/30 p-6">
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-900/20 flex items-center justify-center text-red-600 shadow-inner">
-            <AlertCircle size={24} />
+            <div>
+              <h3 className="text-2xl font-black text-brand-text-main">{isRtl ? 'التواصل' : 'Contact'}</h3>
+              <p className="text-xs font-bold text-brand-text-muted uppercase tracking-widest">{isRtl ? 'بيانات الوصول' : 'Access Data'}</p>
+            </div>
           </div>
+          
+          <div className="space-y-4">
+            <div className="group relative">
+              <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-primary transition-transform group-focus-within:scale-110" size={20} />
+              <input type="email" value={formData.email} onChange={(e) => handleChange('email', e.target.value)} className="w-full pl-14 pr-6 py-4 bg-brand-background/50 border border-brand-border rounded-2xl outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all font-bold text-sm" placeholder={t('email')} />
+            </div>
+            <div className="group relative">
+              <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-primary transition-transform group-focus-within:scale-110" size={20} />
+              <input type="tel" value={formData.phone} onChange={(e) => handleChange('phone', e.target.value)} className="w-full pl-14 pr-6 py-4 bg-brand-background/50 border border-brand-border rounded-2xl outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all font-bold text-sm" placeholder={isRtl ? 'رقم الهاتف' : 'Phone Number'} />
+            </div>
+            <div className="group relative">
+              <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-primary transition-transform group-focus-within:scale-110" size={20} />
+              <input type="text" value={formData.location} onChange={(e) => handleChange('location', e.target.value)} className="w-full pl-14 pr-6 py-4 bg-brand-background/50 border border-brand-border rounded-2xl outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all font-bold text-sm" placeholder={isRtl ? 'الموقع' : 'Location'} />
+            </div>
+            <div className="group relative">
+              <Globe className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-primary transition-transform group-focus-within:scale-110" size={20} />
+              <input type="url" value={formData.website} onChange={(e) => handleChange('website', e.target.value)} className="w-full pl-14 pr-6 py-4 bg-brand-background/50 border border-brand-border rounded-2xl outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all font-bold text-sm" placeholder={isRtl ? 'الموقع الإلكتروني' : 'Website'} />
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Work & Categories Card (Supplier Only) */}
+        {isSupplierView && (
+          <motion.div variants={itemVariants} className={`lg:col-span-12 ${bentoCardClass} relative overflow-hidden`}>
+            {/* AI Suggestion Overlay */}
+            <AnimatePresence>
+              {suggestedCategoryIds.length > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="absolute inset-x-0 top-0 z-20 p-6 bg-brand-primary text-white shadow-2xl flex items-center justify-between gap-6"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white/20 rounded-2xl">
+                      <Zap size={24} className="animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-widest">{isRtl ? 'اقتراحات ذكية مكتشفة!' : 'Smart Suggestions Detected!'}</p>
+                      <p className="text-xs opacity-80">{isRtl ? 'وجدنا فئات تناسب نبذتك الشخصية' : 'We found categories that match your bio'}</p>
+                    </div>
+                  </div>
+                  <HapticButton 
+                    onClick={applySuggestedCategories}
+                    className="px-8 py-3 bg-white text-brand-primary rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:scale-105 transition-transform"
+                  >
+                    {isRtl ? 'تطبيق الاقتراحات' : 'Apply Suggestions'}
+                  </HapticButton>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-brand-teal/10 flex items-center justify-center text-brand-teal">
+                  <LayoutGrid size={28} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-brand-text-main">{isRtl ? 'رادار التخصص الذكي' : 'Smart Specialization Radar'}</h3>
+                  <p className="text-xs font-bold text-brand-text-muted uppercase tracking-widest">{isRtl ? 'الفئات والكلمات المفتاحية' : 'Categories & Keywords'}</p>
+                </div>
+              </div>
+              <HapticButton 
+                onClick={() => handleAiSuggestCategories()}
+                disabled={isAiSuggestingCategories}
+                className="flex items-center gap-3 bg-brand-teal/10 text-brand-teal px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-teal hover:text-white transition-all disabled:opacity-50"
+              >
+                {isAiSuggestingCategories ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />}
+                {isRtl ? 'فحص الفئات' : 'Scan Categories'}
+              </HapticButton>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+              {/* Categories Hub */}
+              <div className="space-y-6">
+                <div className="flex items-center justify-between px-2">
+                  <label className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em]">{isRtl ? 'مركز التصنيفات' : 'Categories Hub'}</label>
+                  {formData.categories.length > 0 && (
+                    <span className="text-[10px] font-black bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-full">
+                      {formData.categories.length} {isRtl ? 'مختار' : 'Selected'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative group">
+                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-primary/50 group-focus-within:text-brand-primary transition-colors">
+                    <Search size={20} />
+                  </div>
+                  <input 
+                    type="text"
+                    value={categorySearch}
+                    onChange={(e) => setCategorySearch(e.target.value)}
+                    placeholder={isRtl ? 'ابحث عن تخصصك...' : 'Search for your specialty...'}
+                    className="w-full pl-14 pr-6 py-4 bg-brand-background/50 border border-brand-border rounded-2xl outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all font-bold text-sm"
+                  />
+                  {categorySearch && (
+                    <button 
+                      onClick={() => setCategorySearch('')}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-brand-primary/10 rounded-full text-brand-text-muted transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-8 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  {/* Selected Section */}
+                  {selectedCategories.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-black text-brand-primary uppercase tracking-widest px-2">{isRtl ? 'المختارة حالياً' : 'Currently Selected'}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCategories.map(cat => (
+                          <button
+                            key={cat.id}
+                            onClick={() => handleChange('categories', formData.categories.filter(id => id !== cat.id))}
+                            className="px-5 py-2.5 rounded-xl text-sm font-black bg-brand-primary text-white shadow-lg shadow-brand-primary/20 flex items-center gap-2 hover:scale-105 transition-all"
+                          >
+                            <CheckCircle2 size={16} />
+                            {isRtl ? cat.nameAr : cat.nameEn}
+                            <X size={14} className="opacity-50" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Suggested Section */}
+                  {suggestedCategories.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-black text-brand-teal uppercase tracking-widest px-2 flex items-center gap-2">
+                        <Zap size={12} /> {isRtl ? 'اقتراحات الذكاء الاصطناعي' : 'AI Suggestions'}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {suggestedCategories.map(cat => (
+                          <button
+                            key={cat.id}
+                            onClick={() => handleChange('categories', [...formData.categories, cat.id])}
+                            className="px-5 py-2.5 rounded-xl text-sm font-black bg-brand-teal/10 text-brand-teal border border-brand-teal/20 flex items-center gap-2 hover:bg-brand-teal hover:text-white transition-all"
+                          >
+                            <Plus size={16} />
+                            {isRtl ? cat.nameAr : cat.nameEn}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Other / Search Results */}
+                  {(categorySearch || (selectedCategories.length === 0 && suggestedCategories.length === 0)) && (
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest px-2">
+                        {categorySearch ? (isRtl ? 'نتائج البحث' : 'Search Results') : (isRtl ? 'كل التصنيفات' : 'All Categories')}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {otherCategories.length > 0 ? (
+                          otherCategories.map(cat => (
+                            <button
+                              key={cat.id}
+                              onClick={() => handleChange('categories', [...formData.categories, cat.id])}
+                              className="px-5 py-2.5 rounded-xl text-sm font-black bg-brand-surface border border-brand-border text-brand-text-muted hover:border-brand-primary/50 hover:text-brand-primary transition-all"
+                            >
+                              {isRtl ? cat.nameAr : cat.nameEn}
+                            </button>
+                          ))
+                        ) : (
+                          <p className="text-xs text-brand-text-muted italic px-2">{isRtl ? 'لا توجد نتائج مطابقة' : 'No matching results'}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Keywords */}
+              <div className="space-y-6">
+                <label className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em] block px-2 flex items-center gap-2"><Tag size={14}/> {isRtl ? 'الكلمات المفتاحية' : 'Keywords'}</label>
+                <div className="flex flex-wrap gap-3 p-8 bg-brand-background/50 border border-brand-border rounded-[2rem] min-h-[150px] content-start">
+                  {formData.keywords.map((tag, idx) => (
+                    <Badge key={idx} className="flex items-center gap-3 bg-brand-surface text-brand-text-main px-5 py-2.5 rounded-2xl text-sm font-black border border-brand-border hover:border-brand-error/30 transition-colors group">
+                      {tag}
+                      <button onClick={() => handleChange('keywords', formData.keywords.filter(k => k !== tag))} className="text-brand-text-muted group-hover:text-brand-error transition-colors">
+                        <X size={16} />
+                      </button>
+                    </Badge>
+                  ))}
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Plus className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-primary" size={20} />
+                    <input
+                      type="text"
+                      value={keywordInput}
+                      onChange={e => setKeywordInput(e.target.value)}
+                      onKeyDown={handleAddKeyword}
+                      placeholder={isRtl ? 'أضف كلمة واضغط Enter...' : 'Add keyword and press Enter...'}
+                      className="w-full bg-transparent outline-none text-sm font-bold text-brand-text-main pl-12 py-3"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </motion.div>
+
+      {/* System & Danger Zone */}
+      <div className="px-4 md:px-8 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
+        <div className={`${bentoCardClass} flex flex-col justify-between`}>
           <div>
-            <h4 className="font-bold text-red-900 dark:text-red-400">
-              {isRtl ? 'منطقة الخطر' : 'Danger Zone'}
-            </h4>
-            <p className="text-[10px] text-red-600/60 font-medium uppercase tracking-wider">
-              {isRtl ? 'إجراءات لا يمكن التراجع عنها' : 'Irreversible actions'}
-            </p>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                <Cpu size={24} />
+              </div>
+              <h4 className="text-xl font-black text-brand-text-main">{isRtl ? 'تحسين الأداء' : 'Performance'}</h4>
+            </div>
+            <p className="text-sm font-medium text-brand-text-muted mb-8 leading-relaxed">{isRtl ? 'تنظيف الملفات المؤقتة لتسريع تجربة التصفح والبحث.' : 'Clear temporary files to accelerate browsing and search experience.'}</p>
           </div>
+          <HapticButton onClick={() => setIsOptimizerOpen(true)} className="w-full bg-brand-background border border-brand-border text-brand-text-main py-5 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-brand-primary/5 hover:text-brand-primary hover:border-brand-primary transition-all">
+            <Zap size={20} /> {isRtl ? 'تشغيل المحسن' : 'Run Optimizer'}
+          </HapticButton>
         </div>
-        
-        <p className="text-xs text-red-800/70 dark:text-red-400/70 mb-4 leading-relaxed">
-          {isRtl 
-            ? 'عند حذف الحساب، سيتم إخفاء بياناتك من المنصة ولن تتمكن من استعادتها مرة أخرى. يرجى التأكد قبل المتابعة.'
-            : 'When you delete your account, your data will be hidden from the platform and you will not be able to recover it. Please be sure before proceeding.'}
-        </p>
 
-        <HapticButton
-          onClick={async () => {
-            if (window.confirm(isRtl ? 'هل أنت متأكد من رغبتك في حذف الحساب؟' : 'Are you sure you want to delete your account?')) {
-              try {
-                setIsSaving(true);
-                const deleteData = {
-                  status: 'deleted',
-                  deletedAt: new Date().toISOString()
-                };
-                
-                // Soft delete from both collections
-                await Promise.all([
-                  updateDoc(doc(db, 'users', profile.uid), deleteData),
-                  updateDoc(doc(db, 'users_public', profile.uid), deleteData).catch(() => {
-                    // Ignore if users_public doc doesn't exist (e.g. for customers)
-                  })
-                ]);
-                
-                toast.success(isRtl ? 'تم حذف الحساب بنجاح' : 'Account deleted successfully');
-                auth.signOut();
-              } catch (error) {
-                handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}`, false);
-              } finally {
-                setIsSaving(false);
+        <div className={`${glassClass} rounded-[2.5rem] p-8 md:p-10 border-brand-error/20 flex flex-col justify-between`}>
+          <div>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-brand-error/10 flex items-center justify-center text-brand-error">
+                <AlertCircle size={24} />
+              </div>
+              <h4 className="text-xl font-black text-brand-error">{isRtl ? 'منطقة الخطر' : 'Danger Zone'}</h4>
+            </div>
+            <p className="text-sm font-medium text-brand-text-muted mb-8 leading-relaxed">{isRtl ? 'حذف الحساب نهائياً. هذا الإجراء سيؤدي لمسح كافة بياناتك ولا يمكن التراجع عنه.' : 'Permanently delete account. This action will erase all your data and cannot be undone.'}</p>
+          </div>
+          <HapticButton 
+            onClick={async () => {
+              if (window.confirm(isRtl ? 'هل أنت متأكد من الحذف؟' : 'Are you sure?')) {
+                try {
+                  const deleteData = { status: 'deleted', deletedAt: new Date().toISOString() };
+                  await Promise.all([
+                    updateDoc(doc(db, 'users', profile.uid!), deleteData),
+                    updateDoc(doc(db, 'users_public', profile.uid!), deleteData).catch(() => {})
+                  ]);
+                  auth.signOut();
+                } catch (e) { console.error(e); }
               }
-            }
-          }}
-          className="w-full bg-white dark:bg-red-950 border border-red-200 dark:border-red-900/30 text-red-600 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-red-50 transition-all shadow-sm"
-        >
-          {isRtl ? 'حذف الحساب نهائياً' : 'Delete Account Permanently'}
-        </HapticButton>
+            }}
+            className="w-full bg-brand-error/5 border border-brand-error/20 text-brand-error py-5 rounded-2xl font-black hover:bg-brand-error hover:text-white transition-all"
+          >
+            {isRtl ? 'حذف الحساب' : 'Delete Account'}
+          </HapticButton>
+        </div>
       </div>
+
+      <CacheOptimizer isOpen={isOptimizerOpen} onClose={() => setIsOptimizerOpen(false)} />
+
+      {/* 4. Floating Save Bar */}
+      <AnimatePresence>
+        {hasChanges && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-8 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-auto md:min-w-[500px] bg-brand-surface/80 backdrop-blur-3xl border border-white/20 p-5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] z-50 flex items-center justify-between gap-10"
+          >
+            <div className="flex items-center gap-4 px-4">
+              <div className="w-10 h-10 rounded-full bg-brand-warning/20 flex items-center justify-center text-brand-warning">
+                <AlertCircle size={20} />
+              </div>
+              <span className="text-sm font-black text-brand-text-main">
+                {isRtl ? 'تعديلات غير محفوظة' : 'Unsaved Changes'}
+              </span>
+            </div>
+            <HapticButton 
+              onClick={handleSave}
+              disabled={isSaving}
+              className="bg-brand-primary text-white px-10 py-4 rounded-2xl font-black shadow-2xl shadow-brand-primary/30 hover:-translate-y-1 transition-all flex items-center gap-3 disabled:opacity-50"
+            >
+              {isSaving ? <Loader2 size={24} className="animate-spin" /> : <Save size={24} />}
+              {isRtl ? 'حفظ الآن' : 'Save Now'}
+            </HapticButton>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };
+
+// Fallback icon for empty cover
+const ImageIcon = ({ size, className }: { size: number, className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+    <circle cx="9" cy="9" r="2"/>
+    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+  </svg>
+);

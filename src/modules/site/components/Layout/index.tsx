@@ -213,7 +213,10 @@ export const Layout: React.FC<LayoutProps> = ({
           }
         }
       } catch (error) {
-        console.error('Failed to sync role to custom claims:', error);
+        // Only log if it's not a standard fetch failure (which happens during server restarts)
+        if (error instanceof Error && error.message !== 'Failed to fetch') {
+          console.error('Failed to sync role to custom claims:', error);
+        }
         sessionStorage.setItem('last_role_sync_error', Date.now().toString());
       }
     };
