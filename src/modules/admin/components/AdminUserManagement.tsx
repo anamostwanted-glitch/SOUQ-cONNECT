@@ -35,6 +35,7 @@ interface AdminUserManagementProps {
   onCreateUser: () => void;
   onBulkDelete: (uids: string[]) => void;
   onBulkVerify: (uids: string[]) => void;
+  onDeleteUser: (uid: string) => void;
 }
 
 export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
@@ -46,7 +47,8 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   isCheckingExpirations,
   onCreateUser,
   onBulkDelete,
-  onBulkVerify
+  onBulkVerify,
+  onDeleteUser
 }) => {
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
@@ -347,7 +349,17 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                           <ArrowUpRight size={18} />
                         </HapticButton>
                         <HapticButton
+                          onClick={() => {
+                            if (window.confirm(isRtl ? 'هل أنت متأكد من حذف هذا المستخدم؟' : 'Are you sure you want to delete this user?')) {
+                              onDeleteUser(user.uid);
+                            }
+                          }}
                           className="p-2 bg-brand-background border border-brand-border rounded-xl text-brand-text-muted hover:text-brand-error hover:border-brand-error/30 transition-all"
+                        >
+                          <UserX size={18} />
+                        </HapticButton>
+                        <HapticButton
+                          className="p-2 bg-brand-background border border-brand-border rounded-xl text-brand-text-muted hover:text-brand-primary hover:border-brand-primary/30 transition-all"
                         >
                           <MoreVertical size={18} />
                         </HapticButton>

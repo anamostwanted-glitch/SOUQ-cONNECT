@@ -79,7 +79,7 @@ export const NeuralPulse: React.FC<NeuralPulseProps> = ({ onAction, isMomentOfNe
     const interests = ['Industrial Machinery', 'Textiles', 'Electronics'];
     try {
       const result = await generateNeuralPulseGeoInsight(loc.lat, loc.lng, interests);
-      if (result.hasInsight) {
+      if (result && result.hasInsight) {
         setInsight({ type: 'geo', ...result });
       } else {
         toast.info(isRtl ? 'لا توجد فرص قريبة حالياً' : 'No nearby opportunities found right now');

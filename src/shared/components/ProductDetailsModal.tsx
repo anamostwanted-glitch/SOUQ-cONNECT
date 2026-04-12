@@ -101,10 +101,18 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
     const fetchSellerStats = async () => {
       if (!item?.sellerId) return;
       try {
-        const sellerDoc = await getDoc(doc(db, 'users', item.sellerId));
+        // Use users_public for public profile info to avoid permission errors
+        const sellerDoc = await getDoc(doc(db, 'users_public', item.sellerId));
         if (sellerDoc.exists()) {
           const sellerData = sellerDoc.data();
           setSellerFollowersCount(sellerData.followersCount || 0);
+        } else {
+          // Fallback to users if users_public doesn't exist (though it should)
+          const fallbackDoc = await getDoc(doc(db, 'users', item.sellerId));
+          if (fallbackDoc.exists()) {
+            const sellerData = fallbackDoc.data();
+            setSellerFollowersCount(sellerData.followersCount || 0);
+          }
         }
         
         if (auth.currentUser) {
@@ -115,7 +123,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           }
         }
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, 'users/seller_stats', false);
+        handleFirestoreError(error, OperationType.GET, `users/${item.sellerId}`, false);
       }
     };
     fetchSellerStats();

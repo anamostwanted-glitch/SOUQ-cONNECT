@@ -74,6 +74,9 @@ import { SupplierPulseHorizon } from './SupplierPulseHorizon';
 import { SupplierNebulaLayout } from './SupplierNebulaLayout';
 import { NeuralEconomyHub } from './NeuralEconomyHub';
 import { ProductDiscoveryCanvas } from './ProductDiscoveryCanvas';
+import { SmartRequestForm } from './SmartRequestForm';
+import { RequestFeed } from './RequestFeed';
+import { MakeOfferModal } from './MakeOfferModal';
 
 interface MarketInterfaceProps {
   profile: UserProfile | null;
@@ -81,6 +84,8 @@ interface MarketInterfaceProps {
   onOpenChat: (chatId: string) => void;
   onViewProfile: (uid: string) => void;
   viewMode?: UserRole;
+  activeTab?: 'discover' | 'myshop' | 'requests';
+  setActiveTab?: (tab: 'discover' | 'myshop' | 'requests') => void;
 }
 
 import { BroadcastBox } from './BroadcastBox';
@@ -103,7 +108,9 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   features, 
   onOpenChat, 
   onViewProfile,
-  viewMode
+  viewMode,
+  activeTab: externalActiveTab,
+  setActiveTab: setExternalActiveTab
 }) => {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
@@ -111,6 +118,17 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const scrollDirection = useScrollDirection();
   const isMinimized = scrollDirection === ScrollDirection.DOWN;
   
+  const [internalActiveTab, setInternalActiveTab] = useState<'discover' | 'myshop' | 'requests'>('discover');
+  
+  const activeTab = externalActiveTab || internalActiveTab;
+  const setActiveTab = (tab: 'discover' | 'myshop' | 'requests') => {
+    if (setExternalActiveTab) {
+      setExternalActiveTab(tab);
+    } else {
+      setInternalActiveTab(tab);
+    }
+  };
+
   const prefetchCategoryItems = useCallback((categoryId: string) => {
     queryClient.prefetchQuery({
       queryKey: ['marketplace', 'discover', auth.currentUser?.uid, categoryId],
@@ -155,11 +173,12 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [visualSearchResults, setVisualSearchResults] = useState<MarketplaceItem[] | null>(null);
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
-  const [activeTab, setActiveTab] = useState<'discover' | 'myshop'>('discover');
   const [supplierLayout, setSupplierLayout] = useState<'mosaic' | 'horizon' | 'nebula'>('nebula');
   const [showEconomyHub, setShowEconomyHub] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<MarketplaceItem | null>(null);
   const [editingItem, setEditingItem] = useState<MarketplaceItem | null>(null);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [selectedRequestForOffer, setSelectedRequestForOffer] = useState<any | null>(null);
   const [sellerTypeFilter, setSellerTypeFilter] = useState<'all' | 'supplier' | 'customer' | 'followed'>('all');
   const [categoryClicks, setCategoryClicks] = useState<Record<string, number>>({});
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([]);
@@ -255,7 +274,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
 
   useEffect(() => {
     if (isCustomer) {
-      setActiveTab('discover');
+      if (activeTab !== 'requests') setActiveTab('discover');
       setShowAdminHub(false);
       setShowEconomyHub(false);
     } else if (isSupplier) {
@@ -806,6 +825,37 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
             {[...Array(10)].map((_, i) => <ProductCardSkeleton key={`skeleton-${i}`} />)}
           </div>
+        ) : activeTab === 'requests' ? (
+          <div className="space-y-8">
+            <div className="bg-brand-primary/5 border border-brand-primary/20 rounded-[2.5rem] p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-3xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                  <Zap size={32} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-brand-text-main">
+                    {isRtl ? 'بث طلبات المنتجات' : 'Product Request Broadcast'}
+                  </h3>
+                  <p className="text-sm text-brand-text-muted font-medium">
+                    {isRtl ? 'اطلب ما تحتاجه وسيقوم الموردون بتقديم عروضهم لك.' : 'Request what you need and suppliers will make offers to you.'}
+                  </p>
+                </div>
+              </div>
+              <HapticButton 
+                onClick={() => setShowRequestForm(true)}
+                className="px-8 py-4 bg-brand-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-brand-primary/20 flex items-center gap-2"
+              >
+                <Plus size={20} />
+                {isRtl ? 'نشر طلب جديد' : 'Post New Request'}
+              </HapticButton>
+            </div>
+
+            <RequestFeed 
+              profile={profile!} 
+              isRtl={isRtl} 
+              onMakeOffer={(req) => setSelectedRequestForOffer(req)} 
+            />
+          </div>
         ) : filteredItems.length > 0 ? (
           viewStyle === 'canvas' ? (
             <ProductDiscoveryCanvas 
@@ -868,6 +918,25 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {showRequestForm && (
+          <SmartRequestForm 
+            profile={profile!} 
+            isRtl={isRtl} 
+            onClose={() => setShowRequestForm(false)} 
+            onSuccess={() => setShowRequestForm(false)} 
+          />
+        )}
+      </AnimatePresence>
+
+      <MakeOfferModal 
+        isOpen={!!selectedRequestForOffer}
+        onClose={() => setSelectedRequestForOffer(null)}
+        request={selectedRequestForOffer}
+        profile={profile!}
+        isRtl={isRtl}
+      />
 
       {/* Smart Upload Modal */}
       <AnimatePresence>

@@ -41,8 +41,8 @@ interface NeuralPulseBarProps {
   categories: any[];
   activeCategory: string | null;
   setActiveCategory: (id: string | null) => void;
-  activeTab: 'discover' | 'myshop';
-  setActiveTab: (tab: 'discover' | 'myshop') => void;
+  activeTab: 'discover' | 'myshop' | 'requests';
+  setActiveTab: (tab: 'discover' | 'myshop' | 'requests') => void;
   isAdmin: boolean;
   isSupplier: boolean;
   showAdminHub: boolean;
@@ -198,6 +198,18 @@ export const NeuralPulseBar: React.FC<NeuralPulseBarProps> = ({
               <HapticButton
                 whileHover={{ scale: 1.1, backgroundColor: 'rgba(16, 185, 129, 0.1)' }}
                 onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setActiveTab('requests')}
+                className={`p-1.5 md:p-2 rounded-xl md:rounded-2xl transition-all ${activeTab === 'requests' ? 'bg-brand-primary text-white' : 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20'}`}
+                title={isRtl ? 'طلبات المنتجات' : 'Product Requests'}
+              >
+                <Zap size={16} />
+              </HapticButton>
+            )}
+            <div className="w-px h-6 bg-brand-border/20 mx-0.5 hidden sm:block" />
+            {profile && (
+              <HapticButton
+                whileHover={{ scale: 1.1, backgroundColor: 'rgba(16, 185, 129, 0.1)' }}
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={onOpenEconomyHub}
                 className="p-1.5 md:p-2 rounded-xl md:rounded-2xl bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 transition-all flex items-center gap-1.5"
               >
@@ -300,6 +312,16 @@ export const NeuralPulseBar: React.FC<NeuralPulseBarProps> = ({
                   }`}
                 >
                   {isRtl ? 'اكتشف' : 'Discover'}
+                </button>
+                <button
+                  onClick={() => { setActiveTab('requests'); setShowAdminHub(false); }}
+                  className={`px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap ${
+                    activeTab === 'requests' && !showAdminHub
+                      ? 'text-brand-primary bg-white dark:bg-slate-700 shadow-sm' 
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+                  }`}
+                >
+                  {isRtl ? 'الطلبات' : 'Requests'}
                 </button>
                 {(isAdmin || isSupplier) && (
                   <button

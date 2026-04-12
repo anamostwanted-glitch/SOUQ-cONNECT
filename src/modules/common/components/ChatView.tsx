@@ -13,7 +13,8 @@ import {
   orderBy,
   updateDoc,
   where,
-  limit
+  limit,
+  setDoc
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, getBlob } from 'firebase/storage';
 import { db, storage } from '../../../core/firebase';
@@ -407,7 +408,31 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
     const unsubChat = onSnapshot(doc(db, 'chats', chatId), async (snap) => {
       try {
         const chatData = snap.data() as any;
-        if (!chatData || !isMounted) return;
+        if (!chatData) {
+          // If chat doesn't exist, try to infer other user from chatId
+          if (isMounted && profile) {
+            const uids = chatId.split('_');
+            const otherId = uids.find(id => id !== profile.uid);
+            if (otherId && !otherId.startsWith('category_')) {
+              try {
+                const userSnap = await getDoc(doc(db, 'users_public', otherId));
+                if (userSnap.exists() && isMounted) {
+                  setOtherUser({ id: userSnap.id, ...userSnap.data() } as any as UserProfile);
+                } else {
+                  // Fallback to users
+                  const fallbackSnap = await getDoc(doc(db, 'users', otherId));
+                  if (fallbackSnap.exists() && isMounted) {
+                    setOtherUser({ id: fallbackSnap.id, ...fallbackSnap.data() } as any as UserProfile);
+                  }
+                }
+              } catch (err) {
+                console.error("Error fetching other user for non-existent chat:", err);
+              }
+            }
+          }
+          return;
+        }
+        if (!isMounted) return;
         setChat(chatData);
 
         // Check for other user typing
@@ -446,11 +471,18 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           } else {
             const otherId = profile?.uid === chatData.customerId ? chatData.supplierId : chatData.customerId;
             try {
-              const userSnap = await getDoc(doc(db, 'users', otherId));
-              if (userSnap.exists() && isMounted) {
-                setOtherUser(userSnap.data() as UserProfile);
-              } else if (isMounted) {
-                setOtherUser({ uid: otherId, name: 'Customer', role: 'customer' } as UserProfile);
+              // Try users_public first
+              const upSnap = await getDoc(doc(db, 'users_public', otherId));
+              if (upSnap.exists() && isMounted) {
+                setOtherUser({ id: upSnap.id, ...upSnap.data() } as any as UserProfile);
+              } else {
+                // Fallback to users
+                const userSnap = await getDoc(doc(db, 'users', otherId));
+                if (userSnap.exists() && isMounted) {
+                  setOtherUser(userSnap.data() as any as UserProfile);
+                } else if (isMounted) {
+                  setOtherUser({ uid: otherId, name: 'Customer', role: 'customer' } as UserProfile);
+                }
               }
             } catch (error: any) {
               if (error.message?.includes('Missing or insufficient permissions') || error.code === 'permission-denied') {
@@ -828,23 +860,66 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           setReplyingTo(null);
         }
 
+        // If chat doesn't exist yet, create it
+        if (!chat) {
+          const uids = chatId.split('_');
+          const otherId = uids.find(id => id !== profile.uid);
+          
+          if (otherId) {
+            let customerId, supplierId;
+            // Infer roles: if current user is supplier, they are supplierId
+            if (profile.role === 'supplier') {
+              supplierId = profile.uid;
+              customerId = otherId;
+            } else {
+              customerId = profile.uid;
+              supplierId = otherId;
+            }
+
+            const newChatData = {
+              customerId,
+              supplierId,
+              updatedAt: new Date().toISOString(),
+              lastMessage: text,
+              status: 'active',
+              createdAt: new Date().toISOString()
+            };
+            
+            // Use setDoc for sorted UID chatId
+            await setDoc(doc(db, 'chats', chatId), newChatData);
+            // Update local state so subsequent logic works
+            setChat(newChatData);
+          }
+        }
+
         await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
         
-        const recipientId = profile.uid === chat.customerId ? chat.supplierId : chat.customerId;
-        await createNotification({
-          userId: recipientId,
-          titleAr: 'رسالة جديدة',
-          titleEn: 'New Message',
-          bodyAr: `لديك رسالة جديدة من ${profile.name}`,
-          bodyEn: `You have a new message from ${profile.name}`,
-          actionType: 'general',
-          targetId: chatId,
-        });
+        if (chat || true) { // chat might have been set above
+          const currentChat = chat || { customerId: profile.uid === chatId.split('_')[0] ? chatId.split('_')[0] : chatId.split('_')[1], supplierId: profile.uid === chatId.split('_')[0] ? chatId.split('_')[1] : chatId.split('_')[0] };
+          // Wait, let's just use the logic from above
+          const uids = chatId.split('_');
+          const otherId = uids.find(id => id !== profile.uid);
+          const recipientId = chat ? (profile.uid === chat.customerId ? chat.supplierId : chat.customerId) : otherId;
+          
+          if (recipientId) {
+            await createNotification({
+              userId: recipientId,
+              titleAr: 'رسالة جديدة',
+              titleEn: 'New Message',
+              bodyAr: `لديك رسالة جديدة من ${profile.name}`,
+              bodyEn: `You have a new message from ${profile.name}`,
+              actionType: 'general',
+              targetId: chatId,
+            });
+          }
 
-        await updateDoc(doc(db, 'chats', chatId), {
-          lastMessage: text,
-          updatedAt: new Date().toISOString()
-        });
+          if (chat) {
+            await updateDoc(doc(db, 'chats', chatId), {
+              lastMessage: text,
+              updatedAt: new Date().toISOString()
+            });
+          }
+        }
         
         // Haptic feedback for sending message
         if (navigator.vibrate) {

@@ -34,7 +34,7 @@ export const Partnerships: React.FC = () => {
     <div className="max-w-4xl mx-auto p-6 md:p-12">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
         <h1 className="text-4xl md:text-5xl font-extrabold text-brand-text-main mb-6">
-          {isRtl ? 'شراكات الأعمال الاستراتيجية' : 'Strategic B2B Partnerships'}
+          {isRtl ? 'شراكات الأعمال الاستراتيجية' : 'Strategic Souq Connect Partnerships'}
         </h1>
         <p className="text-xl text-brand-text-muted max-w-2xl mx-auto">
           {isRtl 

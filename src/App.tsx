@@ -49,7 +49,7 @@ export default function App() {
   });
   const [viewMode, setViewMode] = useState<UserRole>('customer');
   const [uiStyle, setUiStyle] = useState<'classic' | 'minimal'>('classic');
-  const [settings, setSettings] = useState<SiteSettings>({});
+  const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -63,6 +63,14 @@ export default function App() {
   const [progress, setProgress] = useState<number | null>(null);
 
   useEffect(() => {
+    // Global error handling for unhandled rejections
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error('Unhandled Promise Rejection:', event.reason);
+      handleAiError(event.reason, 'Global:unhandledrejection', false);
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
     let unsubscribeUser: (() => void) | undefined;
 
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
@@ -96,14 +104,17 @@ export default function App() {
     const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
       if (snap.exists()) {
         setSettings(snap.data() as SiteSettings);
+      } else {
+        setSettings({});
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'settings/site', false);
-      // Set default settings if fetch fails to prevent white screen
+      // Set empty settings if fetch fails to prevent white screen
       setSettings({});
     });
 
     return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
       unsubscribeAuth();
       unsubscribeSettings();
       if (unsubscribeUser) unsubscribeUser();
@@ -146,6 +157,8 @@ export default function App() {
               onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
               onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
               viewMode={viewMode as any}
+              activeTab={dashboardTab as any}
+              setActiveTab={setDashboardTab as any}
             />
           </Suspense>
         );
@@ -272,31 +285,15 @@ export default function App() {
     else if (currentView !== 'home') setView('home');
   };
 
-  const handleDragEnd = (event: any, info: any) => {
-    const swipeThreshold = 100;
-    const isRtl = i18n.language === 'ar';
-    
-    // RTL: Swipe Right -> Back
-    // LTR: Swipe Left -> Back
-    if (isRtl) {
-      if (info.offset.x > swipeThreshold) onBack();
-    } else {
-      if (info.offset.x < -swipeThreshold) onBack();
-    }
-  };
-
   return (
     <QueryClientProvider client={queryClient}>
       <BrandingProvider>
         <AnimatePresence mode="wait">
-          {loading ? (
-            <PageLoader key="loader" />
+          {(loading || !settings) ? (
+            <PageLoader key="loader" previewSettings={settings} />
           ) : (
             <motion.div
               key="content"
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              onDragEnd={handleDragEnd}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}

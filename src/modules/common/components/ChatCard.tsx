@@ -31,9 +31,22 @@ const ChatCard: React.FC<ChatCardProps> = ({ chat, onOpen, activeRole, otherUser
   useEffect(() => {
     const otherUserId = activeRole === 'supplier' ? chat.customerId : chat.supplierId;
     if (!otherUser && otherUserId && otherUserId !== 'system' && otherUserId !== 'everyone') {
-      getDoc(doc(db, 'users', otherUserId)).then(snap => {
-        if (snap.exists()) setOtherUser(snap.data() as UserProfile);
-      }).catch(error => handleFirestoreError(error, OperationType.GET, `users/${otherUserId}`, false));
+      // Try users_public first
+      getDoc(doc(db, 'users_public', otherUserId)).then(snap => {
+        if (snap.exists()) {
+          setOtherUser({ id: snap.id, ...snap.data() } as any as UserProfile);
+        } else {
+          // Fallback to users
+          getDoc(doc(db, 'users', otherUserId)).then(snap => {
+            if (snap.exists()) setOtherUser(snap.data() as UserProfile);
+          }).catch(error => handleFirestoreError(error, OperationType.GET, `users/${otherUserId}`, false));
+        }
+      }).catch(error => {
+        // If users_public fails, try users
+        getDoc(doc(db, 'users', otherUserId)).then(snap => {
+          if (snap.exists()) setOtherUser(snap.data() as UserProfile);
+        }).catch(err => handleFirestoreError(err, OperationType.GET, `users/${otherUserId}`, false));
+      });
     }
     if (!request && chat.requestId && !chat.requestId.startsWith('category_')) {
       getDoc(doc(db, 'requests', chat.requestId)).then(snap => {

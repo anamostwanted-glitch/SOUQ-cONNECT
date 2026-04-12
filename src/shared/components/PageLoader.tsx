@@ -15,14 +15,15 @@ interface PageLoaderProps {
 export const PageLoader: React.FC<PageLoaderProps> = ({ previewSettings, isInline }) => {
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
-  const [settings, setSettings] = useState<SiteSettings | null>(previewSettings || null);
+  const [settings, setSettings] = useState<SiteSettings | null>(previewSettings && Object.keys(previewSettings).length > 0 ? previewSettings : null);
 
   useEffect(() => {
-    if (previewSettings) {
+    if (previewSettings && Object.keys(previewSettings).length > 0) {
       setSettings(previewSettings);
       return;
     }
 
+    // If no preview settings, fetch from Firestore
     const unsub = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
       if (snap.exists()) {
         setSettings(snap.data() as SiteSettings);
@@ -97,10 +98,17 @@ export const PageLoader: React.FC<PageLoaderProps> = ({ previewSettings, isInlin
               alt="Loader Logo" 
               className={`${isInline ? 'h-24' : 'h-32'} w-auto object-contain drop-shadow-2xl`}
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                // Fallback to main logo if loader logo fails
+                const target = e.target as HTMLImageElement;
+                if (settings?.logoUrl && target.src !== settings.logoUrl) {
+                  target.src = settings.logoUrl;
+                }
+              }}
             />
-          ) : settings?.logoUrl ? (
+          ) : (settings?.logoUrl || previewSettings?.logoUrl) ? (
             <img 
-              src={settings.logoUrl} 
+              src={settings?.logoUrl || previewSettings?.logoUrl} 
               alt="Site Logo" 
               className={`${isInline ? 'h-24' : 'h-32'} w-auto object-contain drop-shadow-2xl`}
               referrerPolicy="no-referrer"
@@ -111,7 +119,7 @@ export const PageLoader: React.FC<PageLoaderProps> = ({ previewSettings, isInlin
                 <Building2 size={40} />
               </div>
               <span className="text-brand-text-main font-black text-2xl tracking-tighter uppercase">
-                {settings?.siteName || 'B2B2C'}
+                {settings?.siteName || 'Souq Connect'}
               </span>
             </div>
           )}

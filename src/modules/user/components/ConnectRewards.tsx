@@ -103,7 +103,7 @@ export const ConnectRewards: React.FC<ConnectRewardsProps> = ({ profile, setting
     if (navigator.share) {
       try {
         await navigator.share({
-          title: settings.siteName || 'B2B2C Connect',
+          title: settings.siteName || 'Souq Connect',
           text: isRtl ? 'انضم إلينا واكتشف أفضل المنتجات والخدمات!' : 'Join us and discover the best products and services!',
           url: referralLink,
         });

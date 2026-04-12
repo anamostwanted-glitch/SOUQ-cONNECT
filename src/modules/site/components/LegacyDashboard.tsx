@@ -7828,9 +7828,22 @@ const SupplierChatCard: React.FC<{ chat: Chat; onOpen: () => void }> = ({ chat, 
 
   useEffect(() => {
     if (chat.customerId && chat.customerId !== 'system') {
-      getDoc(doc(db, 'users', chat.customerId)).then(snap => {
-        if (snap.exists()) setCustomer(snap.data() as UserProfile);
-      }).catch(error => handleFirestoreError(error, OperationType.GET, `users/${chat.customerId}`, false));
+      // Try users_public first
+      getDoc(doc(db, 'users_public', chat.customerId)).then(snap => {
+        if (snap.exists()) {
+          setCustomer({ id: snap.id, ...snap.data() } as any as UserProfile);
+        } else {
+          // Fallback to users
+          getDoc(doc(db, 'users', chat.customerId)).then(s => {
+            if (s.exists()) setCustomer(s.data() as any as UserProfile);
+          }).catch(e => handleFirestoreError(e, OperationType.GET, `users/${chat.customerId}`, false));
+        }
+      }).catch(error => {
+        // If users_public fails, try users
+        getDoc(doc(db, 'users', chat.customerId)).then(s => {
+          if (s.exists()) setCustomer(s.data() as any as UserProfile);
+        }).catch(e => handleFirestoreError(e, OperationType.GET, `users/${chat.customerId}`, false));
+      });
     }
     if (chat.requestId && !chat.requestId.startsWith('category_')) {
       getDoc(doc(db, 'requests', chat.requestId)).then(snap => {

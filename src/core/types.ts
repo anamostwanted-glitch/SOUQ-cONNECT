@@ -34,6 +34,8 @@ export interface UserProfile {
   photoURL?: string;
   categories?: string[];
   bio?: string;
+  businessDescription?: string;
+  supplierType?: 'merchant' | 'service_provider' | 'both';
   keywords?: string[];
   language?: 'ar' | 'en';
   createdAt: string;

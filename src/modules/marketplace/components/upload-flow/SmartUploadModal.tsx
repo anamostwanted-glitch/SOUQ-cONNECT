@@ -43,7 +43,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [watermarkUrl, setWatermarkUrl] = useState<string | undefined>();
-  const [watermarkText, setWatermarkText] = useState('B2B2C Connect');
+  const [watermarkText, setWatermarkText] = useState('Souq Connect');
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.7);
   const [watermarkPosition, setWatermarkPosition] = useState<'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-right'>('bottom-right');
   const [watermarkScale, setWatermarkScale] = useState(1);
@@ -82,7 +82,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
         const data = snap.data();
         console.log('Fetched watermark settings:', data);
         setWatermarkUrl(data.watermarkUrl || data.watermarkLogoUrl);
-        setWatermarkText(data.watermarkText || data.siteName || 'B2B2C Connect');
+        setWatermarkText(data.watermarkText || data.siteName || 'Souq Connect');
         setWatermarkOpacity(data.watermarkOpacity ?? 0.7);
         setWatermarkPosition(data.watermarkPosition || 'bottom-right');
         setWatermarkScale(data.watermarkScale ?? 1);

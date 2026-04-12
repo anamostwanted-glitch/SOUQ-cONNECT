@@ -102,7 +102,6 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isAIHubOpen, setIsAIHubOpen] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [allSuppliers, setAllSuppliers] = useState<UserProfile[]>([]);
   
   const mainRef = useRef<HTMLElement>(null);
   const scrollDirection = useScrollDirection(mainRef);
@@ -168,19 +167,59 @@ export const Layout: React.FC<LayoutProps> = ({
     return () => unsub();
   }, []);
 
+  // Sync Role to Custom Claims for performance & security
   useEffect(() => {
-    if (!auth.currentUser) {
-      setAllSuppliers([]);
-      return;
-    }
-    const unsub = onSnapshot(query(collection(db, 'users'), where('role', '==', 'supplier')), (snap) => {
-      setAllSuppliers(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
-    }, (error) => {
-      console.error('Firestore Error in suppliers listener:', error);
-      handleFirestoreError(error, OperationType.LIST, 'users (suppliers)', false);
-    });
-    return () => unsub();
-  }, [auth.currentUser]);
+    let isMounted = true;
+    const syncRole = async () => {
+      if (!profile || !auth.currentUser) return;
+      
+      // Check if we already tried and failed recently to avoid infinite loops
+      const lastSyncError = sessionStorage.getItem('last_role_sync_error');
+      if (lastSyncError && Date.now() - parseInt(lastSyncError) < 60000) return;
+
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const response = await fetch('/api/sync-role', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({ role: profile.role })
+        });
+        
+        if (response.ok) {
+          if (!isMounted) return;
+          const data = await response.json();
+          if (data.warning === "Identity Toolkit API disabled") {
+            console.warn('Custom roles (Custom Claims) are currently disabled. System will fallback to Firestore rules checks.');
+          } else {
+            // Force token refresh to pick up new claims
+            await auth.currentUser.getIdToken(true);
+            console.log('Role synced to custom claims successfully');
+          }
+          sessionStorage.removeItem('last_role_sync_error');
+        } else {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await response.json();
+            if (errorData.error === "Identity Toolkit API disabled") {
+              console.warn('Custom roles (Custom Claims) are currently disabled. System will fallback to Firestore rules checks.');
+              sessionStorage.setItem('last_role_sync_error', Date.now().toString());
+            }
+          } else {
+            console.warn('Server returned non-JSON response for role sync. Server might be restarting.');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to sync role to custom claims:', error);
+        sessionStorage.setItem('last_role_sync_error', Date.now().toString());
+      }
+    };
+
+    syncRole();
+    return () => { isMounted = false; };
+  }, [profile?.role, auth.currentUser?.uid]);
 
   useEffect(() => {
     const handlePreview = (e: any) => {
@@ -481,7 +520,7 @@ export const Layout: React.FC<LayoutProps> = ({
               setVisualSearchMode(null);
             }} 
             categories={categories}
-            allSuppliers={allSuppliers}
+            allSuppliers={[]} // Optimized: Fetching suppliers on demand inside the modal if needed
             profile={profile}
             initialMode={visualSearchMode}
             onStartChat={(requestId, supplierId, customerId) => {
@@ -506,6 +545,9 @@ export const Layout: React.FC<LayoutProps> = ({
                 setView('chat');
               } else if (action === 'voice') {
                 setView('home');
+              } else if (action === 'request') {
+                setView('marketplace');
+                setDashboardTab?.('requests');
               }
             }}
           />

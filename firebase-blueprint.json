@@ -80,10 +80,14 @@
         "customerId": { "type": "string" },
         "customerName": { "type": "string" },
         "productName": { "type": "string" },
+        "description": { "type": "string" },
         "categoryId": { "type": "string" },
         "categoryNameAr": { "type": "string" },
         "categoryNameEn": { "type": "string" },
+        "quantity": { "type": "string" },
+        "budget": { "type": "number" },
         "status": { "type": "string", "enum": ["open", "closed"] },
+        "offerCount": { "type": "integer" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["customerId", "productName", "categoryId", "status"]
@@ -95,6 +99,8 @@
       "properties": {
         "requestId": { "type": "string" },
         "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "supplierCompanyName": { "type": "string" },
         "price": { "type": "number" },
         "minPrice": { "type": "number", "description": "Minimum price for auto-negotiation (hidden from customer)" },
         "autoNegotiate": { "type": "boolean", "description": "Whether AI bot should handle negotiations" },

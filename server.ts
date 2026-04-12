@@ -5,8 +5,21 @@ import twilio from "twilio";
 import dotenv from "dotenv";
 import axios from "axios";
 import nodemailer from "nodemailer";
+import admin from "firebase-admin";
+import fs from "fs";
 
 dotenv.config();
+
+// Initialize Firebase Admin
+const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+if (fs.existsSync(configPath)) {
+  const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      projectId: firebaseConfig.projectId,
+    });
+  }
+}
 
 async function startServer() {
   const app = express();
@@ -71,6 +84,28 @@ app.post("/api/send-email", async (req, res) => {
     res.status(500).json({ error: "Failed to send email" });
   }
 });
+
+  // WhatsApp API
+  app.post("/api/send-whatsapp", async (req, res) => {
+    const { phoneNumber, message } = req.body;
+    
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
+      return res.status(500).json({ error: "WhatsApp service not configured" });
+    }
+
+    try {
+      const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+      await client.messages.create({
+        body: message,
+        from: `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`,
+        to: `whatsapp:${phoneNumber}`
+      });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("WhatsApp error:", error);
+      res.status(500).json({ error: "Failed to send WhatsApp" });
+    }
+  });
 
   // Meta Ads Proxy
   app.all("/api/meta/*", async (req, res) => {
@@ -196,6 +231,47 @@ app.post("/api/send-email", async (req, res) => {
     } catch (error) {
       console.error("Proxy image error:", error);
       res.status(500).json({ error: "Failed to fetch image" });
+    }
+  });
+
+  // Sync Role to Custom Claims
+  app.post("/api/sync-role", async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const idToken = authHeader.split('Bearer ')[1];
+    const { role } = req.body;
+
+    if (!role) {
+      return res.status(400).json({ error: "Role is required" });
+    }
+
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      const uid = decodedToken.uid;
+
+      // Set custom user claims
+      try {
+        await admin.auth().setCustomUserClaims(uid, { role });
+        console.log(`Custom claims set for user ${uid}: { role: ${role} }`);
+        res.json({ success: true, role });
+      } catch (claimError: any) {
+        if (claimError.code === 'auth/internal-error' && claimError.message.includes('identitytoolkit')) {
+          console.warn(`Identity Toolkit API disabled. Skipping custom claims for user ${uid}. System will fallback to Firestore rules.`);
+          return res.json({ 
+            success: true, 
+            role, 
+            warning: "Identity Toolkit API disabled",
+            fallback: true
+          });
+        }
+        throw claimError;
+      }
+    } catch (error: any) {
+      console.error("Error in sync-role:", error);
+      res.status(500).json({ error: "Failed to sync role", details: error.message });
     }
   });
 

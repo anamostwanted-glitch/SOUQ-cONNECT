@@ -5,7 +5,7 @@ import { callAiJson, handleAiError } from '../../../core/services/geminiService'
 import { Type } from "@google/genai";
 
 export const fetchMarketplaceItems = async (
-  activeTab: 'discover' | 'myshop', 
+  activeTab: 'discover' | 'myshop' | 'requests', 
   userId?: string, 
   categoryId?: string,
   lastDoc?: any, // For pagination
@@ -62,7 +62,11 @@ export const fetchMarketTrends = async (): Promise<MarketTrend[]> => {
 };
 
 export const fetchSuppliers = async (): Promise<UserProfile[]> => {
-  const q = query(collection(db, 'users_public'), where('role', '==', 'supplier'));
+  const q = query(
+    collection(db, 'users_public'), 
+    where('role', '==', 'supplier'),
+    where('status', '!=', 'deleted')
+  );
   const snap = await getDocs(q);
   return snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as object) } as UserProfile));
 };

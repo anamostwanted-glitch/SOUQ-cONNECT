@@ -51,7 +51,23 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
         isVerified: formData.role === 'supplier' ? false : true,
         createdAt: new Date().toISOString(),
         referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-        referralPoints: 0
+        referralPoints: 0,
+        status: 'active'
+      });
+
+      // Create public profile
+      await setDoc(doc(db, 'users_public', newUid), {
+        uid: newUid,
+        name: formData.name,
+        role: formData.role,
+        isVerified: formData.role === 'supplier' ? false : true,
+        categories: [],
+        logoUrl: null,
+        rating: 0,
+        reviewCount: 0,
+        isOnline: false,
+        averageResponseTime: 0,
+        status: 'active'
       });
 
       toast.success(isRtl ? 'تم إنشاء المستخدم بنجاح' : 'User created successfully');

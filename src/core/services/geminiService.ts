@@ -607,7 +607,7 @@ export const verifyDocument = async (base64Data: string, mimeType: string): Prom
 export const optimizeSupplierProfile = async (companyName: string, bio: string, keywords: string[], language: string): Promise<any> => {
   try {
     const result = await callAiJson(
-      `Optimize this supplier profile for a B2B2C marketplace. 
+      `Optimize this supplier profile for a Souq Connect marketplace. 
         Company: ${companyName}
         Current Bio: ${bio}
         Current Keywords: ${keywords.join(", ")}
@@ -642,7 +642,7 @@ export const generateSupplierLogo = async (companyName: string, category: string
   
   try {
     const prompt = `A professional, modern, minimalist logo for a company named "${companyName}" in the "${category}" industry. 
-    The style should be high-end, luxury tech, suitable for a B2B platform. 
+    The style should be high-end, luxury tech, suitable for a Souq Connect platform. 
     Clean lines, professional color palette. No text except maybe a stylized letter. Language: ${language}`;
     
     const responseText = await callAiText(prompt);
@@ -775,6 +775,54 @@ export const suggestPrice = async (title: string, category: string, language: st
   } catch (e: any) {
     handleAiError(e, 'Price suggestion');
     return 0;
+  }
+};
+
+export const classifyAndOptimizeSupplier = async (description: string, allCategories: Category[], language: string): Promise<any> => {
+  try {
+    const categoryList = allCategories.map(c => ({ 
+      id: c.id, 
+      nameAr: c.nameAr, 
+      nameEn: c.nameEn 
+    }));
+
+    const prompt = `Analyze this supplier's business description and provide a structured classification.
+      Description: "${description}"
+      Available Categories: ${JSON.stringify(categoryList)}
+      
+      Tasks:
+      1. Determine if they are a 'merchant' (sells physical products), 'service_provider' (offers skills/services), or 'both'.
+      2. Select the top 5 most relevant category IDs from the list.
+      3. Generate 10 high-impact SEO keywords for their business.
+      4. Write a professional, high-end bio based on their description.
+      
+      Return JSON: {
+        supplierType: 'merchant' | 'service_provider' | 'both',
+        suggestedCategoryIds: string[],
+        suggestedKeywords: string[],
+        optimizedBio: string
+      }`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          supplierType: { type: Type.STRING, enum: ['merchant', 'service_provider', 'both'] },
+          suggestedCategoryIds: { type: Type.ARRAY, items: { type: Type.STRING } },
+          suggestedKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+          optimizedBio: { type: Type.STRING }
+        },
+        required: ["supplierType", "suggestedCategoryIds", "suggestedKeywords", "optimizedBio"]
+      }
+    );
+
+    const tokens = (description.length + JSON.stringify(result).length) / 4;
+    await logUsage('Supplier Classification', Math.ceil(tokens));
+    return result;
+  } catch (e: any) {
+    handleAiError(e, 'Supplier classification');
+    return null;
   }
 };
 
@@ -1220,7 +1268,7 @@ export const analyzeWithdrawalFraud = async (withdrawal: any, userProfile: any, 
 
 export const analyzeSystemPulse = async (systemData: any, language: string): Promise<any> => {
   try {
-    const prompt = `Analyze the current state of this B2B2C marketplace system.
+    const prompt = `Analyze the current state of this Souq Connect marketplace system.
       
       System Data Summary: ${JSON.stringify(systemData)}
       Language: ${language === 'ar' ? 'Arabic' : 'English'}
@@ -1263,7 +1311,7 @@ export const analyzeSystemPulse = async (systemData: any, language: string): Pro
 
 export const analyzeAdminSearch = async (query: string, context: any, language: string): Promise<any> => {
   try {
-    const prompt = `Analyze this admin search query for a B2B2C marketplace.
+    const prompt = `Analyze this admin search query for a Souq Connect marketplace.
     
     Query: "${query}"
     Context (Available Tabs): ${JSON.stringify(context.tabs)}
@@ -1368,7 +1416,7 @@ export const getAiAssistantResponse = async (query: string, context: any, langua
   
   try {
     const result = await callAiText(
-      `You are a helpful B2B2C marketplace assistant.
+      `You are a helpful Souq Connect marketplace assistant.
       User Query: ${query}
       Context: ${JSON.stringify(context)}
       Language: ${language === 'ar' ? 'Arabic' : 'English'}
@@ -1511,7 +1559,7 @@ export const analyzeImageForSearch = async (base64Data: string, mimeType: string
   const fallback = { query: "Product from image", keywords: ["product"], category: "General", visualDescription: "A product image" };
   
   const proxyCall = async () => {
-    const prompt = `Analyze this image for a B2B marketplace search. 
+    const prompt = `Analyze this image for a Souq Connect marketplace search. 
       Provide:
       1. A concise visual description.
       2. 5-10 relevant keywords.
@@ -1559,7 +1607,7 @@ export const analyzeImageForSearch = async (base64Data: string, mimeType: string
         throw error;
       }
       const ai = new GoogleGenAI({ apiKey: key });
-      const prompt = `Analyze this image for a B2B marketplace search. 
+      const prompt = `Analyze this image for a Souq Connect marketplace search. 
         Provide:
         1. A concise visual description.
         2. 5-10 relevant keywords.
@@ -1831,7 +1879,7 @@ export const analyzeSupplyDemandGap = async (
       const requestData = requests.map(r => ({ categoryId: r.categoryId, status: r.status }));
       const supplierData = suppliers.map(s => ({ categories: s.categories || [] }));
 
-      const prompt = `Analyze the supply and demand gap in our B2B marketplace.
+      const prompt = `Analyze the supply and demand gap in our Souq Connect marketplace.
         Categories: ${JSON.stringify(categoryData)}
         Product Requests (Demand): ${JSON.stringify(requestData)}
         Suppliers (Supply): ${JSON.stringify(supplierData)}
@@ -1984,7 +2032,7 @@ export const suggestCategoryMerges = async (categories: Category[], language: st
 export const suggestMainCategories = async (language: string, categoryType: 'product' | 'service', existingCategories: string[]): Promise<string[]> => {
   try {
     const existingList = existingCategories.length > 0 ? `Do not include these existing categories: ${existingCategories.join(', ')}.` : '';
-    const prompt = `Suggest 5-8 new main ${categoryType === 'product' ? 'product' : 'service'} categories for a B2B2C marketplace. The language should be ${language}. ${existingList} Return ONLY a JSON array of strings.`;
+    const prompt = `Suggest 5-8 new main ${categoryType === 'product' ? 'product' : 'service'} categories for a Souq Connect marketplace. The language should be ${language}. ${existingList} Return ONLY a JSON array of strings.`;
     
     const result = await callAiJson(prompt, {
       type: Type.ARRAY,
@@ -2007,7 +2055,7 @@ export const suggestSubcategories = async (parentCategory: string, categoryType:
   try {
     const existingList = existingSubcategories.length > 0 ? `Do not include these existing subcategories: ${existingSubcategories.join(', ')}.` : '';
     const result = await callAiJson(
-      `Suggest 5-8 new ${categoryType === 'product' ? 'product' : 'service'} subcategories for the parent category "${parentCategory}" in a B2B2C marketplace. The language should match the parent category name. ${existingList} Return ONLY a JSON array of strings.`,
+      `Suggest 5-8 new ${categoryType === 'product' ? 'product' : 'service'} subcategories for the parent category "${parentCategory}" in a Souq Connect marketplace. The language should match the parent category name. ${existingList} Return ONLY a JSON array of strings.`,
       {
         type: Type.ARRAY,
         items: { type: Type.STRING }

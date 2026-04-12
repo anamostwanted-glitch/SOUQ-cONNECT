@@ -1,7 +1,7 @@
 # Premium Visual Search - Product UX Specification
 
 ## 1. Vision & Overview
-The **Premium Visual Search** is a high-end, AI-powered feature designed to bridge the gap between physical inspiration and B2B procurement. It allows users to instantly identify products from images and connect with relevant suppliers, transforming a simple photo into a structured procurement workflow.
+The **Premium Visual Search** is a high-end, AI-powered feature designed to bridge the gap between physical inspiration and Souq Connect procurement. It allows users to instantly identify products from images and connect with relevant suppliers, transforming a simple photo into a structured procurement workflow.
 
 ## 2. Placement & Navigation Strategy
 - **Desktop Header**: A prominent, stylized button in the main navigation bar with a "Premium" badge and a unique icon (e.g., a camera with a sparkle).

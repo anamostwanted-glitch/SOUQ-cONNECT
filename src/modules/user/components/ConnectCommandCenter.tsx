@@ -15,6 +15,7 @@ import {
   ShoppingBag, 
   MessageSquare, 
   Settings, 
+  Palette,
   ChevronRight, 
   Activity, 
   Cpu, 
@@ -45,9 +46,13 @@ import { HapticButton } from '../../../shared/components/HapticButton';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType, handleAiError } from '../../../core/utils/errorHandling';
 import { ProfileSettings } from './ProfileSettings';
+import { UserSettings } from './UserSettings';
+import { ProfileCompletionMeter } from '../../../shared/components/ProfileCompletionMeter';
+import { calculateProfileCompletion } from '../../../core/utils/profileUtils';
 import { UserRequestCard } from './UserRequestCard';
 import { VendorRequestCard } from '../../vendor/components/VendorRequestCard';
 import { VendorOffersList } from '../../vendor/components/VendorOffersList';
+import { MyAdsDashboard } from '../../vendor/components/MyAdsDashboard';
 import { SubscriptionManager } from '../../../components/SubscriptionManager';
 import { ProductCard } from '../../marketplace/components/ProductCard';
 import { SmartUploadModal } from '../../marketplace/components/upload-flow/SmartUploadModal';
@@ -275,6 +280,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
             </p>
 
             <div className="flex flex-wrap justify-center md:justify-start gap-4">
+              <ProfileCompletionMeter percentage={calculateProfileCompletion(profile)} isRtl={isRtl} />
               <div className="px-5 py-2.5 rounded-2xl bg-brand-primary/5 border border-brand-primary/10 flex items-center gap-3">
                 <Wallet size={20} className="text-brand-primary" />
                 <div className="text-right">
@@ -347,7 +353,8 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
       { id: 'favorites', title: isRtl ? 'المفضلة' : 'Favorites', icon: Heart, color: 'text-rose-500', bg: 'bg-rose-500/10', stat: profile.favoriteProducts?.length || 0 },
       { id: 'wallet', title: isRtl ? 'المحفظة' : 'Wallet', icon: Wallet, color: 'text-emerald-500', bg: 'bg-emerald-500/10', stat: '0.00' },
       { id: 'chats', title: isRtl ? 'المحادثات' : 'Chats', icon: MessageSquare, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: '3' },
-      { id: 'settings', title: isRtl ? 'الإعدادات' : 'Settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-500/10', stat: 'AI Ready' }
+      { id: 'settings', title: isRtl ? 'الإعدادات' : 'Settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-500/10', stat: 'AI Ready' },
+      { id: 'branding_settings', title: isRtl ? 'الهوية البصرية' : 'Visual Identity', icon: Palette, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: 'Custom' }
     ];
 
     const supplierCards = [
@@ -355,9 +362,11 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
       { id: 'my_products', title: isRtl ? 'منتجاتي' : 'My Products', icon: Package, color: 'text-blue-500', bg: 'bg-blue-500/10', stat: myMarketItems.length },
       { id: 'available_requests', title: isRtl ? 'طلبات السوق' : 'Market RFQs', icon: Globe, color: 'text-indigo-500', bg: 'bg-indigo-500/10', stat: '20+' },
       { id: 'my_offers', title: isRtl ? 'عروضي' : 'My Offers', icon: FileText, color: 'text-emerald-500', bg: 'bg-emerald-500/10', stat: '12' },
+      { id: 'my_ads', title: isRtl ? 'إعلاناتي' : 'My Ads', icon: Megaphone, color: 'text-purple-500', bg: 'bg-purple-500/10', stat: 'Active' },
       { id: 'analytics', title: isRtl ? 'التحليلات' : 'Analytics', icon: BarChart3, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: '94%' },
       { id: 'subscription', title: isRtl ? 'الاشتراك' : 'Subscription', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-500/10', stat: 'Pro' },
-      { id: 'store_settings', title: isRtl ? 'إعدادات المتجر' : 'Store Settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-500/10', stat: 'Active' }
+      { id: 'store_settings', title: isRtl ? 'إعدادات المتجر' : 'Store Settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-500/10', stat: 'Active' },
+      { id: 'branding_settings', title: isRtl ? 'الهوية البصرية' : 'Visual Identity', icon: Palette, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: 'Custom' }
     ];
 
     const cards = perspective === 'customer' ? customerCards : supplierCards;
@@ -426,7 +435,24 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
               <UserNeuralHub profile={profile} isRtl={isRtl} />
             )}
             {(activeSubView === 'settings' || activeSubView === 'store_settings') && (
-              <ProfileSettings profile={profile} />
+              <div className="space-y-6">
+                <div className="bg-brand-primary/10 p-4 rounded-2xl border border-brand-primary/20 mb-4">
+                  <p className="text-xs font-bold text-brand-primary flex items-center gap-2">
+                    <Sparkles size={14} />
+                    {isRtl ? 'أهلاً بك في نظام الإعدادات الذكي الجديد' : 'Welcome to the new Smart Settings system'}
+                  </p>
+                </div>
+                <ProfileSettings 
+                  profile={profile} 
+                  forceShowSupplierSettings={activeSubView === 'store_settings'} 
+                />
+              </div>
+            )}
+            {activeSubView === 'branding_settings' && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-black text-brand-text-main">{isRtl ? 'إعدادات الهوية البصرية' : 'Visual Identity Settings'}</h2>
+                <UserSettings profile={profile} />
+              </div>
             )}
             {activeSubView === 'requests' && (
               <div className="space-y-4">
@@ -456,6 +482,9 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
             )}
             {activeSubView === 'my_offers' && (
               <VendorOffersList profile={profile} onOpenChat={onOpenChat} />
+            )}
+            {activeSubView === 'my_ads' && (
+              <MyAdsDashboard />
             )}
             {activeSubView === 'subscription' && (
               <SubscriptionManager isRtl={isRtl} />

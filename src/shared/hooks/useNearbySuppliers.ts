@@ -99,11 +99,12 @@ export function useNearbySuppliers(profile: UserProfile | null) {
         checkNearbySuppliers(latitude, longitude).catch(err => handleAiError(err, 'useNearbySuppliers:checkNearbySuppliers:unhandled', false));
       },
       (error) => {
-        // Ignore permission denied errors (Code 1), as they are expected in some environments
-        if (error.code !== 1) {
-          handleAiError(error, 'useNearbySuppliers:watchPosition', false);
+        // Ignore permission denied errors (Code 1) and timeout errors (Code 3)
+        // as they are expected in some environments.
+        if (error.code === 1 || error.code === 3) {
+          console.warn(`Geolocation error (Code ${error.code}): ${error.message}`);
         } else {
-          console.warn('Geolocation permission denied.');
+          handleAiError(error, 'useNearbySuppliers:watchPosition', false);
         }
       },
       {

@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 interface AIActionHubProps {
   isOpen: boolean;
   onClose: () => void;
-  onAction: (action: 'camera' | 'gallery' | 'voice' | 'chat') => void;
+  onAction: (action: 'camera' | 'gallery' | 'voice' | 'chat' | 'request') => void;
   isRtl: boolean;
 }
 
@@ -63,6 +63,14 @@ export const AIActionHub: React.FC<AIActionHubProps> = ({
       desc: isRtl ? 'تحدث مع المساعد حول طلباتك' : 'Chat with AI about your needs',
       color: 'from-emerald-500 to-teal-600',
       delay: 0.4
+    },
+    {
+      id: 'request',
+      icon: <Zap size={24} />,
+      title: isRtl ? 'طلب منتج ذكي' : 'Smart Product Request',
+      desc: isRtl ? 'اطلب ما تحتاجه وسنجد لك الموردين' : 'Request what you need, we find suppliers',
+      color: 'from-brand-primary to-brand-teal',
+      delay: 0.5
     }
   ];
 

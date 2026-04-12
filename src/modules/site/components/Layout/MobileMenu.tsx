@@ -142,7 +142,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                       </div>
                     </div>
                     <div className="flex flex-col">
-                      <span className="font-black text-brand-text-main text-lg tracking-tight leading-none">{siteName || 'B2B2C Connect'}</span>
+                      <span className="font-black text-brand-text-main text-lg tracking-tight leading-none">{siteName || 'Souq Connect'}</span>
                       <span className="text-[9px] font-bold text-brand-primary uppercase tracking-[0.2em] mt-1">Executive Suite</span>
                     </div>
                   </div>

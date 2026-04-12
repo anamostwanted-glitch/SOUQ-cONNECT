@@ -112,7 +112,7 @@ export const MinimalUI: React.FC<MinimalUIProps> = ({
             ) : (
               <div className="flex items-center gap-3 text-brand-primary drop-shadow-2xl">
                 <Sparkles size={48} strokeWidth={1.5} />
-                <span className="text-3xl font-black tracking-tighter">{siteName || 'B2B2C'}</span>
+                <span className="text-3xl font-black tracking-tighter">{siteName || 'Souq Connect'}</span>
               </div>
             )}
           </div>

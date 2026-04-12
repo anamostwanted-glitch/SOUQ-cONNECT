@@ -5,7 +5,7 @@ export type WatermarkPosition = 'top-left' | 'top-right' | 'center' | 'bottom-le
 export const processImageTo4x5WithWatermark = async (
   file: File | Blob,
   watermarkUrl?: string,
-  watermarkText: string = "B2B2C Connect",
+  watermarkText: string = "Souq Connect",
   opacity: number = 0.7,
   position: WatermarkPosition = 'bottom-right',
   scale: number = 1

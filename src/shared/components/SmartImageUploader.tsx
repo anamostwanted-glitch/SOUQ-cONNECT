@@ -57,7 +57,7 @@ interface SmartImageUploaderProps {
 export const SmartImageUploader: React.FC<SmartImageUploaderProps> = ({
   onImagesChange,
   maxImages = 10,
-  watermarkText = "B2B2C Connect",
+  watermarkText = "Souq Connect",
   watermarkLogo,
   watermarkOpacity = 0.5,
   watermarkPosition = 'bottom-right',

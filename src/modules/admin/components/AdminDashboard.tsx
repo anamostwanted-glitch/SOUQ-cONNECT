@@ -686,14 +686,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 isCheckingExpirations={isCheckingExpirations}
                 onCreateUser={() => setIsCreateUserModalOpen(true)}
                 onBulkDelete={async (uids) => {
-                  // Placeholder for bulk delete logic
-                  console.log('Bulk delete:', uids);
-                  toast.success(isRtl ? 'تم حذف المستخدمين المحددين' : 'Selected users deleted');
+                  try {
+                    const batch = writeBatch(db);
+                    uids.forEach(uid => {
+                      batch.update(doc(db, 'users', uid), { 
+                        status: 'deleted', 
+                        deletedAt: new Date().toISOString(),
+                        deletedBy: profile.uid
+                      });
+                      batch.update(doc(db, 'users_public', uid), { 
+                        status: 'deleted',
+                        isOnline: false
+                      });
+                    });
+                    await batch.commit();
+                    toast.success(isRtl ? 'تم حذف المستخدمين المحددين (حذف ناعم)' : 'Selected users deleted (Soft Delete)');
+                  } catch (error) {
+                    handleFirestoreError(error, OperationType.UPDATE, 'users/bulk-delete', false);
+                    toast.error(isRtl ? 'فشل حذف المستخدمين' : 'Failed to delete users');
+                  }
                 }}
                 onBulkVerify={async (uids) => {
                   // Placeholder for bulk verify logic
                   console.log('Bulk verify:', uids);
                   toast.success(isRtl ? 'تم توثيق المستخدمين المحددين' : 'Selected users verified');
+                }}
+                onDeleteUser={async (uid) => {
+                  try {
+                    await updateDoc(doc(db, 'users', uid), { 
+                      status: 'deleted', 
+                      deletedAt: new Date().toISOString(),
+                      deletedBy: profile.uid
+                    });
+                    await updateDoc(doc(db, 'users_public', uid), { 
+                      status: 'deleted',
+                      isOnline: false
+                    });
+                    toast.success(isRtl ? 'تم حذف المستخدم (حذف ناعم)' : 'User deleted (Soft Delete)');
+                  } catch (error) {
+                    handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`, false);
+                    toast.error(isRtl ? 'فشل حذف المستخدم' : 'Failed to delete user');
+                  }
                 }}
               />
 

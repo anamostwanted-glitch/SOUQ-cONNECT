@@ -58,9 +58,15 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
         if (missingUserIds.length > 0) {
           const userPromises = missingUserIds.map(async (id) => {
             try {
+              // Try users_public first
+              const upSnap = await getDoc(doc(db, 'users_public', id));
+              if (upSnap.exists()) {
+                return { id, data: { id: upSnap.id, ...upSnap.data() } as any as UserProfile };
+              }
+              // Fallback to users
               const uSnap = await getDoc(doc(db, 'users', id));
               if (uSnap.exists()) {
-                return { id, data: uSnap.data() as UserProfile };
+                return { id, data: uSnap.data() as any as UserProfile };
               }
               return { id, data: { uid: id, name: 'User', role: 'customer' } as UserProfile };
             } catch (error) {

@@ -687,6 +687,7 @@ const Home: React.FC<HomeProps> = ({
                 const prefs = supplier.notificationPreferences || { newRequests: true, offers: true, aiInsights: true };
                 
                 if (prefs.newRequests) {
+                  // 1. Internal Notification
                   const notifRef = doc(collection(db, 'notifications'));
                   batch.set(notifRef, {
                     userId: supplier.uid,
@@ -700,6 +701,32 @@ const Home: React.FC<HomeProps> = ({
                     read: false,
                     createdAt: new Date().toISOString()
                   });
+
+                  // 2. Email Notification
+                  if (supplier.email) {
+                    fetch('/api/send-email', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        email: supplier.email,
+                        name: supplier.name,
+                        template: 'notification',
+                        data: { message: `New request for "${trimmedQuery}"` }
+                      })
+                    }).catch(console.error);
+                  }
+
+                  // 3. WhatsApp Notification
+                  if (supplier.phone) {
+                    fetch('/api/send-whatsapp', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        phoneNumber: supplier.phone,
+                        message: `New request for "${trimmedQuery}" on Souq Connect. Check your dashboard!`
+                      })
+                    }).catch(console.error);
+                  }
                 }
               }
               await batch.commit();

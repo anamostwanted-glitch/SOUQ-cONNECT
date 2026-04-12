@@ -7,7 +7,7 @@ import { logAction } from '../../../core/services/auditService';
 import { SiteSettings } from '../../../core/types';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { HapticButton } from '../../../shared/components/HapticButton';
-import { Save, Loader2, Palette, Layout, Search, Sparkles, LayoutGrid } from 'lucide-react';
+import { Save, Loader2, Palette, Layout, Search, Sparkles, LayoutGrid, ListChecks } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 
@@ -16,6 +16,7 @@ import { HeroSettings } from './settings/HeroSettings';
 import { SearchSettings } from './settings/SearchSettings';
 import { NeuralLogoSettings } from './settings/NeuralLogoSettings';
 import { MarketSettings } from './settings/MarketSettings';
+import { RegistrationSettings } from './settings/RegistrationSettings';
 import { SocialProofSettings } from './settings/SocialProofSettings';
 
 export const SiteSettingsManager: React.FC = () => {
@@ -52,7 +53,7 @@ export const SiteSettingsManager: React.FC = () => {
     primaryTextColor: '#ffffff',
     secondaryTextColor: '#94a3b8',
     watermarkUrl: '',
-    watermarkText: 'B2B2C Connect',
+    watermarkText: 'Souq Connect',
     watermarkOpacity: 0.7,
     watermarkPosition: 'bottom-right',
     watermarkScale: 1,
@@ -87,7 +88,7 @@ export const SiteSettingsManager: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [activeLogoTab, setActiveLogoTab] = useState<'hero' | 'header'>('hero');
-  const [currentTab, setCurrentTab] = useState<'identity' | 'hero' | 'search' | 'neural' | 'market' | 'social'>('identity');
+  const [currentTab, setCurrentTab] = useState<'identity' | 'hero' | 'search' | 'neural' | 'market' | 'social' | 'registration'>('identity');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'watermark' | 'loaderLogo') => {
     const file = e.target.files?.[0];
@@ -202,6 +203,7 @@ export const SiteSettingsManager: React.FC = () => {
           { id: 'neural', label: isRtl ? 'الشعار العصبي' : 'Neural Logo', icon: Sparkles },
           { id: 'market', label: isRtl ? 'السوق' : 'Market', icon: LayoutGrid },
           { id: 'social', label: isRtl ? 'الإحصائيات' : 'Social Proof', icon: Layout },
+          { id: 'registration', label: isRtl ? 'قوائم التسجيل' : 'Registration', icon: ListChecks },
         ].map(tab => (
           <button
             key={tab.id}
@@ -231,6 +233,7 @@ export const SiteSettingsManager: React.FC = () => {
         {currentTab === 'neural' && <NeuralLogoSettings settings={settings} setSettings={setSettings} isRtl={isRtl} activeLogoTab={activeLogoTab} setActiveLogoTab={setActiveLogoTab} />}
         {currentTab === 'market' && <MarketSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'social' && <SocialProofSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
+        {currentTab === 'registration' && <RegistrationSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
       </motion.div>
     </div>
   );

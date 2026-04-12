@@ -7,6 +7,7 @@ import {
   Wallet, 
   MapPin, 
   Settings, 
+  Palette,
   ChevronRight,
   Clock,
   CheckCircle2,
@@ -40,6 +41,7 @@ import { ProductDetailsModal } from '../../../shared/components/ProductDetailsMo
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 
 import { ProfileSettings } from './ProfileSettings';
+import { UserSettings } from './UserSettings';
 
 import { UserRequestCard } from './UserRequestCard';
 
@@ -72,6 +74,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     supplierTab === 'personal' ? 'settings' : 'stats'
   );
   const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [showBrandingEdit, setShowBrandingEdit] = useState(false);
 
   const [requests, setRequests] = useState<ProductRequest[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
@@ -542,6 +545,16 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
         if (showProfileEdit) {
           return <ProfileSettings profile={profile} onBack={() => setShowProfileEdit(false)} />;
         }
+        if (showBrandingEdit) {
+          return (
+            <div className="space-y-6">
+              <button onClick={() => setShowBrandingEdit(false)} className="text-brand-primary font-bold text-sm mb-4">
+                {isRtl ? '← عودة' : '← Back'}
+              </button>
+              <UserSettings profile={profile} />
+            </div>
+          );
+        }
         return (
           <div className="space-y-6">
             <div className={`${glassClass} rounded-3xl p-6 flex items-center gap-5`}>
@@ -565,6 +578,19 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-brand-primary/10 text-brand-primary rounded-xl"><UserIcon size={20} /></div>
                   <span className="font-bold text-brand-text-main">{isRtl ? 'البيانات الشخصية' : 'Personal Info'}</span>
+                </div>
+                <ChevronRight size={20} className={`text-brand-text-muted ${isRtl ? 'rotate-180' : ''}`} />
+              </div>
+              <div 
+                className="p-4 border-b border-brand-border/50 hover:bg-brand-background transition-colors cursor-pointer flex items-center justify-between"
+                onClick={() => {
+                  console.log('Branding Edit Clicked');
+                  setShowBrandingEdit(true);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-brand-primary/10 text-brand-primary rounded-xl"><Palette size={20} /></div>
+                  <span className="font-bold text-brand-text-main">{isRtl ? 'الهوية البصرية' : 'Visual Identity'}</span>
                 </div>
                 <ChevronRight size={20} className={`text-brand-text-muted ${isRtl ? 'rotate-180' : ''}`} />
               </div>

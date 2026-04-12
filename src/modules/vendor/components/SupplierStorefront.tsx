@@ -34,6 +34,9 @@ export const SupplierStorefront: React.FC<SupplierStorefrontProps> = ({ supplier
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   useEffect(() => {
+    console.log('SupplierStorefront: Debugging - Supplier Object:', supplier);
+    console.log('SupplierStorefront: Debugging - Products Count:', products.length);
+    
     const q = query(
       collection(db, 'marketplace'),
       where('sellerId', '==', supplier.uid),
@@ -120,7 +123,7 @@ export const SupplierStorefront: React.FC<SupplierStorefrontProps> = ({ supplier
       >
         <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/5 via-transparent to-brand-warning/5" />
         
-        <div className="relative p-8 md:p-12 flex flex-col md:flex-row gap-8 items-center">
+        <div className="relative p-8 md:p-12 flex flex-col lg:flex-row gap-8 items-center">
           {/* Trust Ring & Logo */}
           <div className="relative group">
             <div className="absolute inset-0 bg-brand-primary/20 blur-2xl rounded-full scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
@@ -141,18 +144,18 @@ export const SupplierStorefront: React.FC<SupplierStorefrontProps> = ({ supplier
           </div>
 
           {/* Info & Stats */}
-          <div className="flex-1 text-center md:text-left rtl:md:text-right space-y-4">
+          <div className="flex-1 text-center lg:text-left rtl:lg:text-right space-y-4">
             <div className="space-y-1">
               <h1 className="text-3xl md:text-4xl font-black text-brand-text-main tracking-tight">
                 {isRtl ? supplier.companyName : (supplier.companyName || supplier.name)}
               </h1>
-              <p className="text-brand-text-muted font-medium flex items-center justify-center md:justify-start gap-2">
+              <p className="text-brand-text-muted font-medium flex items-center justify-center lg:justify-start gap-2">
                 <MapPin size={16} className="text-brand-primary" />
                 {supplier.location || (isRtl ? 'المملكة العربية السعودية' : 'Saudi Arabia')}
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 pt-2">
+            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 pt-2">
               <div className="text-center">
                 <div className="text-xl font-black text-brand-text-main">{supplier.followersCount || 0}</div>
                 <div className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">{isRtl ? 'متابع' : 'Followers'}</div>
@@ -172,7 +175,7 @@ export const SupplierStorefront: React.FC<SupplierStorefrontProps> = ({ supplier
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-3 pt-4">
+            <div className="flex flex-wrap gap-3 pt-4 justify-center lg:justify-start">
               {!isOwner && (
                 <HapticButton 
                   onClick={handleFollow}
@@ -201,7 +204,7 @@ export const SupplierStorefront: React.FC<SupplierStorefrontProps> = ({ supplier
           </div>
 
           {/* Trust Score AI Card */}
-          <div className="hidden lg:block w-64 bg-brand-background/50 backdrop-blur-md rounded-3xl p-6 border border-brand-border relative overflow-hidden group">
+          <div className="hidden xl:block w-64 bg-brand-background/50 backdrop-blur-md rounded-3xl p-6 border border-brand-border relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
               <Award size={80} />
             </div>

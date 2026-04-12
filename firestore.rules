@@ -39,29 +39,25 @@ service cloud.firestore {
     }
 
     function hasRole(role) {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             getUserData().role == role;
+      return isAuthenticated() && (request.auth.token.role == role || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role);
     }
 
     function isMasterAdmin() {
       return isAuthenticated() && 
-             'email' in request.auth.token && request.auth.token.email == "anamostwanted@gmail.com" && 
-             'email_verified' in request.auth.token && request.auth.token.email_verified == true;
+             (request.auth.token.email == "anamostwanted@gmail.com" || request.auth.token.email == "anamostwanted@gmail.com") && 
+             request.auth.token.email_verified == true;
     }
 
     function isAdmin() {
       return isAuthenticated() && (
         (request.auth.token.email == 'anamostwanted@gmail.com' && request.auth.token.email_verified == true) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') in ['admin', 'manager', 'supervisor'])
+        request.auth.token.role in ['admin', 'manager', 'supervisor'] ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'manager', 'supervisor']
       );
     }
 
     function isSupplier() {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             getUserData().role == 'supplier';
+      return isAuthenticated() && (request.auth.token.role == 'supplier' || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'supplier');
     }
 
     function isValidUser(data) {
@@ -124,8 +120,12 @@ service cloud.firestore {
 
     match /users/{userId} {
       // PII Protection: Only owner or admin can read full profile.
+      // Exception: Allow reading supplier profiles for marketplace visibility.
+      // Also allow reading if the user is a participant in a chat (handled via public profiles usually)
       allow read: if isAuthenticated() && (
         request.auth.uid == userId || 
+        resource.data.role == 'supplier' ||
+        resource.data.role == 'admin' ||
         isAdmin()
       );
       allow create: if isAuthenticated() && (
@@ -135,7 +135,7 @@ service cloud.firestore {
       
       allow update: if isAuthenticated() && (
         (request.auth.uid == userId && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin()) && 
-         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['referralPoints', 'role']) || isAdmin())) || 
+         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['referralPoints', 'role', 'logoUrl', 'coverUrl', 'photoURL']) || isAdmin())) || 
         isAdmin() ||
         isValidReferralUpdate()
       );
@@ -144,7 +144,7 @@ service cloud.firestore {
     }
 
     match /users_public/{userId} {
-      allow read: if true;
+      allow read: if isAuthenticated() && resource.data.get('status', '') != 'deleted';
       allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow delete: if false;
     }
@@ -211,7 +211,7 @@ service cloud.firestore {
     }
 
     function isValidRequest(data) {
-      let allowedFields = ['customerId', 'customerName', 'productName', 'status', 'createdAt', 'description', 'imageUrl', 'categoryId', 'categoryNameAr', 'categoryNameEn', 'location', 'offerCount', 'quantity', 'approvedSuppliers', 'suggestedSupplierIds', 'deletedAt'];
+      let allowedFields = ['customerId', 'customerName', 'productName', 'status', 'createdAt', 'description', 'imageUrl', 'categoryId', 'categoryNameAr', 'categoryNameEn', 'location', 'offerCount', 'quantity', 'budget', 'approvedSuppliers', 'suggestedSupplierIds', 'deletedAt'];
       return data.keys().hasAll(['customerId', 'productName', 'status', 'createdAt']) &&
              data.keys().hasOnly(allowedFields) &&
              data.customerId is string &&
@@ -227,6 +227,7 @@ service cloud.firestore {
              (!('location' in data) || (data.location is string && data.location.size() < 512)) &&
              (!('offerCount' in data) || data.offerCount is number) &&
              (!('quantity' in data) || (data.quantity is string && data.quantity.size() < 64)) &&
+             (!('budget' in data) || (data.budget == null || data.budget is number)) &&
              (!('approvedSuppliers' in data) || (data.approvedSuppliers is list && data.approvedSuppliers.size() < 50)) &&
              (!('suggestedSupplierIds' in data) || (data.suggestedSupplierIds is list && data.suggestedSupplierIds.size() < 50)) &&
              (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
@@ -235,6 +236,7 @@ service cloud.firestore {
     match /requests/{requestId} {
       allow read: if isAuthenticated() && (
         resource.data.customerId == request.auth.uid || 
+        resource.data.status == 'open' ||
         (resource.data.approvedSuppliers is list && request.auth.uid in resource.data.approvedSuppliers) ||
         (resource.data.suggestedSupplierIds is list && request.auth.uid in resource.data.suggestedSupplierIds) ||
         isAdmin()
@@ -248,20 +250,21 @@ service cloud.firestore {
     }
 
     function isValidOffer(data) {
-      let allowedFields = ['requestId', 'supplierId', 'customerId', 'price', 'status', 'createdAt', 'message', 'notes', 'deliveryTime', 'supplierName', 'minPrice', 'autoNegotiate', 'deletedAt'];
-      return data.keys().hasAll(['requestId', 'supplierId', 'customerId', 'price', 'status', 'createdAt']) &&
+      let allowedFields = ['requestId', 'supplierId', 'customerId', 'price', 'status', 'createdAt', 'message', 'notes', 'deliveryTime', 'supplierName', 'supplierCompanyName', 'minPrice', 'autoNegotiate', 'deletedAt'];
+      return data.keys().hasAll(['requestId', 'supplierId', 'price', 'status', 'createdAt']) &&
              data.keys().hasOnly(allowedFields) &&
              data.requestId is string && data.requestId.size() < 128 &&
              data.supplierId is string && data.supplierId.size() < 128 &&
-             data.customerId is string && data.customerId.size() < 128 &&
+             (!('customerId' in data) || (data.customerId is string && data.customerId.size() < 128)) &&
              data.price is number &&
              data.status in ['pending', 'accepted', 'rejected', 'negotiating', 'deleted'] &&
              (!('message' in data) || (data.message is string && data.message.size() < 5000)) &&
              (!('notes' in data) || (data.notes is string && data.notes.size() < 5000)) &&
              (!('deliveryTime' in data) || (data.deliveryTime is string && data.deliveryTime.size() < 128)) &&
              (!('supplierName' in data) || (data.supplierName is string && data.supplierName.size() < 256)) &&
+             (!('supplierCompanyName' in data) || (data.supplierCompanyName is string && data.supplierCompanyName.size() < 256)) &&
              (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() < 64)) &&
-             (!('minPrice' in data) || data.minPrice is number) &&
+             (!('minPrice' in data) || (data.minPrice == null || data.minPrice is number)) &&
              (!('autoNegotiate' in data) || data.autoNegotiate is bool) &&
              (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
     }
@@ -301,17 +304,20 @@ service cloud.firestore {
         resource.data.customerId == request.auth.uid || 
         resource.data.supplierId == request.auth.uid || 
         (resource.data.keys().contains('isCategoryChat') && resource.data.isCategoryChat == true) ||
+        chatId.matches(".*" + request.auth.uid + ".*") ||
         isAdmin()
       );
       allow create: if isAuthenticated() && (
         request.resource.data.customerId == request.auth.uid || 
         request.resource.data.supplierId == request.auth.uid ||
+        chatId.matches(".*" + request.auth.uid + ".*") ||
         isAdmin()
       ) && isValidChat(request.resource.data);
       allow update: if isAuthenticated() && (
         resource.data.customerId == request.auth.uid || 
         resource.data.supplierId == request.auth.uid || 
         (resource.data.keys().contains('isCategoryChat') && resource.data.isCategoryChat == true) ||
+        chatId.matches(".*" + request.auth.uid + ".*") ||
         isAdmin()
       ) && isValidChat(request.resource.data);
       allow delete: if false; // Soft delete only
@@ -320,7 +326,8 @@ service cloud.firestore {
         allow read: if isAuthenticated() && (
           (get(/databases/$(database)/documents/chats/$(chatId)).data.customerId == request.auth.uid || 
            get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId == request.auth.uid || 
-           (get(/databases/$(database)/documents/chats/$(chatId)).data.keys().contains('isCategoryChat') && get(/databases/$(database)/documents/chats/$(chatId)).data.isCategoryChat == true)) ||
+           (get(/databases/$(database)/documents/chats/$(chatId)).data.keys().contains('isCategoryChat') && get(/databases/$(database)/documents/chats/$(chatId)).data.isCategoryChat == true) ||
+           chatId.matches(".*" + request.auth.uid + ".*")) ||
           isAdmin()
         );
         allow create: if isAuthenticated() && request.resource.data.senderId == request.auth.uid;
@@ -679,6 +686,35 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isAuthenticated();
       allow update, delete: if false;
+    }
+
+    // Ads collection rules
+    function isValidAd(data) {
+      let allowedFields = ['title', 'sellerId', 'status', 'views', 'clicks', 'spend', 'createdAt', 'deletedAt'];
+      return data.keys().hasAll(['title', 'sellerId', 'status', 'views', 'clicks', 'spend', 'createdAt']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.title is string && data.title.size() < 256 &&
+             data.sellerId is string && data.sellerId.size() > 0 &&
+             data.status in ['active', 'paused', 'ended', 'deleted'] &&
+             data.views is number && data.views >= 0 &&
+             data.clicks is number && data.clicks >= 0 &&
+             data.spend is number && data.spend >= 0 &&
+             data.createdAt is string && data.createdAt.size() < 64 &&
+             (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
+    }
+
+    match /ads/{adId} {
+      allow read: if isAuthenticated() && (resource.data.sellerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.sellerId == request.auth.uid && isValidAd(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (resource.data.sellerId == request.auth.uid &&
+         isValidAd(request.resource.data) &&
+         request.resource.data.sellerId == resource.data.sellerId &&
+         request.resource.data.createdAt == resource.data.createdAt
+        ) ||
+        isAdmin()
+      );
+      allow delete: if false; // Soft delete only
     }
 
     // Connection Test Rule

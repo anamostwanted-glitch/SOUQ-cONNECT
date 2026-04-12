@@ -29,6 +29,8 @@ import {
   Clock,
   Key
 } from 'lucide-react';
+import { AdminNeuralHealthDashboard } from './AdminNeuralHealthDashboard';
+import { AdminNeuralAlertDashboard } from './AdminNeuralAlertDashboard';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { toast } from 'sonner';
 
@@ -109,12 +111,12 @@ export const AdminNeuralHub: React.FC = () => {
         body: JSON.stringify({ key })
       });
 
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Test failed');
+        throw new Error(data.error || data.message || 'Test failed');
       }
 
-      const data = await response.json();
       const latency = Date.now() - startTime;
       const isSuccess = data.success;
 
@@ -142,7 +144,15 @@ export const AdminNeuralHub: React.FC = () => {
     } catch (error: any) {
       handleAiError(error, 'AI key test');
       
-      toast.error(isRtl ? 'خطأ في المفتاح أو الصلاحية' : 'Invalid key or permissions');
+      // التمييز بين أنواع الأخطاء
+      const errorMessage = error.message.toLowerCase();
+      if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+        toast.error(isRtl ? 'تم تجاوز حصة الاستخدام (Quota Exceeded)' : 'Quota exceeded');
+      } else if (errorMessage.includes('invalid') || errorMessage.includes('401') || errorMessage.includes('403')) {
+        toast.error(isRtl ? 'مفتاح غير صالح أو صلاحيات غير كافية' : 'Invalid key or insufficient permissions');
+      } else {
+        toast.error(isRtl ? 'خطأ غير معروف في المحرك' : 'Unknown engine error');
+      }
 
       const updatedKeys = keysToMap.map(k => {
         if (k.id === id) {
@@ -200,6 +210,9 @@ export const AdminNeuralHub: React.FC = () => {
             </span>
           </div>
         </header>
+
+        <AdminNeuralHealthDashboard keys={keys} isRtl={isRtl} />
+        <AdminNeuralAlertDashboard keys={keys} isRtl={isRtl} onRetry={testKey} isTesting={isTesting} />
 
         {/* Add New Key Section */}
         <section className="bg-white/5 backdrop-blur-2xl rounded-[2.5rem] p-6 border border-white/10 shadow-2xl relative overflow-hidden group">
