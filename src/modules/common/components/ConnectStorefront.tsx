@@ -267,7 +267,11 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
     if (!window.confirm(isRtl ? 'هل أنت متأكد من حذف هذا المنتج؟' : 'Are you sure you want to delete this product?')) return;
 
     try {
-      await deleteDoc(doc(db, 'marketplace', productId));
+      // Soft Delete as per AGENTS.md: "NEVER use deleteDoc... ALWAYS use Soft Delete"
+      await updateDoc(doc(db, 'marketplace', productId), { 
+        status: 'deleted', 
+        deletedAt: new Date().toISOString() 
+      });
       setProducts(prev => prev.filter(p => p.id !== productId));
       toast.success(isRtl ? 'تم حذف المنتج بنجاح' : 'Product deleted successfully');
     } catch (error) {

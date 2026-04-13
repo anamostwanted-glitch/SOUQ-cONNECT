@@ -47,27 +47,29 @@ service cloud.firestore {
 
     function isMasterAdmin() {
       return isAuthenticated() && 
-             (request.auth.token.email == "anamostwanted@gmail.com" || request.auth.token.email == "anamostwanted@gmail.com") && 
+             request.auth.token.email == "anamostwanted@gmail.com" && 
              request.auth.token.email_verified == true;
     }
 
     function isAdmin() {
       return isAuthenticated() && (
         (request.auth.token.email == 'anamostwanted@gmail.com' && request.auth.token.email_verified == true) ||
-        request.auth.token.role in ['admin', 'manager', 'supervisor'] ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'manager', 'supervisor'])
+        request.auth.token.get('role', '') in ['admin', 'manager', 'supervisor'] ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') in ['admin', 'manager', 'supervisor'])
       );
     }
 
     function isSupplier() {
       return isAuthenticated() && (
-        request.auth.token.role == 'supplier' || 
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'supplier')
+        request.auth.token.get('role', '') == 'supplier' || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'supplier')
       );
     }
 
     function isValidUser(data) {
-      let allowedFields = ['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'coordinates', 'website', 'logoUrl', 'coverUrl', 'photoURL', 'categories', 'keywords', 'language', 'createdAt', 'lastActive', 'bio', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'following', 'referralCode', 'referralPoints', 'logoGenerationUsage', 'isOnline', 'averageResponseTime', 'notificationPreferences', 'branding', 'favoriteProducts', 'aiInsights', 'aiBio', 'status', 'deletedAt', 'deletedBy'];
+      let allowedFields = ['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'coordinates', 'website', 'logoUrl', 'coverUrl', 'photoURL', 'categories', 'keywords', 'language', 'createdAt', 'updatedAt', 'lastActive', 'bio', 'businessDescription', 'supplierType', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'verificationExpiryDate', 'trustScore', 'followersCount', 'followingCount', 'followers', 'following', 'logoGenerationUsage', 'isOnline', 'isDeleted', 'lastLoginAt', 'averageResponseTime', 'notificationPreferences', 'conciergeConsent', 'branding', 'referralPoints', 'loyaltyPoints', 'commercialRegistration', 'subscriptionPlan', 'subscriptionExpiry', 'referralCode', 'favoriteProducts', 'aiInsights', 'aiBio', 'socialLinks', 'status', 'deletedAt', 'deletedBy'];
       return data.keys().hasAll(['uid', 'email', 'role']) &&
              data.keys().hasOnly(allowedFields) &&
              data.uid is string && data.uid.size() < 128 &&
@@ -86,24 +88,40 @@ service cloud.firestore {
              (!('keywords' in data) || (data.keywords is list && data.keywords.size() < 100)) &&
              (!('language' in data) || data.language in ['ar', 'en']) &&
              (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() < 64)) &&
+             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() < 64)) &&
              (!('lastActive' in data) || (data.lastActive is string && data.lastActive.size() < 64)) &&
              (!('bio' in data) || (data.bio is string && data.bio.size() < 2000)) &&
+             (!('businessDescription' in data) || (data.businessDescription is string && data.businessDescription.size() < 5000)) &&
+             (!('supplierType' in data) || data.supplierType in ['merchant', 'service_provider', 'both']) &&
              (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5)) &&
              (!('reviewCount' in data) || (data.reviewCount is number && data.reviewCount >= 0)) &&
              (!('verificationDocUrl' in data) || (data.verificationDocUrl is string && data.verificationDocUrl.size() < 1024)) &&
              (!('isVerified' in data) || data.isVerified is bool) &&
              (!('verificationDetails' in data) || (data.verificationDetails is string && data.verificationDetails.size() < 5000)) &&
+             (!('verificationExpiryDate' in data) || (data.verificationExpiryDate == null || data.verificationExpiryDate is string)) &&
+             (!('trustScore' in data) || data.trustScore is number) &&
+             (!('followersCount' in data) || data.followersCount is number) &&
+             (!('followingCount' in data) || data.followingCount is number) &&
+             (!('followers' in data) || (data.followers is list && data.followers.size() < 10000)) &&
              (!('following' in data) || (data.following is list && data.following.size() < 1000)) &&
-             (!('referralCode' in data) || (data.referralCode is string && data.referralCode.size() < 32)) &&
-             (!('referralPoints' in data) || (data.referralPoints is number && data.referralPoints >= 0)) &&
              (!('logoGenerationUsage' in data) || (data.logoGenerationUsage is map && data.logoGenerationUsage.keys().hasAll(['count', 'month']) && data.logoGenerationUsage.count is number && data.logoGenerationUsage.month is string)) &&
              (!('isOnline' in data) || data.isOnline is bool) &&
+             (!('isDeleted' in data) || data.isDeleted is bool) &&
+             (!('lastLoginAt' in data) || (data.lastLoginAt is string && data.lastLoginAt.size() < 64)) &&
              (!('averageResponseTime' in data) || data.averageResponseTime is number) &&
              (!('notificationPreferences' in data) || data.notificationPreferences is map) &&
+             (!('conciergeConsent' in data) || data.conciergeConsent is bool) &&
              (!('branding' in data) || data.branding is map) &&
+             (!('referralPoints' in data) || (data.referralPoints is number && data.referralPoints >= 0)) &&
+             (!('loyaltyPoints' in data) || (data.loyaltyPoints is number && data.loyaltyPoints >= 0)) &&
+             (!('commercialRegistration' in data) || (data.commercialRegistration is string && data.commercialRegistration.size() < 128)) &&
+             (!('subscriptionPlan' in data) || data.subscriptionPlan in ['basic', 'pro', 'enterprise']) &&
+             (!('subscriptionExpiry' in data) || (data.subscriptionExpiry is string && data.subscriptionExpiry.size() < 64)) &&
+             (!('referralCode' in data) || (data.referralCode is string && data.referralCode.size() < 32)) &&
              (!('favoriteProducts' in data) || (data.favoriteProducts is list && data.favoriteProducts.size() < 1000)) &&
              (!('aiInsights' in data) || data.aiInsights is map) &&
              (!('aiBio' in data) || data.aiBio is map) &&
+             (!('socialLinks' in data) || data.socialLinks is map) &&
              (!('status' in data) || data.status in ['active', 'deleted', 'suspended', 'pending']) &&
              (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64)) &&
              (!('deletedBy' in data) || (data.deletedBy is string && data.deletedBy.size() < 128));
@@ -128,24 +146,27 @@ service cloud.firestore {
     match /users/{userId} {
       // PII Protection: Only owner or admin can read full profile.
       // Exception: Allow reading supplier profiles for marketplace visibility.
-      // Also allow reading if the user is a participant in a chat (handled via public profiles usually)
       allow read: if isAuthenticated() && (
-        request.auth.uid == userId || 
-        isAdmin() ||
-        (resource != null && (resource.data.get('role', '') in ['supplier', 'admin'] || resource.data.get('role', '') == 'supplier'))
-      );
+                    request.auth.uid == userId || 
+                    request.auth.token.email == 'anamostwanted@gmail.com' ||
+                    isAdmin() || 
+                    (resource != null && resource.data.get('role', '') == 'supplier')
+                  );
+      
       allow create: if isAuthenticated() && (
-        request.auth.uid == userId || 
-        isAdmin()
-      ) && isValidUser(request.resource.data);
+                      request.auth.uid == userId || 
+                      request.auth.token.email == 'anamostwanted@gmail.com' ||
+                      isAdmin()
+                    ) && isValidUser(request.resource.data);
       
       allow update: if isAuthenticated() && (
-        (request.auth.uid == userId && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin()) && 
-         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['referralPoints', 'role', 'logoUrl', 'coverUrl', 'photoURL']) || isAdmin())) || 
-        isAdmin()
-      );
+                    (request.auth.token.email == 'anamostwanted@gmail.com' && isValidUser(request.resource.data)) ||
+                    (isAdmin() && isValidUser(request.resource.data)) || 
+                    (request.auth.uid == userId && isValidUser(request.resource.data) && roleUnchanged() && 
+                     !request.resource.data.diff(resource.data).affectedKeys().hasAny(['referralPoints', 'isVerified']))
+                  );
       // Allow admins to hard delete users
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || request.auth.token.email == 'anamostwanted@gmail.com';
     }
 
     match /users_public/{userId} {
@@ -752,6 +773,27 @@ service cloud.firestore {
         isAdmin()
       );
       allow delete: if false; // Soft delete only
+    }
+
+    // Reports collection rules
+    function isValidReport(data) {
+      let allowedFields = ['reporterId', 'reporterName', 'targetId', 'targetType', 'targetOwnerId', 'reason', 'details', 'status', 'createdAt'];
+      return data.keys().hasAll(['reporterId', 'targetId', 'targetType', 'reason', 'status', 'createdAt']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.reporterId == request.auth.uid &&
+             data.targetId is string && data.targetId.size() > 0 &&
+             data.targetType in ['marketplace_item', 'user'] &&
+             data.reason is string && data.reason.size() > 0 && data.reason.size() < 500 &&
+             (!('details' in data) || (data.details is string && data.details.size() < 2000)) &&
+             data.status in ['pending', 'reviewed', 'resolved', 'dismissed'] &&
+             data.createdAt is string && data.createdAt.size() < 64;
+    }
+
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && isValidReport(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     // Connection Test Rule

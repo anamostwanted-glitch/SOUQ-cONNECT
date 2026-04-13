@@ -1412,7 +1412,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       const batch = writeBatch(db);
       catsToDelete.forEach(cat => {
-        batch.delete(doc(db, 'categories', cat.id));
+        // Soft Delete as per AGENTS.md: "NEVER use deleteDoc... ALWAYS use Soft Delete"
+        batch.update(doc(db, 'categories', cat.id), { 
+          status: 'deleted', 
+          deletedAt: new Date().toISOString() 
+        });
       });
       await batch.commit();
       setDashboardSuccess(i18n.language === 'ar' ? 'تم حذف جميع الفئات بنجاح' : 'All categories deleted successfully');
@@ -1480,9 +1484,13 @@ const Dashboard: React.FC<DashboardProps> = ({
         }
       });
 
-      // 6. Delete source categories
+      // 6. Soft delete source categories
       sourceIds.forEach((id: string) => {
-        batch.delete(doc(db, 'categories', id));
+        // Soft Delete as per AGENTS.md: "NEVER use deleteDoc... ALWAYS use Soft Delete"
+        batch.update(doc(db, 'categories', id), { 
+          status: 'deleted', 
+          deletedAt: new Date().toISOString() 
+        });
       });
 
       await batch.commit();

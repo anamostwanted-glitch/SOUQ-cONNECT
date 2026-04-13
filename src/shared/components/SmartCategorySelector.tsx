@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Category } from '../../core/types';
 import { semanticSearch } from '../../core/services/geminiService';
-import { Search, Sparkles, X, Check } from 'lucide-react';
+import { Search, Sparkles, X, Check, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 import { handleAiError } from '../../core/utils/errorHandling';
 
@@ -157,7 +157,7 @@ const SmartCategorySelector: React.FC<SmartCategorySelectorProps> = ({
               animate={{ scale: 1, opacity: 1 }}
               className="flex items-center gap-1 px-2 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-[10px] font-black uppercase"
             >
-              <Sparkles size={10} />
+              <Star size={10} className="fill-brand-primary" />
               {i18n.language === 'ar' ? 'جاهز' : 'Ready'}
             </motion.div>
           )}
@@ -179,9 +179,10 @@ const SmartCategorySelector: React.FC<SmartCategorySelectorProps> = ({
               type="button"
               onClick={handleAiSearch}
               disabled={isSearching}
-              className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary-hover transition-all flex items-center gap-2"
+              title={i18n.language === 'ar' ? 'تحليل ذكي' : 'AI Analysis'}
+              className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary-hover transition-all flex items-center gap-2 shadow-lg shadow-brand-primary/20"
             >
-              {isSearching ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <Sparkles size={18} />}
+              {isSearching ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <Star size={18} className="fill-white" />}
             </button>
           </div>
 
@@ -189,7 +190,7 @@ const SmartCategorySelector: React.FC<SmartCategorySelectorProps> = ({
             {suggestedIds.length > 0 && !search.trim() && (
               <div className="space-y-1">
                 <div className="px-4 py-1 flex items-center gap-2 text-[10px] font-black text-brand-primary uppercase tracking-widest">
-                  <Sparkles size={12} />
+                  <Star size={12} className="fill-brand-primary" />
                   {i18n.language === 'ar' ? 'أفضل المطابقات بالذكاء الاصطناعي' : 'AI Best Matches'}
                 </div>
                 {suggestedIds

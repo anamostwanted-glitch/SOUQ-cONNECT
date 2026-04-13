@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { MarketplaceItem } from '../../../core/types';
+import { MarketplaceItem, UserProfile } from '../../../core/types';
 import { BlurImage } from '../../../shared/components/BlurImage';
+import { Flag, Loader2 } from 'lucide-react';
+import { ReportModal } from '../../../shared/components/ReportModal';
+import { auth, db } from '../../../core/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface ProductCardProps {
   item: MarketplaceItem;
@@ -53,6 +57,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onEdit,
   isOwner,
 }) => {
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    if (auth.currentUser) {
+      getDoc(doc(db, 'users', auth.currentUser.uid)).then(snap => {
+        if (snap.exists()) setUserProfile(snap.data() as UserProfile);
+      });
+    }
+  }, []);
+
   const mainImage = item.images && item.images.length > 0 ? item.images[0] : 'https://picsum.photos/seed/product/400/500';
 
   const glassClass = "bg-white/10 backdrop-blur-md shadow-xl";
@@ -68,6 +83,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="absolute top-3 right-3">
         <CountdownRing item={item} />
       </div>
+      
+      {!isOwner && auth.currentUser && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowReportModal(true);
+          }}
+          className="absolute top-3 left-3 p-2 bg-black/20 backdrop-blur-md text-white rounded-xl border border-white/20 hover:bg-brand-error transition-all opacity-0 group-hover:opacity-100"
+        >
+          <Flag size={14} />
+        </button>
+      )}
+
       {item.status === 'expired' && isOwner && onEdit && (
         <div className="absolute bottom-3 left-3 right-3">
           <button 
@@ -78,6 +106,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </button>
         </div>
       )}
+      
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetId={item.id}
+        targetType="marketplace_item"
+        targetOwnerId={item.sellerId}
+        targetTitle={item.titleAr || item.title}
+        profile={userProfile}
+        isRtl={true} // Defaulting to true for Arabic context as per user preference
+      />
     </motion.div>
   );
 };

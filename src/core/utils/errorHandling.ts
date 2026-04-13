@@ -42,7 +42,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 }
 
 export function handleAiError(error: unknown, context: string, shouldThrow: boolean = false) {
-  let errorMessage = 'Unknown error occurred';
+  let errorMessage = '';
 
   if (error instanceof Error) {
     errorMessage = error.message;
@@ -53,14 +53,24 @@ export function handleAiError(error: unknown, context: string, shouldThrow: bool
     const err = error as any;
     if ('code' in err || err.constructor?.name === 'GeolocationPositionError') {
       errorMessage = `Geolocation Error (Code ${err.code ?? 'unknown'}): ${err.message ?? 'unknown'}`;
-    } else if ('message' in err) {
+    } else if ('message' in err && typeof err.message === 'string') {
       errorMessage = err.message;
+    } else if ('error' in err && typeof err.error === 'string') {
+      errorMessage = err.error;
     } else {
-      const stringified = JSON.stringify(err);
-      if (stringified !== '{}') {
-        errorMessage = stringified;
+      try {
+        const stringified = JSON.stringify(err);
+        if (stringified !== '{}') {
+          errorMessage = stringified;
+        }
+      } catch (e) {
+        errorMessage = 'Object error (not stringifiable)';
       }
     }
+  }
+
+  if (!errorMessage || errorMessage.trim() === '') {
+    errorMessage = 'Unknown error occurred';
   }
 
   // Ignore dynamic import errors completely (they are handled by auto-reload)
@@ -69,7 +79,7 @@ export function handleAiError(error: unknown, context: string, shouldThrow: bool
   }
 
   const errInfo = {
-    error: errorMessage || 'No error message',
+    error: errorMessage,
     context: context || 'Unknown context',
     timestamp: new Date().toISOString(),
     authInfo: {

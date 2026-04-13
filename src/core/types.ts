@@ -53,6 +53,8 @@ export interface UserProfile {
   followers?: string[];
   following?: string[];
   isOnline?: boolean;
+  isDeleted?: boolean;
+  lastLoginAt?: string;
   averageResponseTime?: number;
   notificationPreferences?: NotificationPreferences;
   conciergeConsent?: boolean;

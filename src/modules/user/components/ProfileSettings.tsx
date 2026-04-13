@@ -40,6 +40,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { enhanceBio, suggestSupplierCategories } from '../../../core/services/geminiService';
 import { compressImage } from '../../../core/utils/imageCropper';
 import { toast } from 'sonner';
+import { UserBrandingSettings } from './UserBrandingSettings';
 import { Badge } from '../../../shared/components/ui/badge';
 
 interface ProfileSettingsProps {
@@ -593,6 +594,13 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
           </motion.div>
         )}
       </motion.div>
+
+      {/* Branding Section */}
+      <div className="px-4 md:px-8 max-w-7xl mx-auto mt-8">
+        <motion.div variants={itemVariants} className={`${bentoCardClass}`}>
+          <UserBrandingSettings profile={profile} />
+        </motion.div>
+      </div>
 
       {/* System & Danger Zone */}
       <div className="px-4 md:px-8 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">

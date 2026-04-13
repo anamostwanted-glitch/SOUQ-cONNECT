@@ -29,6 +29,7 @@ import {
   BarChart3,
   AlertTriangle,
   Bell,
+  Flag,
   X
 } from 'lucide-react';
 import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc, orderBy, limit, setDoc } from 'firebase/firestore';
@@ -49,6 +50,8 @@ const CostAnalysisDashboard = lazy(() => import('./CostAnalysisDashboard').then(
 import { SliderSettingsAdmin } from './SliderSettings';
 import { MarketingManager } from './MarketingManager';
 import { UserDataManager } from './UserDataManager';
+import { MarketplaceManager } from './MarketplaceManager';
+import { ReportManager } from './ReportManager';
 import { BroadcastBox } from './BroadcastBox';
 import { ChatArchiveManager } from './ChatArchiveManager';
 import { ConnectManager } from './ConnectManager';
@@ -64,6 +67,7 @@ import { AdminQuickActions } from './AdminQuickActions';
 import { AdminGrowthChart } from './AdminGrowthChart';
 import { AdminDeepControl } from './AdminDeepControl';
 import { AdminUserManagement } from './AdminUserManagement';
+import { AdminStrategicOverview } from './AdminStrategicOverview';
 import { DashboardCopilot } from './DashboardCopilot';
 import { toast } from 'sonner';
 import { deleteDoc, writeBatch, where } from 'firebase/firestore';
@@ -110,6 +114,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedSupplierForVerification, setSelectedSupplierForVerification] = useState<UserProfile | null>(null);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [timeRange, setTimeRange] = useState<'day' | 'week' | 'year'>('day');
+  const [strategicStats, setStrategicStats] = useState({
+    visitors: 12450,
+    chats: 842,
+    connections: 156,
+    activeUsers: 45
+  });
+
+  useEffect(() => {
+    // Simulate data changes based on time range
+    const multiplier = timeRange === 'day' ? 1 : timeRange === 'week' ? 7 : 365;
+    setStrategicStats({
+      visitors: 12450 * multiplier,
+      chats: 842 * multiplier,
+      connections: 156 * multiplier,
+      activeUsers: 45 + (timeRange === 'day' ? 0 : timeRange === 'week' ? 200 : 5000)
+    });
+  }, [timeRange]);
+
+  useEffect(() => {
+    // Simulate real-time updates for strategic stats
+    const interval = setInterval(() => {
+      setStrategicStats(prev => ({
+        ...prev,
+        visitors: prev.visitors + Math.floor(Math.random() * 5),
+        activeUsers: Math.max(5, prev.activeUsers + (Math.random() > 0.5 ? 1 : -1))
+      }));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -171,8 +205,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         batch.update(doc(db, 'categories', child.id), { parentId: targetId });
       });
 
-      // 5. Delete the source category
-      batch.delete(doc(db, 'categories', sourceId));
+      // 5. Soft delete the source category
+      batch.update(doc(db, 'categories', sourceId), { 
+        status: 'deleted', 
+        deletedAt: new Date().toISOString() 
+      });
 
       await batch.commit();
       
@@ -452,18 +489,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'overview', label: isRtl ? 'نظرة عامة' : 'Overview', icon: LayoutGrid },
     { id: 'users', label: isRtl ? 'المستخدمين' : 'Users', icon: Users },
     { id: 'chats', label: isRtl ? 'أرشيف المحادثات' : 'Chat Archive', icon: Archive, isNew: true },
+    { id: 'marketplace', label: isRtl ? 'إدارة السوق' : 'Marketplace', icon: ShoppingBag, isNew: true },
+    { id: 'reports', label: isRtl ? 'الإبلاغات' : 'Reports', icon: Flag, isNew: true },
     { id: 'directory', label: isRtl ? 'دليل البيانات' : 'Data Directory', icon: BookOpen },
     { id: 'marketing', label: isRtl ? 'التسويق' : 'Marketing', icon: Megaphone },
     { id: 'broadcast', label: isRtl ? 'إشعار جماعي' : 'Broadcast', icon: Send },
     { id: 'categories', label: isRtl ? 'الأقسام' : 'Categories', icon: ListTree },
-    ...(profile.role === 'admin' ? [{ id: 'loader', label: isRtl ? 'شاشة التحميل' : 'Loading Screen', icon: Loader2, isNew: true }] : []),
     { id: 'site', label: isRtl ? 'إعدادات الواجهة' : 'Interface Settings', icon: Zap },
     { id: 'ai', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu },
     { id: 'cost', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
     { id: 'connect', label: isRtl ? 'نمو كونكت' : 'Connect Growth', icon: Zap, isNew: true },
     { id: 'gap-analysis', label: isRtl ? 'تحليل الفجوة' : 'Gap Analysis', icon: BarChart3, isNew: true },
     { id: 'slider', label: isRtl ? 'إعدادات السلايدر' : 'Slider Settings', icon: Zap },
-    { id: 'settings', label: isRtl ? 'الهوية البصرية' : 'Brand Identity', icon: Palette },
   ];
 
   console.log('DEBUG: Admin Tabs:', tabs);
@@ -545,101 +582,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="space-y-8 max-w-6xl mx-auto"
+              className="max-w-7xl mx-auto space-y-8"
             >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-3xl font-black text-brand-text-main">
-                    {isRtl ? 'نظرة عامة' : 'Overview'}
-                  </h1>
-                  <p className="text-brand-text-muted mt-1">
-                    {isRtl ? 'إحصائيات النظام الشاملة والتحليلات الذكية' : 'Comprehensive system statistics and smart analytics'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button 
-                    onClick={handleSystemScan}
-                    disabled={isScanning}
-                    className="flex items-center gap-2 px-4 py-2 bg-brand-surface border border-brand-border rounded-xl text-xs font-black uppercase tracking-widest hover:bg-brand-background transition-all"
-                  >
-                    {isScanning ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
-                    {isRtl ? 'فحص النظام' : 'System Scan'}
-                  </button>
-                </div>
-              </div>
-
-              <AIPredictivePulse 
-                systemData={{
-                  userCount: users.length,
-                  requestCount: requests.length,
-                  withdrawalCount: withdrawals.length,
-                  activeSuppliers: users.filter(u => u.role === 'supplier').length
+              <AdminStrategicOverview 
+                stats={strategicStats}
+                timeRange={timeRange}
+                setTimeRange={setTimeRange}
+                onAction={(action) => {
+                  if (action === 'gap-analysis') setActiveTab('gap-analysis');
+                  else if (action === 'users') setActiveTab('users');
+                  else if (action === 'ai') setActiveTab('ai');
+                  else if (action === 'site') setActiveTab('site');
+                  else if (action === 'categories') setActiveTab('categories');
+                  else if (action === 'broadcast') setActiveTab('broadcast');
+                  else if (action === 'settings') setActiveTab('settings');
                 }}
               />
 
-              {/* Bento Grid Layout */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                {[
-                  { label: isRtl ? 'إجمالي المستخدمين' : 'Total Users', value: users.length, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10', trend: '+12%' },
-                  { label: isRtl ? 'الموردين' : 'Suppliers', value: totalSuppliers, icon: Building2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', trend: '+5%' },
-                  { label: isRtl ? 'العملاء' : 'Customers', value: totalCustomers, icon: Users, color: 'text-purple-500', bg: 'bg-purple-500/10', trend: '+18%' },
-                  { label: isRtl ? 'الطلبات المفتوحة' : 'Open Requests', value: openRequests, icon: ShoppingBag, color: 'text-amber-500', bg: 'bg-amber-500/10', trend: '+24%' },
-                  { 
-                    label: isRtl ? 'نشط الآن' : 'Active Now', 
-                    value: activeUsersCount, 
-                    icon: Activity, 
-                    color: 'text-brand-primary', 
-                    bg: 'bg-brand-primary/10', 
-                    trend: isRtl ? `${activeSuppliersCount} مورد | ${activeCustomersCount} عميل` : `${activeSuppliersCount} Suppliers | ${activeCustomersCount} Customers`,
-                    isPulse: true 
-                  },
-                ].map((stat, i) => (
-                  <motion.div 
-                    key={i}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="bg-brand-surface p-6 rounded-3xl border border-brand-border shadow-sm relative overflow-hidden group hover:border-brand-primary/30 transition-all"
-                  >
-                    <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full ${stat.bg} blur-2xl group-hover:scale-150 transition-transform duration-500`} />
-                    <div className="relative z-10 flex items-center justify-between mb-4">
-                      <div className={`w-12 h-12 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center relative`}>
-                        <stat.icon size={24} />
-                        {stat.isPulse && (
-                          <div className="absolute inset-0 rounded-2xl bg-brand-primary animate-ping opacity-20" />
-                        )}
-                      </div>
-                      <span className={`text-[8px] font-black ${stat.isPulse ? 'text-brand-primary bg-brand-primary/10' : 'text-emerald-500 bg-emerald-500/10'} px-2 py-1 rounded-lg uppercase tracking-tighter`}>
-                        {stat.trend}
-                      </span>
-                    </div>
-                    <div className="relative z-10">
-                      <div className="text-3xl font-black text-brand-text-main mb-1">
-                        {stat.value}
-                      </div>
-                      <div className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">
-                        {stat.label}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="h-[400px]">
-                    <AdminGrowthChart />
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-8">
+                  <div className="h-[450px]">
+                    <AdminGrowthChart timeRange={timeRange} />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="min-h-[200px]">
-                      <AdminSystemHealth />
-                    </div>
-                    <div className="min-h-[200px]">
-                      <AdminDeepControl />
-                    </div>
+                    <AdminSystemHealth />
+                    <AdminDeepControl />
                   </div>
                 </div>
-                <div className="lg:col-span-1 space-y-6">
+                <div className="lg:col-span-1 space-y-8">
                   <AdminQuickActions onAction={handleQuickAction} />
                   <div className="h-[400px]">
                     <AdminActivityFeed />
@@ -787,6 +757,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
+          {activeTab === 'marketplace' && (
+            <motion.div
+              key="marketplace"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-7xl mx-auto"
+            >
+              <MarketplaceManager isRtl={isRtl} />
+            </motion.div>
+          )}
+
+          {activeTab === 'reports' && (
+            <motion.div
+              key="reports"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-7xl mx-auto"
+            >
+              <ReportManager />
+            </motion.div>
+          )}
+
           {activeTab === 'marketing' && (
             <motion.div
               key="marketing"
@@ -888,23 +882,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'loader' && profile.role === 'admin' && (
-            <motion.div
-              key="loader"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <LoadingCustomizer />
-            </motion.div>
-          )}
-          
-          {activeTab === 'loader' && profile.role !== 'admin' && (
-            <div className="p-8 text-center text-brand-text-muted font-bold">
-              {isRtl ? 'عذراً، ليس لديك صلاحية للوصول إلى هذه الإعدادات.' : 'Sorry, you do not have permission to access these settings.'}
-            </div>
-          )}
-
           {activeTab === 'site' && (
             <motion.div
               key="site"
@@ -951,18 +928,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               className="max-w-6xl mx-auto"
             >
               <SliderSettingsAdmin />
-            </motion.div>
-          )}
-
-          {activeTab === 'settings' && (
-            <motion.div
-              key="settings"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="max-w-4xl mx-auto"
-            >
-              <BrandingSettings onBack={() => setActiveTab('overview')} />
             </motion.div>
           )}
         </AnimatePresence>

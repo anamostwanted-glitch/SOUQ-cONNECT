@@ -1,12 +1,12 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
-import { X, UploadCloud, Camera, CheckCircle, AlertCircle, Loader2, Sparkles, Wifi, WifiOff, Wand2, MapPin, Phone, Tag, Plus, Trash2, Mic } from 'lucide-react';
+import { X, UploadCloud, Camera, CheckCircle, AlertCircle, Loader2, Sparkles, Star, Wifi, WifiOff, Wand2, MapPin, Phone, Tag, Plus, Trash2, Mic } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { handleFirestoreError, OperationType, handleAiError } from '../../../../core/utils/errorHandling';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '../../../../core/firebase';
-import { UserProfile, MarketplaceItem } from '../../../../core/types';
+import { UserProfile, MarketplaceItem, Category } from '../../../../core/types';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import SmartCategorySelector from '../../../../shared/components/SmartCategorySelector';
 import { processImageTo4x5WithWatermark } from '../../../../core/utils/imageManipulation';
@@ -123,6 +123,8 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const [phone, setPhone] = useState(item?.sellerPhone || profile.phone || '');
   const [isLocating, setIsLocating] = useState(false);
   const [featureInput, setFeatureInput] = useState('');
+  const [suggestedCategoryOptions, setSuggestedCategoryOptions] = useState<Category[]>([]);
+  const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
 
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
@@ -1055,19 +1057,32 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                     />
                     <HapticButton 
                       onClick={async () => {
-                        if (!title) return;
+                        if (!title) {
+                          toast.error(isRtl ? 'يرجى إدخال اسم المنتج أولاً' : 'Please enter product title first');
+                          return;
+                        }
                         setIsAnalyzing(true);
                         try {
                           const matchedIds = await semanticSearch(title + ' ' + description, categories, i18n.language);
                           if (matchedIds.length > 0) {
-                            const cat = categories.find(c => c.id === matchedIds[0]);
-                            if (cat) {
-                              setClassification(isRtl ? cat.nameAr : cat.nameEn);
-                              setSelectedCategories([cat.id]);
+                            const matchedCats = matchedIds
+                              .map(id => categories.find(c => c.id === id))
+                              .filter((c): c is Category => !!c);
+                            
+                            setSuggestedCategoryOptions(matchedCats);
+                            setShowCategorySuggestions(true);
+                            
+                            // Also set the first one as default if none selected
+                            if (selectedCategories.length === 0) {
+                              setClassification(isRtl ? matchedCats[0].nameAr : matchedCats[0].nameEn);
+                              setSelectedCategories([matchedCats[0].id]);
                             }
+                          } else {
+                            toast.error(isRtl ? 'لم يتم العثور على فئات مطابقة' : 'No matching categories found');
                           }
                         } catch (e) {
                           console.error('Failed to suggest classification:', e);
+                          handleAiError(e, 'classification_suggestion');
                         } finally {
                           setIsAnalyzing(false);
                         }
@@ -1076,6 +1091,49 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                     >
                       <Sparkles size={18} />
                     </HapticButton>
+
+                    {/* Category Suggestions Popover */}
+                    <AnimatePresence>
+                      {showCategorySuggestions && suggestedCategoryOptions.length > 0 && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="absolute z-[110] top-full right-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden"
+                        >
+                          <div className="p-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                            <span className="text-[10px] font-black text-brand-primary uppercase tracking-widest flex items-center gap-1">
+                              <Star size={10} className="fill-brand-primary" />
+                              {isRtl ? 'اقتراحات الفئات' : 'Category Suggestions'}
+                            </span>
+                            <button onClick={() => setShowCategorySuggestions(false)}>
+                              <X size={14} className="text-slate-400 hover:text-slate-600" />
+                            </button>
+                          </div>
+                          <div className="max-h-48 overflow-y-auto p-1">
+                            {suggestedCategoryOptions.map(cat => (
+                              <button
+                                key={cat.id}
+                                onClick={() => {
+                                  setClassification(isRtl ? cat.nameAr : cat.nameEn);
+                                  setSelectedCategories([cat.id]);
+                                  setShowCategorySuggestions(false);
+                                  toast.success(isRtl ? `تم اختيار ${cat.nameAr}` : `Selected ${cat.nameEn}`);
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition-colors flex items-center justify-between group"
+                              >
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 group-hover:text-brand-primary transition-colors">
+                                  {isRtl ? cat.nameAr : cat.nameEn}
+                                </span>
+                                {selectedCategories.includes(cat.id) && (
+                                  <CheckCircle size={14} className="text-brand-primary" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 </motion.div>
               </motion.div>

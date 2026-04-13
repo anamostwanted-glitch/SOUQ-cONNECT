@@ -230,6 +230,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                 </th>
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'المستخدم' : 'User'}</th>
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'الدور' : 'Role'}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'الحالة' : 'Status'}</th>
                 {activeTab !== 'customers' && (
                   <>
                     <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'التوثيق' : 'Verification'}</th>
@@ -298,6 +299,19 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                         <option value="supplier">{isRtl ? 'مورد' : 'Supplier'}</option>
                         <option value="admin">{isRtl ? 'مدير' : 'Admin'}</option>
                       </select>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className={`text-[10px] font-black px-2 py-1 rounded-full w-fit ${
+                          user.isDeleted ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'
+                        }`}>
+                          {user.isDeleted ? (isRtl ? 'محذوف' : 'Deleted') : (isRtl ? 'نشط' : 'Active')}
+                        </span>
+                        <span className="text-[9px] font-bold text-brand-text-muted mt-1 flex items-center gap-1">
+                          <Clock size={10} />
+                          {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString(isRtl ? 'ar-EG' : 'en-US') : (isRtl ? 'غير متوفر' : 'N/A')}
+                        </span>
+                      </div>
                     </td>
                     {activeTab !== 'customers' && (
                       <>

@@ -27,9 +27,10 @@ import {
   DollarSign,
   Zap,
   Award,
-  BrainCircuit
+  BrainCircuit,
+  Flag
 } from 'lucide-react';
-import { MarketplaceItem, PriceInsight } from '../../core/types';
+import { MarketplaceItem, PriceInsight, UserProfile } from '../../core/types';
 import { 
   doc, 
   updateDoc, 
@@ -44,6 +45,7 @@ import { handleFirestoreError, OperationType, handleAiError } from '../../core/u
 import { BlurImage } from './BlurImage';
 import { HapticButton } from './HapticButton';
 import { WhatsAppButton } from './WhatsAppButton';
+import { ReportModal } from './ReportModal';
 
 interface ProductDetailsModalProps {
   item: MarketplaceItem | null;
@@ -67,6 +69,16 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   const [isFollowingSeller, setIsFollowingSeller] = React.useState(false);
   const [isFollowLoading, setIsFollowLoading] = React.useState(false);
   const [priceInsight, setPriceInsight] = React.useState<PriceInsight | null>(null);
+  const [showReportModal, setShowReportModal] = React.useState(false);
+  const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null);
+
+  React.useEffect(() => {
+    if (auth.currentUser) {
+      getDoc(doc(db, 'users', auth.currentUser.uid)).then(snap => {
+        if (snap.exists()) setUserProfile(snap.data() as UserProfile);
+      });
+    }
+  }, []);
 
   const displayTitle = isRtl 
     ? (item?.titleAr || item?.title) 
@@ -327,12 +339,21 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                 <button 
                   onClick={handleShare}
                   className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+                  title={isRtl ? 'مشاركة' : 'Share'}
                 >
                   <Share2 className="w-5 h-5" />
                 </button>
                 {auth.currentUser && (
-                  <button 
-                    onClick={handleToggleFavorite}
+                  <>
+                    <button 
+                      onClick={() => setShowReportModal(true)}
+                      className="p-2 hover:bg-red-50 rounded-full transition-colors text-slate-400 hover:text-red-500"
+                      title={isRtl ? 'إبلاغ' : 'Report'}
+                    >
+                      <Flag className="w-5 h-5" />
+                    </button>
+                    <button 
+                      onClick={handleToggleFavorite}
                     disabled={isTogglingFavorite}
                     className={`p-2 rounded-full transition-colors ${
                       isFavorite 
@@ -342,7 +363,8 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                   >
                     <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
                   </button>
-                )}
+                </>
+              )}
                 <button onClick={onClose} className="hidden sm:block p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
                   <X className="w-6 h-6" />
                 </button>
@@ -552,6 +574,17 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           </div>
         </motion.div>
       </div>
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetId={item.id}
+        targetType="marketplace_item"
+        targetOwnerId={item.sellerId}
+        targetTitle={displayTitle || ''}
+        profile={userProfile}
+        isRtl={isRtl}
+      />
     </AnimatePresence>
   );
 };

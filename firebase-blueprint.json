@@ -318,6 +318,23 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["campaignId", "title", "text", "status", "createdAt"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "User reports on inappropriate content",
+      "type": "object",
+      "properties": {
+        "reporterId": { "type": "string" },
+        "reporterName": { "type": "string" },
+        "targetId": { "type": "string", "description": "ID of the reported item (marketplace item, user, etc.)" },
+        "targetType": { "type": "string", "enum": ["marketplace_item", "user"] },
+        "targetOwnerId": { "type": "string", "description": "UID of the user who owns the reported content" },
+        "reason": { "type": "string" },
+        "details": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "reviewed", "resolved", "dismissed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reporterId", "targetId", "targetType", "reason", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -339,6 +356,7 @@
     "/usage_logs/{logId}": { "schema": "UsageLog", "description": "AI usage and cost logs" },
     "/withdrawal_requests/{requestId}": { "schema": "WithdrawalRequest", "description": "User withdrawal requests" },
     "/campaigns/{campaignId}": { "schema": "Campaign", "description": "Marketing campaigns" },
-    "/campaigns/{campaignId}/ads/{adId}": { "schema": "CampaignAd", "description": "Campaign ads" }
+    "/campaigns/{campaignId}/ads/{adId}": { "schema": "CampaignAd", "description": "Campaign ads" },
+    "/reports/{reportId}": { "schema": "Report", "description": "User reports" }
   }
 }

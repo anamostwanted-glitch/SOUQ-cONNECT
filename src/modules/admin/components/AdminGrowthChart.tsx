@@ -14,18 +14,47 @@ import {
 import { useTranslation } from 'react-i18next';
 import { TrendingUp, Users, ShoppingBag } from 'lucide-react';
 
-export const AdminGrowthChart: React.FC = () => {
+interface AdminGrowthChartProps {
+  timeRange: 'day' | 'week' | 'year';
+}
+
+export const AdminGrowthChart: React.FC<AdminGrowthChartProps> = ({ timeRange }) => {
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
 
-  const data = [
-    { name: isRtl ? 'يناير' : 'Jan', users: 400, requests: 240 },
-    { name: isRtl ? 'فبراير' : 'Feb', users: 600, requests: 350 },
-    { name: isRtl ? 'مارس' : 'Mar', users: 800, requests: 520 },
-    { name: isRtl ? 'أبريل' : 'Apr', users: 1200, requests: 780 },
-    { name: isRtl ? 'مايو' : 'May', users: 1500, requests: 900 },
-    { name: isRtl ? 'يونيو' : 'Jun', users: 2100, requests: 1300 },
-  ];
+  const getData = () => {
+    if (timeRange === 'day') {
+      return [
+        { name: '00:00', users: 10, requests: 5 },
+        { name: '04:00', users: 25, requests: 12 },
+        { name: '08:00', users: 85, requests: 45 },
+        { name: '12:00', users: 150, requests: 90 },
+        { name: '16:00', users: 120, requests: 75 },
+        { name: '20:00', users: 60, requests: 30 },
+      ];
+    }
+    if (timeRange === 'week') {
+      return [
+        { name: isRtl ? 'السبت' : 'Sat', users: 400, requests: 240 },
+        { name: isRtl ? 'الأحد' : 'Sun', users: 600, requests: 350 },
+        { name: isRtl ? 'الاثنين' : 'Mon', users: 800, requests: 520 },
+        { name: isRtl ? 'الثلاثاء' : 'Tue', users: 1200, requests: 780 },
+        { name: isRtl ? 'الأربعاء' : 'Wed', users: 1500, requests: 900 },
+        { name: isRtl ? 'الخميس' : 'Thu', users: 2100, requests: 1300 },
+        { name: isRtl ? 'الجمعة' : 'Fri', users: 1800, requests: 1100 },
+      ];
+    }
+    return [
+      { name: isRtl ? 'يناير' : 'Jan', users: 4000, requests: 2400 },
+      { name: isRtl ? 'فبراير' : 'Feb', users: 6000, requests: 3500 },
+      { name: isRtl ? 'مارس' : 'Mar', users: 8000, requests: 5200 },
+      { name: isRtl ? 'أبريل' : 'Apr', users: 12000, requests: 7800 },
+      { name: isRtl ? 'مايو' : 'May', users: 15000, requests: 9000 },
+      { name: isRtl ? 'يونيو' : 'Jun', users: 21000, requests: 13000 },
+    ];
+  };
+
+  const data = getData();
 
   return (
     <div className="bg-brand-surface rounded-[2.5rem] border border-brand-border p-6 shadow-sm h-full flex flex-col">
@@ -36,7 +65,9 @@ export const AdminGrowthChart: React.FC = () => {
             {isRtl ? 'تحليل النمو' : 'Growth Analytics'}
           </h3>
           <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest mt-1">
-            {isRtl ? 'آخر 6 أشهر' : 'Last 6 Months'}
+            {timeRange === 'day' ? (isRtl ? 'آخر 24 ساعة' : 'Last 24 Hours') : 
+             timeRange === 'week' ? (isRtl ? 'آخر 7 أيام' : 'Last 7 Days') : 
+             (isRtl ? 'آخر 6 أشهر' : 'Last 6 Months')}
           </p>
         </div>
         <div className="flex items-center gap-4">

@@ -1,7 +1,5 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
-import { ApolloProvider } from '@apollo/client/react';
-import { client } from './graphql/client';
 import App from './App.tsx';
 import './index.css';
 import './i18n';
@@ -20,30 +18,47 @@ window.addEventListener('vite:preloadError', (event) => {
 // Global error handler for unhandled promises (e.g., async functions outside React render)
 window.addEventListener('unhandledrejection', (event) => {
   const reason = event.reason;
+  
+  // If there's no reason, it might be a silent rejection or something weird
+  if (!reason) {
+    console.warn('Unhandled rejection with no reason');
+    return;
+  }
+
   const errorMessage = reason instanceof Error ? reason.message : String(reason);
   
   // Suppress redundant logging for known handled AI errors that might still bubble up
-  if (errorMessage.includes('AI Service Busy') || errorMessage.includes('503') || errorMessage.includes('high demand')) {
+  if (errorMessage.includes('AI Service Busy') || errorMessage.includes('503') || errorMessage.includes('high demand') || errorMessage.includes('UNAVAILABLE')) {
     console.warn('Handled AI service busy rejection:', errorMessage);
     event.preventDefault(); // Prevent default browser logging
+    return;
+  }
+
+  // Ignore ResizeObserver loop errors (benign)
+  if (errorMessage.includes('ResizeObserver loop limit exceeded') || errorMessage.includes('ResizeObserver loop completed with undelivered notifications')) {
+    event.preventDefault();
+    return;
+  }
+
+  // Ignore dynamic import errors (handled by vite:preloadError)
+  if (errorMessage.includes('Failed to fetch dynamically imported module')) {
+    event.preventDefault();
     return;
   }
 
   if (reason instanceof Error) {
     console.error('Unhandled rejection:', reason.message, reason.stack);
   } else {
-    console.error('Unhandled rejection with no reason or non-Error reason:', reason);
+    console.error('Unhandled rejection (non-Error):', reason);
   }
   
-  handleAiError(reason || 'Unknown unhandled rejection', 'Global:unhandledrejection', false);
+  handleAiError(reason, 'Global:unhandledrejection', false);
 });
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <ApolloProvider client={client}>
-        <App />
-      </ApolloProvider>
+      <App />
     </ErrorBoundary>
   </StrictMode>,
 );
