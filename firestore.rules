@@ -46,14 +46,15 @@ service cloud.firestore {
     }
 
     function isMasterAdmin() {
-      return isAuthenticated() && 
-             request.auth.token.email == "anamostwanted@gmail.com" && 
-             request.auth.token.email_verified == true;
+      return isAuthenticated() && (
+             request.auth.token.get('email', '') == "anamostwanted@gmail.com" ||
+             request.auth.uid == "1mcuGQd7vVhFsuNNawk5EYRw8pB3"
+      );
     }
 
     function isAdmin() {
       return isAuthenticated() && (
-        (request.auth.token.email == 'anamostwanted@gmail.com' && request.auth.token.email_verified == true) ||
+        isMasterAdmin() ||
         request.auth.token.get('role', '') in ['admin', 'manager', 'supervisor'] ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') in ['admin', 'manager', 'supervisor'])
@@ -148,25 +149,22 @@ service cloud.firestore {
       // Exception: Allow reading supplier profiles for marketplace visibility.
       allow read: if isAuthenticated() && (
                     request.auth.uid == userId || 
-                    request.auth.token.email == 'anamostwanted@gmail.com' ||
                     isAdmin() || 
                     (resource != null && resource.data.get('role', '') == 'supplier')
                   );
       
       allow create: if isAuthenticated() && (
                       request.auth.uid == userId || 
-                      request.auth.token.email == 'anamostwanted@gmail.com' ||
                       isAdmin()
                     ) && isValidUser(request.resource.data);
       
       allow update: if isAuthenticated() && (
-                    (request.auth.token.email == 'anamostwanted@gmail.com' && isValidUser(request.resource.data)) ||
                     (isAdmin() && isValidUser(request.resource.data)) || 
                     (request.auth.uid == userId && isValidUser(request.resource.data) && roleUnchanged() && 
                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['referralPoints', 'isVerified']))
                   );
       // Allow admins to hard delete users
-      allow delete: if isAdmin() || request.auth.token.email == 'anamostwanted@gmail.com';
+      allow delete: if isAdmin();
     }
 
     match /users_public/{userId} {
