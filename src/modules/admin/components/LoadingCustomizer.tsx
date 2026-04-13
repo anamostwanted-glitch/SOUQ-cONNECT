@@ -9,8 +9,7 @@ import { handleAiError, generateLoadingScreenSettings } from '../../../core/serv
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { 
   Save, Loader2, Zap, Sparkles, Type, 
-  Settings2, Palette, Eye, Layout, 
-  MousePointer2, Activity, Upload, X, Image as ImageIcon, Bot
+  Eye, Upload, X, Bot
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -113,45 +112,12 @@ export const LoadingCustomizer: React.FC = () => {
 
   if (!settings) return null;
 
-  // Ensure default values for aura settings if they are missing
-  const auraSettings = {
-    enableNeuralPulse: settings.enableNeuralPulse ?? true,
-    enableOrbitalRings: settings.enableOrbitalRings ?? false,
-    enableShimmerEffect: settings.enableShimmerEffect ?? false,
-    logoAuraStyle: settings.logoAuraStyle || 'solid',
-    animationSpeed: settings.animationSpeed || 'normal',
-    logoAuraColor: settings.logoAuraColor || '#1b97a7',
-    logoAuraOpacity: settings.logoAuraOpacity ?? 0.4,
-    logoAuraSpread: settings.logoAuraSpread ?? 1.2,
-    logoAuraBlur: settings.logoAuraBlur ?? 40,
-    
-    // Header specific
-    headerEnableNeuralPulse: settings.headerEnableNeuralPulse ?? true,
-    headerLogoAuraColor: settings.headerLogoAuraColor || '#1b97a7',
-    headerLogoAuraOpacity: settings.headerLogoAuraOpacity ?? 0.4,
-    headerLogoAuraSpread: settings.headerLogoAuraSpread ?? 1.2,
-    headerLogoAuraBlur: settings.headerLogoAuraBlur ?? 40,
-    headerAnimationSpeed: settings.headerAnimationSpeed || 'normal',
-
-    loaderBackgroundStyle: settings.loaderBackgroundStyle || 'solid',
-    loaderLogoShape: settings.loaderLogoShape || 'square',
-    loaderLogoAnimation: settings.loaderLogoAnimation || 'float',
-    loaderBackgroundColor: settings.loaderBackgroundColor || '#0f172a',
-    loaderProgressBarColor: settings.loaderProgressBarColor || '#1b97a7',
-    loaderCenterText: settings.loaderCenterText || '',
-    loaderStatusTextAr: settings.loaderStatusTextAr || '',
-    loaderStatusTextEn: settings.loaderStatusTextEn || '',
-    loaderFooterTextAr: settings.loaderFooterTextAr || '',
-    loaderFooterTextEn: settings.loaderFooterTextEn || '',
-  };
-
   const updateSettings = (newSettings: Partial<SiteSettings>) => {
     setSettings({ ...settings, ...newSettings });
   };
 
   return (
-    <>
-      <div className="space-y-8 max-w-5xl mx-auto pb-20">
+    <div className="space-y-8 max-w-5xl mx-auto pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border shadow-sm">
         <div>
           <h1 className="text-3xl font-black text-brand-text-main tracking-tight">
@@ -213,201 +179,6 @@ export const LoadingCustomizer: React.FC = () => {
               <Zap className="text-brand-primary" size={24} />
               <h2 className="text-xl font-black text-brand-text-main">{isRtl ? 'التأثيرات البصرية' : 'Visual Effects'}</h2>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Toggles */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-black text-brand-text-main">{isRtl ? 'النبض العصبي' : 'Neural Pulse'}</span>
-                    <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-tighter">{isRtl ? 'هالة مضيئة خلف الشعار' : 'Glowing aura behind logo'}</span>
-                  </div>
-                  <button
-                    onClick={() => updateSettings({ enableNeuralPulse: !auraSettings.enableNeuralPulse })}
-                    className={`w-12 h-6 rounded-full transition-all relative ${auraSettings.enableNeuralPulse ? 'bg-brand-primary' : 'bg-brand-border'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${auraSettings.enableNeuralPulse ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-black text-brand-text-main">{isRtl ? 'الحلقات المدارية' : 'Orbital Rings'}</span>
-                    <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-tighter">{isRtl ? 'حلقات دائرية متحركة' : 'Rotating circular rings'}</span>
-                  </div>
-                  <button
-                    onClick={() => updateSettings({ enableOrbitalRings: !auraSettings.enableOrbitalRings })}
-                    className={`w-12 h-6 rounded-full transition-all relative ${auraSettings.enableOrbitalRings ? 'bg-brand-primary' : 'bg-brand-border'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${auraSettings.enableOrbitalRings ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-black text-brand-text-main">{isRtl ? 'تأثير اللمعان' : 'Shimmer Effect'}</span>
-                    <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-tighter">{isRtl ? 'لمعان متحرك فوق النص' : 'Moving light over text'}</span>
-                  </div>
-                  <button
-                    onClick={() => updateSettings({ enableShimmerEffect: !auraSettings.enableShimmerEffect })}
-                    className={`w-12 h-6 rounded-full transition-all relative ${auraSettings.enableShimmerEffect ? 'bg-brand-primary' : 'bg-brand-border'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${auraSettings.enableShimmerEffect ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Aura Style & Speed */}
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest block">
-                    {isRtl ? 'نمط الهالة' : 'Aura Style'}
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(['solid', 'gradient', 'pulse', 'mesh'] as const).map((style) => (
-                      <button
-                        key={style}
-                        onClick={() => updateSettings({ logoAuraStyle: style })}
-                        className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          auraSettings.logoAuraStyle === style 
-                            ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20' 
-                            : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/30'
-                        }`}
-                      >
-                        {style}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest block">
-                    {isRtl ? 'سرعة الأنيميشن' : 'Animation Speed'}
-                  </label>
-                  <div className="flex gap-2">
-                    {(['slow', 'normal', 'fast'] as const).map((speed) => (
-                      <button
-                        key={speed}
-                        onClick={() => updateSettings({ animationSpeed: speed })}
-                        className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          auraSettings.animationSpeed === speed 
-                            ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20' 
-                            : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/30'
-                        }`}
-                      >
-                        {speed === 'slow' ? (isRtl ? 'بطيء' : 'Slow') : speed === 'normal' ? (isRtl ? 'عادي' : 'Normal') : (isRtl ? 'سريع' : 'Fast')}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Aura Sliders */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-brand-border/50">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
-                    {isRtl ? 'لون الهالة (شاشة التحميل)' : 'Aura Color (Loader)'}
-                  </label>
-                  <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{auraSettings.logoAuraColor}</span>
-                </div>
-                <div className="flex gap-3">
-                  <div 
-                    className="w-12 h-12 rounded-2xl shadow-inner border-2 border-white relative overflow-hidden ring-1 ring-brand-border"
-                    style={{ backgroundColor: auraSettings.logoAuraColor }}
-                  >
-                    <input 
-                      type="color" 
-                      value={auraSettings.logoAuraColor}
-                      onChange={(e) => updateSettings({ logoAuraColor: e.target.value })}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    />
-                  </div>
-                  <input 
-                    type="text" 
-                    value={auraSettings.logoAuraColor}
-                    onChange={(e) => updateSettings({ logoAuraColor: e.target.value })}
-                    className="flex-1 px-4 py-3 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-mono text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
-                    {isRtl ? 'لون الهالة (الهيدر)' : 'Aura Color (Header)'}
-                  </label>
-                  <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{auraSettings.headerLogoAuraColor}</span>
-                </div>
-                <div className="flex gap-3">
-                  <div 
-                    className="w-12 h-12 rounded-2xl shadow-inner border-2 border-white relative overflow-hidden ring-1 ring-brand-border"
-                    style={{ backgroundColor: auraSettings.headerLogoAuraColor }}
-                  >
-                    <input 
-                      type="color" 
-                      value={auraSettings.headerLogoAuraColor}
-                      onChange={(e) => updateSettings({ headerLogoAuraColor: e.target.value })}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    />
-                  </div>
-                  <input 
-                    type="text" 
-                    value={auraSettings.headerLogoAuraColor}
-                    onChange={(e) => updateSettings({ headerLogoAuraColor: e.target.value })}
-                    className="flex-1 px-4 py-3 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-mono text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
-                    {isRtl ? 'شفافية الهالة' : 'Aura Opacity'}
-                  </label>
-                  <span className="text-[10px] font-black text-brand-primary">{Math.round((auraSettings.logoAuraOpacity) * 100)}%</span>
-                </div>
-                <input 
-                  type="range" min="0" max="1" step="0.05"
-                  value={auraSettings.logoAuraOpacity}
-                  onChange={e => updateSettings({ logoAuraOpacity: parseFloat(e.target.value) })}
-                  className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
-                />
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
-                    {isRtl ? 'مدى الانتشار' : 'Aura Spread'}
-                  </label>
-                  <span className="text-[10px] font-black text-brand-primary">{auraSettings.logoAuraSpread}x</span>
-                </div>
-                <input 
-                  type="range" min="1" max="3" step="0.1"
-                  value={auraSettings.logoAuraSpread}
-                  onChange={e => updateSettings({ logoAuraSpread: parseFloat(e.target.value) })}
-                  className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
-                />
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
-                    {isRtl ? 'درجة التمويه' : 'Aura Blur'}
-                  </label>
-                  <span className="text-[10px] font-black text-brand-primary">{auraSettings.logoAuraBlur}px</span>
-                </div>
-                <input 
-                  type="range" min="0" max="150" step="5"
-                  value={auraSettings.logoAuraBlur}
-                  onChange={e => updateSettings({ logoAuraBlur: parseInt(e.target.value) })}
-                  className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
-                />
-              </div>
-            </div>
-
             {/* New Advanced Customization */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-brand-border/50">
               <div className="space-y-6">
@@ -421,7 +192,7 @@ export const LoadingCustomizer: React.FC = () => {
                         key={style}
                         onClick={() => updateSettings({ loaderBackgroundStyle: style })}
                         className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          auraSettings.loaderBackgroundStyle === style 
+                          settings.loaderBackgroundStyle === style 
                             ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20' 
                             : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/30'
                         }`}
@@ -442,7 +213,7 @@ export const LoadingCustomizer: React.FC = () => {
                         key={shape}
                         onClick={() => updateSettings({ loaderLogoShape: shape })}
                         className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          auraSettings.loaderLogoShape === shape 
+                          settings.loaderLogoShape === shape 
                             ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20' 
                             : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/30'
                         }`}
@@ -465,7 +236,7 @@ export const LoadingCustomizer: React.FC = () => {
                         key={anim}
                         onClick={() => updateSettings({ loaderLogoAnimation: anim })}
                         className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          auraSettings.loaderLogoAnimation === anim 
+                          settings.loaderLogoAnimation === anim 
                             ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20' 
                             : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/30'
                         }`}
@@ -481,23 +252,23 @@ export const LoadingCustomizer: React.FC = () => {
                     <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
                       {isRtl ? 'لون الخلفية' : 'Background Color'}
                     </label>
-                    <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{auraSettings.loaderBackgroundColor}</span>
+                    <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{settings.loaderBackgroundColor}</span>
                   </div>
                   <div className="flex gap-3">
                     <div 
                       className="w-10 h-10 rounded-xl shadow-inner border-2 border-white relative overflow-hidden ring-1 ring-brand-border"
-                      style={{ backgroundColor: auraSettings.loaderBackgroundColor }}
+                      style={{ backgroundColor: settings.loaderBackgroundColor }}
                     >
                       <input 
                         type="color" 
-                        value={auraSettings.loaderBackgroundColor}
+                        value={settings.loaderBackgroundColor}
                         onChange={(e) => updateSettings({ loaderBackgroundColor: e.target.value })}
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                       />
                     </div>
                     <input 
                       type="text" 
-                      value={auraSettings.loaderBackgroundColor}
+                      value={settings.loaderBackgroundColor}
                       onChange={(e) => updateSettings({ loaderBackgroundColor: e.target.value })}
                       className="flex-1 px-4 py-2 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-mono text-xs"
                     />
@@ -509,120 +280,27 @@ export const LoadingCustomizer: React.FC = () => {
                     <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
                       {isRtl ? 'لون شريط التقدم' : 'Progress Bar Color'}
                     </label>
-                    <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{auraSettings.loaderProgressBarColor}</span>
+                    <span className="text-[10px] font-mono font-bold text-brand-primary uppercase">{settings.loaderProgressBarColor}</span>
                   </div>
                   <div className="flex gap-3">
                     <div 
                       className="w-10 h-10 rounded-xl shadow-inner border-2 border-white relative overflow-hidden ring-1 ring-brand-border"
-                      style={{ backgroundColor: auraSettings.loaderProgressBarColor }}
+                      style={{ backgroundColor: settings.loaderProgressBarColor }}
                     >
                       <input 
                         type="color" 
-                        value={auraSettings.loaderProgressBarColor}
+                        value={settings.loaderProgressBarColor}
                         onChange={(e) => updateSettings({ loaderProgressBarColor: e.target.value })}
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                       />
                     </div>
                     <input 
                       type="text" 
-                      value={auraSettings.loaderProgressBarColor}
+                      value={settings.loaderProgressBarColor}
                       onChange={(e) => updateSettings({ loaderProgressBarColor: e.target.value })}
                       className="flex-1 px-4 py-2 bg-brand-background border border-brand-border rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all font-mono text-xs"
                     />
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Header Aura Settings Section */}
-          <div className="bg-brand-surface p-8 rounded-[2rem] border border-brand-border shadow-sm space-y-8">
-            <div className="flex items-center gap-3 pb-4 border-b border-brand-border">
-              <Layout className="text-brand-primary" size={24} />
-              <h2 className="text-xl font-black text-brand-text-main">{isRtl ? 'إعدادات هالة الهيدر' : 'Header Aura Settings'}</h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-black text-brand-text-main">{isRtl ? 'تفعيل النبض في الهيدر' : 'Header Neural Pulse'}</span>
-                    <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-tighter">{isRtl ? 'هالة مضيئة خلف شعار الهيدر' : 'Glowing aura behind header logo'}</span>
-                  </div>
-                  <button
-                    onClick={() => updateSettings({ headerEnableNeuralPulse: !auraSettings.headerEnableNeuralPulse })}
-                    className={`w-12 h-6 rounded-full transition-all relative ${auraSettings.headerEnableNeuralPulse ? 'bg-brand-primary' : 'bg-brand-border'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${auraSettings.headerEnableNeuralPulse ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')}`} />
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest block">
-                    {isRtl ? 'سرعة أنيميشن الهيدر' : 'Header Animation Speed'}
-                  </label>
-                  <div className="flex gap-2">
-                    {(['slow', 'normal', 'fast'] as const).map((speed) => (
-                      <button
-                        key={speed}
-                        onClick={() => updateSettings({ headerAnimationSpeed: speed })}
-                        className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          auraSettings.headerAnimationSpeed === speed 
-                            ? 'bg-brand-primary text-white border-brand-primary shadow-md shadow-brand-primary/20' 
-                            : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/30'
-                        }`}
-                      >
-                        {speed === 'slow' ? (isRtl ? 'بطيء' : 'Slow') : speed === 'normal' ? (isRtl ? 'عادي' : 'Normal') : (isRtl ? 'سريع' : 'Fast')}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
-                      {isRtl ? 'شفافية هالة الهيدر' : 'Header Aura Opacity'}
-                    </label>
-                    <span className="text-[10px] font-black text-brand-primary">{Math.round((auraSettings.headerLogoAuraOpacity) * 100)}%</span>
-                  </div>
-                  <input 
-                    type="range" min="0" max="1" step="0.05"
-                    value={auraSettings.headerLogoAuraOpacity}
-                    onChange={e => updateSettings({ headerLogoAuraOpacity: parseFloat(e.target.value) })}
-                    className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
-                      {isRtl ? 'مدى انتشار هالة الهيدر' : 'Header Aura Spread'}
-                    </label>
-                    <span className="text-[10px] font-black text-brand-primary">{auraSettings.headerLogoAuraSpread}x</span>
-                  </div>
-                  <input 
-                    type="range" min="1" max="3" step="0.1"
-                    value={auraSettings.headerLogoAuraSpread}
-                    onChange={e => updateSettings({ headerLogoAuraSpread: parseFloat(e.target.value) })}
-                    className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest">
-                      {isRtl ? 'تمويه هالة الهيدر' : 'Header Aura Blur'}
-                    </label>
-                    <span className="text-[10px] font-black text-brand-primary">{auraSettings.headerLogoAuraBlur}px</span>
-                  </div>
-                  <input 
-                    type="range" min="0" max="150" step="5"
-                    value={auraSettings.headerLogoAuraBlur}
-                    onChange={e => updateSettings({ headerLogoAuraBlur: parseInt(e.target.value) })}
-                    className="w-full h-2 bg-brand-border rounded-lg appearance-none cursor-pointer accent-brand-primary"
-                  />
                 </div>
               </div>
             </div>
@@ -692,7 +370,7 @@ export const LoadingCustomizer: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={auraSettings.loaderCenterText}
+                  value={settings.loaderCenterText || ''}
                   onChange={(e) => updateSettings({ loaderCenterText: e.target.value })}
                   className="w-full bg-brand-background border border-brand-border rounded-xl p-3.5 text-brand-text-main font-black text-lg focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
                   placeholder="DFEI"
@@ -705,7 +383,7 @@ export const LoadingCustomizer: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={auraSettings.loaderStatusTextAr}
+                  value={settings.loaderStatusTextAr || ''}
                   onChange={(e) => updateSettings({ loaderStatusTextAr: e.target.value })}
                   className="w-full bg-brand-background border border-brand-border rounded-xl p-3.5 text-brand-text-main font-bold focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
                   dir="rtl"
@@ -718,7 +396,7 @@ export const LoadingCustomizer: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={auraSettings.loaderStatusTextEn}
+                  value={settings.loaderStatusTextEn || ''}
                   onChange={(e) => updateSettings({ loaderStatusTextEn: e.target.value })}
                   className="w-full bg-brand-background border border-brand-border rounded-xl p-3.5 text-brand-text-main font-bold focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
                   dir="ltr"
@@ -731,7 +409,7 @@ export const LoadingCustomizer: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={auraSettings.loaderFooterTextAr}
+                  value={settings.loaderFooterTextAr || ''}
                   onChange={(e) => updateSettings({ loaderFooterTextAr: e.target.value })}
                   className="w-full bg-brand-background border border-brand-border rounded-xl p-3.5 text-brand-text-main font-bold focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
                   dir="rtl"
@@ -744,7 +422,7 @@ export const LoadingCustomizer: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={auraSettings.loaderFooterTextEn}
+                  value={settings.loaderFooterTextEn || ''}
                   onChange={(e) => updateSettings({ loaderFooterTextEn: e.target.value })}
                   className="w-full bg-brand-background border border-brand-border rounded-xl p-3.5 text-brand-text-main font-bold focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
                   dir="ltr"
@@ -778,6 +456,6 @@ export const LoadingCustomizer: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 };

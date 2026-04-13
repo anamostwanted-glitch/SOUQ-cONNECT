@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import i18nInstance from '../../../../i18n';
-import { UserProfile, Notification, AppFeatures, Category, UserRole } from '../../../../core/types';
+import { UserProfile, Notification, SiteSettings, AppFeatures, Category, UserRole } from '../../../../core/types';
 import { ArrowUp, AlertCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { auth, db } from '../../../../core/firebase';
@@ -16,7 +16,6 @@ import { useBranding } from '../../../../core/providers/BrandingProvider';
 import { PremiumVisualSearchModal } from '../../../../shared/components/PremiumVisualSearchModal';
 import { NotificationModal } from '../../../../shared/components/NotificationModal';
 import { HapticButton } from '../../../../shared/components/HapticButton';
-import { NeuralPulse } from '../NeuralPulse';
 import { GlobalProgress } from '../../../../shared/components/GlobalProgress';
 
 import { AIActionHub } from './AIActionHub';
@@ -27,6 +26,7 @@ import HelpCenter from '../HelpCenter';
 
 interface LayoutProps {
   children: React.ReactNode;
+  settings: SiteSettings | null;
   profile: UserProfile | null;
   features: AppFeatures;
   currentView: string;
@@ -47,6 +47,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ 
   children, 
+  settings,
   profile, 
   features,
   currentView, 
@@ -70,26 +71,11 @@ export const Layout: React.FC<LayoutProps> = ({
   
   const [siteLogo, setSiteLogo] = useState('');
   const [siteName, setSiteName] = useState('');
-  const [logoAuraColor, setLogoAuraColor] = useState('#1b97a7');
-  const [logoAuraBlur, setLogoAuraBlur] = useState(20);
-  const [logoAuraSpread, setLogoAuraSpread] = useState(1.2);
-  const [logoAuraOpacity, setLogoAuraOpacity] = useState(0.4);
-  const [logoAuraStyle, setLogoAuraStyle] = useState<'solid' | 'gradient' | 'pulse' | 'mesh'>('solid');
-  const [logoAuraSharpness, setLogoAuraSharpness] = useState(50);
   const [logoScale, setLogoScale] = useState(1);
-  const [showNeuralLogo, setShowNeuralLogo] = useState(true);
 
   // Header specific settings
-  const [headerLogoAuraColor, setHeaderLogoAuraColor] = useState('#1b97a7');
-  const [headerLogoAuraBlur, setHeaderLogoAuraBlur] = useState(20);
-  const [headerLogoAuraSpread, setHeaderLogoAuraSpread] = useState(1.2);
-  const [headerLogoAuraOpacity, setHeaderLogoAuraOpacity] = useState(0.4);
-  const [headerLogoAuraStyle, setHeaderLogoAuraStyle] = useState<'solid' | 'gradient' | 'pulse' | 'mesh'>('solid');
-  const [headerLogoAuraSharpness, setHeaderLogoAuraSharpness] = useState(50);
   const [headerLogoScale, setHeaderLogoScale] = useState(1);
-  const [headerShowNeuralLogo, setHeaderShowNeuralLogo] = useState(true);
   const [headerAnimationSpeed, setHeaderAnimationSpeed] = useState<'slow' | 'normal' | 'fast'>('normal');
-  const [enableNeuralPulse, setEnableNeuralPulse] = useState(true);
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -230,26 +216,11 @@ export const Layout: React.FC<LayoutProps> = ({
       const data = e.detail;
       if (data.logoUrl !== undefined) setSiteLogo(data.logoUrl);
       if (data.siteName !== undefined) setSiteName(data.siteName);
-      if (data.logoAuraColor !== undefined) setLogoAuraColor(data.logoAuraColor);
-      if (data.logoAuraBlur !== undefined) setLogoAuraBlur(data.logoAuraBlur);
-      if (data.logoAuraSpread !== undefined) setLogoAuraSpread(data.logoAuraSpread);
-      if (data.logoAuraOpacity !== undefined) setLogoAuraOpacity(data.logoAuraOpacity);
-      if (data.logoAuraStyle !== undefined) setLogoAuraStyle(data.logoAuraStyle);
-      if (data.logoAuraSharpness !== undefined) setLogoAuraSharpness(data.logoAuraSharpness);
       if (data.logoScale !== undefined) setLogoScale(data.logoScale);
-      if (data.showNeuralLogo !== undefined) setShowNeuralLogo(data.showNeuralLogo);
 
       // Header specific preview
-      if (data.headerLogoAuraColor !== undefined) setHeaderLogoAuraColor(data.headerLogoAuraColor);
-      if (data.headerLogoAuraBlur !== undefined) setHeaderLogoAuraBlur(data.headerLogoAuraBlur);
-      if (data.headerLogoAuraSpread !== undefined) setHeaderLogoAuraSpread(data.headerLogoAuraSpread);
-      if (data.headerLogoAuraOpacity !== undefined) setHeaderLogoAuraOpacity(data.headerLogoAuraOpacity);
-      if (data.headerLogoAuraStyle !== undefined) setHeaderLogoAuraStyle(data.headerLogoAuraStyle);
-      if (data.headerLogoAuraSharpness !== undefined) setHeaderLogoAuraSharpness(data.headerLogoAuraSharpness);
       if (data.headerLogoScale !== undefined) setHeaderLogoScale(data.headerLogoScale);
-      if (data.headerShowNeuralLogo !== undefined) setHeaderShowNeuralLogo(data.headerShowNeuralLogo);
       if (data.headerAnimationSpeed !== undefined) setHeaderAnimationSpeed(data.headerAnimationSpeed);
-      if (data.enableNeuralPulse !== undefined) setEnableNeuralPulse(data.enableNeuralPulse);
     };
     window.addEventListener('site-settings-preview', handlePreview);
     return () => window.removeEventListener('site-settings-preview', handlePreview);
@@ -261,26 +232,11 @@ export const Layout: React.FC<LayoutProps> = ({
         const data = snap.data();
         setSiteLogo(data.logoUrl || '');
         setSiteName(data.siteName || '');
-        setLogoAuraColor(data.logoAuraColor || '#1b97a7');
-        setLogoAuraBlur(data.logoAuraBlur ?? 20);
-        setLogoAuraSpread(data.logoAuraSpread ?? 1.2);
-        setLogoAuraOpacity(data.logoAuraOpacity ?? 0.4);
-        setLogoAuraStyle(data.logoAuraStyle || 'solid');
-        setLogoAuraSharpness(data.logoAuraSharpness ?? 50);
         setLogoScale(data.logoScale ?? 1);
-        setShowNeuralLogo(data.showNeuralLogo ?? true);
 
         // Header specific
-        setHeaderLogoAuraColor(data.headerLogoAuraColor || data.logoAuraColor || '#1b97a7');
-        setHeaderLogoAuraBlur(data.headerLogoAuraBlur ?? data.logoAuraBlur ?? 20);
-        setHeaderLogoAuraSpread(data.headerLogoAuraSpread ?? data.logoAuraSpread ?? 1.2);
-        setHeaderLogoAuraOpacity(data.headerLogoAuraOpacity ?? data.logoAuraOpacity ?? 0.4);
-        setHeaderLogoAuraStyle(data.headerLogoAuraStyle || data.logoAuraStyle || 'solid');
-        setHeaderLogoAuraSharpness(data.headerLogoAuraSharpness ?? data.logoAuraSharpness ?? 50);
         setHeaderLogoScale(data.headerLogoScale ?? data.logoScale ?? 1);
-        setHeaderShowNeuralLogo(data.headerShowNeuralLogo ?? data.showNeuralLogo ?? true);
         setHeaderAnimationSpeed(data.headerAnimationSpeed ?? data.animationSpeed ?? 'normal');
-        setEnableNeuralPulse(data.enableNeuralPulse ?? true);
       }
     }, (error) => {
       console.error('Firestore Error in settings/site listener:', error);
@@ -370,16 +326,10 @@ export const Layout: React.FC<LayoutProps> = ({
       <GlobalProgress progress={progress} />
       <div className="z-50">
         <Header 
+          settings={settings}
           siteLogo={siteLogo}
           siteName={siteName}
-          logoAuraColor={headerLogoAuraColor}
-          logoAuraBlur={headerLogoAuraBlur}
-          logoAuraSpread={headerLogoAuraSpread}
-          logoAuraOpacity={headerLogoAuraOpacity}
-          logoAuraStyle={headerLogoAuraStyle}
-          logoAuraSharpness={headerLogoAuraSharpness}
           logoScale={headerLogoScale}
-          showNeuralLogo={headerShowNeuralLogo}
           animationSpeed={headerAnimationSpeed}
           currentView={currentView}
           setView={setView}
@@ -465,14 +415,7 @@ export const Layout: React.FC<LayoutProps> = ({
         toggleLanguage={toggleLanguage}
         siteLogo={siteLogo}
         siteName={siteName}
-        logoAuraColor={headerLogoAuraColor}
-        logoAuraBlur={headerLogoAuraBlur}
-        logoAuraSpread={headerLogoAuraSpread}
-        logoAuraOpacity={headerLogoAuraOpacity}
-        logoAuraStyle={headerLogoAuraStyle}
-        logoAuraSharpness={headerLogoAuraSharpness}
         logoScale={headerLogoScale}
-        showNeuralLogo={headerShowNeuralLogo}
         onPrefetch={onPrefetch}
         onVisualSearch={() => setIsAIHubOpen(true)}
         onOpenHelpCenter={() => setShowHelpCenter(true)}
@@ -577,12 +520,6 @@ export const Layout: React.FC<LayoutProps> = ({
           />
         )}
       </AnimatePresence>
-
-      {enableNeuralPulse && (
-        <div className="hidden md:block">
-          <NeuralPulse isMomentOfNeed={isMomentOfNeed} />
-        </div>
-      )}
     </div>
   );
 };

@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import { IdentitySettings } from './settings/IdentitySettings';
 import { HeroSettings } from './settings/HeroSettings';
 import { SearchSettings } from './settings/SearchSettings';
-import { NeuralLogoSettings } from './settings/NeuralLogoSettings';
 import { MarketSettings } from './settings/MarketSettings';
 import { RegistrationSettings } from './settings/RegistrationSettings';
 import { SocialProofSettings } from './settings/SocialProofSettings';
@@ -34,22 +33,11 @@ export const SiteSettingsManager: React.FC = () => {
     siteName: '',
     logoUrl: '',
     logoScale: 1,
-    logoAuraColor: '#1b97a7',
-    logoAuraBlur: 20,
-    logoAuraSpread: 1.2,
-    logoAuraOpacity: 0.4,
-    logoAuraStyle: 'solid',
-    logoAuraSharpness: 50,
-    showNeuralLogo: true,
-    enableNeuralPulse: true,
-    enableOrbitalRings: true,
-    enableShimmerEffect: true,
-    animationSpeed: 'normal',
     loaderCenterText: 'DFEI',
     loaderStatusTextAr: 'جاري التحميل...',
     loaderStatusTextEn: 'Initializing Hub',
     loaderFooterTextAr: 'مدعوم بالذكاء الاصطناعي',
-    loaderFooterTextEn: 'Powered by Neural Intelligence',
+    loaderFooterTextEn: 'Powered by AI Intelligence',
     primaryTextColor: '#ffffff',
     secondaryTextColor: '#94a3b8',
     watermarkUrl: '',
@@ -69,16 +57,6 @@ export const SiteSettingsManager: React.FC = () => {
       gap: 16,
       aiAutoPilot: true
     },
-    neuralNav: {
-      enabled: false,
-      showProfile: true,
-      showNotifications: true,
-      showMessages: true,
-      showAiHub: true,
-      showVisualSearch: true,
-      pulseSpeed: 'normal',
-      themeColor: '#1b97a7'
-    },
     socialProof: {
       enabled: true
     }
@@ -88,7 +66,7 @@ export const SiteSettingsManager: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [activeLogoTab, setActiveLogoTab] = useState<'hero' | 'header'>('hero');
-  const [currentTab, setCurrentTab] = useState<'identity' | 'hero' | 'search' | 'neural' | 'market' | 'social' | 'registration'>('identity');
+  const [currentTab, setCurrentTab] = useState<'identity' | 'hero' | 'search' | 'market' | 'social' | 'registration'>('identity');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'watermark' | 'loaderLogo') => {
     const file = e.target.files?.[0];
@@ -200,7 +178,6 @@ export const SiteSettingsManager: React.FC = () => {
           { id: 'identity', label: isRtl ? 'الهوية' : 'Identity', icon: Palette },
           { id: 'hero', label: isRtl ? 'الترحيب' : 'Hero', icon: Layout },
           { id: 'search', label: isRtl ? 'البحث' : 'Search', icon: Search },
-          { id: 'neural', label: isRtl ? 'الشعار العصبي' : 'Neural Logo', icon: Sparkles },
           { id: 'market', label: isRtl ? 'السوق' : 'Market', icon: LayoutGrid },
           { id: 'social', label: isRtl ? 'الإحصائيات' : 'Social Proof', icon: Layout },
           { id: 'registration', label: isRtl ? 'قوائم التسجيل' : 'Registration', icon: ListChecks },
@@ -230,7 +207,6 @@ export const SiteSettingsManager: React.FC = () => {
         {currentTab === 'identity' && <IdentitySettings settings={settings} setSettings={setSettings} isRtl={isRtl} handleFileUpload={handleFileUpload} isUploadingLogo={isUploadingLogo} />}
         {currentTab === 'hero' && <HeroSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'search' && <SearchSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
-        {currentTab === 'neural' && <NeuralLogoSettings settings={settings} setSettings={setSettings} isRtl={isRtl} activeLogoTab={activeLogoTab} setActiveLogoTab={setActiveLogoTab} />}
         {currentTab === 'market' && <MarketSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'social' && <SocialProofSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'registration' && <RegistrationSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}

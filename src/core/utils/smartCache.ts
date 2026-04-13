@@ -1,5 +1,5 @@
 /**
- * Neural Cache Utility
+ * Smart Cache Utility
  * Implements "Semantic Mirroring" to reduce AI token usage by caching 
  * results locally based on semantic fingerprints.
  */
@@ -10,10 +10,10 @@ interface CacheEntry {
   expiresIn: number;
 }
 
-const CACHE_PREFIX = 'neural_pulse_cache_';
+const CACHE_PREFIX = 'smart_insights_cache_';
 const DEFAULT_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 
-export const neuralCache = {
+export const smartCache = {
   /**
    * Generates a fingerprint for an image based on its base64 data
    */

@@ -697,12 +697,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   try {
                     const batch = writeBatch(db);
                     uids.forEach(uid => {
-                      // Hard Delete as requested by user: "The deletion process must be a permanent removal from the database"
-                      batch.delete(doc(db, 'users', uid));
-                      batch.delete(doc(db, 'users_public', uid));
+                      // Soft Delete as per AGENTS.md: "NEVER use deleteDoc... ALWAYS use Soft Delete"
+                      batch.update(doc(db, 'users', uid), { 
+                        status: 'deleted', 
+                        deletedAt: new Date().toISOString(),
+                        isDeleted: true 
+                      });
+                      batch.update(doc(db, 'users_public', uid), { 
+                        status: 'deleted',
+                        isDeleted: true 
+                      });
                     });
                     await batch.commit();
-                    toast.success(isRtl ? 'تم حذف المستخدمين المحددين نهائياً من قاعدة البيانات' : 'Selected users permanently removed from database');
+                    toast.success(isRtl ? 'تم نقل المستخدمين المحددين إلى الأرشيف (حذف ناعم)' : 'Selected users moved to archive (soft delete)');
                   } catch (error) {
                     handleFirestoreError(error, OperationType.DELETE, 'users/bulk-delete', false);
                     toast.error(isRtl ? 'فشل حذف المستخدمين' : 'Failed to delete users');
@@ -715,12 +722,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 }}
                 onDeleteUser={async (uid) => {
                   try {
-                    // Hard Delete as requested by user: "The deletion process must be a permanent removal from the database"
+                    // Soft Delete as per AGENTS.md: "NEVER use deleteDoc... ALWAYS use Soft Delete"
                     const batch = writeBatch(db);
-                    batch.delete(doc(db, 'users', uid));
-                    batch.delete(doc(db, 'users_public', uid));
+                    batch.update(doc(db, 'users', uid), { 
+                      status: 'deleted', 
+                      deletedAt: new Date().toISOString(),
+                      isDeleted: true 
+                    });
+                    batch.update(doc(db, 'users_public', uid), { 
+                      status: 'deleted',
+                      isDeleted: true 
+                    });
                     await batch.commit();
-                    toast.success(isRtl ? 'تم حذف المستخدم نهائياً من قاعدة البيانات' : 'User permanently removed from database');
+                    toast.success(isRtl ? 'تم نقل المستخدم إلى الأرشيف (حذف ناعم)' : 'User moved to archive (soft delete)');
                   } catch (error) {
                     handleFirestoreError(error, OperationType.DELETE, `users/${uid}`, false);
                     toast.error(isRtl ? 'فشل حذف المستخدم' : 'Failed to delete user');

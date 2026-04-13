@@ -8,19 +8,13 @@ import { NotificationDropdown } from './NotificationDropdown';
 import { BentoMenu } from './BentoMenu';
 import { auth } from '../../../../core/firebase';
 import { getUserImageUrl } from '../../../../core/utils/imageUtils';
-import { UserProfile, AppFeatures, UserRole, Notification } from '../../../../core/types';
+import { UserProfile, AppFeatures, UserRole, Notification, SiteSettings } from '../../../../core/types';
 
 interface HeaderProps {
+  settings: SiteSettings | null;
   siteLogo: string;
   siteName: string;
-  logoAuraColor: string;
-  logoAuraBlur: number;
-  logoAuraSpread: number;
-  logoAuraOpacity: number;
-  logoAuraStyle: 'solid' | 'gradient' | 'pulse' | 'mesh';
-  logoAuraSharpness: number;
   logoScale: number;
-  showNeuralLogo: boolean;
   animationSpeed: 'slow' | 'normal' | 'fast';
   currentView: string;
   setView: (view: any) => void;
@@ -49,16 +43,10 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
+  settings,
   siteLogo,
   siteName,
-  logoAuraColor,
-  logoAuraBlur,
-  logoAuraSpread,
-  logoAuraOpacity,
-  logoAuraStyle,
-  logoAuraSharpness,
   logoScale,
-  showNeuralLogo,
   animationSpeed,
   currentView,
   setView,
@@ -119,30 +107,8 @@ export const Header: React.FC<HeaderProps> = ({
           </HapticButton>
         )}
 
-        {/* Profile / Login with Neural Aura */}
+        {/* Profile / Login */}
         <div className="relative shrink-0">
-          {/* Neural Aura Effect */}
-          {showNeuralLogo && (
-            <motion.div
-              animate={{
-                scale: [1, logoAuraSpread, 1],
-                opacity: [logoAuraOpacity * 0.5, logoAuraOpacity, logoAuraOpacity * 0.5],
-              }}
-              transition={{
-                duration: getSpeed(),
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              className="absolute inset-0 rounded-full pointer-events-none"
-              style={{
-                backgroundColor: logoAuraColor,
-                filter: `blur(${logoAuraBlur}px)`,
-                transform: `scale(${logoScale})`,
-                zIndex: 0
-              }}
-            />
-          )}
-
           {profile ? (
             <HapticButton
               onClick={() => setView('profile')}

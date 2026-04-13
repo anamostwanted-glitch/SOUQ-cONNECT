@@ -24,14 +24,7 @@ interface MobileMenuProps {
   toggleLanguage: () => void;
   siteLogo: string;
   siteName: string;
-  logoAuraColor?: string;
-  logoAuraBlur?: number;
-  logoAuraSpread?: number;
-  logoAuraOpacity?: number;
-  logoAuraStyle?: 'solid' | 'gradient' | 'pulse' | 'mesh';
-  logoAuraSharpness?: number;
   logoScale?: number;
-  showNeuralLogo?: boolean;
   onPrefetch?: (view: string) => void;
   onVisualSearch?: () => void;
   onOpenHelpCenter?: () => void;
@@ -54,14 +47,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   toggleLanguage,
   siteLogo,
   siteName,
-  logoAuraColor = '#1b97a7',
-  logoAuraBlur = 20,
-  logoAuraSpread = 1.2,
-  logoAuraOpacity = 0.4,
-  logoAuraStyle = 'solid',
-  logoAuraSharpness = 50,
   logoScale = 1,
-  showNeuralLogo = true,
   onPrefetch,
   onVisualSearch,
   onOpenHelpCenter
@@ -95,36 +81,6 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-3">
                     <div className="relative group">
-                      {showNeuralLogo && (
-                        <motion.div 
-                          animate={logoAuraStyle === 'pulse' ? {
-                            scale: [1, logoAuraSpread, 1],
-                            opacity: [logoAuraOpacity * 0.5, logoAuraOpacity, logoAuraOpacity * 0.5],
-                          } : logoAuraStyle === 'mesh' ? {
-                            scale: [1, 1.1, 1],
-                            rotate: [0, 90, 180, 270, 360],
-                            borderRadius: ["40% 60% 70% 30% / 40% 50% 60% 50%", "60% 40% 30% 70% / 50% 60% 40% 60%", "40% 60% 70% 30% / 40% 50% 60% 50%"]
-                          } : { 
-                            scale: [1, 1.05, 1],
-                            opacity: [logoAuraOpacity * 0.8, logoAuraOpacity, logoAuraOpacity * 0.8],
-                          }}
-                          transition={{ 
-                            duration: logoAuraStyle === 'pulse' ? 3 : 8, 
-                            repeat: Infinity, 
-                            ease: "easeInOut" 
-                          }}
-                          className="absolute -inset-2 rounded-xl pointer-events-none z-0"
-                          style={{ 
-                            backgroundColor: logoAuraStyle === 'solid' ? logoAuraColor : 'transparent',
-                            backgroundImage: logoAuraStyle === 'gradient' ? `radial-gradient(circle, ${logoAuraColor} 0%, transparent 70%)` : 
-                                             logoAuraStyle === 'mesh' ? `conic-gradient(from 0deg, ${logoAuraColor}, ${logoAuraColor}88, ${logoAuraColor}44, ${logoAuraColor}88, ${logoAuraColor})` : 'none',
-                            filter: `blur(${logoAuraBlur}px) contrast(${100 + (logoAuraSharpness - 50) * 2}%)`,
-                            opacity: logoAuraOpacity,
-                            transform: `scale(${logoAuraSpread})`,
-                            boxShadow: logoAuraColor.toLowerCase() === '#ffffff' ? '0 0 15px 2px rgba(0,0,0,0.05)' : 'none'
-                          }}
-                        />
-                      )}
                       <div className="relative z-10">
                         {siteLogo ? (
                           <img 

@@ -19,12 +19,23 @@ window.addEventListener('vite:preloadError', (event) => {
 
 // Global error handler for unhandled promises (e.g., async functions outside React render)
 window.addEventListener('unhandledrejection', (event) => {
-  if (event.reason instanceof Error) {
-    console.error('Unhandled rejection:', event.reason.message, event.reason.stack);
-  } else {
-    console.error('Unhandled rejection with no reason or non-Error reason:', event.reason);
+  const reason = event.reason;
+  const errorMessage = reason instanceof Error ? reason.message : String(reason);
+  
+  // Suppress redundant logging for known handled AI errors that might still bubble up
+  if (errorMessage.includes('AI Service Busy') || errorMessage.includes('503') || errorMessage.includes('high demand')) {
+    console.warn('Handled AI service busy rejection:', errorMessage);
+    event.preventDefault(); // Prevent default browser logging
+    return;
   }
-  handleAiError(event.reason || 'Unknown unhandled rejection', 'Global:unhandledrejection', false);
+
+  if (reason instanceof Error) {
+    console.error('Unhandled rejection:', reason.message, reason.stack);
+  } else {
+    console.error('Unhandled rejection with no reason or non-Error reason:', reason);
+  }
+  
+  handleAiError(reason || 'Unknown unhandled rejection', 'Global:unhandledrejection', false);
 });
 
 createRoot(document.getElementById('root')!).render(

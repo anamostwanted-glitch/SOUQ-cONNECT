@@ -3,7 +3,7 @@ import { Category, UserProfile, GeminiApiKey, ProductRequest } from "../types";
 
 import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { neuralCache } from '../utils/neuralCache';
+import { smartCache } from '../utils/smartCache';
 import { getCachedData, setCachedData } from '../utils/cache';
 import { handleFirestoreError, OperationType, handleAiError as handleAiErrorCentral } from '../utils/errorHandling';
 import { AIResilienceManager } from '../utils/AIResilienceManager';
@@ -357,6 +357,15 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
         errorString.includes('429') ||
         errorString.includes('quota');
 
+      const isServiceUnavailable = 
+        error?.status === 503 || 
+        error?.error?.code === 503 ||
+        error?.message?.includes('503') ||
+        error?.message?.includes('UNAVAILABLE') ||
+        error?.message?.includes('high demand') ||
+        errorString.includes('503') ||
+        errorString.includes('UNAVAILABLE');
+
       if (isQuotaError && lastUsedKey) {
         console.warn(`Quota exceeded for key ${lastUsedKey.substring(0, 5)}... marking as exhausted.`);
         exhaustedKeys.set(lastUsedKey, Date.now() + EXHAUST_COOLDOWN);
@@ -374,8 +383,8 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
         errorString.includes('INVALID_ARGUMENT') ||
         error.isInvalidKey === true;
 
-      if (isQuotaError || isInvalidKeyError) {
-        if (lastUsedKey) {
+      if (isQuotaError || isInvalidKeyError || isServiceUnavailable) {
+        if (lastUsedKey && (isQuotaError || isInvalidKeyError)) {
           const isInvalid = isInvalidKeyError;
           console.warn(`Key ${isInvalid ? 'invalid' : 'exhausted'}: ${lastUsedKey.substring(0, 8)}... Marking for cooldown.`);
           // Invalid keys get a much longer cooldown (24 hours) as they are unlikely to fix themselves
@@ -383,7 +392,8 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
         }
 
         if (currentRetries > 0 && !isInvalidKeyError) {
-          console.warn(`Quota exceeded, retrying in ${currentDelay}ms with a potentially different key... (${currentRetries} retries left)`);
+          const reason = isServiceUnavailable ? 'Service unavailable (503)' : 'Quota exceeded';
+          console.warn(`${reason}, retrying in ${currentDelay}ms... (${currentRetries} retries left)`);
           await new Promise(resolve => setTimeout(resolve, currentDelay));
           return execute(currentRetries - 1, currentDelay * 2);
         }
@@ -394,6 +404,10 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
 
   return execute(retries, delay);
 }
+
+export const analyzeSystemPulse = async (systemData: any, language: string): Promise<any> => {
+  return { status: 'ok', message: 'System pulse is normal' };
+};
 
 export const translateText = async (text: string, targetLanguage: string): Promise<string> => {
   try {
@@ -467,15 +481,15 @@ export const analyzeUserBehavior = async (profile: UserProfile, recentSearches: 
   }, fallback, 'Behavior analysis', isFailure);
 };
 
-export const analyzeNeuralPulseImage = async (base64Data: string, mimeType: string): Promise<any> => {
+export const analyzeSmartImage = async (base64Data: string, mimeType: string): Promise<any> => {
   const fallback = { found: false, error: 'Analysis failed' };
 
   return AIResilienceManager.execute(async () => {
     // 1. Semantic Check (0 Tokens)
-    const fingerprint = neuralCache.generateImageFingerprint(base64Data);
-    const cached = neuralCache.get(fingerprint);
+    const fingerprint = smartCache.generateImageFingerprint(base64Data);
+    const cached = smartCache.get(fingerprint);
     if (cached) {
-      await logUsage('Neural Pulse Image', 0, true);
+      await logUsage('Smart Image Analysis', 0, true);
       return { ...cached, isCached: true };
     }
 
@@ -497,23 +511,23 @@ export const analyzeNeuralPulseImage = async (base64Data: string, mimeType: stri
     );
     
     const tokens = (base64Data.length / 4 + JSON.stringify(result).length) / 4;
-    await logUsage('Neural Pulse Image', Math.ceil(tokens));
+    await logUsage('Smart Image Analysis', Math.ceil(tokens));
     
     // Store in Semantic Memory
-    neuralCache.set(fingerprint, result);
+    smartCache.set(fingerprint, result);
     return result;
-  }, fallback, 'Neural Pulse Image Analysis', isFailure);
+  }, fallback, 'Smart Image Analysis', isFailure);
 };
 
-export const processNeuralPulseVoice = async (transcript: string): Promise<any> => {
+export const processSmartVoice = async (transcript: string): Promise<any> => {
   const fallback = { success: false };
 
   return AIResilienceManager.execute(async () => {
     // 1. Semantic Check (0 Tokens)
-    const fingerprint = neuralCache.generateVoiceFingerprint(transcript);
-    const cached = neuralCache.get(fingerprint);
+    const fingerprint = smartCache.generateVoiceFingerprint(transcript);
+    const cached = smartCache.get(fingerprint);
     if (cached) {
-      await logUsage('Neural Pulse Voice', 0, true);
+      await logUsage('Smart Voice Processing', 0, true);
       return { ...cached, isCached: true };
     }
 
@@ -533,21 +547,21 @@ export const processNeuralPulseVoice = async (transcript: string): Promise<any> 
     );
     
     const tokens = (transcript.length + JSON.stringify(result).length) / 4;
-    await logUsage('Neural Pulse Voice', Math.ceil(tokens));
+    await logUsage('Smart Voice Processing', Math.ceil(tokens));
     
     // Store in Semantic Memory
-    neuralCache.set(fingerprint, result);
+    smartCache.set(fingerprint, result);
     return result;
-  }, fallback, 'Neural Pulse Voice Processing', isFailure);
+  }, fallback, 'Smart Voice Processing', isFailure);
 };
 
-export const generateNeuralPulseGeoInsight = async (lat: number, lng: number, recentInterests: string[]): Promise<any> => {
+export const generateSmartGeoInsight = async (lat: number, lng: number, recentInterests: string[]): Promise<any> => {
   try {
     // 1. Semantic Check (0 Tokens) - Bucketed location
-    const fingerprint = neuralCache.generateGeoFingerprint(lat, lng, recentInterests);
-    const cached = neuralCache.get(fingerprint);
+    const fingerprint = smartCache.generateGeoFingerprint(lat, lng, recentInterests);
+    const cached = smartCache.get(fingerprint);
     if (cached) {
-      await logUsage('Neural Pulse Geo', 0, true);
+      await logUsage('Smart Geo Insight', 0, true);
       return { ...cached, isCached: true };
     }
 
@@ -566,13 +580,13 @@ export const generateNeuralPulseGeoInsight = async (lat: number, lng: number, re
     );
     
     const tokens = (recentInterests.join(',').length + JSON.stringify(result).length) / 4;
-    await logUsage('Neural Pulse Geo', Math.ceil(tokens));
+    await logUsage('Smart Geo Insight', Math.ceil(tokens));
     
     // Store in Semantic Memory (expires in 1 hour for geo)
-    neuralCache.set(fingerprint, result, 60 * 60 * 1000);
+    smartCache.set(fingerprint, result, 60 * 60 * 1000);
     return result;
   } catch (e: any) {
-    handleAiError(e, 'Neural Pulse Geo Insight');
+    handleAiError(e, 'Smart Geo Insight');
     return { hasInsight: false };
   }
 };
@@ -916,7 +930,6 @@ export const generateLoadingScreenSettings = async (description: string): Promis
       `Generate loading screen settings based on this description: "${description}".
       Return a JSON object with the following fields:
       - loaderLogoUrl (string, keep empty if not provided)
-      - enableNeuralPulse (boolean)
       - enableOrbitalRings (boolean)
       - enableShimmerEffect (boolean)
       - logoAuraStyle ('solid' | 'gradient' | 'pulse' | 'mesh')
@@ -939,7 +952,6 @@ export const generateLoadingScreenSettings = async (description: string): Promis
         type: Type.OBJECT,
         properties: {
           loaderLogoUrl: { type: Type.STRING },
-          enableNeuralPulse: { type: Type.BOOLEAN },
           enableOrbitalRings: { type: Type.BOOLEAN },
           enableShimmerEffect: { type: Type.BOOLEAN },
           logoAuraStyle: { type: Type.STRING, enum: ['solid', 'gradient', 'pulse', 'mesh'] },
@@ -959,7 +971,7 @@ export const generateLoadingScreenSettings = async (description: string): Promis
           loaderFooterTextAr: { type: Type.STRING },
           loaderFooterTextEn: { type: Type.STRING }
         },
-        required: ["enableNeuralPulse", "enableOrbitalRings", "enableShimmerEffect", "logoAuraStyle", "animationSpeed", "logoAuraColor", "logoAuraOpacity", "logoAuraSpread", "logoAuraBlur", "loaderBackgroundStyle", "loaderLogoShape", "loaderLogoAnimation", "loaderBackgroundColor", "loaderProgressBarColor", "loaderCenterText", "loaderStatusTextAr", "loaderStatusTextEn", "loaderFooterTextAr", "loaderFooterTextEn"]
+        required: ["enableOrbitalRings", "enableShimmerEffect", "logoAuraStyle", "animationSpeed", "logoAuraColor", "logoAuraOpacity", "logoAuraSpread", "logoAuraBlur", "loaderBackgroundStyle", "loaderLogoShape", "loaderLogoAnimation", "loaderBackgroundColor", "loaderProgressBarColor", "loaderCenterText", "loaderStatusTextAr", "loaderStatusTextEn", "loaderFooterTextAr", "loaderFooterTextEn"]
       }
     );
     
@@ -1331,14 +1343,14 @@ export const analyzeWithdrawalFraud = async (withdrawal: any, userProfile: any, 
   }
 };
 
-export const analyzeSystemPulse = async (systemData: any, language: string): Promise<any> => {
+export const analyzeSystemHealth = async (systemData: any, language: string): Promise<any> => {
   try {
     const prompt = `Analyze the current state of this Souq Connect marketplace system.
       
       System Data Summary: ${JSON.stringify(systemData)}
       Language: ${language === 'ar' ? 'Arabic' : 'English'}
       
-      Provide a "Neural Pulse" analysis:
+      Provide a "System Health" analysis:
       1. Overall Status: 'stable', 'active', 'warning', or 'critical'.
       2. A short, punchy headline about the system's current "vibe".
       3. 2-3 specific AI-driven insights or alerts.
@@ -1362,13 +1374,13 @@ export const analyzeSystemPulse = async (systemData: any, language: string): Pro
     );
     
     const tokens = (prompt.length + JSON.stringify(result).length) / 4;
-    await logUsage('System Pulse', Math.ceil(tokens));
+    await logUsage('System Health', Math.ceil(tokens));
     return result;
   } catch (e: any) {
     if (e.isMissingKey) {
-      console.warn('System Pulse analysis skipped: No API key available');
+      console.warn('System Health analysis skipped: No API key available');
     } else {
-      handleAiError(e, 'System Pulse analysis');
+      handleAiError(e, 'System Health analysis');
     }
     return { status: 'stable', headline: 'System Stable', insights: [], growthScore: 100 };
   }
@@ -1593,7 +1605,12 @@ export const semanticSearch = async (query: string, items: any[], language: stri
   if (items.length === 0) return [];
   
   try {
-    const itemList = items.map(i => ({ id: i.id, name: i.name, description: i.description, category: i.category }));
+    const itemList = items.map(i => ({ 
+      id: i.id, 
+      name: i.name || (language === 'ar' ? i.nameAr : i.nameEn) || i.nameEn || i.nameAr,
+      description: i.description || '', 
+      category: i.category || '' 
+    }));
     
     const prompt = `Perform a strict semantic search on these items for the query: "${query}"
       Items: ${JSON.stringify(itemList)}
@@ -2139,13 +2156,13 @@ export const suggestSubcategories = async (parentCategory: string, categoryType:
   }
 };
 
-const neuralCategoryCache = new Map<string, { matches: string[], timestamp: number }>();
+const smartCategoryCache = new Map<string, { matches: string[], timestamp: number }>();
 
-export const suggestNeuralCategories = async (productInfo: { title: string, description: string }, categories: Category[]): Promise<string[]> => {
+export const suggestSmartCategories = async (productInfo: { title: string, description: string }, categories: Category[]): Promise<string[]> => {
   if (!productInfo.title) return [];
   
   const cacheKey = `${productInfo.title}|${productInfo.description}`;
-  const cached = neuralCategoryCache.get(cacheKey);
+  const cached = smartCategoryCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < 300000) {
     return cached.matches;
   }
@@ -2162,10 +2179,10 @@ export const suggestNeuralCategories = async (productInfo: { title: string, desc
       }
     );
     
-    neuralCategoryCache.set(cacheKey, { matches, timestamp: Date.now() });
+    smartCategoryCache.set(cacheKey, { matches, timestamp: Date.now() });
     return matches;
   } catch (e: any) {
-    handleAiError(e, 'Neural category suggestion');
+    handleAiError(e, 'Smart category suggestion');
     return [];
   }
 };
@@ -2196,12 +2213,12 @@ export const predictUserNextStep = async (profile: UserProfile, currentView: str
   }
 };
 
-export const preFetchNeuralPulse = async (profile: UserProfile): Promise<void> => {
+export const preFetchSmartInsights = async (profile: UserProfile): Promise<void> => {
   try {
-    const cacheKey = `pulse_${profile.uid}`;
-    if (neuralCache.get(cacheKey)) return;
+    const cacheKey = `insights_${profile.uid}`;
+    if (smartCache.get(cacheKey)) return;
 
-    const prompt = `Analyze user profile: ${JSON.stringify({ role: profile.role, name: profile.name })}. Generate a quick status pulse.
+    const prompt = `Analyze user profile: ${JSON.stringify({ role: profile.role, name: profile.name })}. Generate a quick status insights.
     Return JSON: status (excellent/good/needs_attention), headlineEn, headlineAr, growthScore (0-100).`;
 
     const result = await callAiJson(prompt, {
@@ -2215,20 +2232,20 @@ export const preFetchNeuralPulse = async (profile: UserProfile): Promise<void> =
       required: ["status", "headlineEn", "headlineAr", "growthScore"]
     });
 
-    neuralCache.set(cacheKey, result, 3600000); // Cache for 1 hour
+    smartCache.set(cacheKey, result, 3600000); // Cache for 1 hour
   } catch (e: any) {
     const isNoKey = e.message === 'No API key available' || e.isMissingKey;
     const isInvalidKey = e.isInvalidKey || e.message?.includes('API key not valid') || e.message?.includes('API_KEY_INVALID');
     const isQuotaError = e?.status === 429 || e?.error?.code === 429 || e?.message?.includes('429') || e?.message?.includes('RESOURCE_EXHAUSTED');
 
     if (isNoKey) {
-      console.warn('Pre-fetch pulse skipped: No API key available');
+      console.warn('Pre-fetch insights skipped: No API key available');
     } else if (isInvalidKey) {
-      console.warn('Pre-fetch pulse skipped: Invalid API key');
+      console.warn('Pre-fetch insights skipped: Invalid API key');
     } else if (isQuotaError) {
-      console.warn('Pre-fetch pulse skipped: Quota exceeded');
+      console.warn('Pre-fetch insights skipped: Quota exceeded');
     } else {
-      handleAiError(e, 'Pre-fetch pulse');
+      handleAiError(e, 'Pre-fetch insights');
     }
   }
 };

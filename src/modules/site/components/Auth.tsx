@@ -43,10 +43,12 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
   const [location, setLocation] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
   
   // Calculate progress for suppliers
   const totalSupplierSteps = 3;
@@ -87,7 +89,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
         return false;
       }
     } else if (supplierSubStep === 2) {
-      if (!phone || !location || !selectedCategoryId) {
+      if (!phone || !location || selectedCategoryIds.length === 0) {
         setError(i18n.language === 'ar' ? 'يرجى إكمال بيانات العمل والتصنيف' : 'Please complete business data and category');
         return false;
       }
@@ -157,7 +159,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
         if (role === 'supplier') {
           profileData.phone = phone;
           profileData.location = location;
-          profileData.categories = [selectedCategoryId];
+          profileData.categories = selectedCategoryIds;
           if (logoFile) {
             const logoRef = ref(storage, `logos/${user.uid}`);
             await uploadBytes(logoRef, logoFile);
@@ -173,7 +175,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           name: name,
           role: role,
           isVerified: false,
-          categories: role === 'supplier' ? [selectedCategoryId] : [],
+          categories: role === 'supplier' ? selectedCategoryIds : [],
           logoUrl: profileData.logoUrl || null,
           rating: 0,
           reviewCount: 0,
@@ -203,6 +205,71 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
       setUploading(false);
     }
   };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetEmailSent(true);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  if (resetEmailSent) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-4 py-8">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md bg-brand-surface p-8 rounded-3xl shadow-xl border border-brand-border-light text-center">
+          <div className="w-20 h-20 bg-brand-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Mail size={40} className="text-brand-primary" />
+          </div>
+          <h2 className="text-2xl font-bold mb-4">{i18n.language === 'ar' ? 'تم إرسال رابط إعادة التعيين' : 'Reset Link Sent'}</h2>
+          <p className="text-slate-600 mb-8">
+            {i18n.language === 'ar' 
+              ? `تم إرسال تعليمات إعادة تعيين كلمة المرور إلى ${email}` 
+              : `Password reset instructions have been sent to ${email}`}
+          </p>
+          <HapticButton onClick={() => { setShowForgotPassword(false); setResetEmailSent(false); }} className="w-full bg-brand-primary text-white py-3 rounded-xl font-bold">
+            {t('backToLogin')}
+          </HapticButton>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (showForgotPassword) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-4 py-8">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md bg-brand-surface p-8 rounded-3xl shadow-xl border border-brand-border-light">
+          <h2 className="text-2xl font-bold text-center mb-6">{i18n.language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Reset Password'}</h2>
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-brand-text-main mb-1">{t('email')}</label>
+              <input 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
+                required 
+              />
+            </div>
+            {error && <p className="text-brand-error text-sm bg-brand-error/10 p-3 rounded-lg border border-brand-error/20">{error}</p>}
+            <HapticButton type="submit" className="w-full bg-brand-primary text-white py-3 rounded-xl font-bold shadow-lg shadow-brand-primary/20">
+              {i18n.language === 'ar' ? 'إرسال رابط التعيين' : 'Send Reset Link'}
+            </HapticButton>
+            <button 
+              type="button"
+              onClick={() => setShowForgotPassword(false)}
+              className="w-full text-sm text-slate-500 hover:text-brand-primary transition-colors py-2"
+            >
+              {t('backToLogin')}
+            </button>
+          </form>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (verificationSent) {
     return (
@@ -301,7 +368,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-brand-text-main mb-1">{t('category')}</label>
-                    <SmartCategorySelector categories={categories} selectedCategoryId={selectedCategoryId} onSelect={setSelectedCategoryId} />
+                    <SmartCategorySelector categories={categories} selectedCategoryIds={selectedCategoryIds} onSelect={setSelectedCategoryIds} />
                   </div>
                 </motion.div>
               )}
@@ -365,6 +432,15 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
               <div>
                 <label className="block text-sm font-medium text-brand-text-main mb-1">{t('password')}</label>
                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" required />
+                {isLogin && (
+                  <button 
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="text-xs text-brand-primary hover:underline mt-1 block"
+                  >
+                    {i18n.language === 'ar' ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
+                  </button>
+                )}
               </div>
               
               {!isLogin && (

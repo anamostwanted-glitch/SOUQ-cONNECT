@@ -123,30 +123,6 @@ export const PageLoader: React.FC<PageLoaderProps> = ({ previewSettings, isInlin
               </span>
             </div>
           )}
-
-          {/* Neural Pulse Aura */}
-          {(settings?.headerEnableNeuralPulse ?? settings?.enableNeuralPulse ?? true) && (
-            <motion.div
-              animate={{
-                scale: [1, (settings?.headerLogoAuraSpread ?? settings?.logoAuraSpread ?? 1.2), 1],
-                opacity: [
-                  ((settings?.headerLogoAuraOpacity ?? settings?.logoAuraOpacity ?? 0.4) * 0.5),
-                  (settings?.headerLogoAuraOpacity ?? settings?.logoAuraOpacity ?? 0.4),
-                  ((settings?.headerLogoAuraOpacity ?? settings?.logoAuraOpacity ?? 0.4) * 0.5)
-                ],
-              }}
-              transition={{
-                duration: (settings?.headerAnimationSpeed ?? settings?.animationSpeed) === 'slow' ? 6 : (settings?.headerAnimationSpeed ?? settings?.animationSpeed) === 'fast' ? 1.5 : 3,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              className="absolute inset-0 -z-10 rounded-full"
-              style={{
-                backgroundColor: settings?.headerLogoAuraColor ?? settings?.logoAuraColor ?? '#1b97a7',
-                filter: `blur(${settings?.headerLogoAuraBlur ?? settings?.logoAuraBlur ?? 40}px)`,
-              }}
-            />
-          )}
         </motion.div>
 
         {/* Status Text */}

@@ -107,12 +107,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           const sellerData = sellerDoc.data();
           setSellerFollowersCount(sellerData.followersCount || 0);
         } else {
-          // Fallback to users if users_public doesn't exist (though it should)
-          const fallbackDoc = await getDoc(doc(db, 'users', item.sellerId));
-          if (fallbackDoc.exists()) {
-            const sellerData = fallbackDoc.data();
-            setSellerFollowersCount(sellerData.followersCount || 0);
-          }
+          console.warn('Seller public profile not found:', item.sellerId);
         }
         
         if (auth.currentUser) {

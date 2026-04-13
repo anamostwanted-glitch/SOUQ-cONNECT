@@ -305,8 +305,6 @@ export const VendorDashboard: React.FC<VendorDashboardProps> = ({
 
   return (
     <div className={`p-4 md:p-6 max-w-6xl mx-auto space-y-8 pb-24 ${uiStyle === 'minimal' ? 'pt-8' : ''}`}>
-      {/* DEBUG BANNER */}
-      <div className="bg-red-600 text-white p-4 font-bold text-center">DEBUG: VendorDashboard Loaded</div>
       
       {/* Header & Quick Stats - Hidden in Minimal Mode */}
       {uiStyle !== 'minimal' && (

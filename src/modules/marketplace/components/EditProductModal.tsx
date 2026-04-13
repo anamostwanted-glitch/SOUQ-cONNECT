@@ -8,7 +8,7 @@ import { MarketplaceItem, Category } from '../../../core/types';
 import { translateText } from '../../../core/services/geminiService';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
-import { AINeuralCategorySelector } from '../../../shared/components/AINeuralCategorySelector';
+import SmartCategorySelector from '../../../shared/components/SmartCategorySelector';
 
 interface EditProductModalProps {
   item: MarketplaceItem;
@@ -153,10 +153,10 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ item, onClos
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   {isRtl ? 'الفئة' : 'Category'}
                 </label>
-                <AINeuralCategorySelector 
+                <SmartCategorySelector 
                   categories={categories as any}
                   selectedCategoryIds={selectedCategories}
-                  onSelect={setSelectedCategories}
+                  onSelect={(ids) => setSelectedCategories(ids)}
                   productInfo={{
                     title,
                     description,

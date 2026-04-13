@@ -58,7 +58,6 @@ export interface UserProfile {
   conciergeConsent?: boolean;
   branding?: BrandingPreferences;
   referralPoints?: number;
-  neuralCredits?: number;
   loyaltyPoints?: number;
   commercialRegistration?: string;
   subscriptionPlan?: 'basic' | 'pro' | 'enterprise';
@@ -310,14 +309,8 @@ export interface SiteSettings {
   ctaButtonEn?: string;
   lastUpdated?: string;
   logoScale?: number;
-  logoAuraColor?: string;
-  showNeuralLogo?: boolean;
   primaryTextColor?: string;
   secondaryTextColor?: string;
-  enableNeuralPulse?: boolean;
-  enableOrbitalRings?: boolean;
-  enableShimmerEffect?: boolean;
-  animationSpeed?: 'slow' | 'normal' | 'fast';
   loaderCenterText?: string;
   loaderStatusTextAr?: string;
   loaderStatusTextEn?: string;
@@ -326,11 +319,6 @@ export interface SiteSettings {
   watermarkOpacity?: number;
   watermarkPosition?: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-right';
   watermarkScale?: number;
-  logoAuraBlur?: number;
-  logoAuraSpread?: number;
-  logoAuraOpacity?: number;
-  logoAuraStyle?: 'solid' | 'gradient' | 'pulse' | 'mesh';
-  logoAuraSharpness?: number;
 
   // Social Proof Settings
   socialProof?: {
@@ -344,20 +332,6 @@ export interface SiteSettings {
   loaderLogoShape?: 'square' | 'circle' | 'squircle';
   loaderLogoAnimation?: 'none' | 'bounce' | 'rotate' | 'scale' | 'float';
   loaderLogoUrl?: string;
-
-  // Header specific settings
-  headerLogoScale?: number;
-  headerLogoAuraColor?: string;
-  headerShowNeuralLogo?: boolean;
-  headerLogoAuraBlur?: number;
-  headerLogoAuraSpread?: number;
-  headerLogoAuraOpacity?: number;
-  headerLogoAuraStyle?: 'solid' | 'gradient' | 'pulse' | 'mesh';
-  headerLogoAuraSharpness?: number;
-  headerEnableNeuralPulse?: boolean;
-  headerEnableOrbitalRings?: boolean;
-  headerEnableShimmerEffect?: boolean;
-  headerAnimationSpeed?: 'slow' | 'normal' | 'fast';
 
   // Connect Rewards System
   enableConnectRewards?: boolean;
@@ -373,18 +347,6 @@ export interface SiteSettings {
     webCols: number;
     gap: number;
     aiAutoPilot: boolean;
-  };
-
-  // Neural Navigation Settings
-  neuralNav?: {
-    enabled: boolean;
-    showProfile: boolean;
-    showNotifications: boolean;
-    showMessages: boolean;
-    showAiHub: boolean;
-    showVisualSearch: boolean;
-    pulseSpeed: 'slow' | 'normal' | 'fast';
-    themeColor?: string;
   };
 }
 

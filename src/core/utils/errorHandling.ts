@@ -79,9 +79,14 @@ export function handleAiError(error: unknown, context: string, shouldThrow: bool
   };
 
   const isInvalidKey = errorMessage.includes('API key not valid') || errorMessage.includes('INVALID_API_KEY') || errorMessage.includes('MISSING_API_KEY');
+  const isHighDemand = errorMessage.includes('503') || errorMessage.includes('high demand') || errorMessage.includes('UNAVAILABLE');
   
   if (isInvalidKey) {
     console.error('CRITICAL: AI API Key is invalid or missing. Please check your AI Studio Secrets (Settings -> Secrets) and ensure GEMINI_API_KEY is set correctly.');
+  } else if (isHighDemand) {
+    console.warn(`AI Service Busy [${context}]: The AI model is currently experiencing high demand. Retrying or waiting a moment is recommended.`);
+    // We can make the error message more user-friendly if it's going to be displayed
+    errInfo.error = "الخدمة مشغولة حالياً بسبب ضغط كبير. يرجى المحاولة مرة أخرى بعد قليل. (AI Service Busy)";
   }
 
   console.error(`AI Error [${context}]:`, JSON.stringify(errInfo, null, 2));

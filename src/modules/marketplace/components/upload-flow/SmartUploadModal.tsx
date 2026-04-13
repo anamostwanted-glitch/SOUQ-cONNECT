@@ -8,7 +8,7 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '../../../../core/firebase';
 import { UserProfile, MarketplaceItem } from '../../../../core/types';
 import { HapticButton } from '../../../../shared/components/HapticButton';
-import { AINeuralCategorySelector } from '../../../../shared/components/AINeuralCategorySelector';
+import SmartCategorySelector from '../../../../shared/components/SmartCategorySelector';
 import { processImageTo4x5WithWatermark } from '../../../../core/utils/imageManipulation';
 import { getProxiedImageUrl } from '../../../../core/utils/imageUtils';
 import { toast } from 'sonner';
@@ -18,7 +18,7 @@ import { DraggableGrid } from './DraggableGrid';
 import { useNetworkAwareness } from '../../hooks/useNetworkAwareness';
 import { useSmartCompression } from '../../hooks/useSmartCompression';
 import { analyzeProductImage, AIProductSuggestion, generateAlternativeProductImage } from '../../services/aiProductAnalyzer';
-import { suggestPrice, translateText } from '../../../../core/services/geminiService';
+import { suggestPrice, translateText, semanticSearch } from '../../../../core/services/geminiService';
 
 interface SmartUploadModalProps {
   onClose: () => void;
@@ -325,7 +325,24 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
               keywordsEn: suggestion.keywordsEn || []
             });
             
-            const cat = categories.find(c => c.nameEn.toLowerCase() === suggestion.category?.toLowerCase());
+            // Try exact match first
+            let cat = categories.find(c => 
+              c.nameEn.toLowerCase() === suggestion.category?.toLowerCase() ||
+              c.nameAr.toLowerCase() === suggestion.category?.toLowerCase()
+            );
+            
+            // If no exact match, use semantic search
+            if (!cat && suggestion.category) {
+              try {
+                const matchedIds = await semanticSearch(suggestion.category, categories, i18n.language);
+                if (matchedIds.length > 0) {
+                  cat = categories.find(c => c.id === matchedIds[0]);
+                }
+              } catch (e) {
+                console.warn('Semantic matching failed during image analysis:', e);
+              }
+            }
+
             if (cat && selectedCategories.length === 0) setSelectedCategories([cat.id]);
             if (!price) setPrice(suggestion.priceEstimate?.toString() || '');
             setIsHighQuality(suggestion.isHighQuality);
@@ -340,6 +357,8 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
             } else if (errorMsg === 'QUOTA_EXHAUSTED') {
               setAiQuotaExhausted(true);
               setErrorMessage(isRtl ? 'تم استنفاد حصة الذكاء الاصطناعي.' : 'AI Quota exhausted.');
+            } else if (errorMsg?.includes('503') || errorMsg?.includes('high demand') || errorMsg?.includes('UNAVAILABLE')) {
+              setErrorMessage(isRtl ? 'الخدمة مشغولة حالياً بسبب ضغط كبير. يرجى المحاولة مرة أخرى بعد قليل.' : 'AI Service is busy. Please try again in a moment.');
             } else {
               setErrorMessage(isRtl ? 'لم يتمكن الذكاء الاصطناعي من تحليل الصورة. يرجى التأكد من إعدادات مفتاح الـ API.' : 'AI could not analyze the image. Please check your API key settings.');
             }
@@ -436,7 +455,24 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                       keywordsEn: suggestion.keywordsEn || []
                     });
                     
-                    const cat = categories.find(c => c.nameEn.toLowerCase() === suggestion.category?.toLowerCase());
+                    // Try exact match first
+                    let cat = categories.find(c => 
+                      c.nameEn.toLowerCase() === suggestion.category?.toLowerCase() ||
+                      c.nameAr.toLowerCase() === suggestion.category?.toLowerCase()
+                    );
+                    
+                    // If no exact match, use semantic search
+                    if (!cat && suggestion.category) {
+                      try {
+                        const matchedIds = await semanticSearch(suggestion.category, categories, i18n.language);
+                        if (matchedIds.length > 0) {
+                          cat = categories.find(c => c.id === matchedIds[0]);
+                        }
+                      } catch (e) {
+                        console.warn('Semantic matching failed during image analysis:', e);
+                      }
+                    }
+
                     if (cat && selectedCategories.length === 0) setSelectedCategories([cat.id]);
                     if (!price) setPrice(suggestion.priceEstimate?.toString() || '');
                     setIsHighQuality(suggestion.isHighQuality);
@@ -448,19 +484,24 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                     } else if (errorMsg === 'QUOTA_EXHAUSTED') {
                       setAiQuotaExhausted(true);
                       setErrorMessage(isRtl ? 'تم استنفاد حصة الذكاء الاصطناعي.' : 'AI Quota exhausted.');
+                    } else if (errorMsg?.includes('503') || errorMsg?.includes('high demand') || errorMsg?.includes('UNAVAILABLE')) {
+                      setErrorMessage(isRtl ? 'الخدمة مشغولة حالياً بسبب ضغط كبير. يرجى المحاولة مرة أخرى بعد قليل.' : 'AI Service is busy. Please try again in a moment.');
                     }
                     console.warn('AI analysis returned no suggestion or error:', errorMsg);
                   }
                 } catch (error: any) {
-                  if (error.message === 'QUOTA_EXHAUSTED') {
+                  const errorMessage = error.message || '';
+                  if (errorMessage.includes('QUOTA_EXHAUSTED')) {
                     setAiQuotaExhausted(true);
                     setErrorMessage(isRtl ? 'تم استنفاد حصة الذكاء الاصطناعي. يرجى المحاولة لاحقاً.' : 'AI Quota exhausted. Please try again later.');
-                  } else if (error.message === 'MISSING_API_KEY') {
+                  } else if (errorMessage.includes('MISSING_API_KEY')) {
                     setErrorMessage(isRtl ? 'مفتاح الذكاء الاصطناعي مفقود. يرجى ضبطه في الإعدادات.' : 'AI API Key is missing. Please set it in settings.');
+                  } else if (errorMessage.includes('503') || errorMessage.includes('high demand') || errorMessage.includes('UNAVAILABLE')) {
+                    setErrorMessage(isRtl ? 'الخدمة مشغولة حالياً. يرجى المحاولة مرة أخرى بعد قليل.' : 'AI Service busy. Please try again in a moment.');
                   } else {
                     setErrorMessage(isRtl ? 'فشل تحليل الصورة بالذكاء الاصطناعي.' : 'AI image analysis failed.');
                   }
-                  handleAiError(error, 'image_analysis');
+                  handleAiError(error, 'image_analysis_onload');
                 } finally {
                   setIsAnalyzing(false);
                   updateImageStatus(id, 'success'); // Ready to upload
@@ -1003,15 +1044,38 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                   </motion.div>
                   <motion.div layout className="relative group flex-1">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors">
-                      <Sparkles size={18} />
+                      <Tag size={18} />
                     </div>
                     <input 
                       type="text" 
                       placeholder={isRtl ? 'التصنيف (مثال: إلكترونيات)' : 'Classification (e.g. Electronics)'}
                       value={classification || ''}
                       onChange={(e) => setClassification(e.target.value)}
-                      className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
+                      className="w-full pl-12 pr-12 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-bold text-slate-900 dark:text-white"
                     />
+                    <HapticButton 
+                      onClick={async () => {
+                        if (!title) return;
+                        setIsAnalyzing(true);
+                        try {
+                          const matchedIds = await semanticSearch(title + ' ' + description, categories, i18n.language);
+                          if (matchedIds.length > 0) {
+                            const cat = categories.find(c => c.id === matchedIds[0]);
+                            if (cat) {
+                              setClassification(isRtl ? cat.nameAr : cat.nameEn);
+                              setSelectedCategories([cat.id]);
+                            }
+                          }
+                        } catch (e) {
+                          console.error('Failed to suggest classification:', e);
+                        } finally {
+                          setIsAnalyzing(false);
+                        }
+                      }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-primary hover:text-brand-primary/80"
+                    >
+                      <Sparkles size={18} />
+                    </HapticButton>
                   </motion.div>
                 </motion.div>
               </motion.div>
@@ -1025,10 +1089,10 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                   {isRtl ? 'الفئات الذكية' : 'Smart Categories'}
                 </h3>
               </div>
-              <AINeuralCategorySelector 
-                categories={categories}
+              <SmartCategorySelector 
+                categories={categories as any}
                 selectedCategoryIds={selectedCategories}
-                onSelect={setSelectedCategories}
+                onSelect={(ids) => setSelectedCategories(ids)}
                 productInfo={{
                   title,
                   description,

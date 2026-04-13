@@ -168,12 +168,28 @@ app.post("/api/send-email", async (req, res) => {
       const genAI = new GoogleGenAI({ apiKey });
       
       console.log(`Gemini Proxy: Calling model ${model || "gemini-3-flash-preview"}...`);
-      const result = await genAI.models.generateContent({
-        model: model || "gemini-3-flash-preview",
-        contents,
-        config: config
-      });
       
+      // Implement a simple retry for 503 errors
+      let result;
+      let lastError;
+      for (let i = 0; i < 3; i++) {
+        try {
+          result = await genAI.models.generateContent({
+            model: model || "gemini-3-flash-preview",
+            contents,
+            config: config
+          });
+          break; // Success
+        } catch (err: any) {
+          lastError = err;
+          const isRetryable = err.message?.includes('503') || err.message?.includes('UNAVAILABLE') || err.message?.includes('high demand');
+          if (!isRetryable || i === 2) throw err;
+          console.warn(`Gemini Proxy: 503 detected, retrying (${i + 1}/3)...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        }
+      }
+      
+      if (!result) throw lastError;
       res.json({ text: result.text });
     } catch (error: any) {
       const errorString = error.message || "";

@@ -2,8 +2,10 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Search, Mic, Camera, Sparkles, Zap, Package, ShoppingBag } from 'lucide-react';
 import { HapticButton } from '../../../../shared/components/HapticButton';
+import { SiteSettings } from '../../../../core/types';
 
 interface MinimalUIProps {
+  settings: SiteSettings | null;
   isRtl: boolean;
   searchTerm: string;
   setSearchTerm: (val: string) => void;
@@ -11,22 +13,16 @@ interface MinimalUIProps {
   onVisualSearch: () => void;
   isListening: boolean;
   onSearch: (e: React.FormEvent) => void;
-  showNeuralLogo: boolean;
   logoUrl?: string;
   siteName?: string;
   logoScale: number;
-  logoAuraStyle: string;
-  logoAuraColor: string;
-  logoAuraSpread: number;
-  logoAuraOpacity: number;
-  logoAuraBlur: number;
-  logoAuraSharpness: number;
   nextAction?: any;
   onNavigate: (view: any) => void;
   t: any;
 }
 
 export const MinimalUI: React.FC<MinimalUIProps> = ({
+  settings,
   isRtl,
   searchTerm,
   setSearchTerm,
@@ -34,16 +30,9 @@ export const MinimalUI: React.FC<MinimalUIProps> = ({
   onVisualSearch,
   isListening,
   onSearch,
-  showNeuralLogo,
   logoUrl,
   siteName,
   logoScale,
-  logoAuraStyle,
-  logoAuraColor,
-  logoAuraSpread,
-  logoAuraOpacity,
-  logoAuraBlur,
-  logoAuraSharpness,
   nextAction,
   onNavigate,
   t
@@ -60,8 +49,7 @@ export const MinimalUI: React.FC<MinimalUIProps> = ({
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand-teal/5 rounded-full blur-[120px]" />
       </div>
 
-      {/* Logo - Neural Spark Concept (No Box) */}
-      {showNeuralLogo && (
+      {/* Logo Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -69,36 +57,6 @@ export const MinimalUI: React.FC<MinimalUIProps> = ({
           className="mb-20 relative group cursor-pointer flex flex-col items-center"
           onClick={onVisualSearch}
         >
-          {/* Spinning Neural Glow (Visible on Hover) */}
-          <motion.div 
-            animate={logoAuraStyle === 'pulse' ? {
-              scale: [1, logoAuraSpread, 1],
-              opacity: [logoAuraOpacity * 0.5, logoAuraOpacity, logoAuraOpacity * 0.5],
-            } : logoAuraStyle === 'mesh' ? {
-              scale: [1, 1.1, 1],
-              rotate: [0, 90, 180, 270, 360],
-              borderRadius: ["40% 60% 70% 30% / 40% 50% 60% 50%", "60% 40% 30% 70% / 50% 60% 40% 60%", "40% 60% 70% 30% / 40% 50% 60% 50%"]
-            } : { 
-              scale: [1, 1.05, 1],
-              opacity: [logoAuraOpacity * 0.8, logoAuraOpacity, logoAuraOpacity * 0.8],
-            }}
-            transition={{ 
-              duration: logoAuraStyle === 'pulse' ? 3 : 8, 
-              repeat: Infinity, 
-              ease: "easeInOut" 
-            }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-48 md:h-48 opacity-0 group-hover:opacity-40 rounded-full pointer-events-none" 
-            style={{ 
-              backgroundColor: logoAuraStyle === 'solid' ? logoAuraColor : 'transparent',
-              backgroundImage: logoAuraStyle === 'gradient' ? `radial-gradient(circle, ${logoAuraColor} 0%, transparent 70%)` : 
-                               logoAuraStyle === 'mesh' ? `conic-gradient(from 0deg, ${logoAuraColor}, ${logoAuraColor}88, ${logoAuraColor}44, ${logoAuraColor}88, ${logoAuraColor})` : 'none',
-              filter: `blur(${logoAuraBlur}px) contrast(${100 + (logoAuraSharpness - 50) * 2}%)`,
-              opacity: logoAuraOpacity,
-              transform: `scale(${logoAuraSpread})`,
-              boxShadow: logoAuraColor.toLowerCase() === '#ffffff' ? '0 0 30px 5px rgba(0,0,0,0.05)' : 'none'
-            }}
-          />
-          
           {/* Logo Image/Text */}
           <div 
             className="relative z-10 transition-transform duration-300 group-hover:scale-105"
@@ -116,22 +74,7 @@ export const MinimalUI: React.FC<MinimalUIProps> = ({
               </div>
             )}
           </div>
-          
-          {/* Electric AI Indicator (Floating below) */}
-          <div 
-            className="absolute -bottom-8 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0"
-            style={{ 
-              color: logoAuraColor,
-              filter: logoAuraColor.toLowerCase() === '#ffffff' ? 'drop-shadow(0 0 2px rgba(0,0,0,0.2))' : 'none'
-            }}
-          >
-            <Zap size={14} className="animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-widest drop-shadow-md">
-              {isRtl ? 'تحليل ذكي' : 'Neural AI'}
-            </span>
-          </div>
         </motion.div>
-      )}
 
       {/* Search Bar (Minimal) */}
       <div className="w-full relative group mb-12">

@@ -62,6 +62,9 @@ import { ProductCard } from '../../marketplace/components/ProductCard';
 import { SmartUploadModal } from '../../marketplace/components/upload-flow/SmartUploadModal';
 import { Category } from '../../../core/types';
 import { UserNeuralHub } from '../../common/components/UserNeuralHub';
+import { AuraHeader } from './command-center/AuraHeader';
+import { PulseRibbon } from './command-center/PulseRibbon';
+import { BentoMatrix } from './command-center/BentoMatrix';
 
 interface ConnectCommandCenterProps {
   profile: UserProfile;
@@ -101,8 +104,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
     const mockInsights = [
       { ar: "أكمل ملفك الشخصي لزيادة ثقة العملاء بنسبة 40%", en: "Complete your profile to increase customer trust by 40%" },
       { ar: "هناك طلب متزايد على مواد البناء في منطقتك حالياً", en: "There is an increasing demand for construction materials in your area now" },
-      { ar: "لديك 3 محادثات جديدة لم يتم الرد عليها", en: "You have 3 new unread conversations" },
-      { ar: "رصيد نيرال الخاص بك منخفض، اشحن الآن للحصول على ميزات إضافية", en: "Your Neural Credits are low, top up now for extra features" }
+      { ar: "لديك 3 محادثات جديدة لم يتم الرد عليها", en: "You have 3 new unread conversations" }
     ];
     setInsights(mockInsights);
     
@@ -235,188 +237,32 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
   );
 
   const renderAuraHeader = () => (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative mb-12"
-    >
-      <div className={`relative overflow-hidden rounded-[3.5rem] ${glassClass} p-8 md:p-14 border-2 border-white/50 dark:border-slate-700/50 shadow-2xl`}>
-        {/* Immersive Neural Background */}
-        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-[500px] h-[500px] bg-brand-primary/10 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-[500px] h-[500px] bg-brand-teal/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '3s' }} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.05)_100%)]" />
-        
-        <div className="relative z-10 flex flex-col md:flex-row items-center gap-10 md:gap-16">
-          {/* Profile Photo with Neural Aura */}
-          <div className="relative group">
-            <div className="absolute -inset-6 bg-gradient-to-tr from-brand-primary via-brand-warning to-brand-teal rounded-[3rem] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity duration-1000 animate-gradient-xy" />
-            <div className="relative w-36 h-36 md:w-48 md:h-48 rounded-[3rem] p-1 bg-gradient-to-tr from-brand-primary/20 to-brand-teal/20 shadow-2xl overflow-hidden">
-              <div className="w-full h-full rounded-[2.8rem] bg-white dark:bg-slate-800 overflow-hidden border-4 border-white dark:border-slate-800">
-                {profile.photoURL ? (
-                  <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-brand-primary bg-brand-primary/5">
-                    <UserIcon size={80} strokeWidth={1} />
-                  </div>
-                )}
-              </div>
-            </div>
-            <HapticButton 
-              onClick={() => setActiveSubView('settings')}
-              className="absolute -bottom-2 -right-2 w-12 h-12 bg-brand-primary text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 transition-transform border-4 border-white dark:border-slate-900"
-            >
-              <Camera size={20} />
-            </HapticButton>
-          </div>
-
-          {/* Identity Info & Neural Stats */}
-          <div className="flex-1 text-center md:text-left rtl:md:text-right">
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-4 mb-6">
-              <h1 className="text-4xl md:text-6xl font-black text-brand-text-main tracking-tight leading-none">
-                {profile.name}
-              </h1>
-              {profile.isVerified && (
-                <Badge className="bg-brand-primary/10 text-brand-primary border-none text-[10px] uppercase tracking-widest font-black py-2 px-4 rounded-full mb-1">
-                  {isRtl ? 'حساب موثق' : 'Verified Identity'}
-                </Badge>
-              )}
-            </div>
-            
-            <p className="text-brand-text-muted text-lg font-medium mb-8 max-w-2xl mx-auto md:mx-0 leading-relaxed">
-              {profile.bio || (isRtl ? 'لم يتم إضافة نبذة شخصية بعد. ابدأ بتعريف نفسك للعالم!' : 'No bio added yet. Start by introducing yourself to the world!')}
-            </p>
-
-            <div className="flex flex-wrap justify-center md:justify-start gap-6">
-              {/* Neural Credits Bento Card */}
-              <div className="px-6 py-3 rounded-[1.5rem] bg-brand-primary/5 border border-brand-primary/10 flex items-center gap-4 group hover:bg-brand-primary/10 transition-colors">
-                <div className="w-10 h-10 rounded-xl bg-brand-primary text-white flex items-center justify-center shadow-lg shadow-brand-primary/20">
-                  <Zap size={20} className="animate-pulse" />
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-black text-brand-primary uppercase tracking-widest">{isRtl ? 'رصيد نيرال' : 'Neural Credits'}</p>
-                  <p className="text-xl font-black text-brand-text-main">{profile.neuralCredits || 0}</p>
-                </div>
-              </div>
-
-              {/* Trust Score Bento Card */}
-              <div className="px-6 py-3 rounded-[1.5rem] bg-brand-teal/5 border border-brand-teal/10 flex items-center gap-4 group hover:bg-brand-teal/10 transition-colors">
-                <div className="w-10 h-10 rounded-xl bg-brand-teal text-white flex items-center justify-center shadow-lg shadow-brand-teal/20">
-                  <ShieldCheck size={20} />
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-black text-brand-teal uppercase tracking-widest">{isRtl ? 'مؤشر الثقة' : 'Trust Index'}</p>
-                  <p className="text-xl font-black text-brand-text-main">98%</p>
-                </div>
-              </div>
-
-              {/* Action Circle Buttons */}
-              <div className="flex gap-3 items-center">
-                <HapticButton 
-                  onClick={handleShare}
-                  className="w-14 h-14 rounded-2xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-primary shadow-xl hover:bg-brand-primary hover:text-white transition-all"
-                  title={isRtl ? 'مشاركة' : 'Share'}
-                >
-                  <Share2 size={24} />
-                </HapticButton>
-                <HapticButton 
-                  onClick={() => onViewProfile(profile.uid)}
-                  className="w-14 h-14 rounded-2xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-teal shadow-xl hover:bg-brand-teal hover:text-white transition-all"
-                  title={isRtl ? 'معاينة المتجر' : 'Preview Store'}
-                >
-                  <ExternalLink size={24} />
-                </HapticButton>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
+    <AuraHeader 
+      profile={profile}
+      onViewProfile={onViewProfile}
+      onShare={handleShare}
+      onOpenSettings={() => setActiveSubView('settings')}
+      glassClass={glassClass}
+    />
   );
 
   const renderPulseRibbon = () => (
-    <div className="mb-12 overflow-hidden">
-      <div className="flex items-center gap-4 px-6 py-4 bg-brand-primary/5 backdrop-blur-xl rounded-[2rem] border border-brand-primary/10">
-        <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-brand-primary/20">
-          <Bot size={20} className="animate-pulse" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={currentInsightIndex}
-              initial={{ opacity: 0, x: isRtl ? -20 : 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: isRtl ? 20 : -20 }}
-              className="text-sm md:text-base font-bold text-brand-text-main truncate"
-            >
-              {isRtl ? insights[currentInsightIndex]?.ar : insights[currentInsightIndex]?.en}
-            </motion.p>
-          </AnimatePresence>
-        </div>
-        <HapticButton className="px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-xl text-xs font-black uppercase tracking-widest hover:bg-brand-primary/20 transition-all">
-          {isRtl ? 'تفاصيل' : 'Details'}
-        </HapticButton>
-      </div>
-    </div>
+    <PulseRibbon insights={insights} currentIndex={currentInsightIndex} />
   );
 
-  const renderBentoMatrix = () => {
-    const customerCards = [
-      { id: 'smart_pulse', title: isRtl ? 'النبض الذكي' : 'Smart Pulse', icon: Activity, color: 'text-brand-teal', bg: 'bg-brand-teal/10', stat: 'AI' },
-      { id: 'requests', title: isRtl ? 'طلباتي' : 'My Requests', icon: ShoppingBag, color: 'text-blue-500', bg: 'bg-blue-500/10', stat: requests.length },
-      { id: 'my_ads', title: isRtl ? 'إعلاناتي' : 'My Ads', icon: Megaphone, color: 'text-purple-500', bg: 'bg-purple-500/10', stat: myMarketItems.length },
-      { id: 'favorites', title: isRtl ? 'المفضلة' : 'Favorites', icon: Heart, color: 'text-rose-500', bg: 'bg-rose-500/10', stat: profile.favoriteProducts?.length || 0 },
-      { id: 'wallet', title: isRtl ? 'المحفظة' : 'Wallet', icon: Wallet, color: 'text-emerald-500', bg: 'bg-emerald-500/10', stat: '0.00' },
-      { id: 'chats', title: isRtl ? 'المحادثات' : 'Chats', icon: MessageSquare, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: '3' },
-      { id: 'settings', title: isRtl ? 'الإعدادات' : 'Settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-500/10', stat: 'AI Ready' },
-      { id: 'branding_settings', title: isRtl ? 'الهوية البصرية' : 'Visual Identity', icon: Palette, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: 'Custom' }
-    ];
-
-    const supplierCards = [
-      { id: 'smart_pulse', title: isRtl ? 'النبض الذكي' : 'Smart Pulse', icon: Activity, color: 'text-brand-teal', bg: 'bg-brand-teal/10', stat: 'AI' },
-      { id: 'my_products', title: isRtl ? 'منتجاتي' : 'My Products', icon: Package, color: 'text-blue-500', bg: 'bg-blue-500/10', stat: myMarketItems.length },
-      { id: 'available_requests', title: isRtl ? 'طلبات السوق' : 'Market RFQs', icon: Globe, color: 'text-indigo-500', bg: 'bg-indigo-500/10', stat: '20+' },
-      { id: 'my_offers', title: isRtl ? 'عروضي' : 'My Offers', icon: FileText, color: 'text-emerald-500', bg: 'bg-emerald-500/10', stat: '12' },
-      { id: 'my_ads', title: isRtl ? 'إعلاناتي' : 'My Ads', icon: Megaphone, color: 'text-purple-500', bg: 'bg-purple-500/10', stat: 'Active' },
-      { id: 'ad_analytics', title: isRtl ? 'التحليلات' : 'Analytics', icon: BarChart3, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: '94%' },
-      { id: 'subscription', title: isRtl ? 'الاشتراك' : 'Subscription', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-500/10', stat: 'Pro' },
-      { id: 'store_settings', title: isRtl ? 'إعدادات المتجر' : 'Store Settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-500/10', stat: 'Active' },
-      { id: 'branding_settings', title: isRtl ? 'الهوية البصرية' : 'Visual Identity', icon: Palette, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: 'Custom' }
-    ];
-
-    const cards = perspective === 'customer' ? customerCards : supplierCards;
-
-    return (
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-        {cards.map((card, i) => (
-          <motion.button
-            key={card.id}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.05 }}
-            onClick={() => setActiveSubView(card.id)}
-            className={cardClass}
-          >
-            <div className="flex flex-col h-full justify-between gap-6">
-              <div className="flex justify-between items-start">
-                <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl ${card.bg} ${card.color} flex items-center justify-center shadow-inner`}>
-                  <card.icon size={24} />
-                </div>
-                <div className="px-3 py-1 bg-brand-background/50 rounded-lg border border-brand-border/30">
-                  <span className="text-xs font-black text-brand-text-main">{card.stat}</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <h3 className="text-sm md:text-base font-black text-brand-text-main mb-1">{card.title}</h3>
-                <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">
-                  {isRtl ? 'إدارة وتفاصيل' : 'Manage & Details'}
-                </p>
-              </div>
-            </div>
-          </motion.button>
-        ))}
-      </div>
-    );
-  };
+  const renderBentoMatrix = () => (
+    <BentoMatrix 
+      perspective={perspective}
+      stats={{
+        requestsCount: requests.length,
+        adsCount: myMarketItems.length,
+        favoritesCount: profile.favoriteProducts?.length || 0,
+        productsCount: myMarketItems.length
+      }}
+      onCardClick={setActiveSubView}
+      cardClass={cardClass}
+    />
+  );
 
   const renderSubView = () => {
     if (!activeSubView) return null;

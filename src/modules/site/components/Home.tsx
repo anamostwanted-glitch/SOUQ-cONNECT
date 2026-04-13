@@ -4,7 +4,7 @@ import { usePersistedState } from '../../../shared/hooks/usePersistedState';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, addDoc, getDocs, doc, onSnapshot, query, where, orderBy, getDoc, setDoc, writeBatch, updateDoc, arrayUnion, limit } from 'firebase/firestore';
 import { db, storage, auth } from '../../../core/firebase';
-import { UserProfile, Category, ProductRequest, Chat, AppFeatures } from '../../../core/types';
+import { UserProfile, Category, ProductRequest, Chat, AppFeatures, SiteSettings } from '../../../core/types';
 import { UserRequestCard } from '../../user/components/UserRequestCard';
 import { 
   categorizeProduct, 
@@ -13,7 +13,7 @@ import {
   analyzeProductImage, 
   matchSuppliers,
   analyzeUserBehavior,
-  parseVoiceRequest,
+  parseVoiceRequest as processSmartVoice,
   translateText,
   generateProductCopy,
   enhanceProductImageDescription,
@@ -72,6 +72,10 @@ const Home: React.FC<HomeProps> = ({
   const { t, i18n } = useTranslation();
   const effectiveRole = viewMode || profile?.role || 'customer';
   const isRtl = i18n.language === 'ar';
+  
+  // سجل تشخيص آمن
+  console.log('DEBUG: Home uiStyle=', uiStyle, 'effectiveRole=', effectiveRole);
+
   const [searchQuery, setSearchQuery] = usePersistedState('home_search_query', '');
   const [recentSearches, setRecentSearches] = usePersistedState<string[]>('home_recent_searches', []);
   const [draftDescription, setDraftDescription] = usePersistedState('home_draft_description', '');
@@ -82,6 +86,7 @@ const Home: React.FC<HomeProps> = ({
   const [isActionsTrayOpen, setIsActionsTrayOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [aiStatus, setAiStatus] = useState('');
@@ -101,16 +106,8 @@ const Home: React.FC<HomeProps> = ({
   const [ctaButtonAr, setCtaButtonAr] = useState('');
   const [ctaButtonEn, setCtaButtonEn] = useState('');
   const [logoScale, setLogoScale] = useState(1);
-  const [logoAuraColor, setLogoAuraColor] = useState('#1b97a7');
-  const [logoAuraBlur, setLogoAuraBlur] = useState(20);
-  const [logoAuraSpread, setLogoAuraSpread] = useState(1.2);
-  const [logoAuraOpacity, setLogoAuraOpacity] = useState(0.4);
-  const [logoAuraStyle, setLogoAuraStyle] = useState<'solid' | 'gradient' | 'pulse' | 'mesh'>('solid');
-  const [logoAuraSharpness, setLogoAuraSharpness] = useState(50);
-  const [showNeuralLogo, setShowNeuralLogo] = useState(true);
   const [primaryTextColor, setPrimaryTextColor] = useState('#ffffff');
   const [secondaryTextColor, setSecondaryTextColor] = useState('#94a3b8');
-  const [enableNeuralPulse, setEnableNeuralPulse] = useState(true);
   const [socialProof, setSocialProof] = useState({ enabled: true });
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [showConciergeTrigger, setShowConciergeTrigger] = useState(false);
@@ -166,15 +163,7 @@ const Home: React.FC<HomeProps> = ({
   useEffect(() => {
     const handlePreview = (e: any) => {
       const data = e.detail;
-      if (data.logoAuraColor !== undefined) setLogoAuraColor(data.logoAuraColor);
-      if (data.logoAuraBlur !== undefined) setLogoAuraBlur(data.logoAuraBlur);
-      if (data.logoAuraSpread !== undefined) setLogoAuraSpread(data.logoAuraSpread);
-      if (data.logoAuraOpacity !== undefined) setLogoAuraOpacity(data.logoAuraOpacity);
-      if (data.logoAuraStyle !== undefined) setLogoAuraStyle(data.logoAuraStyle);
-      if (data.logoAuraSharpness !== undefined) setLogoAuraSharpness(data.logoAuraSharpness);
       if (data.logoScale !== undefined) setLogoScale(data.logoScale);
-      if (data.showNeuralLogo !== undefined) setShowNeuralLogo(data.showNeuralLogo);
-      if (data.enableNeuralPulse !== undefined) setEnableNeuralPulse(data.enableNeuralPulse);
     };
     window.addEventListener('site-settings-preview', handlePreview);
     return () => window.removeEventListener('site-settings-preview', handlePreview);
@@ -183,7 +172,8 @@ const Home: React.FC<HomeProps> = ({
   useEffect(() => {
     const unsubSettings = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
       if (snap.exists()) {
-        const data = snap.data();
+        const data = snap.data() as SiteSettings;
+        setSettings(data);
         setLogoUrl(data.logoUrl || '');
         setSiteName(data.siteName || '');
         setHeroTitleAr(data.heroTitleAr || '');
@@ -195,16 +185,8 @@ const Home: React.FC<HomeProps> = ({
         setCtaButtonAr(data.ctaButtonAr || '');
         setCtaButtonEn(data.ctaButtonEn || '');
         setLogoScale(data.logoScale ?? 1);
-        setLogoAuraColor(data.logoAuraColor || '#1b97a7');
-        setLogoAuraBlur(data.logoAuraBlur ?? 20);
-        setLogoAuraSpread(data.logoAuraSpread ?? 1.2);
-        setLogoAuraOpacity(data.logoAuraOpacity ?? 0.4);
-        setLogoAuraStyle(data.logoAuraStyle || 'solid');
-        setLogoAuraSharpness(data.logoAuraSharpness ?? 50);
-        setShowNeuralLogo(data.showNeuralLogo ?? true);
         setPrimaryTextColor(data.primaryTextColor || '#ffffff');
         setSecondaryTextColor(data.secondaryTextColor || '#94a3b8');
-        setEnableNeuralPulse(data.enableNeuralPulse ?? true);
         if (data.socialProof) setSocialProof(data.socialProof);
       }
     }, (error) => {
@@ -266,7 +248,7 @@ const Home: React.FC<HomeProps> = ({
       setAiStatus(i18n.language === 'ar' ? 'جاري تحليل طلبك الصوتي...' : 'Analyzing your voice request...');
       
       try {
-        const parsed = await parseVoiceRequest(transcript, i18n.language);
+        const parsed = await processSmartVoice(transcript, i18n.language);
         if (parsed.productName) {
           setSearchQuery(parsed.productName);
         }
@@ -297,7 +279,7 @@ const Home: React.FC<HomeProps> = ({
     };
 
     recognition.start();
-  }, [i18n.language, setSearchQuery, setDraftDescription, setShowDraftArea, setAiStatus, parseVoiceRequest]);
+  }, [i18n.language, setSearchQuery, setDraftDescription, setShowDraftArea, setAiStatus, processSmartVoice]);
 
   const handleGenerateCopy = async () => {
     if (!searchQuery) return;
@@ -818,6 +800,7 @@ const Home: React.FC<HomeProps> = ({
       {/* Minimal UI Mode */}
       {uiStyle === 'minimal' && effectiveRole !== 'admin' ? (
         <MinimalUI 
+          settings={settings}
           isRtl={isRtl}
           searchTerm={searchQuery}
           setSearchTerm={setSearchQuery}
@@ -825,16 +808,9 @@ const Home: React.FC<HomeProps> = ({
           onVisualSearch={() => setIsVisualSearchOpen(true)}
           isListening={isListening}
           onSearch={handleRequest}
-          showNeuralLogo={showNeuralLogo}
           logoUrl={logoUrl}
           siteName={siteName}
           logoScale={logoScale}
-          logoAuraStyle={logoAuraStyle}
-          logoAuraColor={logoAuraColor}
-          logoAuraSpread={logoAuraSpread}
-          logoAuraOpacity={logoAuraOpacity}
-          logoAuraBlur={logoAuraBlur}
-          logoAuraSharpness={logoAuraSharpness}
           nextAction={nextAction}
           onNavigate={onNavigate}
           t={t}
@@ -879,38 +855,8 @@ const Home: React.FC<HomeProps> = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
               >
-                {/* Neural Brand Crown */}
-                {showNeuralLogo && (
+                {/* Brand Logo Section */}
               <div className="flex justify-center mb-12 relative group">
-                {/* Dynamic Aura Effect */}
-                <motion.div 
-                  animate={logoAuraStyle === 'pulse' ? {
-                    scale: [1, 1.02, 1],
-                    opacity: [logoAuraOpacity * 0.6, logoAuraOpacity * 0.8, logoAuraOpacity * 0.6],
-                  } : logoAuraStyle === 'mesh' ? {
-                    scale: [1, 1.05, 1],
-                    rotate: [0, 45, 90, 45, 0],
-                    borderRadius: ["40% 60% 70% 30% / 40% 50% 60% 50%", "50% 50% 50% 50% / 50% 50% 50% 50%", "40% 60% 70% 30% / 40% 50% 60% 50%"]
-                  } : { 
-                    scale: [1, 1.02, 1],
-                    opacity: [logoAuraOpacity * 0.7, logoAuraOpacity * 0.9, logoAuraOpacity * 0.7],
-                  }}
-                  transition={{ 
-                    duration: logoAuraStyle === 'pulse' ? 5 : 12, 
-                    repeat: Infinity, 
-                    ease: "easeInOut" 
-                  }}
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 md:w-64 md:h-64 rounded-full pointer-events-none z-0"
-                  style={{ 
-                    backgroundColor: logoAuraStyle === 'solid' ? logoAuraColor : 'transparent',
-                    backgroundImage: logoAuraStyle === 'gradient' ? `radial-gradient(circle, ${logoAuraColor} 0%, transparent 70%)` : 
-                                     logoAuraStyle === 'mesh' ? `conic-gradient(from 0deg, ${logoAuraColor}, ${logoAuraColor}88, ${logoAuraColor}44, ${logoAuraColor}88, ${logoAuraColor})` : 'none',
-                    filter: `blur(${logoAuraBlur}px) contrast(${100 + (logoAuraSharpness - 50) * 2}%)`,
-                    opacity: logoAuraOpacity,
-                    transform: `scale(${logoAuraSpread})`,
-                    boxShadow: logoAuraColor.toLowerCase() === '#ffffff' ? '0 0 40px 10px rgba(0,0,0,0.05)' : 'none'
-                  }}
-                />
                 
                 {/* Logo Container with Scale */}
                 <div 
@@ -956,22 +902,8 @@ const Home: React.FC<HomeProps> = ({
                       </span>
                     </div>
                   )}
-                  
-                  {/* Advanced AI Pulse Ring */}
-                  <motion.div 
-                    animate={{ 
-                      scale: [1, 1.2, 1],
-                      opacity: [0, 0.3, 0]
-                    }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                    className="absolute -inset-8 rounded-full border-2 border-brand-primary/30 pointer-events-none"
-                    style={{ 
-                      borderColor: `${logoAuraColor}44`,
-                    }}
-                  />
                 </div>
               </div>
-            )}
             
             <h1 className="text-4xl md:text-7xl lg:text-8xl font-black mb-8 tracking-tight leading-[1.1] md:leading-[1.05]" style={{ color: 'var(--primary-text)' }}>
               {isRtl ? (

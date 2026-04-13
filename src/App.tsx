@@ -8,12 +8,10 @@ import { Layout } from './modules/site/components/Layout';
 import { Skeleton } from './shared/components/Skeleton';
 import { HelpCircle } from 'lucide-react';
 import { handleFirestoreError, OperationType, handleAiError } from './core/utils/errorHandling';
-import { PageLoader } from './shared/components/PageLoader';
 import { usePredictiveNavigation } from './shared/hooks/usePredictiveNavigation';
 import { I18nextProvider, useTranslation } from 'react-i18next';
 import i18n from './i18n';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { preFetchNeuralPulse } from './core/services/geminiService';
 
 const Home = lazy(() => import('./modules/site/components/Home'));
 const Auth = lazy(() => import('./modules/site/components/Auth'));
@@ -25,8 +23,9 @@ const ChatHub = lazy(() => import('./modules/common/components/ChatHub').then(m 
 const ChatView = lazy(() => import('./modules/common/components/ChatView'));
 const ProfileView = lazy(() => import('./modules/site/components/ProfileView').then(m => ({ default: m.ProfileView })));
 const ConnectRewards = lazy(() => import('./modules/user/components/ConnectRewards').then(m => ({ default: m.ConnectRewards })));
-const UserNeuralHub = lazy(() => import('./modules/common/components/UserNeuralHub').then(m => ({ default: m.UserNeuralHub })));
+const UserInsightsHub = lazy(() => import('./modules/common/components/UserInsightsHub').then(m => ({ default: m.UserInsightsHub })));
 const Partnerships = lazy(() => import('./modules/site/components/Partnerships').then(m => ({ default: m.Partnerships })));
+const SmartHelp = lazy(() => import('./modules/common/components/SmartHelp').then(m => ({ default: m.SmartHelp })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,15 +64,7 @@ export default function App() {
 
   useEffect(() => {
     // Global error handling for unhandled rejections
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      console.error('Unhandled Promise Rejection:', event.reason);
-      handleAiError(event.reason, 'Global:unhandledrejection', false);
-    };
-
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-
-    let unsubscribeUser: (() => void) | undefined;
-
+    let unsubscribeUser: any = null;
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (user) {
         unsubscribeUser = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
@@ -81,9 +72,6 @@ export default function App() {
             const userData = docSnap.data() as UserProfile;
             setProfile(userData);
             setViewMode(prev => prev === 'customer' && userData.role !== 'customer' ? userData.role : prev);
-            
-            // Pre-fetch AI insights for smoother experience
-            preFetchNeuralPulse(userData).catch(err => handleAiError(err, "Neural Pulse pre-fetch"));
           } else {
             setProfile(null);
           }
@@ -132,12 +120,26 @@ export default function App() {
     });
 
     return () => {
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
       unsubscribeAuth();
       unsubscribeSettings();
       if (unsubscribeUser) unsubscribeUser();
     };
   }, []);
+
+  useEffect(() => {
+    const viewTitles: Record<string, string> = {
+      home: settings?.siteName || 'Souq Connect',
+      marketplace: i18nInstance.language === 'ar' ? 'السوق الذكي' : 'Smart Marketplace',
+      dashboard: i18nInstance.language === 'ar' ? 'لوحة التحكم' : 'Dashboard',
+      chat: i18nInstance.language === 'ar' ? 'المحادثات' : 'Chats',
+      profile: i18nInstance.language === 'ar' ? 'الملف الشخصي' : 'Profile',
+      smart_pulse: i18nInstance.language === 'ar' ? 'نبض السوق' : 'Market Pulse',
+    };
+
+    if (viewTitles[currentView]) {
+      document.title = `${viewTitles[currentView]} | ${settings?.siteName || 'Souq Connect'}`;
+    }
+  }, [currentView, settings, i18nInstance.language]);
 
   const renderView = () => {
     switch (currentView) {
@@ -214,7 +216,7 @@ export default function App() {
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>
             <div className="pt-24 px-4 min-h-screen bg-brand-background">
-              <UserNeuralHub profile={profile} isRtl={i18n.language === 'ar'} />
+              <UserInsightsHub profile={profile} isRtl={i18n.language === 'ar'} />
             </div>
           </Suspense>
         );
@@ -236,25 +238,9 @@ export default function App() {
         );
       case 'help':
         return (
-          <div className="pt-24 px-4 min-h-screen bg-brand-background flex flex-col items-center justify-center text-center">
-            <div className="w-20 h-20 bg-brand-primary/10 rounded-full flex items-center justify-center text-brand-primary mb-6">
-              <HelpCircle size={40} />
-            </div>
-            <h1 className="text-3xl font-black text-brand-text-main mb-4">
-              {i18n.language === 'ar' ? 'مركز المساعدة الذكي' : 'Neural Help Center'}
-            </h1>
-            <p className="text-brand-text-muted max-w-md mb-8">
-              {i18n.language === 'ar' 
-                ? 'نحن هنا لمساعدتك. قريباً سنقوم بإطلاق نظام دعم مدعوم بالذكاء الاصطناعي للإجابة على جميع استفساراتك.' 
-                : 'We are here to help. Soon we will launch an AI-powered support system to answer all your inquiries.'}
-            </p>
-            <button 
-              onClick={() => setView('home')}
-              className="px-8 py-3 bg-brand-primary text-white rounded-2xl font-bold shadow-lg shadow-brand-primary/20"
-            >
-              {i18n.language === 'ar' ? 'العودة للرئيسية' : 'Back to Home'}
-            </button>
-          </div>
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <SmartHelp onBack={() => setView('home')} />
+          </Suspense>
         );
       case 'partnerships':
         return (
@@ -309,17 +295,15 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <BrandingProvider>
           <AnimatePresence mode="wait">
-            {(loading || !settings) ? (
-              <PageLoader key="loader" previewSettings={settings} />
-            ) : (
               <motion.div
                 key="content"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.5 }}
-                className="min-h-screen"
+                className="min-h-screen relative"
               >
                 <Layout 
+                  settings={settings}
                   profile={profile}
                   features={features}
                   currentView={currentView}
@@ -335,7 +319,6 @@ export default function App() {
                   {renderView()}
                 </Layout>
               </motion.div>
-            )}
           </AnimatePresence>
         </BrandingProvider>
       </QueryClientProvider>

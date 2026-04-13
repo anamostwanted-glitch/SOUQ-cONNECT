@@ -4,7 +4,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
 import { SliderSettings, SliderItem } from '../../../core/types';
 
-export const NeuralFluidSlider: React.FC = () => {
+export const FluidSlider: React.FC = () => {
   const [settings, setSettings] = useState<SliderSettings | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 

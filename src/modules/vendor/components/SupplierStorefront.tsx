@@ -16,6 +16,7 @@ import { Badge } from "../../../shared/components/ui/badge";
 import { Card, CardContent } from "../../../shared/components/ui/card";
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { NeuralImmersiveFlow } from './NeuralImmersiveFlow';
 
 interface SupplierStorefrontProps {
   supplier: UserProfile;
@@ -32,6 +33,7 @@ export const SupplierStorefront: React.FC<SupplierStorefrontProps> = ({ supplier
   const [searchQuery, setSearchQuery] = useState('');
   const [isFollowing, setIsFollowing] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [immersiveProduct, setImmersiveProduct] = useState<MarketplaceItem | null>(null);
 
   useEffect(() => {
     console.log('SupplierStorefront: Debugging - Supplier Object:', supplier);
@@ -115,6 +117,14 @@ export const SupplierStorefront: React.FC<SupplierStorefrontProps> = ({ supplier
 
   return (
     <div className="space-y-8 pb-20">
+      {immersiveProduct && (
+        <NeuralImmersiveFlow 
+          products={filteredProducts} 
+          initialProductId={immersiveProduct.id} 
+          onClose={() => setImmersiveProduct(null)} 
+        />
+      )}
+
       {/* Store Header / Hero Section */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
