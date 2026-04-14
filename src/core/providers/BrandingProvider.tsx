@@ -83,12 +83,15 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
 
   useEffect(() => {
+    console.log('isDarkMode changed:', isDarkMode);
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
+      document.body.classList.add('dark');
       document.documentElement.style.colorScheme = 'dark';
       localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark');
       document.documentElement.style.colorScheme = 'light';
       localStorage.setItem('theme', 'light');
     }

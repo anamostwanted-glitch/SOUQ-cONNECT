@@ -150,6 +150,7 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
                     request.auth.uid == userId || 
                     isAdmin() || 
+                    isMasterAdmin() ||
                     (resource != null && resource.data.get('role', '') == 'supplier')
                   );
       

@@ -204,7 +204,7 @@ export const ConnectManager: React.FC = () => {
           { label: isRtl ? 'معدل النمو الفيروسي' : 'Viral Growth Rate', value: `${stats.viralGrowthRate}%`, icon: TrendingUp, color: 'text-indigo-500' },
         ].map((stat, i) => (
           <motion.div
-            key={i}
+            key={stat.label}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}

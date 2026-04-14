@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sparkles, MapPin, Globe, Bell, Menu, UploadCloud, Bot, MessageSquare, BookOpen, Zap, ShieldCheck, LogOut, Settings, User as UserIcon, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sparkles, MapPin, Globe, Bell, Menu, UploadCloud, Bot, MessageSquare, BookOpen, Zap, ShieldCheck, LogOut, Settings, User as UserIcon, Search, ChevronLeft, ChevronRight, Sun, Moon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
+import { useBranding } from '../../../../core/providers/BrandingProvider';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { NotificationDropdown } from './NotificationDropdown';
 import { BentoMenu } from './BentoMenu';
@@ -74,6 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
   onBack,
 }) => {
   const { t, i18n } = useTranslation();
+  const { isDarkMode, toggleDarkMode } = useBranding();
 
   const getSpeed = () => {
     switch (animationSpeed) {
@@ -160,6 +162,15 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0 pr-1 rtl:pl-1 rtl:pr-0 relative z-10">
+          {/* Dark Mode Toggle */}
+          <HapticButton 
+            onClick={toggleDarkMode}
+            className="w-10 h-10 flex items-center justify-center hover:bg-brand-surface rounded-full transition-all text-brand-text-muted hover:text-brand-primary border border-brand-border"
+            title={isRtl ? 'تبديل الوضع' : 'Toggle Theme'}
+          >
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </HapticButton>
+
           {/* Language Toggle */}
           <HapticButton 
             onClick={toggleLanguage}

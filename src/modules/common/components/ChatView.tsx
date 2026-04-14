@@ -426,7 +426,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                   }
                 }
               } catch (err) {
-                console.error("Error fetching other user for non-existent chat:", err);
+                handleFirestoreError(err, OperationType.GET, `users/${otherId}`, false);
               }
             }
           }
