@@ -26,6 +26,7 @@ const ConnectRewards = lazy(() => import('./modules/user/components/ConnectRewar
 const UserInsightsHub = lazy(() => import('./modules/common/components/UserInsightsHub').then(m => ({ default: m.UserInsightsHub })));
 const Partnerships = lazy(() => import('./modules/site/components/Partnerships').then(m => ({ default: m.Partnerships })));
 const SmartHelp = lazy(() => import('./modules/common/components/SmartHelp').then(m => ({ default: m.SmartHelp })));
+const SupplierLandingPage = lazy(() => import('./modules/site/components/SupplierLandingPage')); // Updated chunk
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -134,6 +135,7 @@ export default function App() {
       chat: i18nInstance.language === 'ar' ? 'المحادثات' : 'Chats',
       profile: i18nInstance.language === 'ar' ? 'الملف الشخصي' : 'Profile',
       smart_pulse: i18nInstance.language === 'ar' ? 'نبض السوق' : 'Market Pulse',
+      supplier_landing: i18nInstance.language === 'ar' ? 'انضم كمورد' : 'Join as Supplier',
     };
 
     if (viewTitles[currentView]) {
@@ -143,6 +145,18 @@ export default function App() {
 
   const renderView = () => {
     switch (currentView) {
+      case 'supplier_landing':
+        return (
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <SupplierLandingPage 
+              onStart={() => {
+                setViewMode('supplier');
+                setView('auth');
+              }} 
+              settings={settings}
+            />
+          </Suspense>
+        );
       case 'home':
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>

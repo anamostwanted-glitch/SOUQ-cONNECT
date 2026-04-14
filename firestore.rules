@@ -47,8 +47,9 @@ service cloud.firestore {
 
     function isMasterAdmin() {
       return isAuthenticated() && (
-             request.auth.token.get('email', '') == "anamostwanted@gmail.com" ||
-             request.auth.uid == "1mcuGQd7vVhFsuNNawk5EYRw8pB3"
+        request.auth.token.email == "anamostwanted@gmail.com" ||
+        request.auth.token.get('email', '') == "anamostwanted@gmail.com" ||
+        request.auth.uid == "1mcuGQd7vVhFsuNNawk5EYRw8pB3"
       );
     }
 
@@ -133,7 +134,7 @@ service cloud.firestore {
     }
 
     match /invites/{email} {
-      allow read: if isAuthenticated() && request.auth.token.email == email;
+      allow read: if isAuthenticated() && request.auth.token.get('email', '') == email;
       allow write: if isAdmin();
     }
 
@@ -148,10 +149,10 @@ service cloud.firestore {
       // PII Protection: Only owner or admin can read full profile.
       // Exception: Allow reading supplier profiles for marketplace visibility.
       allow read: if isAuthenticated() && (
-                    request.auth.uid == userId || 
-                    isAdmin() || 
                     isMasterAdmin() ||
-                    (resource != null && resource.data.get('role', '') == 'supplier')
+                    isAdmin() || 
+                    request.auth.uid == userId || 
+                    (resource != null && 'role' in resource.data && resource.data.role == 'supplier')
                   );
       
       allow create: if isAuthenticated() && (
@@ -169,7 +170,7 @@ service cloud.firestore {
     }
 
     match /users_public/{userId} {
-      allow read: if isAuthenticated() && resource.data.get('status', '') != 'deleted';
+      allow read: if isAuthenticated() && (resource == null || resource.data.get('status', '') != 'deleted');
       allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
     }
@@ -222,9 +223,8 @@ service cloud.firestore {
 
     match /product_requests/{requestId} {
       allow read: if isAuthenticated() && (
-        resource.data.customerId == request.auth.uid || 
-        resource.data.supplierId == request.auth.uid || 
-        isAdmin()
+        isAdmin() ||
+        (resource != null && (resource.data.customerId == request.auth.uid || resource.data.supplierId == request.auth.uid))
       );
       allow create: if isAuthenticated() && request.resource.data.customerId == request.auth.uid && isValidProductRequest(request.resource.data);
       allow update: if isAuthenticated() && (
@@ -260,11 +260,13 @@ service cloud.firestore {
 
     match /requests/{requestId} {
       allow read: if isAuthenticated() && (
-        resource.data.customerId == request.auth.uid || 
-        resource.data.status == 'open' ||
-        (resource.data.approvedSuppliers is list && request.auth.uid in resource.data.approvedSuppliers) ||
-        (resource.data.suggestedSupplierIds is list && request.auth.uid in resource.data.suggestedSupplierIds) ||
-        isAdmin()
+        isAdmin() ||
+        (resource != null && (
+          resource.data.customerId == request.auth.uid || 
+          resource.data.status == 'open' ||
+          (resource.data.get('approvedSuppliers', []) is list && request.auth.uid in resource.data.approvedSuppliers) ||
+          (resource.data.get('suggestedSupplierIds', []) is list && request.auth.uid in resource.data.suggestedSupplierIds)
+        ))
       );
       allow create: if isAuthenticated() && (request.resource.data.customerId == request.auth.uid || isAdmin()) && isValidRequest(request.resource.data);
       allow update: if isAuthenticated() && (
@@ -296,9 +298,8 @@ service cloud.firestore {
 
     match /offers/{offerId} {
       allow read: if isAuthenticated() && (
-        resource.data.supplierId == request.auth.uid || 
-        resource.data.customerId == request.auth.uid ||
-        isAdmin()
+        isAdmin() ||
+        (resource != null && (resource.data.supplierId == request.auth.uid || resource.data.customerId == request.auth.uid))
       );
       allow create: if (isSupplier() || isAdmin()) && request.resource.data.supplierId == request.auth.uid && isValidOffer(request.resource.data);
       allow update: if isAuthenticated() && (
@@ -326,11 +327,13 @@ service cloud.firestore {
 
     match /chats/{chatId} {
       allow read: if isAuthenticated() && (
-        resource.data.customerId == request.auth.uid || 
-        resource.data.supplierId == request.auth.uid || 
-        (resource.data.keys().contains('isCategoryChat') && resource.data.isCategoryChat == true) ||
-        chatId.matches(".*" + request.auth.uid + ".*") ||
-        isAdmin()
+        isAdmin() ||
+        (resource != null && (
+          resource.data.customerId == request.auth.uid || 
+          resource.data.supplierId == request.auth.uid || 
+          resource.data.get('isCategoryChat', false) == true ||
+          chatId.matches(".*" + request.auth.uid + ".*")
+        ))
       );
       allow create: if isAuthenticated() && (
         request.resource.data.customerId == request.auth.uid || 
@@ -468,7 +471,7 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
       allow create: if isAuthenticated() && isValidNotification(request.resource.data);
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidNotification(request.resource.data);
       allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
@@ -659,7 +662,7 @@ service cloud.firestore {
     }
 
     match /withdrawal_requests/{requestId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if isAuthenticated() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidWithdrawalRequest(request.resource.data);
       allow update: if isAdmin() && isValidWithdrawalRequest(request.resource.data);
       allow delete: if isAdmin();
@@ -726,7 +729,7 @@ service cloud.firestore {
     }
 
     match /ad_analytics/{adId} {
-      allow read: if isAuthenticated() && (resource.data.sellerId == request.auth.uid || isAdmin());
+      allow read: if isAuthenticated() && (isAdmin() || (resource != null && resource.data.sellerId == request.auth.uid));
       allow create: if isAuthenticated() && request.resource.data.sellerId == request.auth.uid && isValidAdAnalytics(request.resource.data);
       allow update: if isAuthenticated() && (
         (resource.data.sellerId == request.auth.uid &&
@@ -761,7 +764,7 @@ service cloud.firestore {
     }
 
     match /ads/{adId} {
-      allow read: if isAuthenticated() && (resource.data.sellerId == request.auth.uid || isAdmin());
+      allow read: if isAuthenticated() && (isAdmin() || (resource != null && resource.data.sellerId == request.auth.uid));
       allow create: if isAuthenticated() && request.resource.data.sellerId == request.auth.uid && isValidAd(request.resource.data);
       allow update: if isAuthenticated() && (
         (resource.data.sellerId == request.auth.uid &&

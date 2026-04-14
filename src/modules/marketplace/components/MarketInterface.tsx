@@ -116,6 +116,18 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
 
   // Basic state for now
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Handle global search events
+  useEffect(() => {
+    const handleGlobalSearch = (e: any) => {
+      if (e.detail?.query) {
+        setSearchTerm(e.detail.query);
+        setActiveTab('discover');
+      }
+    };
+    window.addEventListener('global-search', handleGlobalSearch);
+    return () => window.removeEventListener('global-search', handleGlobalSearch);
+  }, []);
   const [showAdminHub, setShowAdminHub] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [selectedRequestForOffer, setSelectedRequestForOffer] = useState<any | null>(null);

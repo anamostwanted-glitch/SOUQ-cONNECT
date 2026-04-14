@@ -51,8 +51,23 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
   onLogout
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [aiQuery, setAiQuery] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
+
+  const handleAiSearch = () => {
+    if (!aiQuery.trim()) return;
+    
+    // Dispatch global search event
+    window.dispatchEvent(new CustomEvent('global-search', { 
+      detail: { query: aiQuery.trim() } 
+    }));
+    
+    // Navigate to marketplace for results
+    setView('marketplace');
+    setIsOpen(false);
+    setAiQuery('');
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -72,6 +87,7 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
     { id: 'connect', icon: Zap, labelAr: 'المكافآت', labelEn: 'Connect', color: 'text-purple-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'dashboard', icon: LayoutGrid, labelAr: 'لوحة التحكم', labelEn: 'Dashboard', color: 'text-red-500', roles: ['supplier', 'admin'] },
     { id: 'profile', icon: User, labelAr: 'الملف الشخصي', labelEn: 'Profile', color: 'text-indigo-500', roles: ['customer', 'supplier', 'admin'] },
+    { id: 'supplier_landing', icon: Building2, labelAr: 'كن مورداً', labelEn: 'Become Supplier', color: 'text-orange-600', roles: ['customer'] },
     { id: 'partnerships', icon: Handshake, labelAr: 'الشراكات', labelEn: 'Partnerships', color: 'text-pink-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'help', icon: HelpCircle, labelAr: 'مركز المساعدة', labelEn: 'Help Center', color: 'text-orange-500', roles: ['customer', 'supplier', 'admin'] },
   ].filter(item => item.roles.includes(viewMode));
@@ -151,13 +167,19 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
                   <Search size={18} className="text-brand-text-muted" />
                   <input 
                     type="text" 
+                    value={aiQuery}
+                    onChange={(e) => setAiQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAiSearch()}
                     placeholder={isRtl ? 'اسأل الذكاء الاصطناعي...' : 'Ask AI anything...'}
                     className="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-brand-text-muted/50"
                   />
-                  <div className="flex items-center gap-1 px-2 py-1 bg-brand-primary/10 rounded-lg">
+                  <HapticButton 
+                    onClick={handleAiSearch}
+                    className="flex items-center gap-1 px-2 py-1 bg-brand-primary/10 rounded-lg hover:bg-brand-primary/20 transition-colors"
+                  >
                     <Sparkles size={12} className="text-brand-primary animate-pulse" />
                     <span className="text-[10px] font-black text-brand-primary uppercase tracking-tighter">AI</span>
-                  </div>
+                  </HapticButton>
                 </div>
               </div>
 

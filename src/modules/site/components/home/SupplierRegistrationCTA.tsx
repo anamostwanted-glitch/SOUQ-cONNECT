@@ -37,7 +37,7 @@ export const SupplierRegistrationCTA: React.FC<SupplierRegistrationCTAProps> = (
               : 'Join our exclusive network of premium suppliers. Start receiving product requests from customers, expand your reach, and grow your sales with ease and professionalism.'}
           </p>
           <HapticButton
-            onClick={() => onNavigate('auth-supplier')}
+            onClick={() => onNavigate('supplier_landing')}
             className="group/btn relative overflow-hidden bg-gradient-to-r from-brand-teal via-brand-primary to-brand-teal bg-[length:200%_auto] animate-gradient-x text-white px-12 py-6 rounded-[2rem] text-xl font-black shadow-2xl shadow-brand-teal/30 hover:shadow-brand-teal/50 transition-all hover:-translate-y-2 flex items-center justify-center gap-4 w-full md:w-auto"
           >
             <span className="relative z-10 flex items-center gap-4">

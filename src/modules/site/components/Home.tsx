@@ -77,6 +77,20 @@ const Home: React.FC<HomeProps> = ({
   console.log('DEBUG: Home uiStyle=', uiStyle, 'effectiveRole=', effectiveRole);
 
   const [searchQuery, setSearchQuery] = usePersistedState('home_search_query', '');
+
+  // Handle global search events
+  useEffect(() => {
+    const handleGlobalSearch = (e: any) => {
+      if (e.detail?.query) {
+        setSearchQuery(e.detail.query);
+        // If we are on home, we might want to trigger the search area
+        setShowDraftArea(true);
+      }
+    };
+    window.addEventListener('global-search', handleGlobalSearch);
+    return () => window.removeEventListener('global-search', handleGlobalSearch);
+  }, [setSearchQuery]);
+
   const [recentSearches, setRecentSearches] = usePersistedState<string[]>('home_recent_searches', []);
   const [draftDescription, setDraftDescription] = usePersistedState('home_draft_description', '');
   const [showDraftArea, setShowDraftArea] = useState(false);
