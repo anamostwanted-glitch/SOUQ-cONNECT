@@ -205,7 +205,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         batch.update(doc(db, 'categories', child.id), { parentId: targetId });
       });
 
-      // 5. Soft delete the source category
+      // 5. Update Chats
+      const chatsSnap = await getDocs(query(collection(db, 'chats'), where('categoryId', '==', sourceId)));
+      chatsSnap.forEach(chatDoc => {
+        batch.update(doc(db, 'chats', chatDoc.id), { categoryId: targetId });
+      });
+
+      // 6. Soft delete the source category
       batch.update(doc(db, 'categories', sourceId), { 
         status: 'deleted', 
         deletedAt: new Date().toISOString() 
@@ -234,7 +240,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       
       const { suggestMainCategories } = await import('../../../core/services/geminiService');
       const suggestions = await suggestMainCategories(i18n.language, activeCategoryTab, existingNames);
-      setAiSuggestions(suggestions);
+      
+      // Filter out any suggestions that already exist (case-insensitive)
+      const filteredSuggestions = suggestions.filter(suggestion => 
+        !existingNames.some(existing => existing.toLowerCase() === suggestion.toLowerCase())
+      );
+      
+      setAiSuggestions(filteredSuggestions);
     } catch (error: any) {
       handleAiError(error, 'Main category suggestion');
       if (error.message === 'QUOTA_EXHAUSTED') {
@@ -266,7 +278,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         
       const { suggestSubcategories } = await import('../../../core/services/geminiService');
       const suggestions = await suggestSubcategories(categoryName, activeCategoryTab, existingSubNames);
-      setAiSuggestions(suggestions);
+      
+      // Filter out any suggestions that already exist (case-insensitive)
+      const filteredSuggestions = suggestions.filter(suggestion => 
+        !existingSubNames.some(existing => existing.toLowerCase() === suggestion.toLowerCase())
+      );
+      
+      setAiSuggestions(filteredSuggestions);
     } catch (error: any) {
       handleAiError(error, 'Subcategory suggestion');
       if (error.message === 'QUOTA_EXHAUSTED') {
@@ -323,7 +341,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const unsubscribeCategories = onSnapshot(query(collection(db, 'categories'), orderBy('nameEn', 'asc')), (snap) => {
       const fetchedCategories: Category[] = [];
-      snap.forEach(doc => fetchedCategories.push({ id: doc.id, ...doc.data() } as Category));
+      snap.forEach(doc => {
+        const data = doc.data();
+        if (data.status !== 'deleted') {
+          fetchedCategories.push({ id: doc.id, ...data } as Category);
+        }
+      });
       setCategories(fetchedCategories);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'categories', false);

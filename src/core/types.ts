@@ -100,6 +100,8 @@ export interface Category {
   suggestedKeywords?: string[];
   autoKeywords?: string[];
   categoryType?: 'product' | 'service';
+  status?: 'active' | 'deleted';
+  deletedAt?: string;
 }
 
 export interface ProductRequest {

@@ -68,6 +68,7 @@ export const AICategorySelector: React.FC<AICategorySelectorProps> = ({
       const matchedCategories = suggestedIds
         .map(id => categories.find(c => c.id === id))
         .filter(Boolean)
+        .filter(c => !selectedCategoryIds.includes(c!.id)) // Filter out already selected categories
         .map(c => ({
           id: c!.id,
           name: isRtl ? c!.nameAr : c!.nameEn,

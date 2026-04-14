@@ -2113,8 +2113,8 @@ export const suggestCategoryMerges = async (categories: Category[], language: st
 
 export const suggestMainCategories = async (language: string, categoryType: 'product' | 'service', existingCategories: string[]): Promise<string[]> => {
   try {
-    const existingList = existingCategories.length > 0 ? `Do not include these existing categories: ${existingCategories.join(', ')}.` : '';
-    const prompt = `Suggest 5-8 new main ${categoryType === 'product' ? 'product' : 'service'} categories for a Souq Connect marketplace. The language should be ${language}. ${existingList} Return ONLY a JSON array of strings.`;
+    const existingList = existingCategories.length > 0 ? `CRITICAL: Do not suggest any of these existing categories: ${existingCategories.join(', ')}.` : '';
+    const prompt = `Suggest 5-8 unique and new main ${categoryType === 'product' ? 'product' : 'service'} categories for a Souq Connect marketplace. The language should be ${language}. ${existingList} Ensure the suggestions are distinct from the existing list. Return ONLY a JSON array of strings.`;
     
     const result = await callAiJson(prompt, {
       type: Type.ARRAY,
@@ -2135,9 +2135,9 @@ export const suggestMainCategories = async (language: string, categoryType: 'pro
 
 export const suggestSubcategories = async (parentCategory: string, categoryType: 'product' | 'service', existingSubcategories: string[]): Promise<string[]> => {
   try {
-    const existingList = existingSubcategories.length > 0 ? `Do not include these existing subcategories: ${existingSubcategories.join(', ')}.` : '';
+    const existingList = existingSubcategories.length > 0 ? `CRITICAL: Do not suggest any of these existing subcategories: ${existingSubcategories.join(', ')}.` : '';
     const result = await callAiJson(
-      `Suggest 5-8 new ${categoryType === 'product' ? 'product' : 'service'} subcategories for the parent category "${parentCategory}" in a Souq Connect marketplace. The language should match the parent category name. ${existingList} Return ONLY a JSON array of strings.`,
+      `Suggest 5-8 unique and new ${categoryType === 'product' ? 'product' : 'service'} subcategories for the parent category "${parentCategory}" in a Souq Connect marketplace. The language should match the parent category name. ${existingList} Ensure the suggestions are distinct from the existing list. Return ONLY a JSON array of strings.`,
       {
         type: Type.ARRAY,
         items: { type: Type.STRING }
