@@ -1,18 +1,14 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { doc, onSnapshot, collection, getDocs } from 'firebase/firestore';
-import { auth, db } from './core/firebase';
-import { UserProfile, AppFeatures, UserRole, SiteSettings, ProductRequest, Category } from './core/types';
-import { BrandingProvider } from './core/providers/BrandingProvider';
+import { ProductRequest } from './core/types';
 import { Layout } from './modules/site/components/Layout';
 import { Skeleton } from './shared/components/Skeleton';
-import { HelpCircle } from 'lucide-react';
-import { handleFirestoreError, OperationType, handleAiError } from './core/utils/errorHandling';
 import { usePredictiveNavigation } from './shared/hooks/usePredictiveNavigation';
-import { I18nextProvider, useTranslation } from 'react-i18next';
-import i18n from './i18n';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
+import { useAuth } from './core/providers/AuthProvider';
+import { useSettings } from './core/providers/SettingsProvider';
+import { useCategories } from './core/providers/CategoryProvider';
 
 const Home = lazy(() => import('./modules/site/components/Home'));
 const Auth = lazy(() => import('./modules/site/components/Auth'));
@@ -27,33 +23,17 @@ const ConnectRewards = lazy(() => import('./modules/user/components/ConnectRewar
 const UserNeuralHub = lazy(() => import('./modules/common/components/UserNeuralHub').then(m => ({ default: m.UserNeuralHub })));
 const Partnerships = lazy(() => import('./modules/site/components/Partnerships').then(m => ({ default: m.Partnerships })));
 const SmartHelp = lazy(() => import('./modules/common/components/SmartHelp').then(m => ({ default: m.SmartHelp })));
-const SupplierLandingPage = lazy(() => import('./modules/site/components/SupplierLandingPage')); // Updated chunk
+const SupplierLandingPage = lazy(() => import('./modules/site/components/SupplierLandingPage'));
 const SupplierOnboarding = lazy(() => import('./modules/site/components/SupplierOnboarding').then(m => ({ default: m.SupplierOnboarding })));
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      retry: 1,
-    },
-  },
-});
 
 export default function App() {
   const { i18n: i18nInstance } = useTranslation();
+  const { profile, viewMode, setViewMode, loading: authLoading } = useAuth();
+  const { settings, features, loading: settingsLoading } = useSettings();
+  const { categories, loading: categoriesLoading } = useCategories();
+
   const [currentView, setView] = useState('home');
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [features, setFeatures] = useState<AppFeatures>({
-    marketplace: true,
-    aiChat: true,
-    supplierVerification: true,
-    marketTrends: true,
-    priceIntelligence: true,
-  });
-  const [viewMode, setViewMode] = useState<UserRole>('customer');
   const [uiStyle, setUiStyle] = useState<'classic' | 'minimal'>('classic');
-  const [settings, setSettings] = useState<SiteSettings | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -63,99 +43,31 @@ export default function App() {
   // Predictive Engine
   usePredictiveNavigation(profile, recentSearches, recentRequests, setIsMomentOfNeed);
   const [dashboardTab, setDashboardTab] = useState('overview');
-  const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState<number | null>(null);
+  const [initialItemId, setInitialItemId] = useState<string | null>(null);
+
+  const loading = authLoading || settingsLoading;
 
   useEffect(() => {
-    // Global error handling for unhandled rejections
-    let unsubscribeUser: any = null;
-    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
-      if (user) {
-        unsubscribeUser = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
-          if (docSnap.exists()) {
-            const userData = docSnap.data() as UserProfile;
-            setProfile(userData);
-            setViewMode(prev => prev === 'customer' && userData.role !== 'customer' ? userData.role : prev);
-            
-            // Auto-redirect new suppliers to onboarding
-            if (userData.role === 'supplier' && (!userData.categories || userData.categories.length === 0) && currentView !== 'supplier_onboarding') {
-              setView('supplier_onboarding');
-            }
-          } else {
-            setProfile(null);
-          }
-          setLoading(false);
-        }, (error) => {
-          handleFirestoreError(error, OperationType.GET, `users/${user.uid}`, false);
-          setLoading(false);
-        });
-      } else {
-        setProfile(null);
-        setLoading(false);
-        if (unsubscribeUser) unsubscribeUser();
-      }
-    }, (error) => {
-      handleAiError(error, "App:onAuthStateChanged", false);
-      setLoading(false);
-    });
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view');
+    const itemIdParam = params.get('itemId');
 
-    const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
-      if (snap.exists()) {
-        const newSettings = snap.data() as SiteSettings;
-        setSettings(newSettings);
-        
-        // Update document title
-        if (newSettings.siteName) {
-          document.title = newSettings.siteName;
-        }
-        
-        // Update favicon
-        if (newSettings.logoUrl) {
-          let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
-          if (!link) {
-            link = document.createElement('link');
-            link.rel = 'icon';
-            document.head.appendChild(link);
-          }
-          link.href = newSettings.logoUrl;
-        }
-      } else {
-        setSettings({});
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
-      // Set empty settings if fetch fails to prevent white screen
-      setSettings({});
-    });
-
-    const handleRejection = (event: PromiseRejectionEvent) => {
-      console.warn('Unhandled promise rejection:', event.reason);
-      handleAiError(event.reason, 'Global:unhandledrejection', false);
-    };
-
-    window.addEventListener('unhandledrejection', handleRejection);
-
-    return () => {
-      unsubscribeAuth();
-      unsubscribeSettings();
-      window.removeEventListener('unhandledrejection', handleRejection);
-      if (unsubscribeUser) unsubscribeUser();
-    };
+    if (viewParam) {
+      setView(viewParam);
+    }
+    
+    if (itemIdParam) {
+      setInitialItemId(itemIdParam);
+    }
   }, []);
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, 'categories'));
-        const allCats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
-        // Only show active categories to general users
-        setCategories(allCats.filter(c => c.status === 'active' || !c.status));
-      } catch (error) {
-        handleFirestoreError(error, OperationType.GET, 'categories');
-      }
-    };
-    fetchCategories();
-  }, []);
+    // Auto-redirect new suppliers to onboarding
+    if (profile?.role === 'supplier' && (!profile.categories || profile.categories.length === 0) && currentView !== 'supplier_onboarding' && currentView !== 'auth') {
+      setView('supplier_onboarding');
+    }
+  }, [profile, currentView]);
 
   useEffect(() => {
     const viewTitles: Record<string, string> = {
@@ -237,13 +149,11 @@ export default function App() {
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>
             <MarketInterface 
-              profile={profile} 
-              features={features}
               onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
               onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
-              viewMode={viewMode as any}
               activeTab={dashboardTab as any}
               setActiveTab={setDashboardTab as any}
+              initialItemId={initialItemId}
             />
           </Suspense>
         );
@@ -290,13 +200,10 @@ export default function App() {
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>
             <Dashboard 
-              profile={profile}
-              features={features}
               dashboardTab={dashboardTab}
               setDashboardTab={setDashboardTab}
               onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
               onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
-              viewMode={viewMode as any}
               uiStyle={uiStyle}
             />
           </Suspense>
@@ -342,7 +249,7 @@ export default function App() {
       default:
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <Home profile={profile} onNavigate={setView} viewMode={viewMode as any} uiStyle={uiStyle} />
+            <Home onNavigate={setView} uiStyle={uiStyle} />
           </Suspense>
         );
     }
@@ -356,38 +263,34 @@ export default function App() {
   };
 
   return (
-    <I18nextProvider i18n={i18n}>
-      <QueryClientProvider client={queryClient}>
-        <BrandingProvider>
-          <Toaster position="top-center" richColors />
-          <AnimatePresence mode="wait">
-              <motion.div
-                key="content"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5 }}
-                className="min-h-screen relative"
-              >
-                <Layout 
-                  settings={settings}
-                  profile={profile}
-                  features={features}
-                  currentView={currentView}
-                  setView={setView}
-                  setActiveChatId={setActiveChatId}
-                  viewMode={viewMode}
-                  setViewMode={setViewMode}
-                  uiStyle={uiStyle}
-                  setUiStyle={setUiStyle}
-                  onBack={onBack}
-                  isMomentOfNeed={isMomentOfNeed}
-                >
-                  {renderView()}
-                </Layout>
-              </motion.div>
-          </AnimatePresence>
-        </BrandingProvider>
-      </QueryClientProvider>
-    </I18nextProvider>
+    <div className="min-h-screen relative">
+      <Toaster position="top-center" richColors />
+      <AnimatePresence mode="wait">
+          <motion.div
+            key="content"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="min-h-screen relative"
+          >
+            <Layout 
+              settings={settings}
+              profile={profile}
+              features={features}
+              currentView={currentView}
+              setView={setView}
+              setActiveChatId={setActiveChatId}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              uiStyle={uiStyle}
+              setUiStyle={setUiStyle}
+              onBack={onBack}
+              isMomentOfNeed={isMomentOfNeed}
+            >
+              {renderView()}
+            </Layout>
+          </motion.div>
+      </AnimatePresence>
+    </div>
   );
 }

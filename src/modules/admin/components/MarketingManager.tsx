@@ -17,6 +17,7 @@ interface MarketingManagerProps {
 export const MarketingManager: React.FC<MarketingManagerProps> = ({ allUsers, isRtl, t }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [resetting, setResetting] = useState<string | null>(null);
+  const [userToReset, setUserToReset] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [newCampaign, setNewCampaign] = useState<{ name: string; platform: 'meta' | 'google'; budget: number }>({ name: '', platform: 'meta', budget: 0 });
 
@@ -54,13 +55,13 @@ export const MarketingManager: React.FC<MarketingManagerProps> = ({ allUsers, is
     .sort((a, b) => (b.referralPoints || 0) - (a.referralPoints || 0));
 
   const handleResetPoints = async (userId: string) => {
-    if (!window.confirm(isRtl ? 'هل أنت متأكد من تصفير نقاط هذا المسوق؟' : 'Are you sure you want to reset this marketer\'s points?')) return;
-    
     setResetting(userId);
     try {
       await updateDoc(doc(db, 'users', userId), {
         referralPoints: 0
       });
+      toast.success(isRtl ? 'تم تصفير النقاط بنجاح' : 'Points reset successfully');
+      setUserToReset(null);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}`, false);
     } finally {
@@ -215,7 +216,7 @@ export const MarketingManager: React.FC<MarketingManagerProps> = ({ allUsers, is
                   </td>
                   <td className="px-4 py-3 md:px-8 md:py-5 whitespace-nowrap">
                     <button
-                      onClick={() => handleResetPoints(user.uid)}
+                      onClick={() => setUserToReset(user.uid)}
                       disabled={resetting === user.uid}
                       className="flex items-center gap-2 px-4 py-2 md:px-5 md:py-2.5 bg-brand-background text-brand-error rounded-xl text-xs font-black uppercase tracking-widest hover:bg-brand-error/10 transition-all disabled:opacity-50 border border-brand-border"
                     >
@@ -229,6 +230,41 @@ export const MarketingManager: React.FC<MarketingManagerProps> = ({ allUsers, is
           </table>
         </div>
       </div>
+
+      {/* Reset Confirmation Modal */}
+      {userToReset && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-brand-surface w-full max-w-md rounded-[2.5rem] p-8 border border-brand-border shadow-2xl">
+            <div className="w-16 h-16 bg-brand-error/10 rounded-3xl flex items-center justify-center text-brand-error mx-auto mb-6">
+              <RotateCcw size={32} />
+            </div>
+            <h3 className="text-xl font-black text-brand-text-main text-center mb-2">
+              {isRtl ? 'تأكيد تصفير النقاط' : 'Confirm Points Reset'}
+            </h3>
+            <p className="text-sm text-brand-text-muted text-center mb-8 font-medium">
+              {isRtl 
+                ? 'هل أنت متأكد من تصفير نقاط هذا المسوق؟ لا يمكن التراجع عن هذا الإجراء.' 
+                : 'Are you sure you want to reset this marketer\'s points? This action cannot be undone.'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setUserToReset(null)}
+                className="flex-1 py-4 bg-brand-background text-brand-text-main rounded-2xl text-xs font-black uppercase tracking-widest border border-brand-border hover:bg-brand-surface transition-all"
+              >
+                {isRtl ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                onClick={() => handleResetPoints(userToReset)}
+                disabled={resetting === userToReset}
+                className="flex-1 py-4 bg-brand-error text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-brand-error/90 transition-all shadow-lg shadow-brand-error/20 flex items-center justify-center gap-2"
+              >
+                {resetting === userToReset ? <RotateCcw size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                {isRtl ? 'تأكيد التصفير' : 'Confirm Reset'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

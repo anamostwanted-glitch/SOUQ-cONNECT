@@ -45,19 +45,18 @@ interface LayoutProps {
   isMomentOfNeed?: boolean;
 }
 
+import { useAuth } from '../../../../core/providers/AuthProvider';
+import { useSettings } from '../../../../core/providers/SettingsProvider';
+import { useCategories } from '../../../../core/providers/CategoryProvider';
+
 export const Layout: React.FC<LayoutProps> = ({ 
   children, 
-  settings,
-  profile, 
-  features,
   currentView, 
   setView,
   setActiveChatId,
   onBack,
   dashboardTab = 'overview',
   setDashboardTab,
-  viewMode,
-  setViewMode,
   uiStyle,
   setUiStyle,
   onPrefetch,
@@ -66,16 +65,19 @@ export const Layout: React.FC<LayoutProps> = ({
   isMomentOfNeed = false
 }) => {
   const { t } = useTranslation();
+  const { profile, viewMode, setViewMode } = useAuth();
+  const { settings, features } = useSettings();
+  const { categories } = useCategories();
   const { isDarkMode, toggleDarkMode } = useBranding();
   const isRtl = i18nInstance.language === 'ar';
   
-  const [siteLogo, setSiteLogo] = useState('');
-  const [siteName, setSiteName] = useState('');
-  const [logoScale, setLogoScale] = useState(1);
+  const [siteLogo, setSiteLogo] = useState(settings?.logoUrl || '');
+  const [siteName, setSiteName] = useState(settings?.siteName || '');
+  const [logoScale, setLogoScale] = useState(settings?.logoScale ?? 1);
 
   // Header specific settings
-  const [headerLogoScale, setHeaderLogoScale] = useState(1);
-  const [headerAnimationSpeed, setHeaderAnimationSpeed] = useState<'slow' | 'normal' | 'fast'>('normal');
+  const [headerLogoScale, setHeaderLogoScale] = useState(settings?.headerLogoScale ?? settings?.logoScale ?? 1);
+  const [headerAnimationSpeed, setHeaderAnimationSpeed] = useState<'slow' | 'normal' | 'fast'>(settings?.headerAnimationSpeed ?? settings?.animationSpeed ?? 'normal');
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -88,13 +90,23 @@ export const Layout: React.FC<LayoutProps> = ({
   const [visualSearchMode, setVisualSearchMode] = useState<'camera' | 'gallery' | null>(null);
   const [isAIHubOpen, setIsAIHubOpen] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
   
   const mainRef = useRef<HTMLElement>(null);
   const scrollDirection = useScrollDirection(mainRef);
   const lastNotificationId = useRef<string | null>(null);
   const isInitialNotifLoad = useRef(true);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  // Sync with settings provider
+  useEffect(() => {
+    if (settings) {
+      setSiteLogo(settings.logoUrl || '');
+      setSiteName(settings.siteName || '');
+      setLogoScale(settings.logoScale ?? 1);
+      setHeaderLogoScale(settings.headerLogoScale ?? settings.logoScale ?? 1);
+      setHeaderAnimationSpeed(settings.headerAnimationSpeed ?? settings.animationSpeed ?? 'normal');
+    }
+  }, [settings]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -145,73 +157,6 @@ export const Layout: React.FC<LayoutProps> = ({
   }, [i18nInstance.language]);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
-      setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
-    }, (error) => {
-      console.error('Firestore Error in categories listener:', error);
-      handleFirestoreError(error, OperationType.LIST, 'categories', false);
-    });
-    return () => unsub();
-  }, []);
-
-  // Sync Role to Custom Claims for performance & security
-  useEffect(() => {
-    let isMounted = true;
-    const syncRole = async () => {
-      if (!profile || !auth.currentUser) return;
-      
-      // Check if we already tried and failed recently to avoid infinite loops
-      const lastSyncError = sessionStorage.getItem('last_role_sync_error');
-      if (lastSyncError && Date.now() - parseInt(lastSyncError) < 60000) return;
-
-      try {
-        const idToken = await auth.currentUser.getIdToken();
-        const response = await fetch('/api/sync-role', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`
-          },
-          body: JSON.stringify({ role: profile.role })
-        });
-        
-        if (response.ok) {
-          if (!isMounted) return;
-          const data = await response.json();
-          if (data.warning === "Identity Toolkit API disabled") {
-            console.warn('Custom roles (Custom Claims) are currently disabled. System will fallback to Firestore rules checks.');
-          } else {
-            // Force token refresh to pick up new claims
-            await auth.currentUser.getIdToken(true);
-            console.log('Role synced to custom claims successfully');
-          }
-          sessionStorage.removeItem('last_role_sync_error');
-        } else {
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
-            const errorData = await response.json();
-            if (errorData.error === "Identity Toolkit API disabled") {
-              console.warn('Custom roles (Custom Claims) are currently disabled. System will fallback to Firestore rules checks.');
-              sessionStorage.setItem('last_role_sync_error', Date.now().toString());
-            }
-          } else {
-            console.warn('Server returned non-JSON response for role sync. Server might be restarting.');
-          }
-        }
-      } catch (error) {
-        // Only log if it's not a standard fetch failure (which happens during server restarts)
-        if (error instanceof Error && error.message !== 'Failed to fetch') {
-          console.error('Failed to sync role to custom claims:', error);
-        }
-        sessionStorage.setItem('last_role_sync_error', Date.now().toString());
-      }
-    };
-
-    syncRole();
-    return () => { isMounted = false; };
-  }, [profile?.role, auth.currentUser?.uid]);
-
-  useEffect(() => {
     const handlePreview = (e: any) => {
       const data = e.detail;
       if (data.logoUrl !== undefined) setSiteLogo(data.logoUrl);
@@ -224,25 +169,6 @@ export const Layout: React.FC<LayoutProps> = ({
     };
     window.addEventListener('site-settings-preview', handlePreview);
     return () => window.removeEventListener('site-settings-preview', handlePreview);
-  }, []);
-
-  useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        setSiteLogo(data.logoUrl || '');
-        setSiteName(data.siteName || '');
-        setLogoScale(data.logoScale ?? 1);
-
-        // Header specific
-        setHeaderLogoScale(data.headerLogoScale ?? data.logoScale ?? 1);
-        setHeaderAnimationSpeed(data.headerAnimationSpeed ?? data.animationSpeed ?? 'normal');
-      }
-    }, (error) => {
-      console.error('Firestore Error in settings/site listener:', error);
-      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
-    });
-    return () => unsub();
   }, []);
 
   useEffect(() => {

@@ -24,11 +24,13 @@ import {
   CheckCircle2,
   MoreVertical,
   ShoppingBag,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
+import { ProductDetailsModal } from '../../../shared/components/ProductDetailsModal';
 
 interface MarketplaceManagerProps {
   isRtl: boolean;
@@ -41,6 +43,7 @@ export const MarketplaceManager: React.FC<MarketplaceManagerProps> = ({ isRtl })
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'deleted' | 'sold'>('all');
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -76,8 +79,6 @@ export const MarketplaceManager: React.FC<MarketplaceManagerProps> = ({ isRtl })
   }, [items, searchQuery]);
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!window.confirm(isRtl ? 'هل أنت متأكد من أرشفة هذا الإعلان؟' : 'Are you sure you want to archive this ad?')) return;
-    
     setIsDeleting(itemId);
     try {
       // Soft Delete as per AGENTS.md
@@ -86,6 +87,7 @@ export const MarketplaceManager: React.FC<MarketplaceManagerProps> = ({ isRtl })
         deletedAt: new Date().toISOString()
       });
       toast.success(isRtl ? 'تمت أرشفة الإعلان بنجاح' : 'Ad archived successfully');
+      setItemToDelete(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `marketplace/${itemId}`, false);
       toast.error(isRtl ? 'فشل أرشفة الإعلان' : 'Failed to archive ad');
@@ -207,7 +209,12 @@ export const MarketplaceManager: React.FC<MarketplaceManagerProps> = ({ isRtl })
                     
                     <div className="flex gap-2">
                       <button 
-                        onClick={() => window.open(`/marketplace/item/${item.id}`, '_blank')}
+                        onClick={() => {
+                          const url = new URL(window.location.origin);
+                          url.searchParams.set('view', 'marketplace');
+                          url.searchParams.set('itemId', item.id);
+                          window.open(url.toString(), '_blank');
+                        }}
                         className="p-2 bg-white/20 backdrop-blur-md text-white rounded-xl border border-white/30 hover:bg-white/40 transition-all"
                         title={isRtl ? 'فتح في صفحة جديدة' : 'Open in new page'}
                       >
@@ -218,7 +225,7 @@ export const MarketplaceManager: React.FC<MarketplaceManagerProps> = ({ isRtl })
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteItem(item.id);
+                            setItemToDelete(item.id);
                           }}
                           disabled={isDeleting === item.id}
                           className="p-2 bg-brand-error/80 backdrop-blur-md text-white rounded-xl border border-brand-error/30 hover:bg-brand-error transition-all"
@@ -241,7 +248,10 @@ export const MarketplaceManager: React.FC<MarketplaceManagerProps> = ({ isRtl })
                       </span>
                     </div>
                     
-                    <h4 className="font-black text-brand-text-main line-clamp-1 mb-2 group-hover:text-brand-primary transition-colors">
+                    <h4 
+                      className="font-black text-brand-text-main line-clamp-1 mb-2 group-hover:text-brand-primary cursor-pointer transition-colors"
+                      onClick={() => setSelectedItem(item)}
+                    >
                       {isRtl ? (item.titleAr || item.title) : (item.titleEn || item.title)}
                     </h4>
                     
@@ -271,7 +281,7 @@ export const MarketplaceManager: React.FC<MarketplaceManagerProps> = ({ isRtl })
                       </button>
                     ) : (
                       <button
-                        onClick={() => handleDeleteItem(item.id)}
+                        onClick={() => setItemToDelete(item.id)}
                         disabled={isDeleting === item.id}
                         className="flex-1 py-3 bg-brand-error text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-error/90 transition-all shadow-lg shadow-brand-error/20 flex items-center justify-center gap-2"
                       >
@@ -291,6 +301,61 @@ export const MarketplaceManager: React.FC<MarketplaceManagerProps> = ({ isRtl })
           </AnimatePresence>
         </div>
       )}
+      {/* Modals */}
+      <AnimatePresence>
+        {selectedItem && (
+          <ProductDetailsModal
+            item={selectedItem}
+            onClose={() => setSelectedItem(null)}
+            onContactSeller={() => {}}
+            onViewProfile={() => {}}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {itemToDelete && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-brand-surface w-full max-w-md rounded-[2.5rem] p-8 border border-brand-border shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-brand-error/10 rounded-3xl flex items-center justify-center text-brand-error mx-auto mb-6">
+                <Trash2 size={32} />
+              </div>
+              
+              <h3 className="text-xl font-black text-brand-text-main text-center mb-2">
+                {isRtl ? 'تأكيد الأرشفة' : 'Confirm Archive'}
+              </h3>
+              <p className="text-sm text-brand-text-muted text-center mb-8 font-medium">
+                {isRtl 
+                  ? 'هل أنت متأكد من أرشفة هذا الإعلان؟ سيتم إخفاؤه من السوق ولكن سيبقى في الأرشيف.' 
+                  : 'Are you sure you want to archive this ad? It will be hidden from the marketplace but kept in the archive.'}
+              </p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setItemToDelete(null)}
+                  className="flex-1 py-4 bg-brand-background text-brand-text-main rounded-2xl text-xs font-black uppercase tracking-widest border border-brand-border hover:bg-brand-surface transition-all"
+                >
+                  {isRtl ? 'إلغاء' : 'Cancel'}
+                </button>
+                <button
+                  onClick={() => handleDeleteItem(itemToDelete)}
+                  disabled={isDeleting === itemToDelete}
+                  className="flex-1 py-4 bg-brand-error text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-brand-error/90 transition-all shadow-lg shadow-brand-error/20 flex items-center justify-center gap-2"
+                >
+                  {isDeleting === itemToDelete ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  {isRtl ? 'تأكيد الأرشفة' : 'Confirm Archive'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

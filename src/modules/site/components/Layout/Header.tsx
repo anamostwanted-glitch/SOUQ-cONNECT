@@ -117,13 +117,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="w-10 h-10 rounded-full overflow-hidden border-2 border-white dark:border-gray-800 shadow-sm relative z-10 hover:ring-2 hover:ring-brand-primary/20 transition-all"
               style={{ transform: `scale(${logoScale})` }}
             >
-              {profile.photoURL ? (
-                <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="w-full h-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-                  <UserIcon size={18} />
-                </div>
-              )}
+              <img src={getUserImageUrl(profile)} alt={profile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               {/* Online Status Pulse */}
               <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full z-20" />
             </HapticButton>

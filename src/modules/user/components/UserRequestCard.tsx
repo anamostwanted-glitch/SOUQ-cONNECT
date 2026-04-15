@@ -9,6 +9,7 @@ import { doc, updateDoc, collection, query, where, getDocs, addDoc, getDoc } fro
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { db, auth } from '../../../core/firebase';
 import { ProductRequest, UserProfile } from '../../../core/types';
+import { getUserImageUrl } from '../../../core/utils/imageUtils';
 import { HapticButton } from '../../../shared/components/HapticButton';
 
 interface UserRequestCardProps {
@@ -273,13 +274,12 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
                   className="snap-start flex-shrink-0 flex items-center gap-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/40 dark:border-slate-700/50 rounded-2xl p-2 pr-4 cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:shadow-md hover:border-brand-primary/30 transition-all duration-300 group/chip min-w-[200px]"
                 >
                   <div className="relative w-12 h-12 rounded-xl bg-brand-surface overflow-hidden flex-shrink-0 border border-brand-border group-hover/chip:border-brand-primary/30 transition-colors">
-                    {supp.photoURL ? (
-                      <img src={supp.photoURL} alt={supp.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-brand-text-muted">
-                        <Building2 size={16} />
-                      </div>
-                    )}
+                    <img 
+                      src={getUserImageUrl(supp)} 
+                      alt={supp.name} 
+                      className="w-full h-full object-cover" 
+                      referrerPolicy="no-referrer"
+                    />
                     {/* Match Score Badge */}
                     <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-emerald-400 to-emerald-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-tl-lg rounded-br-xl shadow-sm">
                       {matchScore}%
@@ -365,17 +365,16 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
                         <div key={supp.uid} className="bg-brand-surface/50 border border-brand-border rounded-2xl p-4 hover:border-brand-primary/30 transition-colors">
                           <div className="flex items-start justify-between gap-4 mb-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl overflow-hidden border border-brand-border">
-                                {supp.photoURL ? (
-                                  <img src={supp.photoURL} alt={supp.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full bg-white flex items-center justify-center text-brand-text-muted">
-                                    <Building2 size={16} />
-                                  </div>
-                                )}
+                              <div className="w-10 h-10 rounded-xl overflow-hidden border border-brand-border shrink-0">
+                                <img 
+                                  src={getUserImageUrl(supp)} 
+                                  alt={supp.name} 
+                                  className="w-full h-full object-cover" 
+                                  referrerPolicy="no-referrer"
+                                />
                               </div>
-                              <div>
-                                <h6 className="text-sm font-bold text-brand-text-main">{supp.name}</h6>
+                              <div className="min-w-0">
+                                <h6 className="text-sm font-bold text-brand-text-main truncate">{supp.name}</h6>
                                 <div className="flex items-center gap-2 mt-1">
                                   <span className="text-[10px] font-black text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-md">
                                     {matchScore}% {isRtl ? 'تطابق' : 'Match'}

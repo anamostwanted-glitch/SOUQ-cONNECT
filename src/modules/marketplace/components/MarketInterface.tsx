@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FluidSlider } from './FluidSlider';
 import { PredictiveMatchSection } from './PredictiveMatchSection';
-import { fetchMarketplaceItems, fetchCategories, fetchMarketTrends, fetchSuppliers, searchMarketplaceAndSuppliers, fetchPredictiveMatches } from '../services/marketService';
+import { fetchMarketplaceItems, fetchMarketTrends, fetchSuppliers, searchMarketplaceAndSuppliers, fetchPredictiveMatches } from '../services/marketService';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -79,25 +79,28 @@ import { BroadcastBox } from './BroadcastBox';
 import { ScrollDirection, useScrollDirection } from '../../../shared/hooks/useScrollDirection';
 
 interface MarketInterfaceProps {
-  profile: UserProfile | null;
-  features: AppFeatures;
   onOpenChat: (chatId: string) => void;
   onViewProfile: (uid: string) => void;
-  viewMode?: UserRole;
   activeTab?: 'discover' | 'myshop' | 'requests';
   setActiveTab?: (tab: 'discover' | 'myshop' | 'requests') => void;
+  initialItemId?: string | null;
 }
 
+import { useAuth } from '../../../core/providers/AuthProvider';
+import { useSettings } from '../../../core/providers/SettingsProvider';
+import { useCategories } from '../../../core/providers/CategoryProvider';
+
 export const MarketInterface: React.FC<MarketInterfaceProps> = ({ 
-  profile, 
-  features, 
   onOpenChat, 
   onViewProfile,
-  viewMode,
   activeTab: externalActiveTab,
-  setActiveTab: setExternalActiveTab
+  setActiveTab: setExternalActiveTab,
+  initialItemId
 }) => {
   const { t, i18n } = useTranslation();
+  const { profile, viewMode } = useAuth();
+  const { features } = useSettings();
+  const { categories } = useCategories();
   const queryClient = useQueryClient();
   const isRtl = i18n.language === 'ar';
   const scrollDirection = useScrollDirection();
@@ -138,16 +141,26 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const [showSmartCategories, setShowSmartCategories] = useState(false);
   const [visualSearchResults, setVisualSearchResults] = useState<MarketplaceItem[] | null>(null);
   
-  const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: fetchCategories,
-    staleTime: 60 * 60 * 1000, // 1 hour
-  });
+  useEffect(() => {
+    if (initialItemId) {
+      const fetchInitialItem = async () => {
+        try {
+          const itemSnap = await getDoc(doc(db, 'marketplace', initialItemId));
+          if (itemSnap.exists()) {
+            setSelectedItem({ id: itemSnap.id, ...itemSnap.data() } as MarketplaceItem);
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, `marketplace/${initialItemId}`, false);
+        }
+      };
+      fetchInitialItem();
+    }
+  }, [initialItemId]);
 
   const { data: itemsData = { items: [], lastDoc: null }, isLoading: itemsLoading } = useQuery({
-    queryKey: ['marketplace', activeTab, auth.currentUser?.uid],
-    queryFn: () => fetchMarketplaceItems(activeTab, auth.currentUser?.uid),
-    enabled: !!auth.currentUser || activeTab === 'discover',
+    queryKey: ['marketplace', activeTab, profile?.uid],
+    queryFn: () => fetchMarketplaceItems(activeTab, profile?.uid),
+    enabled: !!profile || activeTab === 'discover',
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
     refetchOnWindowFocus: false

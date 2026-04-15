@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../../core/firebase';
@@ -24,7 +24,8 @@ import {
   LayoutGrid,
   List,
   ChevronDown,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 
@@ -41,6 +42,8 @@ export const MyProductsDashboard: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [editingItem, setEditingItem] = useState<MarketplaceItem | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<MarketplaceItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -100,13 +103,24 @@ export const MyProductsDashboard: React.FC = () => {
     setShowUploadModal(true);
   };
 
-  const handleDelete = async (item: MarketplaceItem) => {
-    if (!confirm(isRtl ? 'هل أنت متأكد من حذف هذا المنتج؟' : 'Are you sure you want to delete this product?')) return;
+  const handleDelete = (item: MarketplaceItem) => {
+    setItemToDelete(item);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    setIsDeleting(true);
     try {
-      await updateDoc(doc(db, 'marketplace', item.id), { status: 'deleted', deletedAt: new Date().toISOString() });
+      await updateDoc(doc(db, 'marketplace', itemToDelete.id), { 
+        status: 'deleted', 
+        deletedAt: new Date().toISOString() 
+      });
       toast.success(isRtl ? 'تم حذف المنتج' : 'Product deleted');
+      setItemToDelete(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'marketplace', false);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -269,6 +283,55 @@ export const MyProductsDashboard: React.FC = () => {
           item={editingItem || undefined}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {itemToDelete && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-brand-surface w-full max-w-md rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-brand-error/10 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-error">
+                  <Trash2 size={40} />
+                </div>
+                <h2 className="text-2xl font-black text-brand-text-main mb-2">
+                  {isRtl ? 'تأكيد حذف المنتج' : 'Confirm Product Deletion'}
+                </h2>
+                <p className="text-brand-text-muted font-medium mb-8">
+                  {isRtl 
+                    ? 'هل أنت متأكد من حذف هذا المنتج؟ لا يمكن التراجع عن هذا الإجراء.' 
+                    : 'Are you sure you want to delete this product? This action cannot be undone.'}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => setItemToDelete(null)}
+                    disabled={isDeleting}
+                    className="flex-1 px-6 py-4 bg-brand-background border border-brand-border rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-surface transition-all disabled:opacity-50"
+                  >
+                    {isRtl ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    onClick={confirmDelete}
+                    disabled={isDeleting}
+                    className="flex-1 px-6 py-4 bg-brand-error text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-error/90 transition-all shadow-lg shadow-brand-error/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isDeleting ? (
+                      <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full" />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
+                    {isRtl ? 'حذف المنتج' : 'Delete Product'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

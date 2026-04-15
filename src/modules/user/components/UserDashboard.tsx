@@ -73,6 +73,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<UserTab>(
     supplierTab === 'personal' ? 'settings' : 'stats'
   );
+  const [requestToDelete, setRequestToDelete] = useState<string | null>(null);
+  const [isDeletingRequest, setIsDeletingRequest] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [showBrandingEdit, setShowBrandingEdit] = useState(false);
 
@@ -154,17 +156,19 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   }, [profile?.uid]);
 
   const handleDeleteRequest = async (requestId: string) => {
-    if (window.confirm(isRtl ? 'هل أنت متأكد من حذف هذا الطلب؟' : 'Are you sure you want to delete this request?')) {
-      try {
-        await updateDoc(doc(db, 'requests', requestId), {
-          status: 'deleted',
-          deletedAt: new Date().toISOString()
-        });
-        toast.success(isRtl ? 'تم حذف الطلب بنجاح' : 'Request deleted successfully');
-      } catch (error) {
-        handleFirestoreError(error, OperationType.UPDATE, `requests/${requestId}`, false);
-        toast.error(isRtl ? 'حدث خطأ أثناء حذف الطلب' : 'Error deleting request');
-      }
+    setIsDeletingRequest(true);
+    try {
+      await updateDoc(doc(db, 'requests', requestId), {
+        status: 'deleted',
+        deletedAt: new Date().toISOString()
+      });
+      toast.success(isRtl ? 'تم حذف الطلب بنجاح' : 'Request deleted successfully');
+      setRequestToDelete(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `requests/${requestId}`, false);
+      toast.error(isRtl ? 'حدث خطأ أثناء حذف الطلب' : 'Error deleting request');
+    } finally {
+      setIsDeletingRequest(false);
     }
   };
 
@@ -435,7 +439,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     profile={profile}
                     onOpenChat={onOpenChat}
                     onViewProfile={onViewProfile}
-                    onDelete={handleDeleteRequest}
+                    onDelete={() => setRequestToDelete(req.id)}
                   />
                 ))
               )}
@@ -691,6 +695,55 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           </motion.div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {requestToDelete && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-brand-surface w-full max-w-md rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-brand-error/10 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-error">
+                  <AlertCircle size={40} />
+                </div>
+                <h2 className="text-2xl font-black text-brand-text-main mb-2">
+                  {isRtl ? 'تأكيد الحذف' : 'Confirm Deletion'}
+                </h2>
+                <p className="text-brand-text-muted font-medium mb-8">
+                  {isRtl 
+                    ? 'هل أنت متأكد من حذف هذا الطلب؟ سيتم إخفاؤه من النظام.' 
+                    : 'Are you sure you want to delete this request? It will be hidden from the system.'}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => setRequestToDelete(null)}
+                    disabled={isDeletingRequest}
+                    className="flex-1 px-6 py-4 bg-brand-background border border-brand-border rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-surface transition-all disabled:opacity-50"
+                  >
+                    {isRtl ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteRequest(requestToDelete)}
+                    disabled={isDeletingRequest}
+                    className="flex-1 px-6 py-4 bg-brand-error text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-error/90 transition-all shadow-lg shadow-brand-error/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isDeletingRequest ? (
+                      <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full" />
+                    ) : (
+                      <Plus className="rotate-45" size={16} />
+                    )}
+                    {isRtl ? 'تأكيد الحذف' : 'Confirm Delete'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

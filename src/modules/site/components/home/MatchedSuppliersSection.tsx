@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Sparkles as SparklesIcon, Building2, ArrowRight } from 'lucide-react';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { UserProfile } from '../../../../core/types';
+import { getUserImageUrl } from '../../../../core/utils/imageUtils';
 
 interface MatchedSuppliersSectionProps {
   matchedSuppliers: UserProfile[];
@@ -35,22 +36,23 @@ export const MatchedSuppliersSection: React.FC<MatchedSuppliersSectionProps> = (
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {matchedSuppliers.map((supplier) => (
           <motion.div
             key={supplier.uid}
             whileHover={{ y: -5 }}
-            className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border border-white/40 dark:border-gray-700/50 rounded-[2rem] p-6 shadow-xl shadow-black/5 group relative overflow-hidden"
+            className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border border-white/40 dark:border-gray-700/50 rounded-[2rem] p-5 md:p-6 shadow-xl shadow-black/5 group relative overflow-hidden flex flex-col"
           >
             <div className="absolute top-0 right-0 w-32 h-32 bg-brand-teal/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-700" />
             
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-20 h-20 rounded-2xl bg-brand-background flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-lg">
-                {supplier.photoURL ? (
-                  <img src={supplier.photoURL} alt={supplier.companyName} className="w-full h-full object-cover" />
-                ) : (
-                  <Building2 size={32} className="text-brand-text-muted opacity-50" />
-                )}
+            <div className="relative z-10 flex flex-col items-center text-center flex-1">
+              <div className="w-20 h-20 rounded-2xl bg-brand-background flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-lg shrink-0">
+                <img 
+                  src={getUserImageUrl(supplier)} 
+                  alt={supplier.companyName || supplier.name} 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
               </div>
               
               <h4 className="text-lg font-black text-brand-text-main mb-1 truncate w-full px-2">

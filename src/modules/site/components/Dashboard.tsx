@@ -1,31 +1,29 @@
 import React from 'react';
-import { UserProfile, AppFeatures } from '../../../core/types';
 import { AdminDashboard } from '../../admin/components/AdminDashboard';
-import { VendorDashboard } from '../../vendor/components/VendorDashboard';
 import { ConnectCommandCenter } from '../../user/components/ConnectCommandCenter';
-import LegacyDashboard from './LegacyDashboard';
+import { useAuth } from '../../../core/providers/AuthProvider';
+import { useSettings } from '../../../core/providers/SettingsProvider';
 
 interface DashboardProps {
-  profile: UserProfile;
-  features: AppFeatures;
   dashboardTab: string;
   setDashboardTab: (tab: string) => void;
   onOpenChat: (chatId: string) => void;
   onViewProfile: (uid: string) => void;
-  viewMode?: 'admin' | 'supplier' | 'customer';
   uiStyle?: 'classic' | 'minimal';
 }
 
 export default function Dashboard({
-  profile,
-  features,
   dashboardTab,
   setDashboardTab,
   onOpenChat,
   onViewProfile,
-  viewMode,
   uiStyle = 'classic'
 }: DashboardProps) {
+  const { profile, viewMode } = useAuth();
+  const { features } = useSettings();
+
+  if (!profile) return null;
+
   // Determine the effective role based on viewMode if available, otherwise fallback to profile.role
   const effectiveRole = viewMode || profile.role;
 

@@ -55,10 +55,14 @@ window.addEventListener('unhandledrejection', (event) => {
   handleAiError(reason, 'Global:unhandledrejection', false);
 });
 
+import { CoreProvider } from './core/providers/CoreProvider';
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <CoreProvider>
+        <App />
+      </CoreProvider>
     </ErrorBoundary>
   </StrictMode>,
 );

@@ -58,6 +58,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [usersToBulkDelete, setUsersToBulkDelete] = useState<string[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDeleteConfirm = async () => {
@@ -105,13 +106,23 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
     );
   };
 
-  const stats = useMemo(() => {
-    const total = users.length;
-    const suppliers = users.filter(u => u.role === 'supplier').length;
-    const customers = users.filter(u => u.role === 'customer').length;
-    const unverified = users.filter(u => u.role === 'supplier' && !u.isVerified).length;
-    return { total, suppliers, customers, unverified };
-  }, [users]);
+  const handleBulkDeleteConfirm = async () => {
+    if (!usersToBulkDelete) return;
+    setIsDeleting(true);
+    try {
+      await onBulkDelete(usersToBulkDelete);
+      setUsersToBulkDelete(null);
+      setSelectedUsers([]);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  const stats = {
+    total: users.length,
+    suppliers: users.filter(u => u.role === 'supplier').length,
+    customers: users.filter(u => u.role === 'customer').length,
+    unverified: users.filter(u => u.role === 'supplier' && !u.isVerified).length
+  };
 
   return (
     <div className="space-y-6">
@@ -415,12 +426,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
         <BulkActionToolbar
           selectedCount={selectedUsers.length}
           onClearSelection={() => setSelectedUsers([])}
-          onBulkDelete={() => {
-            if (window.confirm(isRtl ? 'هل أنت متأكد من حذف المستخدمين المحددين نهائياً؟' : 'Are you sure you want to permanently delete selected users?')) {
-              onBulkDelete(selectedUsers);
-              setSelectedUsers([]);
-            }
-          }}
+          onBulkDelete={() => setUsersToBulkDelete(selectedUsers)}
           onBulkVerify={() => {
             onBulkVerify(selectedUsers);
             setSelectedUsers([]);
@@ -470,6 +476,54 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                       <UserX size={16} />
                     )}
                     {isRtl ? 'حذف نهائي' : 'Delete Permanently'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Bulk Delete Confirmation Modal */}
+      <AnimatePresence>
+        {usersToBulkDelete && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-brand-surface w-full max-w-md rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-brand-error/10 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-error">
+                  <AlertTriangle size={40} />
+                </div>
+                <h2 className="text-2xl font-black text-brand-text-main mb-2">
+                  {isRtl ? 'تأكيد الحذف الجماعي' : 'Confirm Bulk Deletion'}
+                </h2>
+                <p className="text-brand-text-muted font-medium mb-8">
+                  {isRtl 
+                    ? `هل أنت متأكد من حذف ${usersToBulkDelete.length} مستخدمين؟ سيتم مسح كافة بياناتهم نهائياً من قاعدة البيانات.` 
+                    : `Are you sure you want to delete ${usersToBulkDelete.length} users? All their data will be permanently removed from the database.`}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => setUsersToBulkDelete(null)}
+                    disabled={isDeleting}
+                    className="flex-1 px-6 py-4 bg-brand-background border border-brand-border rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-surface transition-all disabled:opacity-50"
+                  >
+                    {isRtl ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    onClick={handleBulkDeleteConfirm}
+                    disabled={isDeleting}
+                    className="flex-1 px-6 py-4 bg-brand-error text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-error/90 transition-all shadow-lg shadow-brand-error/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isDeleting ? (
+                      <Clock size={16} className="animate-spin" />
+                    ) : (
+                      <UserX size={16} />
+                    )}
+                    {isRtl ? 'تأكيد الحذف' : 'Confirm Delete'}
                   </button>
                 </div>
               </div>

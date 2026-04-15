@@ -47,14 +47,16 @@ import {
   Droplets,
   Wrench,
   ShoppingBag,
-  Activity
+  Activity,
+  CheckCircle2
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
 
 interface HomeProps {
-  profile: UserProfile | null;
+  profile?: UserProfile | null;
   onNavigate: (view: any) => void;
   onOpenChat?: (chatId: string) => void;
   onViewProfile?: (uid: string) => void;
@@ -62,15 +64,21 @@ interface HomeProps {
   uiStyle?: 'classic' | 'minimal';
 }
 
+import { useAuth } from '../../../core/providers/AuthProvider';
+import { useSettings } from '../../../core/providers/SettingsProvider';
+import { useCategories } from '../../../core/providers/CategoryProvider';
+
 const Home: React.FC<HomeProps> = ({ 
-  profile, 
   onNavigate, 
   onOpenChat,
   onViewProfile,
-  viewMode,
   uiStyle = 'classic'
 }) => {
   const { t, i18n } = useTranslation();
+  const { profile, viewMode } = useAuth();
+  const { settings, features } = useSettings();
+  const { categories: allCategories } = useCategories();
+
   const effectiveRole = viewMode || profile?.role || 'customer';
   const isRtl = i18n.language === 'ar';
   
@@ -78,6 +86,83 @@ const Home: React.FC<HomeProps> = ({
   console.log('DEBUG: Home uiStyle=', uiStyle, 'effectiveRole=', effectiveRole);
 
   const [searchQuery, setSearchQuery] = usePersistedState('home_search_query', '');
+  const [recentSearches, setRecentSearches] = usePersistedState<string[]>('home_recent_searches', []);
+  const [draftDescription, setDraftDescription] = usePersistedState('home_draft_description', '');
+  const [showDraftArea, setShowDraftArea] = useState(false);
+  const [isDrafting, setIsDrafting] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [isActionsTrayOpen, setIsActionsTrayOpen] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [aiStatus, setAiStatus] = useState('');
+  const [matchedSuppliers, setMatchedSuppliers] = useState<UserProfile[]>([]);
+  const [stats, setStats] = useState({ suppliers: 0, requests: 0, satisfaction: 98 });
+  const [isMatching, setIsMatching] = useState(false);
+  const [lastRequestId, setLastRequestId] = useState<string | null>(null);
+  const [lastRequest, setLastRequest] = useState<ProductRequest | null>(null);
+  
+  // Local state for settings (keeping for potential preview overrides if needed, but initializing from provider)
+  const [logoUrl, setLogoUrl] = useState(settings?.logoUrl || '');
+  const [siteName, setSiteName] = useState(settings?.siteName || '');
+  const [heroTitleAr, setHeroTitleAr] = useState(settings?.heroTitleAr || '');
+  const [heroTitleEn, setHeroTitleEn] = useState(settings?.heroTitleEn || '');
+  const [heroDescriptionAr, setHeroDescriptionAr] = useState(settings?.heroDescriptionAr || '');
+  const [heroDescriptionEn, setHeroDescriptionEn] = useState(settings?.heroDescriptionEn || '');
+  const [searchPlaceholderAr, setSearchPlaceholderAr] = useState(settings?.searchPlaceholderAr || '');
+  const [searchPlaceholderEn, setSearchPlaceholderEn] = useState(settings?.searchPlaceholderEn || '');
+  const [ctaButtonAr, setCtaButtonAr] = useState(settings?.ctaButtonAr || '');
+  const [ctaButtonEn, setCtaButtonEn] = useState(settings?.ctaButtonEn || '');
+  const [logoScale, setLogoScale] = useState(settings?.logoScale ?? 1);
+  const [primaryTextColor, setPrimaryTextColor] = useState(settings?.primaryTextColor || '#ffffff');
+  const [secondaryTextColor, setSecondaryTextColor] = useState(settings?.secondaryTextColor || '#94a3b8');
+  const [socialProof, setSocialProof] = useState(settings?.socialProof || { enabled: true });
+
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [showConciergeTrigger, setShowConciergeTrigger] = useState(false);
+  const [conciergeReason, setConciergeReason] = useState('');
+  const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
+  const [productCopy, setProductCopy] = useState<{ title: string; description: string; highlights: string[] } | null>(null);
+  const [isEnhancingImage, setIsEnhancingImage] = useState(false);
+  const [imageEnhancements, setImageEnhancements] = useState<{ suggestions: string[]; caption: string } | null>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
+  const [showConciergeConfirm, setShowConciergeConfirm] = useState(false);
+  const [isUpdatingConcierge, setIsUpdatingConcierge] = useState(false);
+  const [requestToDelete, setRequestToDelete] = useState<string | null>(null);
+  const [isDeletingRequest, setIsDeletingRequest] = useState(false);
+  const requestsRef = useRef<HTMLDivElement>(null);
+  const nextAction = getNextBestAction(profile, 'home');
+
+  // Sync with settings provider
+  useEffect(() => {
+    if (settings) {
+      setLogoUrl(settings.logoUrl || '');
+      setSiteName(settings.siteName || '');
+      setHeroTitleAr(settings.heroTitleAr || '');
+      setHeroTitleEn(settings.heroTitleEn || '');
+      setHeroDescriptionAr(settings.heroDescriptionAr || '');
+      setHeroDescriptionEn(settings.heroDescriptionEn || '');
+      setSearchPlaceholderAr(settings.searchPlaceholderAr || '');
+      setSearchPlaceholderEn(settings.searchPlaceholderEn || '');
+      setCtaButtonAr(settings.ctaButtonAr || '');
+      setCtaButtonEn(settings.ctaButtonEn || '');
+      setLogoScale(settings.logoScale ?? 1);
+      setPrimaryTextColor(settings.primaryTextColor || '#ffffff');
+      setSecondaryTextColor(settings.secondaryTextColor || '#94a3b8');
+      if (settings.socialProof) setSocialProof(settings.socialProof);
+    }
+  }, [settings]);
+
+  const categories = React.useMemo(() => {
+    return [...allCategories].sort((a, b) => {
+      const nameA = isRtl ? a.nameAr : a.nameEn;
+      const nameB = isRtl ? b.nameAr : b.nameEn;
+      return nameA.localeCompare(nameB, i18n.language);
+    });
+  }, [allCategories, isRtl, i18n.language]);
 
   // Handle global search events
   useEffect(() => {
@@ -92,53 +177,28 @@ const Home: React.FC<HomeProps> = ({
     return () => window.removeEventListener('global-search', handleGlobalSearch);
   }, [setSearchQuery]);
 
-  const [recentSearches, setRecentSearches] = usePersistedState<string[]>('home_recent_searches', []);
-  const [draftDescription, setDraftDescription] = usePersistedState('home_draft_description', '');
-  const [showDraftArea, setShowDraftArea] = useState(false);
-  const [isDrafting, setIsDrafting] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [voiceError, setVoiceError] = useState<string | null>(null);
-  const [isActionsTrayOpen, setIsActionsTrayOpen] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [settings, setSettings] = useState<SiteSettings | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [aiStatus, setAiStatus] = useState('');
-  const [matchedSuppliers, setMatchedSuppliers] = useState<UserProfile[]>([]);
-  const [stats, setStats] = useState({ suppliers: 0, requests: 0, satisfaction: 98 });
-  const [isMatching, setIsMatching] = useState(false);
-  const [lastRequestId, setLastRequestId] = useState<string | null>(null);
-  const [lastRequest, setLastRequest] = useState<ProductRequest | null>(null);
-  const [logoUrl, setLogoUrl] = useState('');
-  const [siteName, setSiteName] = useState('');
-  const [heroTitleAr, setHeroTitleAr] = useState('');
-  const [heroTitleEn, setHeroTitleEn] = useState('');
-  const [heroDescriptionAr, setHeroDescriptionAr] = useState('');
-  const [heroDescriptionEn, setHeroDescriptionEn] = useState('');
-  const [searchPlaceholderAr, setSearchPlaceholderAr] = useState('');
-  const [searchPlaceholderEn, setSearchPlaceholderEn] = useState('');
-  const [ctaButtonAr, setCtaButtonAr] = useState('');
-  const [ctaButtonEn, setCtaButtonEn] = useState('');
-  const [logoScale, setLogoScale] = useState(1);
-  const [primaryTextColor, setPrimaryTextColor] = useState('#ffffff');
-  const [secondaryTextColor, setSecondaryTextColor] = useState('#94a3b8');
-  const [socialProof, setSocialProof] = useState({ enabled: true });
-  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [showConciergeTrigger, setShowConciergeTrigger] = useState(false);
-  const [conciergeReason, setConciergeReason] = useState('');
-  const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
-  const [productCopy, setProductCopy] = useState<{ title: string; description: string; highlights: string[] } | null>(null);
-  const [isEnhancingImage, setIsEnhancingImage] = useState(false);
-  const [imageEnhancements, setImageEnhancements] = useState<{ suggestions: string[]; caption: string } | null>(null);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
-  const requestsRef = useRef<HTMLDivElement>(null);
-  const nextAction = getNextBestAction(profile, 'home');
+  const handleDeleteRequest = async () => {
+    if (!requestToDelete) return;
+    setIsDeletingRequest(true);
+    try {
+      await updateDoc(doc(db, 'requests', requestToDelete), {
+        status: 'deleted',
+        deletedAt: new Date().toISOString()
+      });
+      setLastRequest(null);
+      setLastRequestId(null);
+      toast.success(isRtl ? 'تم حذف الطلب بنجاح' : 'Request deleted successfully');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `requests/${requestToDelete}`, false);
+    } finally {
+      setIsDeletingRequest(false);
+      setRequestToDelete(null);
+    }
+  };
 
   const updateConciergeConsent = async () => {
     if (!profile?.uid || !profile?.phone) return;
+    setIsUpdatingConcierge(true);
     try {
       // 1. Update consent in Firestore
       await updateDoc(doc(db, 'users', profile.uid), {
@@ -158,8 +218,13 @@ const Home: React.FC<HomeProps> = ({
       });
       
       setShowConciergeTrigger(false);
+      setShowConciergeConfirm(false);
+      toast.success(isRtl ? 'تم تفعيل الكونسيرج بنجاح' : 'Concierge enabled successfully');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `users/${profile.uid}`, false);
+      toast.error(isRtl ? 'فشل تفعيل الكونسيرج' : 'Failed to enable concierge');
+    } finally {
+      setIsUpdatingConcierge(false);
     }
   };
 
@@ -182,50 +247,6 @@ const Home: React.FC<HomeProps> = ({
     };
     window.addEventListener('site-settings-preview', handlePreview);
     return () => window.removeEventListener('site-settings-preview', handlePreview);
-  }, []);
-
-  useEffect(() => {
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data() as SiteSettings;
-        setSettings(data);
-        setLogoUrl(data.logoUrl || '');
-        setSiteName(data.siteName || '');
-        setHeroTitleAr(data.heroTitleAr || '');
-        setHeroTitleEn(data.heroTitleEn || '');
-        setHeroDescriptionAr(data.heroDescriptionAr || '');
-        setHeroDescriptionEn(data.heroDescriptionEn || '');
-        setSearchPlaceholderAr(data.searchPlaceholderAr || '');
-        setSearchPlaceholderEn(data.searchPlaceholderEn || '');
-        setCtaButtonAr(data.ctaButtonAr || '');
-        setCtaButtonEn(data.ctaButtonEn || '');
-        setLogoScale(data.logoScale ?? 1);
-        setPrimaryTextColor(data.primaryTextColor || '#ffffff');
-        setSecondaryTextColor(data.secondaryTextColor || '#94a3b8');
-        if (data.socialProof) setSocialProof(data.socialProof);
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
-    });
-    return () => unsubSettings();
-  }, []);
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, 'categories'));
-        const cats = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
-        const sorted = cats.sort((a, b) => {
-          const nameA = isRtl ? a.nameAr : a.nameEn;
-          const nameB = isRtl ? b.nameAr : b.nameEn;
-          return nameA.localeCompare(nameB, i18n.language);
-        });
-        setCategories(sorted);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'categories', false);
-      }
-    };
-    fetchCategories().catch(err => handleFirestoreError(err, OperationType.LIST, 'categories', false));
   }, []);
 
   const getCategoryIcon = (categoryName: string) => {
@@ -369,6 +390,45 @@ const Home: React.FC<HomeProps> = ({
 
   useEffect(() => {
     if (!profile?.uid) return;
+    
+    const fetchLastRequest = async () => {
+      try {
+        const q = query(
+          collection(db, 'requests'),
+          where('customerId', '==', profile.uid),
+          where('status', '==', 'open'),
+          orderBy('createdAt', 'desc'),
+          limit(1)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const requestDoc = snap.docs[0];
+          const requestData = { id: requestDoc.id, ...requestDoc.data() } as ProductRequest;
+          setLastRequest(requestData);
+          setLastRequestId(requestDoc.id);
+
+          // Fetch suggested suppliers if they exist
+          if (requestData.suggestedSupplierIds && requestData.suggestedSupplierIds.length > 0) {
+            const suppliersQuery = query(
+              collection(db, 'users_public'),
+              where('uid', 'in', requestData.suggestedSupplierIds.slice(0, 10))
+            );
+            const suppliersSnap = await getDocs(suppliersQuery);
+            const suppliers = suppliersSnap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile));
+            const uniqueSuppliers = Array.from(new Map(suppliers.map(s => [s.uid, s])).values());
+            setMatchedSuppliers(uniqueSuppliers);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching last request:', error);
+      }
+    };
+
+    fetchLastRequest();
+  }, [profile?.uid]);
+
+  useEffect(() => {
+    if (!profile?.uid) return;
     const unsubSuppliers = onSnapshot(query(collection(db, 'users_public'), where('role', '==', 'supplier')), (snap) => {
       setStats(prev => ({ ...prev, suppliers: snap.size }));
     }, (error) => {
@@ -413,7 +473,10 @@ const Home: React.FC<HomeProps> = ({
     if (loading) return;
     
     if (searchQuery.trim()) {
-      setRecentSearches(prev => [...prev.slice(-4), searchQuery.trim()]);
+      setRecentSearches(prev => {
+        const filtered = prev.filter(s => s !== searchQuery.trim());
+        return [...filtered.slice(-3), searchQuery.trim()];
+      });
     }
     
     console.log('handleRequest called. Profile:', profile);
@@ -499,7 +562,6 @@ const Home: React.FC<HomeProps> = ({
         try {
           const querySnapshot = await getDocs(collection(db, 'categories'));
           currentCategories = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
-          setCategories(currentCategories);
         } catch (error) {
           handleFirestoreError(error, OperationType.LIST, 'categories', false);
         }
@@ -950,11 +1012,11 @@ const Home: React.FC<HomeProps> = ({
                 className="grid grid-cols-3 gap-4 w-full max-w-2xl mx-auto mb-12 px-4"
               >
                 {[
-                  { label: t('suppliers'), value: `${stats.suppliers}+` },
-                  { label: t('requests'), value: `${stats.requests}+` },
-                  { label: t('satisfied'), value: `${stats.satisfaction}%` }
-                ].map((stat, i) => (
-                  <div key={i} className="bg-brand-surface/30 backdrop-blur-sm p-3 rounded-2xl border border-brand-border-light text-center">
+                  { id: 'suppliers', label: t('suppliers'), value: `${stats.suppliers}+` },
+                  { id: 'requests', label: t('requests'), value: `${stats.requests}+` },
+                  { id: 'satisfied', label: t('satisfied'), value: `${stats.satisfaction}%` }
+                ].map((stat) => (
+                  <div key={stat.id} className="bg-brand-surface/30 backdrop-blur-sm p-3 rounded-2xl border border-brand-border-light text-center">
                     <div className="text-xl font-bold text-brand-primary mb-0.5">{stat.value}</div>
                     <div className="text-[10px] text-brand-text-muted font-medium uppercase tracking-wider">{stat.label}</div>
                   </div>
@@ -1143,7 +1205,7 @@ const Home: React.FC<HomeProps> = ({
                     </div>
                     <ul className="space-y-2 mb-4">
                       {imageEnhancements.suggestions.map((s, i) => (
-                        <li key={i} className="text-xs text-brand-text-main flex items-start gap-2">
+                        <li key={`suggestion-${i}`} className="text-xs text-brand-text-main flex items-start gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-brand-teal mt-1.5 shrink-0" />
                           {s}
                         </li>
@@ -1195,7 +1257,7 @@ const Home: React.FC<HomeProps> = ({
                           <h5 className="text-sm font-black text-brand-primary mb-1">{productCopy.title}</h5>
                           <div className="flex flex-wrap gap-2 mt-2">
                             {productCopy.highlights.map((h, i) => (
-                              <span key={i} className="px-2 py-1 bg-white border border-brand-primary/20 text-[10px] font-bold text-brand-primary rounded-lg">
+                              <span key={`highlight-${i}`} className="px-2 py-1 bg-white border border-brand-primary/20 text-[10px] font-bold text-brand-primary rounded-lg">
                                 {h}
                               </span>
                             ))}
@@ -1269,20 +1331,7 @@ const Home: React.FC<HomeProps> = ({
                     profile={profile!}
                     onOpenChat={onOpenChat || (() => {})}
                     onViewProfile={onViewProfile || (() => {})}
-                    onDelete={async (id) => {
-                      if (window.confirm(isRtl ? 'هل أنت متأكد من حذف هذا الطلب؟' : 'Are you sure you want to delete this request?')) {
-                        try {
-                          await updateDoc(doc(db, 'requests', id), {
-                            status: 'deleted',
-                            deletedAt: new Date().toISOString()
-                          });
-                          setLastRequest(null);
-                          setLastRequestId(null);
-                        } catch (error) {
-                          handleFirestoreError(error, OperationType.UPDATE, `requests/${id}`, false);
-                        }
-                      }
-                    }}
+                    onDelete={(id) => setRequestToDelete(id)}
                   />
                 </div>
               )}
@@ -1300,7 +1349,7 @@ const Home: React.FC<HomeProps> = ({
           )}
         </AnimatePresence>
 
-        {(effectiveRole !== 'supplier') && (
+        {(effectiveRole !== 'supplier' && !profile) && (
           <SupplierRegistrationCTA isRtl={isRtl} i18n={i18n} onNavigate={onNavigate} />
         )}
 
@@ -1329,15 +1378,112 @@ const Home: React.FC<HomeProps> = ({
     </motion.button>
 
       {/* Concierge Consent Modal */}
+      <AnimatePresence>
+        {showConciergeConfirm && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-brand-surface w-full max-w-md rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-brand-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-primary">
+                  <Bot size={40} />
+                </div>
+                <h2 className="text-2xl font-black text-brand-text-main mb-2">
+                  {isRtl ? 'تفعيل الكونسيرج الذكي' : 'Enable Smart Concierge'}
+                </h2>
+                <p className="text-brand-text-muted font-medium mb-8">
+                  {isRtl 
+                    ? 'هل ترغب في تفعيل خدمة الكونسيرج؟ سنقوم بالبحث عن أفضل الموردين لك وإرسال تنبيهات مخصصة عبر واتساب.' 
+                    : 'Would you like to enable the concierge service? We will search for the best suppliers for you and send personalized alerts via WhatsApp.'}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => setShowConciergeConfirm(false)}
+                    disabled={isUpdatingConcierge}
+                    className="flex-1 px-6 py-4 bg-brand-background border border-brand-border rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-surface transition-all disabled:opacity-50"
+                  >
+                    {isRtl ? 'ليس الآن' : 'Not Now'}
+                  </button>
+                  <button
+                    onClick={updateConciergeConsent}
+                    disabled={isUpdatingConcierge}
+                    className="flex-1 px-6 py-4 bg-brand-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isUpdatingConcierge ? (
+                      <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full" />
+                    ) : (
+                      <CheckCircle2 size={16} />
+                    )}
+                    {isRtl ? 'تفعيل الخدمة' : 'Enable Service'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <ConciergeConsent 
         show={showConciergeTrigger}
         onClose={() => setShowConciergeTrigger(false)}
-        onAccept={() => updateConciergeConsent().catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${profile?.uid}`, false))}
+        onAccept={() => setShowConciergeConfirm(true)}
         isRtl={isRtl}
         reason={conciergeReason}
       />
-</div>
-);
+
+      {/* Request Delete Confirmation Modal */}
+      <AnimatePresence>
+        {requestToDelete && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-brand-surface w-full max-w-md rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-brand-error/10 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-error">
+                  <Trash2 size={40} />
+                </div>
+                <h2 className="text-2xl font-black text-brand-text-main mb-2">
+                  {isRtl ? 'تأكيد حذف الطلب' : 'Confirm Request Deletion'}
+                </h2>
+                <p className="text-brand-text-muted font-medium mb-8">
+                  {isRtl 
+                    ? 'هل أنت متأكد من حذف هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.' 
+                    : 'Are you sure you want to delete this request? This action cannot be undone.'}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => setRequestToDelete(null)}
+                    disabled={isDeletingRequest}
+                    className="flex-1 px-6 py-4 bg-brand-background border border-brand-border rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-surface transition-all disabled:opacity-50"
+                  >
+                    {isRtl ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    onClick={handleDeleteRequest}
+                    disabled={isDeletingRequest}
+                    className="flex-1 px-6 py-4 bg-brand-error text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-error/90 transition-all shadow-lg shadow-brand-error/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isDeletingRequest ? (
+                      <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full" />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
+                    {isRtl ? 'حذف الطلب' : 'Delete Request'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
 export default Home;

@@ -148,6 +148,8 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
     status: 'active' as 'active' | 'sold' | 'hidden' | 'deleted' | 'draft' | 'expired'
   });
   const [isProductImageUploading, setIsProductImageUploading] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [isDeletingProduct, setIsDeletingProduct] = useState(false);
 
   const handleOpenProductEditor = (product?: MarketplaceItem) => {
     if (product) {
@@ -264,8 +266,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!window.confirm(isRtl ? 'هل أنت متأكد من حذف هذا المنتج؟' : 'Are you sure you want to delete this product?')) return;
-
+    setIsDeletingProduct(true);
     try {
       // Soft Delete as per AGENTS.md: "NEVER use deleteDoc... ALWAYS use Soft Delete"
       await updateDoc(doc(db, 'marketplace', productId), { 
@@ -274,9 +275,12 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
       });
       setProducts(prev => prev.filter(p => p.id !== productId));
       toast.success(isRtl ? 'تم حذف المنتج بنجاح' : 'Product deleted successfully');
+      setProductToDelete(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `marketplace/${productId}`, false);
       toast.error(isRtl ? 'فشل حذف المنتج' : 'Failed to delete product');
+    } finally {
+      setIsDeletingProduct(false);
     }
   };
 

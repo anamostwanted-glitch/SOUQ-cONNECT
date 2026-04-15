@@ -315,6 +315,9 @@ export interface SiteSettings {
   ctaButtonEn?: string;
   lastUpdated?: string;
   logoScale?: number;
+  headerLogoScale?: number;
+  animationSpeed?: 'slow' | 'normal' | 'fast';
+  headerAnimationSpeed?: 'slow' | 'normal' | 'fast';
   primaryTextColor?: string;
   secondaryTextColor?: string;
   loaderCenterText?: string;

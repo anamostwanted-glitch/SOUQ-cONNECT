@@ -26,7 +26,8 @@ import {
   X,
   Plus,
   CheckCircle2,
-  Search
+  Search,
+  Trash2
 } from 'lucide-react';
 import { doc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -89,6 +90,8 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
   const [isAiSuggestingCategories, setIsAiSuggestingCategories] = useState(false);
   const [suggestedCategoryIds, setSuggestedCategoryIds] = useState<string[]>([]);
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const glassClass = "bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/40 dark:border-slate-700/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]";
   const bentoCardClass = `${glassClass} rounded-[2.5rem] p-8 md:p-10 transition-all duration-500 hover:shadow-2xl hover:scale-[1.01] border-2 border-transparent hover:border-brand-primary/20`;
@@ -201,6 +204,26 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
         handleChange('keywords', [...formData.keywords, keywordInput.trim()]);
       }
       setKeywordInput('');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!profile.uid) return;
+    setIsDeletingAccount(true);
+    try {
+      const deleteData = { status: 'deleted', deletedAt: new Date().toISOString() };
+      await Promise.all([
+        updateDoc(doc(db, 'users', profile.uid), deleteData),
+        updateDoc(doc(db, 'users_public', profile.uid), deleteData).catch(() => {})
+      ]);
+      await auth.signOut();
+      toast.success(isRtl ? 'تم حذف الحساب بنجاح' : 'Account deleted successfully');
+    } catch (e) { 
+      console.error(e);
+      toast.error(isRtl ? 'فشل حذف الحساب' : 'Failed to delete account');
+    } finally {
+      setIsDeletingAccount(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -555,18 +578,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
             <p className="text-sm font-medium text-brand-text-muted mb-8 leading-relaxed">{isRtl ? 'حذف الحساب نهائياً. هذا الإجراء سيؤدي لمسح كافة بياناتك ولا يمكن التراجع عنه.' : 'Permanently delete account. This action will erase all your data and cannot be undone.'}</p>
           </div>
           <HapticButton 
-            onClick={async () => {
-              if (window.confirm(isRtl ? 'هل أنت متأكد من الحذف؟' : 'Are you sure?')) {
-                try {
-                  const deleteData = { status: 'deleted', deletedAt: new Date().toISOString() };
-                  await Promise.all([
-                    updateDoc(doc(db, 'users', profile.uid!), deleteData),
-                    updateDoc(doc(db, 'users_public', profile.uid!), deleteData).catch(() => {})
-                  ]);
-                  auth.signOut();
-                } catch (e) { console.error(e); }
-              }
-            }}
+            onClick={() => setShowDeleteConfirm(true)}
             className="w-full bg-brand-error/5 border border-brand-error/20 text-brand-error py-5 rounded-2xl font-black hover:bg-brand-error hover:text-white transition-all"
           >
             {isRtl ? 'حذف الحساب' : 'Delete Account'}
@@ -575,6 +587,55 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
       </div>
 
       <CacheOptimizer isOpen={isOptimizerOpen} onClose={() => setIsOptimizerOpen(false)} />
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-brand-surface w-full max-w-md rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-brand-error/10 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-error">
+                  <AlertCircle size={40} />
+                </div>
+                <h2 className="text-2xl font-black text-brand-text-main mb-2">
+                  {isRtl ? 'تأكيد حذف الحساب' : 'Confirm Account Deletion'}
+                </h2>
+                <p className="text-brand-text-muted font-medium mb-8">
+                  {isRtl 
+                    ? 'هل أنت متأكد من حذف حسابك نهائياً؟ سيتم مسح كافة بياناتك ولا يمكن التراجع عن هذا الإجراء.' 
+                    : 'Are you sure you want to permanently delete your account? All your data will be erased and this action cannot be undone.'}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={isDeletingAccount}
+                    className="flex-1 px-6 py-4 bg-brand-background border border-brand-border rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-surface transition-all disabled:opacity-50"
+                  >
+                    {isRtl ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={isDeletingAccount}
+                    className="flex-1 px-6 py-4 bg-brand-error text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-error/90 transition-all shadow-lg shadow-brand-error/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isDeletingAccount ? (
+                      <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full" />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
+                    {isRtl ? 'حذف الحساب' : 'Delete Account'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* 4. Floating Save Bar */}
       <AnimatePresence>
