@@ -70,11 +70,16 @@ export function handleAiError(error: unknown, context: string, shouldThrow: bool
   }
 
   if (!errorMessage || errorMessage.trim() === '') {
-    errorMessage = 'Unknown error occurred';
+    errorMessage = 'Unknown error occurred (empty message)';
   }
 
   // Ignore dynamic import errors completely (they are handled by auto-reload)
   if (errorMessage.includes('Failed to fetch dynamically imported module')) {
+    return;
+  }
+
+  // Ignore benign Vite/WebSocket errors
+  if (errorMessage.includes('failed to connect to websocket') || errorMessage.includes('WebSocket connection failed')) {
     return;
   }
 

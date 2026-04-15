@@ -371,6 +371,8 @@ const Home: React.FC<HomeProps> = ({
     if (!profile?.uid) return;
     const unsubSuppliers = onSnapshot(query(collection(db, 'users_public'), where('role', '==', 'supplier')), (snap) => {
       setStats(prev => ({ ...prev, suppliers: snap.size }));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users_public', false);
     });
     const qRequests = query(
       collection(db, 'requests'), 
@@ -378,6 +380,8 @@ const Home: React.FC<HomeProps> = ({
     );
     const unsubRequests = onSnapshot(qRequests, (snap) => {
       setStats(prev => ({ ...prev, requests: snap.size }));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'requests', false);
     });
     return () => { unsubSuppliers(); unsubRequests(); };
   }, [profile?.uid]);
