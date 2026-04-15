@@ -87,9 +87,12 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
         request.suggestedSupplierIds?.includes(s.uid) || 
         request.pinnedSupplierIds?.includes(s.uid) ||
         (s.categories && s.categories.includes(request.categoryId))
-      ).slice(0, 4);
+      );
       
-      setSuppliers(relevantSuppliers);
+      // Ensure uniqueness by UID
+      const uniqueSuppliers = Array.from(new Map(relevantSuppliers.map(s => [s.uid, s])).values()).slice(0, 4);
+      
+      setSuppliers(uniqueSuppliers);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'users (suppliers)', false);
     }

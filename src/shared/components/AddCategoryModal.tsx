@@ -46,6 +46,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ isOpen, onCl
         parentId: null,
         order: 0,
         categoryType: activeCategoryTab,
+        status: 'pending',
         createdAt: new Date().toISOString()
       });
       onClose();

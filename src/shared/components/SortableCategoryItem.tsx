@@ -9,6 +9,7 @@ import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { translateText } from '../../core/services/geminiService';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 interface SortableCategoryItemProps {
   category: Category;
@@ -26,6 +27,7 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
   const [isEditing, setIsEditing] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const [newSubAr, setNewSubAr] = useState('');
   const [newSubEn, setNewSubEn] = useState('');
   const [editAr, setEditAr] = useState(category.nameAr);
@@ -87,6 +89,21 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
       handleAiError(error, 'SortableCategoryItem:handleTranslate', false);
     } finally {
       setIsTranslating(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    setIsApproving(true);
+    try {
+      await updateDoc(doc(db, 'categories', category.id), {
+        status: 'active',
+        approvedAt: new Date().toISOString()
+      });
+      toast.success(isRtl ? 'تم تفعيل الفئة بنجاح' : 'Category activated successfully');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`, false);
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -191,12 +208,27 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
                 <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter ${category.categoryType === 'service' ? 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'}`}>
                   {category.categoryType === 'service' ? (isRtl ? 'خدمة' : 'Service') : (isRtl ? 'منتج' : 'Product')}
                 </span>
+                {category.status === 'pending' && (
+                  <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter bg-amber-500/10 text-amber-600 border border-amber-500/20 animate-pulse">
+                    {isRtl ? 'قيد المراجعة' : 'Pending Review'}
+                  </span>
+                )}
               </div>
               <span className="text-[11px] font-bold text-brand-text-muted uppercase tracking-widest truncate mt-0.5">{category.nameEn}</span>
             </div>
           )}
 
           <div className="flex items-center gap-2">
+            {category.status === 'pending' && (
+              <button 
+                onClick={handleApprove}
+                disabled={isApproving}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
+              >
+                {isApproving ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+                {isRtl ? 'موافقة' : 'Approve'}
+              </button>
+            )}
             {hasSubCategories && (
               <div className="flex items-center gap-1.5 px-3 py-1 bg-brand-background rounded-lg border border-brand-border text-xs font-bold text-brand-text-muted">
                 <Hash size={12} />

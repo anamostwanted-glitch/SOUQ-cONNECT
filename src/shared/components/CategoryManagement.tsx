@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, BarChart3, Layers, Tag, Combine, LayoutGrid, ListTree, Sparkles, X } from 'lucide-react';
+import { Plus, Search, BarChart3, Layers, Tag, Combine, LayoutGrid, ListTree, Sparkles, X, Clock } from 'lucide-react';
 import { Category } from '../../core/types';
 import { CategoryList } from './CategoryList';
 import { AddCategoryModal } from './AddCategoryModal';
@@ -44,9 +44,11 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [filterStatus, setFilterStatus] = useState<'active' | 'pending'>('active');
   
   const currentTabCategories = allCategories.filter(c => 
-    c.categoryType === activeCategoryTab || (!c.categoryType && activeCategoryTab === 'product')
+    (c.categoryType === activeCategoryTab || (!c.categoryType && activeCategoryTab === 'product')) &&
+    (c.status === filterStatus || (filterStatus === 'active' && !c.status))
   );
   const topLevelCategories = currentTabCategories.filter(c => !c.parentId);
   const subCategories = currentTabCategories.filter(c => c.parentId);
@@ -72,6 +74,19 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
             className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all ${activeCategoryTab === 'service' ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20' : 'text-brand-text-muted hover:text-brand-text-main hover:bg-brand-background'}`}
           >
             {i18n.language === 'ar' ? 'الخدمات' : 'Services'}
+          </button>
+
+          <div className="w-px h-6 bg-brand-border mx-2" />
+
+          <button
+            onClick={() => setFilterStatus(filterStatus === 'active' ? 'pending' : 'active')}
+            className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all flex items-center gap-2 ${filterStatus === 'pending' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-brand-text-muted hover:text-brand-text-main hover:bg-brand-background'}`}
+          >
+            <Clock size={16} />
+            {i18n.language === 'ar' ? 'قيد المراجعة' : 'Pending Review'}
+            {allCategories.filter(c => c.status === 'pending').length > 0 && (
+              <span className="flex h-2 w-2 rounded-full bg-white animate-pulse" />
+            )}
           </button>
         </div>
 

@@ -65,7 +65,7 @@ export const AICategorySelector: React.FC<AICategorySelectorProps> = ({
         i18n.language
       );
       
-      const matchedCategories = suggestedIds
+      const matchedCategories = Array.from(new Set(suggestedIds))
         .map(id => categories.find(c => c.id === id))
         .filter(Boolean)
         .filter(c => !selectedCategoryIds.includes(c!.id)) // Filter out already selected categories

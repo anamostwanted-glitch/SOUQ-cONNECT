@@ -17,7 +17,7 @@ import {
   Plus, Camera, Edit3, Save, X, Settings, 
   CheckCircle2, Info, ArrowLeft, MoreHorizontal,
   Mail, Link as LinkIcon, Facebook, Instagram, Twitter,
-  FileText, Bookmark, ExternalLink, Trash2, ImagePlus, Tag
+  FileText, Bookmark, ExternalLink, Trash2, ImagePlus, Tag, Briefcase
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { AICategorySelector } from '../../site/components/AICategorySelector';
@@ -640,7 +640,14 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                     {editData.name}
                   </h1>
                   <Badge className="bg-brand-primary/10 text-brand-primary border-none text-[10px] uppercase tracking-widest font-black py-2 px-4 rounded-full mb-1">
-                    {profile.role === 'supplier' ? (isRtl ? 'مورد معتمد' : 'Verified Supplier') : (isRtl ? 'عضو' : 'Member')}
+                    {profile.role === 'supplier' ? (
+                      <>
+                        {profile.supplierType === 'merchant' && (isRtl ? 'متجر معتمد' : 'Verified Merchant')}
+                        {profile.supplierType === 'service_provider' && (isRtl ? 'مقدم خدمة معتمد' : 'Verified Service Provider')}
+                        {profile.supplierType === 'both' && (isRtl ? 'مورد متكامل' : 'Integrated Supplier')}
+                        {!profile.supplierType && (isRtl ? 'مورد معتمد' : 'Verified Supplier')}
+                      </>
+                    ) : (isRtl ? 'عضو' : 'Member')}
                   </Badge>
                 </div>
               )}
@@ -1062,6 +1069,19 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                           <p className="text-sm font-black text-brand-text-main">{editData.website || '---'}</p>
                         </div>
                       </div>
+                      {profile.role === 'supplier' && profile.supplierType && (
+                        <div className="flex items-center gap-4 p-4 bg-brand-background rounded-2xl border border-brand-border">
+                          <Briefcase className="text-brand-primary" size={20} />
+                          <div>
+                            <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">{isRtl ? 'نوع النشاط' : 'Business Type'}</p>
+                            <p className="text-sm font-black text-brand-text-main">
+                              {profile.supplierType === 'merchant' && (isRtl ? 'متجر / تاجر' : 'Store / Merchant')}
+                              {profile.supplierType === 'service_provider' && (isRtl ? 'مقدم خدمة' : 'Service Provider')}
+                              {profile.supplierType === 'both' && (isRtl ? 'متجر وخدمات' : 'Store & Services')}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </Card>
 

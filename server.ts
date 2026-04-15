@@ -293,7 +293,7 @@ app.post("/api/send-email", async (req, res) => {
 
   // Vite middleware for development
   const distPath = path.join(process.cwd(), 'dist');
-  const isProduction = process.env.NODE_ENV === "production" || fs.existsSync(distPath);
+  const isProduction = process.env.NODE_ENV === "production" && fs.existsSync(distPath);
 
   if (!isProduction) {
     console.log("Starting in DEVELOPMENT mode with Vite middleware...");

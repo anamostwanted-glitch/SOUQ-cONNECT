@@ -216,8 +216,13 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
                     }}
                     className="flex flex-col items-center gap-2 group"
                   >
-                    <div className={`w-12 h-12 rounded-2xl bg-brand-surface flex items-center justify-center transition-all duration-300 group-hover:shadow-md group-hover:bg-white dark:group-hover:bg-gray-800 ${item.color}`}>
+                    <div className={`w-12 h-12 rounded-2xl bg-brand-surface flex items-center justify-center transition-all duration-300 group-hover:shadow-md group-hover:bg-white dark:group-hover:bg-gray-800 ${item.color} relative`}>
                       <item.icon size={24} />
+                      {(item.id === 'smart_pulse' || item.id === 'supplier_landing') && (
+                        <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-brand-primary text-white text-[7px] font-black rounded-full animate-pulse">
+                          NEW
+                        </span>
+                      )}
                     </div>
                     <span className="text-[11px] font-medium text-brand-text-main text-center leading-tight">
                       {isRtl ? item.labelAr : item.labelEn}

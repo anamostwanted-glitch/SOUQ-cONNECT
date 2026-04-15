@@ -18,11 +18,12 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '../../../core/firebase';
 import { UserRole, UserProfile, Category } from '../../../core/types';
 import { motion } from 'motion/react';
-import { User, Package, Upload, Phone, MapPin, Apple, Layers, Check, Mail } from 'lucide-react';
-import SmartCategorySelector from '../../../shared/components/SmartCategorySelector';
+import { User, Package, Upload, Phone, MapPin, Apple, Layers, Check, Mail, Sparkles } from 'lucide-react';
+import { AICategorySelector } from './AICategorySelector';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { SocialAuthButtons } from './SocialAuthButtons';
+import { toast } from 'sonner';
 
 interface AuthProps {
   onAuthSuccess: (role: UserRole) => void;
@@ -44,12 +45,33 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [supplierType, setSupplierType] = useState<'merchant' | 'service_provider' | 'both'>('merchant');
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   
+  const getFriendlyErrorMessage = (errorCode: string) => {
+    const isAr = i18n.language === 'ar';
+    switch (errorCode) {
+      case 'auth/email-already-in-use':
+        return isAr ? 'هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول.' : 'This email is already registered. Please log in.';
+      case 'auth/invalid-email':
+        return isAr ? 'البريد الإلكتروني غير صالح.' : 'Invalid email address.';
+      case 'auth/weak-password':
+        return isAr ? 'كلمة المرور ضعيفة جداً.' : 'Password is too weak.';
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        return isAr ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' : 'Incorrect email or password.';
+      case 'auth/too-many-requests':
+        return isAr ? 'تم حظر المحاولات مؤقتاً بسبب كثرة الطلبات. حاول لاحقاً.' : 'Too many attempts. Please try again later.';
+      default:
+        return isAr ? 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.' : 'An unexpected error occurred. Please try again.';
+    }
+  };
+
   // Calculate progress for suppliers
   const totalSupplierSteps = 3;
   const progress = role === 'supplier' 
@@ -58,7 +80,8 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
-      setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
+      const allCats = snap.docs.map(d => ({ id: d.id, ...d.data() } as Category));
+      setCategories(allCats.filter(c => c.status === 'active' || !c.status));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'categories', false);
     });
@@ -81,16 +104,16 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
     setError('');
     if (supplierSubStep === 1) {
       if (!name || !email || !password) {
-        setError(i18n.language === 'ar' ? 'يرجى إكمال جميع الحقول الأساسية' : 'Please complete all basic fields');
+        setError(t('fillBasicFields'));
         return false;
       }
       if (password.length < 6) {
-        setError(i18n.language === 'ar' ? 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' : 'Password must be at least 6 characters');
+        setError(t('passwordTooShort'));
         return false;
       }
     } else if (supplierSubStep === 2) {
       if (!phone || !location || selectedCategoryIds.length === 0) {
-        setError(i18n.language === 'ar' ? 'يرجى إكمال بيانات العمل والتصنيف' : 'Please complete business data and category');
+        setError(t('fillBusinessData'));
         return false;
       }
     }
@@ -117,7 +140,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
     }
 
     if (!isLogin && role === 'supplier' && !agreedToTerms) {
-      setError(i18n.language === 'ar' ? 'يجب الموافقة على الشروط والأحكام' : 'You must agree to the Terms and Conditions');
+      setError(t('mustAgreeTerms'));
       return;
     }
     
@@ -142,9 +165,13 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         
-        // Send verification email
-        await sendEmailVerification(user);
-        setVerificationSent(true);
+        // Send verification email (non-blocking and resilient)
+        sendEmailVerification(user).then(() => {
+          console.log('Verification email sent');
+        }).catch(e => {
+          console.warn('Failed to send verification email:', e);
+          // Don't block registration if email verification fails
+        });
         
         const profileData: any = {
           uid: user.uid,
@@ -160,10 +187,15 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           profileData.phone = phone;
           profileData.location = location;
           profileData.categories = selectedCategoryIds;
+          profileData.supplierType = supplierType;
           if (logoFile) {
-            const logoRef = ref(storage, `logos/${user.uid}`);
-            await uploadBytes(logoRef, logoFile);
-            profileData.logoUrl = await getDownloadURL(logoRef);
+            try {
+              const logoRef = ref(storage, `logos/${user.uid}`);
+              await uploadBytes(logoRef, logoFile);
+              profileData.logoUrl = await getDownloadURL(logoRef);
+            } catch (logoError) {
+              console.warn('Logo upload failed, continuing without logo:', logoError);
+            }
           }
         }
 
@@ -175,6 +207,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           name: name,
           role: role,
           isVerified: false,
+          supplierType: role === 'supplier' ? supplierType : null,
           categories: role === 'supplier' ? selectedCategoryIds : [],
           logoUrl: profileData.logoUrl || null,
           rating: 0,
@@ -184,23 +217,31 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           status: 'active'
         });
 
-        // Sync role immediately after registration
+        // Sync role immediately after registration (non-blocking)
         const idToken = await user.getIdToken();
-        await fetch('/api/sync-role', {
+        fetch('/api/sync-role', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
           body: JSON.stringify({ role })
-        });
+        }).catch(e => console.error('Role sync failed:', e));
         
-        // Send welcome email
-        await fetch('/api/send-email', {
+        // Send welcome email (non-blocking)
+        fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: user.email, name: name, template: 'welcome' })
-        });
+        }).catch(e => console.error('Welcome email failed:', e));
+
+        toast.success(i18n.language === 'ar' ? 'تم التسجيل بنجاح!' : 'Registration successful!');
+        
+        // Call success callback to redirect user
+        onAuthSuccess(role);
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error('Auth error:', err);
+      const friendlyMessage = getFriendlyErrorMessage(err.code);
+      setError(friendlyMessage);
+      toast.error(friendlyMessage);
     } finally {
       setUploading(false);
     }
@@ -213,7 +254,9 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
       await sendPasswordResetEmail(auth, email);
       setResetEmailSent(true);
     } catch (err: any) {
-      setError(err.message);
+      const friendlyMessage = getFriendlyErrorMessage(err.code);
+      setError(friendlyMessage);
+      toast.error(friendlyMessage);
     }
   };
 
@@ -224,11 +267,9 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           <div className="w-20 h-20 bg-brand-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
             <Mail size={40} className="text-brand-primary" />
           </div>
-          <h2 className="text-2xl font-bold mb-4">{i18n.language === 'ar' ? 'تم إرسال رابط إعادة التعيين' : 'Reset Link Sent'}</h2>
+          <h2 className="text-2xl font-bold mb-4">{t('resetLinkSent')}</h2>
           <p className="text-slate-600 mb-8">
-            {i18n.language === 'ar' 
-              ? `تم إرسال تعليمات إعادة تعيين كلمة المرور إلى ${email}` 
-              : `Password reset instructions have been sent to ${email}`}
+            {t('resetInstructions', { email })}
           </p>
           <HapticButton onClick={() => { setShowForgotPassword(false); setResetEmailSent(false); }} className="w-full bg-brand-primary text-white py-3 rounded-xl font-bold">
             {t('backToLogin')}
@@ -242,7 +283,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-4 py-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md bg-brand-surface p-8 rounded-3xl shadow-xl border border-brand-border-light">
-          <h2 className="text-2xl font-bold text-center mb-6">{i18n.language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Reset Password'}</h2>
+          <h2 className="text-2xl font-bold text-center mb-6">{t('resetPassword')}</h2>
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-brand-text-main mb-1">{t('email')}</label>
@@ -256,7 +297,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
             </div>
             {error && <p className="text-brand-error text-sm bg-brand-error/10 p-3 rounded-lg border border-brand-error/20">{error}</p>}
             <HapticButton type="submit" className="w-full bg-brand-primary text-white py-3 rounded-xl font-bold shadow-lg shadow-brand-primary/20">
-              {i18n.language === 'ar' ? 'إرسال رابط التعيين' : 'Send Reset Link'}
+              {t('sendResetLink')}
             </HapticButton>
             <button 
               type="button"
@@ -350,6 +391,32 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
               {supplierSubStep === 2 && (
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
                   <div>
+                    <label className="block text-sm font-medium text-brand-text-main mb-1">{t('supplierType')}</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button 
+                        type="button"
+                        onClick={() => setSupplierType('merchant')}
+                        className={`py-2 px-1 rounded-xl border text-xs font-medium transition-all ${supplierType === 'merchant' ? 'border-brand-primary bg-brand-primary/10 text-brand-primary' : 'border-brand-border text-slate-500'}`}
+                      >
+                        {t('merchant')}
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setSupplierType('service_provider')}
+                        className={`py-2 px-1 rounded-xl border text-xs font-medium transition-all ${supplierType === 'service_provider' ? 'border-brand-primary bg-brand-primary/10 text-brand-primary' : 'border-brand-border text-slate-500'}`}
+                      >
+                        {t('service_provider')}
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setSupplierType('both')}
+                        className={`py-2 px-1 rounded-xl border text-xs font-medium transition-all ${supplierType === 'both' ? 'border-brand-primary bg-brand-primary/10 text-brand-primary' : 'border-brand-border text-slate-500'}`}
+                      >
+                        {t('both')}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-brand-text-main mb-1">{t('phone')}</label>
                     <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" required />
                   </div>
@@ -367,8 +434,16 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-brand-text-main mb-1">{t('category')}</label>
-                    <SmartCategorySelector categories={categories} selectedCategoryIds={selectedCategoryIds} onSelect={setSelectedCategoryIds} />
+                    <label className="block text-sm font-medium text-brand-text-main mb-4 flex items-center gap-2">
+                      <Sparkles size={16} className="text-brand-primary" />
+                      {t('category')}
+                    </label>
+                    <AICategorySelector 
+                      categories={categories} 
+                      selectedCategoryIds={selectedCategoryIds} 
+                      onChange={setSelectedCategoryIds}
+                      isRtl={i18n.language === 'ar'}
+                    />
                   </div>
                 </motion.div>
               )}
@@ -398,9 +473,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                       className="mt-1 w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary/20"
                     />
                     <label htmlFor="terms-supplier" className="text-sm text-slate-600 leading-relaxed cursor-pointer">
-                      {i18n.language === 'ar' 
-                        ? 'أوافق على شروط الخدمة وسياسة الخصوصية الخاصة بمنصة كونكت.' 
-                        : 'I agree to the Terms of Service and Privacy Policy of Connect Platform.'}
+                      {t('supplierTermsAgreement')}
                     </label>
                   </div>
                 </motion.div>
@@ -438,7 +511,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                     onClick={() => setShowForgotPassword(true)}
                     className="text-xs text-brand-primary hover:underline mt-1 block"
                   >
-                    {i18n.language === 'ar' ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
+                    {t('forgotPassword')}
                   </button>
                 )}
               </div>
@@ -453,9 +526,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                     className="mt-1 w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary/20"
                   />
                   <label htmlFor="terms-basic" className="text-sm text-slate-600 cursor-pointer">
-                    {i18n.language === 'ar' 
-                      ? 'أوافق على شروط الخدمة وسياسة الخصوصية' 
-                      : 'I agree to the Terms of Service and Privacy Policy'}
+                    {t('termsAgreement')}
                   </label>
                 </div>
               )}

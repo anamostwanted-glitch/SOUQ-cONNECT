@@ -275,14 +275,23 @@ const fetchKeys = async () => {
   const now = Date.now();
   if (now - lastFetch < 60000 && cachedKeys.length > 0) return cachedKeys;
   
+  // Only attempt to fetch if authenticated to avoid permission errors
+  if (!auth.currentUser) {
+    return cachedKeys;
+  }
+
   try {
     const docSnap = await getDoc(doc(db, 'settings', 'gemini_config'));
     if (docSnap.exists()) {
       cachedKeys = (docSnap.data().keys || []).filter((k: GeminiApiKey) => k.status === 'active');
       lastFetch = now;
     }
-  } catch (e) {
-    handleFirestoreError(e, OperationType.GET, 'settings/gemini_config', false);
+  } catch (e: any) {
+    // Only log if it's NOT a permission error. 
+    // Permission errors are expected for non-admin users as gemini_config is restricted.
+    if (e.code !== 'permission-denied') {
+      handleFirestoreError(e, OperationType.GET, 'settings/gemini_config', false);
+    }
   }
   return cachedKeys;
 };

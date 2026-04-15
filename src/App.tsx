@@ -1,8 +1,8 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection, getDocs } from 'firebase/firestore';
 import { auth, db } from './core/firebase';
-import { UserProfile, AppFeatures, UserRole, SiteSettings, ProductRequest } from './core/types';
+import { UserProfile, AppFeatures, UserRole, SiteSettings, ProductRequest, Category } from './core/types';
 import { BrandingProvider } from './core/providers/BrandingProvider';
 import { Layout } from './modules/site/components/Layout';
 import { Skeleton } from './shared/components/Skeleton';
@@ -12,6 +12,7 @@ import { usePredictiveNavigation } from './shared/hooks/usePredictiveNavigation'
 import { I18nextProvider, useTranslation } from 'react-i18next';
 import i18n from './i18n';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
 
 const Home = lazy(() => import('./modules/site/components/Home'));
 const Auth = lazy(() => import('./modules/site/components/Auth'));
@@ -23,10 +24,11 @@ const ChatHub = lazy(() => import('./modules/common/components/ChatHub').then(m 
 const ChatView = lazy(() => import('./modules/common/components/ChatView'));
 const ProfileView = lazy(() => import('./modules/site/components/ProfileView').then(m => ({ default: m.ProfileView })));
 const ConnectRewards = lazy(() => import('./modules/user/components/ConnectRewards').then(m => ({ default: m.ConnectRewards })));
-const UserInsightsHub = lazy(() => import('./modules/common/components/UserInsightsHub').then(m => ({ default: m.UserInsightsHub })));
+const UserNeuralHub = lazy(() => import('./modules/common/components/UserNeuralHub').then(m => ({ default: m.UserNeuralHub })));
 const Partnerships = lazy(() => import('./modules/site/components/Partnerships').then(m => ({ default: m.Partnerships })));
 const SmartHelp = lazy(() => import('./modules/common/components/SmartHelp').then(m => ({ default: m.SmartHelp })));
 const SupplierLandingPage = lazy(() => import('./modules/site/components/SupplierLandingPage')); // Updated chunk
+const SupplierOnboarding = lazy(() => import('./modules/site/components/SupplierOnboarding').then(m => ({ default: m.SupplierOnboarding })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +53,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<UserRole>('customer');
   const [uiStyle, setUiStyle] = useState<'classic' | 'minimal'>('classic');
   const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -73,6 +76,11 @@ export default function App() {
             const userData = docSnap.data() as UserProfile;
             setProfile(userData);
             setViewMode(prev => prev === 'customer' && userData.role !== 'customer' ? userData.role : prev);
+            
+            // Auto-redirect new suppliers to onboarding
+            if (userData.role === 'supplier' && (!userData.categories || userData.categories.length === 0) && currentView !== 'supplier_onboarding') {
+              setView('supplier_onboarding');
+            }
           } else {
             setProfile(null);
           }
@@ -120,11 +128,33 @@ export default function App() {
       setSettings({});
     });
 
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      console.warn('Unhandled promise rejection:', event.reason);
+      handleAiError(event.reason, 'Global:unhandledrejection', false);
+    };
+
+    window.addEventListener('unhandledrejection', handleRejection);
+
     return () => {
       unsubscribeAuth();
       unsubscribeSettings();
+      window.removeEventListener('unhandledrejection', handleRejection);
       if (unsubscribeUser) unsubscribeUser();
     };
+  }, []);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'categories'));
+        const allCats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+        // Only show active categories to general users
+        setCategories(allCats.filter(c => c.status === 'active' || !c.status));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, 'categories');
+      }
+    };
+    fetchCategories();
   }, []);
 
   useEffect(() => {
@@ -144,6 +174,7 @@ export default function App() {
   }, [currentView, settings, i18nInstance.language]);
 
   const renderView = () => {
+    console.log('DEBUG: Current View:', currentView);
     switch (currentView) {
       case 'supplier_landing':
         return (
@@ -154,6 +185,17 @@ export default function App() {
                 setView('auth');
               }} 
               settings={settings}
+            />
+          </Suspense>
+        );
+      case 'supplier_onboarding':
+        if (!profile) return <Auth onAuthSuccess={() => setView('supplier_onboarding')} />;
+        return (
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <SupplierOnboarding 
+              profile={profile} 
+              categories={categories} 
+              onComplete={() => setView('home')} 
             />
           </Suspense>
         );
@@ -179,7 +221,16 @@ export default function App() {
       case 'auth':
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <Auth onAuthSuccess={(role) => { setView('home'); }} initialRole={viewMode} />
+            <Auth 
+              onAuthSuccess={(role) => { 
+                if (role === 'supplier' || viewMode === 'supplier') {
+                  setView('supplier_onboarding');
+                } else {
+                  setView('home'); 
+                }
+              }} 
+              initialRole={viewMode} 
+            />
           </Suspense>
         );
       case 'marketplace':
@@ -230,7 +281,7 @@ export default function App() {
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>
             <div className="pt-24 px-4 min-h-screen bg-brand-background">
-              <UserInsightsHub profile={profile} isRtl={i18n.language === 'ar'} />
+              <UserNeuralHub profile={profile} isRtl={i18nInstance.language === 'ar'} />
             </div>
           </Suspense>
         );
@@ -308,6 +359,7 @@ export default function App() {
     <I18nextProvider i18n={i18n}>
       <QueryClientProvider client={queryClient}>
         <BrandingProvider>
+          <Toaster position="top-center" richColors />
           <AnimatePresence mode="wait">
               <motion.div
                 key="content"

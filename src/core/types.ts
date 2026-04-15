@@ -65,6 +65,8 @@ export interface UserProfile {
   subscriptionPlan?: 'basic' | 'pro' | 'enterprise';
   subscriptionExpiry?: string;
   referralCode?: string;
+  referredBy?: string;
+  onboardingCompleted?: boolean;
   favoriteProducts?: string[];
   aiInsights?: {
     summaryAr: string;
@@ -100,7 +102,7 @@ export interface Category {
   suggestedKeywords?: string[];
   autoKeywords?: string[];
   categoryType?: 'product' | 'service';
-  status?: 'active' | 'deleted';
+  status?: 'active' | 'deleted' | 'pending';
   deletedAt?: string;
 }
 

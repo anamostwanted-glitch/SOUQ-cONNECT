@@ -40,8 +40,8 @@ service cloud.firestore {
 
     function hasRole(role) {
       return isAuthenticated() && (
-        request.auth.token.role == role || 
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role)
+        request.auth.token.get('role', '') == role || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == role)
       );
     }
 
@@ -71,17 +71,16 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      let allowedFields = ['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'coordinates', 'website', 'logoUrl', 'coverUrl', 'photoURL', 'categories', 'keywords', 'language', 'createdAt', 'updatedAt', 'lastActive', 'bio', 'businessDescription', 'supplierType', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'verificationExpiryDate', 'trustScore', 'followersCount', 'followingCount', 'followers', 'following', 'logoGenerationUsage', 'isOnline', 'isDeleted', 'lastLoginAt', 'averageResponseTime', 'notificationPreferences', 'conciergeConsent', 'branding', 'referralPoints', 'loyaltyPoints', 'commercialRegistration', 'subscriptionPlan', 'subscriptionExpiry', 'referralCode', 'favoriteProducts', 'aiInsights', 'aiBio', 'socialLinks', 'status', 'deletedAt', 'deletedBy'];
-      return data.keys().hasAll(['uid', 'email', 'role']) &&
+      let allowedFields = ['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'coordinates', 'website', 'logoUrl', 'coverUrl', 'photoURL', 'categories', 'keywords', 'language', 'createdAt', 'updatedAt', 'lastActive', 'bio', 'businessDescription', 'supplierType', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'verificationExpiryDate', 'trustScore', 'followersCount', 'followingCount', 'followers', 'following', 'logoGenerationUsage', 'isOnline', 'isDeleted', 'lastLoginAt', 'averageResponseTime', 'notificationPreferences', 'conciergeConsent', 'branding', 'referralPoints', 'loyaltyPoints', 'commercialRegistration', 'subscriptionPlan', 'subscriptionExpiry', 'referralCode', 'referredBy', 'onboardingCompleted', 'favoriteProducts', 'aiInsights', 'aiBio', 'socialLinks', 'status', 'deletedAt', 'deletedBy'];
+      return data.get('uid', '') is string &&
+             data.get('email', '') is string &&
+             data.get('role', '') in ['admin', 'supplier', 'customer', 'manager', 'supervisor'] &&
              data.keys().hasOnly(allowedFields) &&
-             data.uid is string && data.uid.size() < 128 &&
-             data.email is string && data.email.size() < 256 &&
-             data.role in ['admin', 'supplier', 'customer', 'manager', 'supervisor'] &&
              (!('name' in data) || (data.name is string && data.name.size() < 128)) &&
              (!('companyName' in data) || (data.companyName is string && data.companyName.size() < 256)) &&
              (!('phone' in data) || (data.phone is string && data.phone.size() < 32)) &&
              (!('location' in data) || (data.location is string && data.location.size() < 512)) &&
-             (!('coordinates' in data) || (data.coordinates is map && data.coordinates.keys().hasAll(['latitude', 'longitude']) && data.coordinates.latitude is number && data.coordinates.longitude is number)) &&
+             (!('coordinates' in data) || data.coordinates is map) &&
              (!('website' in data) || (data.website is string && data.website.size() < 512)) &&
              (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() < 1024)) &&
              (!('coverUrl' in data) || (data.coverUrl is string && data.coverUrl.size() < 1024)) &&
@@ -106,7 +105,7 @@ service cloud.firestore {
              (!('followingCount' in data) || data.followingCount is number) &&
              (!('followers' in data) || (data.followers is list && data.followers.size() < 10000)) &&
              (!('following' in data) || (data.following is list && data.following.size() < 1000)) &&
-             (!('logoGenerationUsage' in data) || (data.logoGenerationUsage is map && data.logoGenerationUsage.keys().hasAll(['count', 'month']) && data.logoGenerationUsage.count is number && data.logoGenerationUsage.month is string)) &&
+             (!('logoGenerationUsage' in data) || data.logoGenerationUsage is map) &&
              (!('isOnline' in data) || data.isOnline is bool) &&
              (!('isDeleted' in data) || data.isDeleted is bool) &&
              (!('lastLoginAt' in data) || (data.lastLoginAt is string && data.lastLoginAt.size() < 64)) &&
@@ -120,17 +119,19 @@ service cloud.firestore {
              (!('subscriptionPlan' in data) || data.subscriptionPlan in ['basic', 'pro', 'enterprise']) &&
              (!('subscriptionExpiry' in data) || (data.subscriptionExpiry is string && data.subscriptionExpiry.size() < 64)) &&
              (!('referralCode' in data) || (data.referralCode is string && data.referralCode.size() < 32)) &&
+             (!('referredBy' in data) || (data.referredBy is string && data.referredBy.size() < 128)) &&
+             (!('onboardingCompleted' in data) || data.onboardingCompleted is bool) &&
              (!('favoriteProducts' in data) || (data.favoriteProducts is list && data.favoriteProducts.size() < 1000)) &&
              (!('aiInsights' in data) || data.aiInsights is map) &&
              (!('aiBio' in data) || data.aiBio is map) &&
              (!('socialLinks' in data) || data.socialLinks is map) &&
-             (!('status' in data) || data.status in ['active', 'deleted', 'suspended', 'pending']) &&
+             (!('status' in data) || data.status in ['active', 'deleted', 'suspended', 'pending', 'pending_verification']) &&
              (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64)) &&
              (!('deletedBy' in data) || (data.deletedBy is string && data.deletedBy.size() < 128));
     }
 
     function roleUnchanged() {
-      return !('role' in request.resource.data) || request.resource.data.role == resource.data.role;
+      return !('role' in request.resource.data) || request.resource.data.role == resource.data.get('role', '');
     }
 
     match /invites/{email} {
@@ -163,7 +164,13 @@ service cloud.firestore {
       allow update: if isAuthenticated() && (
                     (isAdmin() && isValidUser(request.resource.data)) || 
                     (request.auth.uid == userId && isValidUser(request.resource.data) && roleUnchanged() && 
-                     !request.resource.data.diff(resource.data).affectedKeys().hasAny(['referralPoints', 'isVerified']))
+                     !request.resource.data.diff(resource.data).affectedKeys().hasAny(['trustScore', 'rating', 'reviewCount']) &&
+                     (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['referralPoints']) || request.resource.data.referralPoints == 0)) ||
+                    (
+                      // Allow following/unfollowing or rating by other users
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers', 'followersCount', 'following', 'followingCount', 'rating', 'reviewCount']) &&
+                      isValidUser(request.resource.data)
+                    )
                   );
       // Allow admins to hard delete users
       allow delete: if isAdmin();
@@ -195,7 +202,9 @@ service cloud.firestore {
 
     match /categories/{categoryId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidCategory(request.resource.data);
+      allow create: if (isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'supplier')) && 
+                      isValidCategory(request.resource.data) &&
+                      (isAdmin() || request.resource.data.status == 'pending');
       allow update: if (isAdmin() && isValidCategory(request.resource.data)) ||
                        (isAuthenticated() && 
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['keywords', 'suggestedKeywords', 'autoKeywords']) &&
@@ -204,7 +213,7 @@ service cloud.firestore {
     }
 
     function isValidProductRequest(data) {
-      let allowedFields = ['customerId', 'customerName', 'supplierId', 'supplierName', 'productName', 'description', 'status', 'createdAt', 'type', 'imageUrl', 'attributes', 'deletedAt'];
+      let allowedFields = ['customerId', 'customerName', 'supplierId', 'supplierName', 'productName', 'description', 'status', 'createdAt', 'type', 'imageUrl', 'attributes', 'aiReasoning', 'deletedAt'];
       return data.keys().hasAll(['customerId', 'supplierId', 'productName', 'status', 'createdAt', 'type']) &&
              data.keys().hasOnly(allowedFields) &&
              data.customerId is string &&
@@ -236,7 +245,7 @@ service cloud.firestore {
     }
 
     function isValidRequest(data) {
-      let allowedFields = ['customerId', 'customerName', 'productName', 'status', 'createdAt', 'description', 'imageUrl', 'categoryId', 'categoryNameAr', 'categoryNameEn', 'location', 'offerCount', 'quantity', 'budget', 'approvedSuppliers', 'suggestedSupplierIds', 'deletedAt'];
+      let allowedFields = ['customerId', 'customerName', 'productName', 'status', 'createdAt', 'description', 'imageUrl', 'categoryId', 'categoryNameAr', 'categoryNameEn', 'location', 'offerCount', 'quantity', 'budget', 'approvedSuppliers', 'suggestedSupplierIds', 'aiReasoning', 'deletedAt'];
       return data.keys().hasAll(['customerId', 'productName', 'status', 'createdAt']) &&
              data.keys().hasOnly(allowedFields) &&
              data.customerId is string &&
@@ -446,6 +455,10 @@ service cloud.firestore {
     match /settings/site {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /settings/gemini_config {
+      allow read, write: if isAdmin();
     }
 
     match /settings/{settingId} {

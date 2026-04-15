@@ -42,6 +42,8 @@ import { compressImage } from '../../../core/utils/imageCropper';
 import { toast } from 'sonner';
 import { UserBrandingSettings } from './UserBrandingSettings';
 import { Badge } from '../../../shared/components/ui/badge';
+import { AICategorySelector } from '../../site/components/AICategorySelector';
+import { AddCategoryModal } from '../../../shared/components/AddCategoryModal';
 
 interface ProfileSettingsProps {
   profile: UserProfile;
@@ -66,7 +68,8 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
     keywords: profile.keywords || [],
     categories: profile.categories || [],
     logoUrl: profile.logoUrl || profile.photoURL || '',
-    coverUrl: profile.coverUrl || ''
+    coverUrl: profile.coverUrl || '',
+    supplierType: profile.supplierType || 'merchant'
   });
 
   const [hasChanges, setHasChanges] = useState(false);
@@ -85,14 +88,17 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
   const [showHelpCenter, setShowHelpCenter] = useState(false);
   const [isAiSuggestingCategories, setIsAiSuggestingCategories] = useState(false);
   const [suggestedCategoryIds, setSuggestedCategoryIds] = useState<string[]>([]);
-  const [categorySearch, setCategorySearch] = useState('');
+  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
 
   const glassClass = "bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/40 dark:border-slate-700/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]";
   const bentoCardClass = `${glassClass} rounded-[2.5rem] p-8 md:p-10 transition-all duration-500 hover:shadow-2xl hover:scale-[1.01] border-2 border-transparent hover:border-brand-primary/20`;
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
-      setAllCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
+      const cats = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as Category))
+        .filter(c => c.status !== 'deleted');
+      setAllCategories(cats);
     });
     return () => unsub();
   }, []);
@@ -187,19 +193,6 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
     setSuggestedCategoryIds([]);
     toast.success(isRtl ? 'تم تطبيق الفئات المقترحة' : 'Suggested categories applied');
   };
-
-  const filteredCategories = allCategories.filter(cat => {
-    const name = isRtl ? cat.nameAr : cat.nameEn;
-    return name.toLowerCase().includes(categorySearch.toLowerCase());
-  });
-
-  const selectedCategories = allCategories.filter(cat => formData.categories.includes(cat.id));
-  const suggestedCategories = allCategories.filter(cat => 
-    suggestedCategoryIds.includes(cat.id) && !formData.categories.includes(cat.id)
-  );
-  const otherCategories = filteredCategories.filter(cat => 
-    !formData.categories.includes(cat.id) && !suggestedCategoryIds.includes(cat.id)
-  );
 
   const handleAddKeyword = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && keywordInput.trim()) {
@@ -443,141 +436,48 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
               )}
             </AnimatePresence>
 
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-brand-teal/10 flex items-center justify-center text-brand-teal">
-                  <LayoutGrid size={28} />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black text-brand-text-main">{isRtl ? 'رادار التخصص الذكي' : 'Smart Specialization Radar'}</h3>
-                  <p className="text-xs font-bold text-brand-text-muted uppercase tracking-widest">{isRtl ? 'الفئات والكلمات المفتاحية' : 'Categories & Keywords'}</p>
-                </div>
+            <div className="flex items-center gap-4 mb-12">
+              <div className="w-14 h-14 rounded-2xl bg-brand-teal/10 flex items-center justify-center text-brand-teal">
+                <LayoutGrid size={28} />
               </div>
-              <HapticButton 
-                onClick={() => handleAiSuggestCategories()}
-                disabled={isAiSuggestingCategories}
-                className="flex items-center gap-3 bg-brand-teal/10 text-brand-teal px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-teal hover:text-white transition-all disabled:opacity-50"
-              >
-                {isAiSuggestingCategories ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />}
-                {isRtl ? 'فحص الفئات' : 'Scan Categories'}
-              </HapticButton>
+              <div>
+                <h3 className="text-2xl font-black text-brand-text-main">{isRtl ? 'رادار التخصص الذكي' : 'Smart Specialization Radar'}</h3>
+                <p className="text-xs font-bold text-brand-text-muted uppercase tracking-widest">{isRtl ? 'الفئات والكلمات المفتاحية' : 'Categories & Keywords'}</p>
+              </div>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
               {/* Categories Hub */}
-              <div className="space-y-6">
+              <div className="lg:col-span-8 space-y-6">
                 <div className="flex items-center justify-between px-2">
                   <label className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em]">{isRtl ? 'مركز التصنيفات' : 'Categories Hub'}</label>
-                  {formData.categories.length > 0 && (
-                    <span className="text-[10px] font-black bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-full">
-                      {formData.categories.length} {isRtl ? 'مختار' : 'Selected'}
-                    </span>
-                  )}
+                  <HapticButton 
+                    onClick={() => setIsAddCategoryModalOpen(true)}
+                    className="flex items-center gap-2 text-[10px] font-black text-brand-primary hover:bg-brand-primary/10 px-3 py-1.5 rounded-xl transition-all"
+                  >
+                    <Plus size={14} />
+                    {isRtl ? 'إضافة فئة غير موجودة' : 'Add missing category'}
+                  </HapticButton>
                 </div>
-
-                {/* Search Bar */}
-                <div className="relative group">
-                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-primary/50 group-focus-within:text-brand-primary transition-colors">
-                    <Search size={20} />
-                  </div>
-                  <input 
-                    type="text"
-                    value={categorySearch}
-                    onChange={(e) => setCategorySearch(e.target.value)}
-                    placeholder={isRtl ? 'ابحث عن تخصصك...' : 'Search for your specialty...'}
-                    className="w-full pl-14 pr-6 py-4 bg-brand-background/50 border border-brand-border rounded-2xl outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all font-bold text-sm"
-                  />
-                  {categorySearch && (
-                    <button 
-                      onClick={() => setCategorySearch('')}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-brand-primary/10 rounded-full text-brand-text-muted transition-colors"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-8 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                  {/* Selected Section */}
-                  {selectedCategories.length > 0 && (
-                    <div className="space-y-3">
-                      <p className="text-[10px] font-black text-brand-primary uppercase tracking-widest px-2">{isRtl ? 'المختارة حالياً' : 'Currently Selected'}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedCategories.map(cat => (
-                          <button
-                            key={cat.id}
-                            onClick={() => handleChange('categories', formData.categories.filter(id => id !== cat.id))}
-                            className="px-5 py-2.5 rounded-xl text-sm font-black bg-brand-primary text-white shadow-lg shadow-brand-primary/20 flex items-center gap-2 hover:scale-105 transition-all"
-                          >
-                            <CheckCircle2 size={16} />
-                            {isRtl ? cat.nameAr : cat.nameEn}
-                            <X size={14} className="opacity-50" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Suggested Section */}
-                  {suggestedCategories.length > 0 && (
-                    <div className="space-y-3">
-                      <p className="text-[10px] font-black text-brand-teal uppercase tracking-widest px-2 flex items-center gap-2">
-                        <Zap size={12} /> {isRtl ? 'اقتراحات الذكاء الاصطناعي' : 'AI Suggestions'}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {suggestedCategories.map(cat => (
-                          <button
-                            key={cat.id}
-                            onClick={() => handleChange('categories', [...formData.categories, cat.id])}
-                            className="px-5 py-2.5 rounded-xl text-sm font-black bg-brand-teal/10 text-brand-teal border border-brand-teal/20 flex items-center gap-2 hover:bg-brand-teal hover:text-white transition-all"
-                          >
-                            <Plus size={16} />
-                            {isRtl ? cat.nameAr : cat.nameEn}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Other / Search Results */}
-                  {(categorySearch || (selectedCategories.length === 0 && suggestedCategories.length === 0)) && (
-                    <div className="space-y-3">
-                      <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest px-2">
-                        {categorySearch ? (isRtl ? 'نتائج البحث' : 'Search Results') : (isRtl ? 'كل التصنيفات' : 'All Categories')}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {otherCategories.length > 0 ? (
-                          otherCategories.map(cat => (
-                            <button
-                              key={cat.id}
-                              onClick={() => handleChange('categories', [...formData.categories, cat.id])}
-                              className="px-5 py-2.5 rounded-xl text-sm font-black bg-brand-surface border border-brand-border text-brand-text-muted hover:border-brand-primary/50 hover:text-brand-primary transition-all"
-                            >
-                              {isRtl ? cat.nameAr : cat.nameEn}
-                            </button>
-                          ))
-                        ) : (
-                          <p className="text-xs text-brand-text-muted italic px-2">{isRtl ? 'لا توجد نتائج مطابقة' : 'No matching results'}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <AICategorySelector 
+                  categories={allCategories}
+                  selectedCategoryIds={formData.categories}
+                  onChange={(ids) => handleChange('categories', ids)}
+                  isRtl={isRtl}
+                />
               </div>
 
-              {/* Keywords */}
-              <div className="space-y-6">
-                <label className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em] block px-2 flex items-center gap-2"><Tag size={14}/> {isRtl ? 'الكلمات المفتاحية' : 'Keywords'}</label>
-                <div className="flex flex-wrap gap-3 p-8 bg-brand-background/50 border border-brand-border rounded-[2rem] min-h-[150px] content-start">
-                  {formData.keywords.map((tag, idx) => (
-                    <Badge key={idx} className="flex items-center gap-3 bg-brand-surface text-brand-text-main px-5 py-2.5 rounded-2xl text-sm font-black border border-brand-border hover:border-brand-error/30 transition-colors group">
-                      {tag}
-                      <button onClick={() => handleChange('keywords', formData.keywords.filter(k => k !== tag))} className="text-brand-text-muted group-hover:text-brand-error transition-colors">
-                        <X size={16} />
-                      </button>
-                    </Badge>
-                  ))}
-                  <div className="relative flex-1 min-w-[200px]">
+              {/* Keywords Hub */}
+              <div className="lg:col-span-4 space-y-6">
+                <div className="flex items-center justify-between px-2">
+                  <label className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em] flex items-center gap-2">
+                    <Tag size={14}/> {isRtl ? 'الكلمات المفتاحية' : 'Keywords'}
+                  </label>
+                  <span className="text-[10px] font-black text-brand-primary">{formData.keywords.length}/15</span>
+                </div>
+
+                <div className="p-8 bg-brand-background/50 border border-brand-border rounded-[2rem] min-h-[200px] flex flex-col">
+                  <div className="relative mb-6">
                     <Plus className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-primary" size={20} />
                     <input
                       type="text"
@@ -585,8 +485,33 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
                       onChange={e => setKeywordInput(e.target.value)}
                       onKeyDown={handleAddKeyword}
                       placeholder={isRtl ? 'أضف كلمة واضغط Enter...' : 'Add keyword and press Enter...'}
-                      className="w-full bg-transparent outline-none text-sm font-bold text-brand-text-main pl-12 py-3"
+                      className="w-full bg-white border border-brand-border rounded-2xl outline-none text-sm font-bold text-brand-text-main pl-12 pr-6 py-4 focus:ring-4 focus:ring-brand-primary/10 transition-all"
                     />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 content-start">
+                    <AnimatePresence>
+                      {formData.keywords.map((tag, idx) => (
+                        <motion.div
+                          key={tag}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                        >
+                          <Badge className="flex items-center gap-3 bg-white text-brand-text-main px-4 py-2 rounded-xl text-xs font-bold border border-brand-border hover:border-brand-error/30 transition-colors group">
+                            {tag}
+                            <button onClick={() => handleChange('keywords', formData.keywords.filter(k => k !== tag))} className="text-brand-text-muted group-hover:text-brand-error transition-colors">
+                              <X size={14} />
+                            </button>
+                          </Badge>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                    {formData.keywords.length === 0 && (
+                      <p className="text-xs font-bold text-brand-text-muted italic p-4 w-full text-center">
+                        {isRtl ? 'لا توجد كلمات مفتاحية مضافة بعد' : 'No keywords added yet'}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -679,7 +604,12 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
           </motion.div>
         )}
       </AnimatePresence>
-
+      
+      <AddCategoryModal 
+        isOpen={isAddCategoryModalOpen}
+        onClose={() => setIsAddCategoryModalOpen(false)}
+        activeCategoryTab={formData.supplierType === 'service_provider' ? 'service' : 'product'}
+      />
     </div>
   );
 };

@@ -46,7 +46,8 @@ import {
   Zap,
   Droplets,
   Wrench,
-  ShoppingBag
+  ShoppingBag,
+  Activity
 } from 'lucide-react';
 
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -741,7 +742,8 @@ const Home: React.FC<HomeProps> = ({
                 // --- SMART TIER ---
                 // Run AI matching in the background
                 const { uids: matchedIds, reasoning } = await matchSuppliers(trimmedQuery, categorySuppliers, categories, profile?.location);
-                let matched = categorySuppliers.filter(s => matchedIds.includes(s.uid));
+                const uniqueMatchedIds = Array.from(new Set(matchedIds));
+                let matched = categorySuppliers.filter(s => uniqueMatchedIds.includes(s.uid));
                 
                 // If AI returned empty but we have category suppliers, show them as "Relevant" instead of "Suggested"
                 if (matched.length === 0 && categorySuppliers.length > 0) {
@@ -1213,6 +1215,30 @@ const Home: React.FC<HomeProps> = ({
         
         {/* 4. Result Section (Last Request & Matched Suppliers) */}
         <AnimatePresence>
+          {profile && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-8 p-6 rounded-[2.5rem] bg-gradient-to-br from-brand-primary/10 to-brand-teal/10 border border-brand-primary/20 backdrop-blur-xl flex items-center justify-between group cursor-pointer"
+              onClick={() => onNavigate('smart_pulse')}
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-brand-primary/20 flex items-center justify-center text-brand-primary">
+                  <Activity size={24} className="animate-pulse" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-black text-brand-text-main">
+                    {isRtl ? 'النبض الذكي - فريق النواة' : 'Smart Pulse - Core Team'}
+                  </h4>
+                  <p className="text-sm text-brand-text-muted">
+                    {isRtl ? 'لديك رؤى جديدة حول نشاطك في السوق' : 'You have new insights about your market activity'}
+                  </p>
+                </div>
+              </div>
+              <ArrowRight size={24} className={`text-brand-primary group-hover:translate-x-2 transition-transform ${isRtl ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />
+            </motion.div>
+          )}
+
           {(lastRequest || matchedSuppliers.length > 0) && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -1270,7 +1296,7 @@ const Home: React.FC<HomeProps> = ({
           )}
         </AnimatePresence>
 
-        {!profile && (
+        {(effectiveRole !== 'supplier') && (
           <SupplierRegistrationCTA isRtl={isRtl} i18n={i18n} onNavigate={onNavigate} />
         )}
 
