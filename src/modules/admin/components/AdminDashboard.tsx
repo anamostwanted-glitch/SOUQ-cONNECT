@@ -46,7 +46,7 @@ import BrandingSettings from '../../site/components/BrandingSettings';
 import { SiteSettingsManager } from './SiteSettingsManager';
 import { LoadingCustomizer } from './LoadingCustomizer';
 import * as Sentry from "@sentry/react";
-// ... (imports)
+
 const AdminNeuralHub = lazy(() => import('./AdminNeuralHub').then(m => ({ default: Sentry.withProfiler(m.AdminNeuralHub) })));
 const CostAnalysisDashboard = lazy(() => import('./CostAnalysisDashboard').then(m => ({ default: Sentry.withProfiler(m.CostAnalysisDashboard) })));
 import { SliderSettingsAdmin } from './SliderSettings';
@@ -512,11 +512,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const tabs = [
     { id: 'overview', label: isRtl ? 'نظرة عامة' : 'Overview', icon: LayoutGrid },
+    { id: 'weekly-reports', label: isRtl ? 'التقارير الأسبوعية' : 'Weekly Reports', icon: FileText, isNew: true },
     { id: 'users', label: isRtl ? 'المستخدمين' : 'Users', icon: Users },
     { id: 'chats', label: isRtl ? 'أرشيف المحادثات' : 'Chat Archive', icon: Archive, isNew: true },
     { id: 'marketplace', label: isRtl ? 'إدارة السوق' : 'Marketplace', icon: ShoppingBag, isNew: true },
-    { id: 'reports', label: isRtl ? 'الإبلاغات' : 'Reports', icon: Flag, isNew: true },
-    { id: 'weekly-reports', label: isRtl ? 'التقارير الأسبوعية' : 'Weekly Reports', icon: FileText, isNew: true },
+    { id: 'reports', label: isRtl ? 'الإبلاغات' : 'Reports', icon: Flag },
+    { id: 'slider', label: isRtl ? 'إعدادات السلايدر' : 'Slider Settings', icon: Wind, isNew: true },
     { id: 'directory', label: isRtl ? 'دليل البيانات' : 'Data Directory', icon: BookOpen },
     { id: 'marketing', label: isRtl ? 'التسويق' : 'Marketing', icon: Megaphone },
     { id: 'broadcast', label: isRtl ? 'إشعار جماعي' : 'Broadcast', icon: Send },
@@ -526,10 +527,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'cost', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
     { id: 'connect', label: isRtl ? 'نمو كونكت' : 'Connect Growth', icon: Zap, isNew: true },
     { id: 'gap-analysis', label: isRtl ? 'تحليل الفجوة' : 'Gap Analysis', icon: BarChart3, isNew: true },
-    { id: 'slider', label: isRtl ? 'إعدادات السلايدر' : 'Slider Settings', icon: Wind },
   ];
-
-  console.log('DEBUG: Admin Tabs:', tabs);
 
   const totalSuppliers = users.filter(u => u.role === 'supplier').length;
   const totalCustomers = users.filter(u => u.role === 'customer').length;
@@ -1024,7 +1022,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="max-w-4xl mx-auto"
+              className="max-w-5xl mx-auto space-y-12"
             >
               <SiteSettingsManager />
             </motion.div>

@@ -17,6 +17,7 @@ import { SearchSettings } from './settings/SearchSettings';
 import { MarketSettings } from './settings/MarketSettings';
 import { RegistrationSettings } from './settings/RegistrationSettings';
 import { SocialProofSettings } from './settings/SocialProofSettings';
+import { LoadingCustomizer } from './LoadingCustomizer';
 
 export const SiteSettingsManager: React.FC = () => {
   const { i18n } = useTranslation();
@@ -33,7 +34,7 @@ export const SiteSettingsManager: React.FC = () => {
     siteName: '',
     logoUrl: '',
     logoScale: 1,
-    loaderCenterText: 'DFEI',
+    loaderCenterText: 'SC',
     loaderStatusTextAr: 'جاري التحميل...',
     loaderStatusTextEn: 'Initializing Hub',
     loaderFooterTextAr: 'مدعوم بالذكاء الاصطناعي',
@@ -193,6 +194,7 @@ export const SiteSettingsManager: React.FC = () => {
           { id: 'market', label: isRtl ? 'السوق' : 'Market', icon: LayoutGrid },
           { id: 'social', label: isRtl ? 'الإحصائيات' : 'Social Proof', icon: Layout },
           { id: 'registration', label: isRtl ? 'قوائم التسجيل' : 'Registration', icon: ListChecks },
+          { id: 'loader', label: isRtl ? 'شاشة التحميل' : 'Loading Screen', icon: Sparkles },
         ].map(tab => (
           <button
             key={tab.id}
@@ -222,6 +224,7 @@ export const SiteSettingsManager: React.FC = () => {
         {currentTab === 'market' && <MarketSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'social' && <SocialProofSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'registration' && <RegistrationSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
+        {currentTab === 'loader' && <LoadingCustomizer />}
       </motion.div>
     </div>
   );

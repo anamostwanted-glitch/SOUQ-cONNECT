@@ -373,7 +373,7 @@ export const LoadingCustomizer: React.FC = () => {
                   value={settings.loaderCenterText || ''}
                   onChange={(e) => updateSettings({ loaderCenterText: e.target.value })}
                   className="w-full bg-brand-background border border-brand-border rounded-xl p-3.5 text-brand-text-main font-black text-lg focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
-                  placeholder="DFEI"
+                  placeholder="SC"
                 />
               </div>
 

@@ -41,7 +41,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActive
             <div className="flex items-center gap-3">
               <tab.icon size={18} className={activeTab === tab.id ? 'text-white' : 'text-brand-text-muted'} />
               <span className="hidden md:inline">{tab.label}</span>
-              <span className="md:hidden">{tab.label.split(' ')[0]}</span>
+              <span className="md:hidden text-[10px] truncate max-w-[60px]">{tab.label}</span>
             </div>
             {tab.isNew && (
               <span className="ml-2 px-1.5 py-0.5 rounded-md bg-brand-primary text-[8px] font-black text-white animate-pulse hidden md:inline">

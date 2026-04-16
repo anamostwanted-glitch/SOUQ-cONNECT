@@ -9,6 +9,7 @@ import { Toaster } from 'sonner';
 import { useAuth } from './core/providers/AuthProvider';
 import { useSettings } from './core/providers/SettingsProvider';
 import { useCategories } from './core/providers/CategoryProvider';
+import { PageLoader } from './shared/components/PageLoader';
 
 const Home = lazy(() => import('./modules/site/components/Home'));
 const Auth = lazy(() => import('./modules/site/components/Auth'));
@@ -103,6 +104,10 @@ export default function App() {
     }
     localStorage.setItem('prev_view', currentView);
   }, [currentView, activeChatId]);
+
+  if (loading) {
+    return <PageLoader previewSettings={settings} />;
+  }
 
   const renderView = () => {
     console.log('DEBUG: Current View:', currentView);
