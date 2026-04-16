@@ -15,7 +15,15 @@ interface PageLoaderProps {
 export const PageLoader: React.FC<PageLoaderProps> = ({ previewSettings, isInline }) => {
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
-  const [settings, setSettings] = useState<SiteSettings | null>(previewSettings && Object.keys(previewSettings).length > 0 ? previewSettings : null);
+  
+  // Get cached logo URLs for instant display
+  const cachedLoaderLogo = localStorage.getItem('cached_loader_logo');
+  const cachedSiteLogo = localStorage.getItem('cached_site_logo');
+  
+  const [settings, setSettings] = useState<SiteSettings | null>(() => {
+    if (previewSettings && Object.keys(previewSettings).length > 0) return previewSettings;
+    return null;
+  });
 
   useEffect(() => {
     if (previewSettings && Object.keys(previewSettings).length > 0) {
@@ -23,10 +31,13 @@ export const PageLoader: React.FC<PageLoaderProps> = ({ previewSettings, isInlin
       return;
     }
 
-    // If no preview settings, fetch from Firestore
     const unsub = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
       if (snap.exists()) {
-        setSettings(snap.data() as SiteSettings);
+        const data = snap.data() as SiteSettings;
+        setSettings(data);
+        // Cache logos for next visit to prevent white flash
+        if (data.loaderLogoUrl) localStorage.setItem('cached_loader_logo', data.loaderLogoUrl);
+        if (data.logoUrl) localStorage.setItem('cached_site_logo', data.logoUrl);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'settings/site', false);
@@ -123,49 +134,45 @@ export const PageLoader: React.FC<PageLoaderProps> = ({ previewSettings, isInlin
           transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
           className="relative"
         >
-          {(settings?.loaderLogoUrl || settings?.logoUrl) ? (
-            <>
-              {settings.loaderLogoUrl && (
-                <img 
-                  key={`loader-img-${settings.loaderLogoUrl}`}
-                  src={settings.loaderLogoUrl} 
-                  alt="Loader Logo" 
+          {(() => {
+            // Priority: Preview -> Actual Settings -> Cached
+            const logoToUse = settings?.loaderLogoUrl || settings?.logoUrl || cachedLoaderLogo || cachedSiteLogo;
+            
+            if (logoToUse) {
+              return (
+                <motion.img 
+                  key={logoToUse}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  src={logoToUse} 
+                  alt="Loading Logo" 
                   className={`${isInline ? 'h-24' : 'h-32'} w-auto object-contain drop-shadow-2xl`}
                   referrerPolicy="no-referrer"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    if (settings.logoUrl && target.src !== settings.logoUrl) {
-                      target.src = settings.logoUrl;
+                    // Fallback train: if loader fails, try site logo
+                    if (logoToUse === (settings?.loaderLogoUrl || cachedLoaderLogo) && (settings?.logoUrl || cachedSiteLogo)) {
+                      target.src = (settings?.logoUrl || cachedSiteLogo)!;
                     } else {
                       target.style.display = 'none';
-                      const textEl = document.getElementById('loader-center-text');
+                      const textEl = document.getElementById('loader-center-fallback');
                       if (textEl) textEl.style.display = 'flex';
                     }
                   }}
                 />
-              )}
-              {!settings.loaderLogoUrl && settings.logoUrl && (
-                <img 
-                  key={`site-img-${settings.logoUrl}`}
-                  src={settings.logoUrl} 
-                  alt="Site Logo" 
-                  className={`${isInline ? 'h-24' : 'h-32'} w-auto object-contain drop-shadow-2xl`}
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const textEl = document.getElementById('loader-center-text');
-                    if (textEl) textEl.style.display = 'flex';
-                  }}
-                />
-              )}
-            </>
-          ) : null}
+              );
+            }
+            return null;
+          })()}
 
           <div 
-            id="loader-center-text"
+            id="loader-center-fallback"
             className="flex flex-col items-center gap-4"
-            style={{ display: (settings && (settings.loaderLogoUrl || settings.logoUrl)) ? 'none' : 'flex' }}
+            style={{ 
+              display: (settings?.loaderLogoUrl || settings?.logoUrl || cachedLoaderLogo || cachedSiteLogo) 
+                ? 'none' 
+                : 'flex' 
+            }}
           >
             {settings?.loaderCenterText ? (
               <div className="flex flex-col items-center gap-4">

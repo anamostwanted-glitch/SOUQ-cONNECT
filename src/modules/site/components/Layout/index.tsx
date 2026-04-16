@@ -320,8 +320,10 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       )}
 
-      <main ref={mainRef} className={`flex-1 overflow-y-auto no-scrollbar relative pt-20 ${currentView !== 'chat' ? 'pb-28 md:pb-0' : ''}`}>
-        {children}
+      <main ref={mainRef} className={`flex-1 overflow-y-auto no-scrollbar relative pt-16 md:pt-20 ${currentView !== 'chat' ? 'pb-32 md:pb-0' : ''}`}>
+        <div className="max-w-[2000px] mx-auto px-4 md:px-8">
+          {children}
+        </div>
       </main>
 
       <MobileMenu 
@@ -348,7 +350,7 @@ export const Layout: React.FC<LayoutProps> = ({
       />
 
       {currentView !== 'chat' && (uiStyle !== 'minimal' || currentView !== 'home') && !isAIHubOpen && !isVisualSearchOpen && (
-        <div className="safe-bottom bg-brand-background/80 backdrop-blur-xl border-t border-brand-border/50 z-40">
+        <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden">
           <BottomNav 
             currentView={currentView}
             setView={setView}

@@ -376,7 +376,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const tabMap: { [key: string]: string } = {
       'users': 'users',
       'requests': 'requests',
-      'categories': 'categories',
+      'categories': 'categories-manager',
       'withdrawals': 'nexus',
       'suppliers': 'users',
       'ambassadors': 'users',
@@ -516,17 +516,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'users', label: isRtl ? 'المستخدمين' : 'Users', icon: Users },
     { id: 'chats', label: isRtl ? 'أرشيف المحادثات' : 'Chat Archive', icon: Archive, isNew: true },
     { id: 'marketplace', label: isRtl ? 'إدارة السوق' : 'Marketplace', icon: ShoppingBag, isNew: true },
-    { id: 'reports', label: isRtl ? 'الإبلاغات' : 'Reports', icon: Flag },
+    { id: 'reports-archive', label: isRtl ? 'الإبلاغات' : 'Reports', icon: Flag },
     { id: 'slider', label: isRtl ? 'إعدادات السلايدر' : 'Slider Settings', icon: Wind, isNew: true },
-    { id: 'directory', label: isRtl ? 'دليل البيانات' : 'Data Directory', icon: BookOpen },
-    { id: 'marketing', label: isRtl ? 'التسويق' : 'Marketing', icon: Megaphone },
-    { id: 'broadcast', label: isRtl ? 'إشعار جماعي' : 'Broadcast', icon: Send },
-    { id: 'categories', label: isRtl ? 'الأقسام' : 'Categories', icon: ListTree },
-    { id: 'site', label: isRtl ? 'إعدادات الواجهة' : 'Interface Settings', icon: Zap },
-    { id: 'ai', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu },
-    { id: 'cost', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
-    { id: 'connect', label: isRtl ? 'نمو كونكت' : 'Connect Growth', icon: Zap, isNew: true },
-    { id: 'gap-analysis', label: isRtl ? 'تحليل الفجوة' : 'Gap Analysis', icon: BarChart3, isNew: true },
+    { id: 'data-directory', label: isRtl ? 'دليل البيانات' : 'Data Directory', icon: BookOpen },
+    { id: 'marketing-portal', label: isRtl ? 'التسويق' : 'Marketing', icon: Megaphone },
+    { id: 'broadcast-center', label: isRtl ? 'إشعار جماعي' : 'Broadcast', icon: Send },
+    { id: 'categories-manager', label: isRtl ? 'الأقسام' : 'Categories', icon: ListTree },
+    { id: 'site-settings', label: isRtl ? 'إعدادات الواجهة' : 'Interface Settings', icon: Zap },
+    { id: 'ai-hub', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu },
+    { id: 'cost-analyzer', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
+    { id: 'connect-growth', label: isRtl ? 'نمو كونكت' : 'Connect Growth', icon: Zap, isNew: true },
+    { id: 'gap-analyzer', label: isRtl ? 'تحليل الفجوة' : 'Gap Analysis', icon: BarChart3, isNew: true },
   ];
 
   const totalSuppliers = users.filter(u => u.role === 'supplier').length;
@@ -544,13 +544,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setIsCreateUserModalOpen(true);
         break;
       case 'add_category':
-        setActiveTab('categories');
+        setActiveTab('categories-manager');
         break;
       case 'create_campaign':
-        setActiveTab('marketing');
+        setActiveTab('marketing-portal');
         break;
       case 'broadcast':
-        setActiveTab('broadcast');
+        setActiveTab('broadcast-center');
         break;
       case 'send_weekly_reports':
         const sendReports = async () => {
@@ -656,14 +656,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 timeRange={timeRange}
                 setTimeRange={setTimeRange}
                 onAction={(action) => {
-                  if (action === 'gap-analysis') setActiveTab('gap-analysis');
+                  if (action === 'gap-analyzer') setActiveTab('gap-analyzer');
                   else if (action === 'users') setActiveTab('users');
-                  else if (action === 'ai') setActiveTab('ai');
-                  else if (action === 'site') setActiveTab('site');
-                  else if (action === 'categories') setActiveTab('categories');
-                  else if (action === 'broadcast') setActiveTab('broadcast');
+                  else if (action === 'ai-hub') setActiveTab('ai-hub');
+                  else if (action === 'site-settings' || action === 'site' || action === 'settings') setActiveTab('site-settings');
+                  else if (action === 'categories-manager' || action === 'categories') setActiveTab('categories-manager');
+                  else if (action === 'broadcast-center' || action === 'broadcast') setActiveTab('broadcast-center');
+                  else if (action === 'ai-hub' || action === 'ai') setActiveTab('ai-hub');
                   else if (action === 'weekly-reports') setActiveTab('weekly-reports');
-                  else if (action === 'settings') setActiveTab('settings');
                 }}
               />
 
@@ -879,9 +879,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'directory' && (
+          {activeTab === 'data-directory' && (
             <motion.div
-              key="directory"
+              key="data-directory"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -903,9 +903,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'reports' && (
+          {activeTab === 'reports-archive' && (
             <motion.div
-              key="reports"
+              key="reports-archive"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -915,9 +915,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'marketing' && (
+          {activeTab === 'marketing-portal' && (
             <motion.div
-              key="marketing"
+              key="marketing-portal"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -927,9 +927,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'gap-analysis' && (
+          {activeTab === 'gap-analyzer' && (
             <motion.div
-              key="gap-analysis"
+              key="gap-analyzer"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -939,9 +939,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'broadcast' && (
+          {activeTab === 'broadcast-center' && (
             <motion.div
-              key="broadcast"
+              key="broadcast-center"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -951,9 +951,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'ai' && (
+          {activeTab === 'ai-hub' && (
             <motion.div
-              key="ai"
+              key="ai-hub"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -964,9 +964,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </Suspense>
             </motion.div>
           )}
-          {activeTab === 'categories' && (
+          {activeTab === 'categories-manager' && (
             <motion.div
-              key="categories"
+              key="categories-manager"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -1016,9 +1016,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'site' && (
+          {activeTab === 'site-settings' && (
             <motion.div
-              key="site"
+              key="site-settings"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -1028,9 +1028,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'cost' && (
+          {activeTab === 'cost-analyzer' && (
             <motion.div
-              key="cost"
+              key="cost-analyzer"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -1042,9 +1042,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
 
-          {activeTab === 'connect' && (
+          {activeTab === 'connect-growth' && (
             <motion.div
-              key="connect"
+              key="connect-growth"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}

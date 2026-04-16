@@ -54,9 +54,20 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         className={`flex-1 flex flex-col items-center gap-1 p-2 transition-all relative ${currentView === 'home' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
       >
         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-          <HomeIcon size={20} strokeWidth={currentView === 'home' ? 2.5 : 2} />
+          <HomeIcon size={18} strokeWidth={currentView === 'home' ? 2.5 : 2} />
         </motion.div>
-        <span className="text-[9px] font-black tracking-tight uppercase">{t('home')}</span>
+        <span className="text-[8px] font-black tracking-tighter uppercase">{t('home')}</span>
+      </HapticButton>
+
+      <HapticButton 
+        onClick={() => setView('marketplace')}
+        onPrefetch={() => onPrefetch?.('marketplace')}
+        className={`flex-1 flex flex-col items-center gap-1 p-2 transition-all relative ${currentView === 'marketplace' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+      >
+        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+          <ShoppingBag size={18} strokeWidth={currentView === 'marketplace' ? 2.5 : 2} />
+        </motion.div>
+        <span className="text-[8px] font-black tracking-tighter uppercase">{isRtl ? 'السوق' : 'Market'}</span>
       </HapticButton>
 
       <HapticButton 
@@ -87,12 +98,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       <HapticButton 
         onClick={() => { setView('dashboard'); setDashboardTab?.('overview'); }}
         onPrefetch={() => onPrefetch?.('dashboard')}
-        className={`flex-1 flex flex-col items-center gap-1 p-2 transition-all relative ${currentView === 'dashboard' && dashboardTab === 'overview' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+        className={`flex-1 flex flex-col items-center gap-1 p-2 transition-all relative ${currentView === 'dashboard' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
       >
         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-          <LayoutGrid size={20} strokeWidth={currentView === 'dashboard' && dashboardTab === 'overview' ? 2.5 : 2} />
+          <LayoutGrid size={18} strokeWidth={currentView === 'dashboard' ? 2.5 : 2} />
         </motion.div>
-        <span className="text-[9px] font-black tracking-tight uppercase">{isRtl ? 'المركز' : 'Connect'}</span>
+        <span className="text-[8px] font-black tracking-tighter uppercase">{isRtl ? 'المركز' : 'Connect'}</span>
       </HapticButton>
 
       <HapticButton 
@@ -101,14 +112,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         className={`flex-1 flex flex-col items-center gap-1 p-2 transition-all relative ${currentView === 'chat' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
       >
         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="relative">
-          <MessageSquare size={20} strokeWidth={currentView === 'chat' ? 2.5 : 2} />
+          <MessageSquare size={18} strokeWidth={currentView === 'chat' ? 2.5 : 2} />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-brand-error text-white text-[7px] font-black flex items-center justify-center rounded-full border border-white dark:border-gray-900">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </motion.div>
-        <span className="text-[9px] font-black tracking-tight uppercase">{t('messages')}</span>
+        <span className="text-[8px] font-black tracking-tighter uppercase">{t('messages')}</span>
       </HapticButton>
     </motion.div>
   );

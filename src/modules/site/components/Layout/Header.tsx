@@ -86,12 +86,12 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="fixed top-4 left-4 right-4 z-50 pointer-events-none flex justify-center">
+    <header className="fixed top-2 md:top-4 left-2 md:left-4 right-2 md:right-4 z-50 pointer-events-none flex justify-center">
       <motion.div 
         layout
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="glass-effect flex items-center gap-2 p-1.5 md:p-2 rounded-[2rem] shadow-premium max-w-full md:max-w-2xl w-auto pointer-events-auto relative group/header"
+        className="glass-effect flex items-center gap-1.5 md:gap-2 p-1 md:p-2 rounded-[2rem] shadow-premium max-w-full md:max-w-2xl w-full md:w-auto pointer-events-auto relative group/header"
       >
         {/* Animated Border Glow */}
         <div className="absolute inset-0 bg-gradient-to-r from-brand-primary/5 via-brand-teal/5 to-brand-primary/5 opacity-0 group-hover/header:opacity-100 transition-opacity duration-700 pointer-events-none rounded-[2rem]" />
@@ -138,17 +138,17 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Smart AI Search / Context */}
         <HapticButton 
           onClick={onVisualSearch}
-          className="flex-1 flex flex-col justify-center px-3 py-1 text-left rtl:text-right relative z-10 hover:bg-brand-primary/5 rounded-2xl transition-colors group/search"
+          className="flex-1 flex flex-col justify-center px-2 md:px-3 py-1 text-left rtl:text-right relative z-10 hover:bg-brand-primary/5 rounded-2xl transition-colors group/search overflow-hidden"
         >
           <div className="flex items-center gap-1.5">
-            <Sparkles size={14} className="text-brand-primary group-hover/search:animate-bounce" />
-            <span className="text-sm font-bold text-brand-text-main">
+            <Sparkles size={14} className="text-brand-primary shrink-0 group-hover/search:animate-bounce" />
+            <span className="text-xs md:text-sm font-bold text-brand-text-main truncate">
               {isRtl ? 'كيف أساعدك اليوم؟' : 'How can I help today?'}
             </span>
           </div>
           <div className="flex items-center gap-1 mt-0.5">
-            <MapPin size={10} className="text-brand-text-muted" />
-            <span className="text-[10px] font-medium text-brand-text-muted truncate max-w-[120px] md:max-w-[180px]">
+            <MapPin size={8} className="text-brand-text-muted shrink-0" />
+            <span className="text-[8px] md:text-[10px] font-medium text-brand-text-muted truncate max-w-[80px] sm:max-w-[120px] md:max-w-[180px]">
               {isLoadingLocation ? (isRtl ? 'تحديد الموقع...' : 'Locating...') : locationName || (isRtl ? 'موقع غير معروف' : 'Unknown')}
             </span>
           </div>

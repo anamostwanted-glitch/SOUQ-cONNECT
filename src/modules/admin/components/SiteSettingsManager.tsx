@@ -72,7 +72,7 @@ export const SiteSettingsManager: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [activeLogoTab, setActiveLogoTab] = useState<'hero' | 'header'>('hero');
-  const [currentTab, setCurrentTab] = useState<'identity' | 'hero' | 'search' | 'market' | 'social' | 'registration'>('identity');
+  const [currentTab, setCurrentTab] = useState<'settings-identity' | 'settings-hero' | 'settings-search' | 'settings-market' | 'settings-social' | 'settings-registration' | 'settings-loader'>('settings-identity');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'watermark' | 'loaderLogo' | 'favicon') => {
     const file = e.target.files?.[0];
@@ -188,13 +188,13 @@ export const SiteSettingsManager: React.FC = () => {
       {/* Tabs */}
       <div className="flex gap-2 p-1 bg-brand-surface rounded-xl border border-brand-border">
         {[
-          { id: 'identity', label: isRtl ? 'الهوية' : 'Identity', icon: Palette },
-          { id: 'hero', label: isRtl ? 'الترحيب' : 'Hero', icon: Layout },
-          { id: 'search', label: isRtl ? 'البحث' : 'Search', icon: Search },
-          { id: 'market', label: isRtl ? 'السوق' : 'Market', icon: LayoutGrid },
-          { id: 'social', label: isRtl ? 'الإحصائيات' : 'Social Proof', icon: Layout },
-          { id: 'registration', label: isRtl ? 'قوائم التسجيل' : 'Registration', icon: ListChecks },
-          { id: 'loader', label: isRtl ? 'شاشة التحميل' : 'Loading Screen', icon: Sparkles },
+          { id: 'settings-identity', label: isRtl ? 'الهوية' : 'Identity', icon: Palette },
+          { id: 'settings-hero', label: isRtl ? 'الترحيب' : 'Hero', icon: Layout },
+          { id: 'settings-search', label: isRtl ? 'البحث' : 'Search', icon: Search },
+          { id: 'settings-market', label: isRtl ? 'السوق' : 'Market', icon: LayoutGrid },
+          { id: 'settings-social', label: isRtl ? 'الإحصائيات' : 'Social Proof', icon: Layout },
+          { id: 'settings-registration', label: isRtl ? 'قوائم التسجيل' : 'Registration', icon: ListChecks },
+          { id: 'settings-loader', label: isRtl ? 'شاشة التحميل' : 'Loading Screen', icon: Sparkles },
         ].map(tab => (
           <button
             key={tab.id}
@@ -218,13 +218,13 @@ export const SiteSettingsManager: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-6"
       >
-        {currentTab === 'identity' && <IdentitySettings settings={settings} setSettings={setSettings} isRtl={isRtl} handleFileUpload={handleFileUpload} isUploadingLogo={isUploadingLogo} />}
-        {currentTab === 'hero' && <HeroSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
-        {currentTab === 'search' && <SearchSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
-        {currentTab === 'market' && <MarketSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
-        {currentTab === 'social' && <SocialProofSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
-        {currentTab === 'registration' && <RegistrationSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
-        {currentTab === 'loader' && <LoadingCustomizer />}
+        {currentTab === 'settings-identity' && <IdentitySettings settings={settings} setSettings={setSettings} isRtl={isRtl} handleFileUpload={handleFileUpload} isUploadingLogo={isUploadingLogo} />}
+        {currentTab === 'settings-hero' && <HeroSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
+        {currentTab === 'settings-search' && <SearchSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
+        {currentTab === 'settings-market' && <MarketSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
+        {currentTab === 'settings-social' && <SocialProofSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
+        {currentTab === 'settings-registration' && <RegistrationSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
+        {currentTab === 'settings-loader' && <LoadingCustomizer />}
       </motion.div>
     </div>
   );
