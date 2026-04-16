@@ -27,6 +27,7 @@ export const AdminQuickActions: React.FC<AdminQuickActionsProps> = ({ onAction }
     { id: 'create_campaign', label: isRtl ? 'حملة إعلانية' : 'New Campaign', icon: Megaphone, color: 'bg-rose-500' },
     { id: 'broadcast', label: isRtl ? 'إشعار جماعي' : 'Broadcast', icon: Send, color: 'bg-purple-500' },
     { id: 'export_data', label: isRtl ? 'تصدير البيانات' : 'Export Data', icon: Download, color: 'bg-amber-500' },
+    { id: 'send_weekly_reports', label: isRtl ? 'تقارير أسبوعية' : 'Weekly Reports', icon: FileText, color: 'bg-indigo-500' },
     { id: 'system_report', label: isRtl ? 'تقرير النظام' : 'System Report', icon: FileText, color: 'bg-slate-500' },
     { id: 'ai_optimize', label: isRtl ? 'تحسين ذكي' : 'AI Optimize', icon: Wand2, color: 'bg-brand-primary' },
   ];

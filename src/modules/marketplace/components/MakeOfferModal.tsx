@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
 import { UserProfile } from '../../../core/types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -80,6 +80,29 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         read: false,
         createdAt: new Date().toISOString()
       });
+
+      // 4. Send Email Notification to Customer
+      try {
+        const customerSnap = await getDoc(doc(db, 'users', request.customerId));
+        if (customerSnap.exists()) {
+          const customerData = customerSnap.data();
+          if (customerData.email) {
+            fetch('/api/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: customerData.email,
+                name: customerData.name,
+                template: 'new_offer',
+                language: isRtl ? 'ar' : 'en',
+                data: { productName: request.productName }
+              })
+            }).catch(console.error);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to send offer email:', e);
+      }
 
       toast.success(isRtl ? 'تم إرسال عرضك بنجاح!' : 'Offer sent successfully!');
       onClose();

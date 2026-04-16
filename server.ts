@@ -30,31 +30,144 @@ async function startServer() {
 
 // Generic Email API
 app.post("/api/send-email", async (req, res) => {
-  const { email, name, template, data } = req.body;
+  const { email, name, template, data, language = 'en' } = req.body;
+  const isAr = language === 'ar';
   
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
     return res.status(500).json({ error: "Email service not configured" });
   }
 
   let subject = "";
-  let text = "";
   let html = "";
+
+  const brandColor = "#0D9488"; // Teal-600
+
+  const getLayout = (content: string) => `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; direction: ${isAr ? 'rtl' : 'ltr'}; text-align: ${isAr ? 'right' : 'left'};">
+      <div style="background-color: ${brandColor}; padding: 32px; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">Connect AI</h1>
+      </div>
+      <div style="padding: 32px; background-color: white;">
+        ${content}
+      </div>
+      <div style="background-color: #f8fafc; padding: 24px; text-align: center; font-size: 12px; color: #64748b;">
+        <p>© 2026 Connect AI. ${isAr ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}</p>
+        <p>${isAr ? 'تم إرسال هذا البريد تلقائياً، يرجى عدم الرد.' : 'This is an automated email, please do not reply.'}</p>
+      </div>
+    </div>
+  `;
 
   switch (template) {
     case 'welcome':
-      subject = "Welcome to Souq Connect!";
-      text = `Hello ${name}, welcome to Souq Connect! We are excited to have you on board.`;
-      html = `<h1>Welcome to Souq Connect!</h1><p>Hello ${name}, welcome to Souq Connect! We are excited to have you on board.</p>`;
+      subject = isAr ? "مرحباً بك في سوق كونكت!" : "Welcome to Souq Connect!";
+      html = getLayout(`
+        <h2 style="color: #1e293b;">${isAr ? `أهلاً ${name}!` : `Hello ${name}!`}</h2>
+        <p style="color: #475569; line-height: 1.6;">
+          ${isAr 
+            ? 'يسعدنا جداً انضمامك إلينا. سوق كونكت هو بوابتك الذكية للتواصل مع أفضل الموردين والعملاء في المنطقة.' 
+            : 'We are excited to have you on board. Souq Connect is your smart gateway to connect with the best suppliers and customers in the region.'}
+        </p>
+        <div style="margin-top: 32px;">
+          <a href="${process.env.APP_URL}" style="background-color: ${brandColor}; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            ${isAr ? 'ابدأ استكشاف السوق' : 'Start Exploring Marketplace'}
+          </a>
+        </div>
+      `);
       break;
     case 'notification':
-      subject = "New Notification from Souq Connect";
-      text = `Hello ${name}, you have a new notification: ${data?.message}`;
-      html = `<h1>New Notification</h1><p>Hello ${name},</p><p>${data?.message}</p>`;
+    case 'new_request':
+      subject = isAr ? "طلب جديد يطابق تخصصك" : "New Request Matching Your Specialty";
+      html = getLayout(`
+        <h2 style="color: #1e293b;">${isAr ? 'فرصة عمل جديدة!' : 'New Business Opportunity!'}</h2>
+        <p style="color: #475569; line-height: 1.6;">
+          ${isAr 
+            ? `هناك طلب جديد لـ "${data?.productName || data?.message}" قد يهمك.` 
+            : `There is a new request for "${data?.productName || data?.message}" that might interest you.`}
+        </p>
+        <div style="margin-top: 32px;">
+          <a href="${process.env.APP_URL}/dashboard" style="background-color: ${brandColor}; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            ${isAr ? 'عرض الطلب وتقديم عرض' : 'View Request & Make Offer'}
+          </a>
+        </div>
+      `);
       break;
-    case 'order_notification':
-      subject = "New Order Notification";
-      text = `Hello ${name}, you have a new order: ${data?.orderId}. Status: ${data?.status}`;
-      html = `<h1>New Order</h1><p>Hello ${name},</p><p>Order ID: ${data?.orderId}</p><p>Status: ${data?.status}</p>`;
+    case 'new_offer':
+      subject = isAr ? "وصلك عرض جديد على طلبك" : "New Offer Received for Your Request";
+      html = getLayout(`
+        <h2 style="color: #1e293b;">${isAr ? 'عرض جديد!' : 'New Offer!'}</h2>
+        <p style="color: #475569; line-height: 1.6;">
+          ${isAr 
+            ? `لقد تلقيت عرضاً جديداً على طلبك "${data?.productName}".` 
+            : `You have received a new offer for your request "${data?.productName}".`}
+        </p>
+        <div style="margin-top: 32px;">
+          <a href="${process.env.APP_URL}/dashboard" style="background-color: ${brandColor}; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            ${isAr ? 'مراجعة العروض' : 'Review Offers'}
+          </a>
+        </div>
+      `);
+      break;
+    case 'new_message':
+      subject = isAr ? "رسالة جديدة في انتظارك" : "New Message Waiting for You";
+      html = getLayout(`
+        <h2 style="color: #1e293b;">${isAr ? 'رسالة جديدة!' : 'New Message!'}</h2>
+        <p style="color: #475569; line-height: 1.6;">
+          ${isAr 
+            ? `لقد أرسل لك ${data?.senderName} رسالة جديدة.` 
+            : `${data?.senderName} sent you a new message.`}
+        </p>
+        <div style="margin-top: 32px;">
+          <a href="${process.env.APP_URL}/chat" style="background-color: ${brandColor}; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            ${isAr ? 'الرد على الرسالة' : 'Reply to Message'}
+          </a>
+        </div>
+      `);
+      break;
+    case 'offer_accepted':
+      subject = isAr ? "تم قبول عرضك!" : "Your Offer Has Been Accepted!";
+      html = getLayout(`
+        <h2 style="color: #1e293b;">${isAr ? 'مبروك! تم قبول العرض' : 'Congratulations! Offer Accepted'}</h2>
+        <p style="color: #475569; line-height: 1.6;">
+          ${isAr 
+            ? `لقد قام العميل بقبول عرض السعر الذي قدمته لـ "${data?.productName}".` 
+            : `The customer has accepted the price offer you submitted for "${data?.productName}".`}
+        </p>
+        <div style="margin-top: 32px;">
+          <a href="${process.env.APP_URL}/vendor/offers" style="background-color: ${brandColor}; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            ${isAr ? 'عرض تفاصيل الاتفاق' : 'View Deal Details'}
+          </a>
+        </div>
+      `);
+      break;
+    case 'weekly_report':
+      subject = isAr ? "تقرير الأداء الأسبوعي - Connect AI" : "Weekly Performance Report - Connect AI";
+      html = getLayout(`
+        <h2 style="color: #1e293b;">${isAr ? 'ملخص أدائك الأسبوعي' : 'Your Weekly Performance Summary'}</h2>
+        <div style="background: #f8fafc; padding: 24px; border-radius: 12px; margin: 24px 0;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+            <span style="color: #64748b;">${isAr ? 'مشاهدات الملف الشخصي:' : 'Profile Views:'}</span>
+            <strong style="color: ${brandColor};">${data?.stats?.views || 0}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+            <span style="color: #64748b;">${isAr ? 'العروض المقدمة:' : 'Offers Sent:'}</span>
+            <strong style="color: ${brandColor};">${data?.stats?.offers || 0}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #64748b;">${isAr ? 'الصفقات المكتملة:' : 'Completed Deals:'}</span>
+            <strong style="color: ${brandColor};">${data?.stats?.deals || 0}</strong>
+          </div>
+        </div>
+        <p style="color: #475569; font-size: 14px;">
+          ${isAr 
+            ? 'استمر في التفاعل مع الطلبات لزيادة فرصك في الحصول على صفقات أكثر!' 
+            : 'Keep engaging with requests to increase your chances of getting more deals!'}
+        </p>
+        <div style="margin-top: 32px;">
+          <a href="${process.env.APP_URL}/vendor/dashboard" style="background-color: ${brandColor}; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            ${isAr ? 'انتقل إلى لوحة التحكم' : 'Go to Dashboard'}
+          </a>
+        </div>
+      `);
       break;
     default:
       return res.status(400).json({ error: "Invalid template" });
@@ -64,6 +177,7 @@ app.post("/api/send-email", async (req, res) => {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
+      secure: Number(process.env.SMTP_PORT) === 465,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -71,10 +185,9 @@ app.post("/api/send-email", async (req, res) => {
     });
 
     await transporter.sendMail({
-      from: process.env.FROM_EMAIL || "noreply@souq-connect.com",
+      from: `Connect AI <${process.env.FROM_EMAIL || "noreply@souq-connect.com"}>`,
       to: email,
       subject,
-      text,
       html,
     });
 

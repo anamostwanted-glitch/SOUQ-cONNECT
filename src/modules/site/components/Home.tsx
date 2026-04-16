@@ -773,8 +773,9 @@ const Home: React.FC<HomeProps> = ({
                       body: JSON.stringify({
                         email: supplier.email,
                         name: supplier.name,
-                        template: 'notification',
-                        data: { message: `New request for "${trimmedQuery}"` }
+                        template: 'new_request',
+                        language: i18n.language,
+                        data: { productName: trimmedQuery }
                       })
                     }).catch(console.error);
                   }

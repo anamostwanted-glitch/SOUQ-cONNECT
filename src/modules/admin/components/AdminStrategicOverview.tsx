@@ -14,7 +14,8 @@ import {
   Eye,
   MousePointer2,
   BrainCircuit,
-  Target
+  Target,
+  FileText
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 
@@ -94,6 +95,14 @@ export const AdminStrategicOverview: React.FC<AdminStrategicOverviewProps> = ({
       priority: 'medium',
       icon: Target,
       action: 'gap-analysis'
+    },
+    {
+      id: 'weekly',
+      title: isRtl ? 'التقارير الأسبوعية' : 'Weekly Reports',
+      description: isRtl ? 'جاهز لإرسال تقارير الأداء للموردين هذا الأسبوع.' : 'Ready to send performance reports to suppliers this week.',
+      priority: 'medium',
+      icon: FileText,
+      action: 'weekly-reports'
     },
     {
       id: 'ai',

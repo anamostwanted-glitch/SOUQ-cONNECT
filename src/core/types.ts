@@ -68,6 +68,16 @@ export interface UserProfile {
   referredBy?: string;
   onboardingCompleted?: boolean;
   favoriteProducts?: string[];
+  performance?: {
+    activityScore: number;
+    performanceScore: number;
+    ratingScore: number;
+    totalRank: number;
+    responseRate: number;
+    avgResponseTimeMinutes: number;
+    conversionRate: number;
+    lastCalculationDate: string;
+  };
   aiInsights?: {
     summaryAr: string;
     summaryEn: string;

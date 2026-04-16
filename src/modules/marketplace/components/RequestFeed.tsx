@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { calculateDistributionMetrics, isRequestVisible } from '../../../core/services/distributionService';
+import { Info, TrendingUp, ShieldCheck, Star } from 'lucide-react';
 
 interface RequestFeedProps {
   profile: UserProfile;
@@ -31,6 +33,9 @@ export const RequestFeed: React.FC<RequestFeedProps> = ({
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'matched'>('all');
+  const [showFairnessInfo, setShowFairnessInfo] = useState(false);
+
+  const metrics = calculateDistributionMetrics(profile);
 
   useEffect(() => {
     // If supplier, we can filter by their categories
@@ -54,6 +59,12 @@ export const RequestFeed: React.FC<RequestFeedProps> = ({
   }, []);
 
   const filteredRequests = requests.filter(req => {
+    // Apply Smart Distribution Visibility
+    if (profile.role === 'supplier') {
+      const visible = isRequestVisible(req.createdAt, metrics.visibilityDelayMinutes);
+      if (!visible) return false;
+    }
+
     if (filter === 'matched' && profile.role === 'supplier' && profile.categories) {
       return profile.categories.includes(req.categoryId);
     }
@@ -72,6 +83,102 @@ export const RequestFeed: React.FC<RequestFeedProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Supplier Priority Status Card */}
+      {profile.role === 'supplier' && (
+        <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 border border-brand-border shadow-sm overflow-hidden relative group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-brand-primary/10 transition-all" />
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${
+                metrics.priorityLevel === 'high' ? 'bg-emerald-500 text-white shadow-emerald-500/20' :
+                metrics.priorityLevel === 'boost' ? 'bg-brand-primary text-white shadow-brand-primary/20' :
+                metrics.priorityLevel === 'medium' ? 'bg-amber-500 text-white shadow-amber-500/20' :
+                'bg-slate-400 text-white shadow-slate-400/20'
+              }`}>
+                {metrics.priorityLevel === 'high' ? <ShieldCheck size={28} /> :
+                 metrics.priorityLevel === 'boost' ? <TrendingUp size={28} /> :
+                 metrics.priorityLevel === 'medium' ? <Star size={28} /> :
+                 <Clock size={28} />}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-lg font-black text-brand-text-main">
+                    {isRtl ? 'حالة أولوية التوزيع' : 'Distribution Priority Status'}
+                  </h4>
+                  <button 
+                    onClick={() => setShowFairnessInfo(!showFairnessInfo)}
+                    className="p-1 text-brand-text-muted hover:text-brand-primary transition-colors"
+                  >
+                    <Info size={16} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                    metrics.priorityLevel === 'high' ? 'bg-emerald-100 text-emerald-700' :
+                    metrics.priorityLevel === 'boost' ? 'bg-brand-primary/10 text-brand-primary' :
+                    metrics.priorityLevel === 'medium' ? 'bg-amber-100 text-amber-700' :
+                    'bg-slate-100 text-slate-700'
+                  }`}>
+                    {metrics.priorityLevel === 'high' ? (isRtl ? 'أولوية قصوى' : 'High Priority') :
+                     metrics.priorityLevel === 'boost' ? (isRtl ? 'دعم البداية' : 'Newcomer Boost') :
+                     metrics.priorityLevel === 'medium' ? (isRtl ? 'أولوية متوسطة' : 'Medium Priority') :
+                     (isRtl ? 'أولوية منخفضة' : 'Low Priority')}
+                  </span>
+                  <span className="text-[10px] font-bold text-brand-text-muted">
+                    • {isRtl ? 'معدل الأداء:' : 'Performance Score:'} {Math.round(metrics.score)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-end">
+              <div className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">
+                {isRtl ? 'تأخير ظهور الطلبات' : 'Request Visibility Delay'}
+              </div>
+              <div className="text-2xl font-black text-brand-text-main flex items-baseline gap-1">
+                {metrics.visibilityDelayMinutes}
+                <span className="text-xs font-bold text-brand-text-muted">{isRtl ? 'دقيقة' : 'min'}</span>
+              </div>
+            </div>
+          </div>
+
+          <AnimatePresence>
+            {showFairnessInfo && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="mt-6 pt-6 border-t border-brand-border/50 text-xs text-brand-text-muted leading-relaxed space-y-2"
+              >
+                <p className="font-bold text-brand-text-main">
+                  {isRtl ? 'كيف يعمل التوزيع العادل؟' : 'How does Fair Distribution work?'}
+                </p>
+                <p>
+                  {isRtl 
+                    ? 'يتم توزيع الطلبات بناءً على نشاطك، سرعة استجابتك، وتقييم العملاء. الموردون الأكثر فاعلية يحصلون على الطلبات فوراً، بينما يحصل الآخرون عليها بتأخير بسيط لضمان جودة الخدمة.'
+                    : 'Requests are distributed based on your activity, response speed, and customer ratings. Most effective suppliers see requests instantly, while others see them with a slight delay to ensure service quality.'}
+                </p>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div className="bg-brand-background p-3 rounded-xl">
+                    <span className="font-bold block mb-1 text-brand-primary">{isRtl ? 'لتحسين رتبتك:' : 'To improve rank:'}</span>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>{isRtl ? 'الرد السريع على المحادثات' : 'Fast response to chats'}</li>
+                      <li>{isRtl ? 'تسجيل الدخول اليومي' : 'Daily login'}</li>
+                      <li>{isRtl ? 'الحصول على تقييمات إيجابية' : 'Get positive ratings'}</li>
+                    </ul>
+                  </div>
+                  <div className="bg-brand-background p-3 rounded-xl">
+                    <span className="font-bold block mb-1 text-brand-teal">{isRtl ? 'دعم الموردين الجدد:' : 'Newcomer Support:'}</span>
+                    <p>{isRtl ? 'الموردون الجدد يحصلون على أولوية قصوى لمدة 30 يوماً لمساعدتهم على البدء.' : 'New suppliers get high priority for 30 days to help them start.'}</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-black text-brand-text-main flex items-center gap-2">
           <Zap size={20} className="text-brand-primary" />

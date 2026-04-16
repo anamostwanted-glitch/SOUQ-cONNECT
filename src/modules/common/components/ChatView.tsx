@@ -214,6 +214,60 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
           }
         });
       }
+    } else if (profile?.role === 'customer') {
+      // If customer, check if there's an offer to accept
+      const checkAndAddAcceptAction = async () => {
+        try {
+          const offersSnap = await getDocs(query(
+            collection(db, 'offers'),
+            where('requestId', '==', chat?.requestId),
+            where('supplierId', '==', chat?.supplierId),
+            where('status', '==', 'pending')
+          ));
+          
+          if (!offersSnap.empty) {
+            const offer = offersSnap.docs[0].data();
+            setSuggestedActions(prev => [
+              ...prev,
+              {
+                id: 'accept-offer',
+                label: isRtl ? `قبول العرض (${offer.price} ر.س)` : `Accept Offer (${offer.price} SAR)`,
+                icon: CheckCircle,
+                action: async () => {
+                  try {
+                    await updateDoc(doc(db, 'offers', offersSnap.docs[0].id), { status: 'accepted' });
+                    await handleSend(undefined, isRtl ? 'لقد قبلت عرضك، دعنا نكمل الإجراءات.' : 'I have accepted your offer, let\'s proceed.');
+                    
+                    // Send Email to Supplier
+                    const supplierSnap = await getDoc(doc(db, 'users', chat.supplierId));
+                    if (supplierSnap.exists()) {
+                      const supplierData = supplierSnap.data();
+                      if (supplierData.email) {
+                        fetch('/api/send-email', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            email: supplierData.email,
+                            name: supplierData.name,
+                            template: 'offer_accepted',
+                            language: isRtl ? 'ar' : 'en',
+                            data: { productName: request?.productName || 'Product' }
+                          })
+                        }).catch(console.error);
+                      }
+                    }
+                  } catch (err) {
+                    handleFirestoreError(err, OperationType.UPDATE, 'offers', false);
+                  }
+                }
+              }
+            ]);
+          }
+        } catch (e) {
+          console.error('Failed to check offers for action bar:', e);
+        }
+      };
+      checkAndAddAcceptAction();
     }
 
     setSuggestedActions(newActions);
@@ -915,6 +969,42 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
               actionType: 'general',
               targetId: chatId,
             });
+
+            // Send Email if recipient is offline
+            const recipientProfile = otherUser?.uid === recipientId ? otherUser : null;
+            if (recipientProfile?.email && !recipientProfile.isOnline) {
+              fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: recipientProfile.email,
+                  name: recipientProfile.name,
+                  template: 'new_message',
+                  language: i18n.language,
+                  data: { senderName: profile.name }
+                })
+              }).catch(console.error);
+            } else if (!recipientProfile) {
+              // Fetch recipient profile if not in state
+              getDoc(doc(db, 'users', recipientId)).then(snap => {
+                if (snap.exists()) {
+                  const data = snap.data();
+                  if (data.email && !data.isOnline) {
+                    fetch('/api/send-email', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        email: data.email,
+                        name: data.name,
+                        template: 'new_message',
+                        language: i18n.language,
+                        data: { senderName: profile.name }
+                      })
+                    }).catch(console.error);
+                  }
+                }
+              });
+            }
           }
 
           if (chat) {

@@ -229,7 +229,12 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
         fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: user.email, name: name, template: 'welcome' })
+          body: JSON.stringify({ 
+            email: user.email, 
+            name: name, 
+            template: 'welcome',
+            language: i18n.language 
+          })
         }).catch(e => console.error('Welcome email failed:', e));
 
         toast.success(i18n.language === 'ar' ? 'تم التسجيل بنجاح!' : 'Registration successful!');
