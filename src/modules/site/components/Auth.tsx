@@ -112,7 +112,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
         return false;
       }
     } else if (supplierSubStep === 2) {
-      if (!phone || !location || selectedCategoryIds.length === 0) {
+      if (!phone || !location) {
         setError(t('fillBusinessData'));
         return false;
       }
@@ -433,18 +433,6 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                         </HapticButton>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-brand-text-main mb-4 flex items-center gap-2">
-                      <Sparkles size={16} className="text-brand-primary" />
-                      {t('category')}
-                    </label>
-                    <AICategorySelector 
-                      categories={categories} 
-                      selectedCategoryIds={selectedCategoryIds} 
-                      onChange={setSelectedCategoryIds}
-                      isRtl={i18n.language === 'ar'}
-                    />
-                  </div>
                 </motion.div>
               )}
 
@@ -473,7 +461,15 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                       className="mt-1 w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary/20"
                     />
                     <label htmlFor="terms-supplier" className="text-sm text-slate-600 leading-relaxed cursor-pointer">
-                      {t('supplierTermsAgreement')}
+                      {i18n.language === 'ar' ? (
+                        <>
+                          أوافق على <a href="#" className="text-brand-primary font-bold hover:underline">شروط الاستخدام</a> و <a href="#" className="text-brand-primary font-bold hover:underline">سياسة الخصوصية</a> الخاصة بالموردين.
+                        </>
+                      ) : (
+                        <>
+                          I agree to the <a href="#" className="text-brand-primary font-bold hover:underline">Terms of Use</a> and <a href="#" className="text-brand-primary font-bold hover:underline">Privacy Policy</a> for suppliers.
+                        </>
+                      )}
                     </label>
                   </div>
                 </motion.div>
@@ -526,7 +522,15 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                     className="mt-1 w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary/20"
                   />
                   <label htmlFor="terms-basic" className="text-sm text-slate-600 cursor-pointer">
-                    {t('termsAgreement')}
+                    {i18n.language === 'ar' ? (
+                      <>
+                        أوافق على <a href="#" className="text-brand-primary font-bold hover:underline">شروط الاستخدام</a> و <a href="#" className="text-brand-primary font-bold hover:underline">سياسة الخصوصية</a>.
+                      </>
+                    ) : (
+                      <>
+                        I agree to the <a href="#" className="text-brand-primary font-bold hover:underline">Terms of Use</a> and <a href="#" className="text-brand-primary font-bold hover:underline">Privacy Policy</a>.
+                      </>
+                    )}
                   </label>
                 </div>
               )}

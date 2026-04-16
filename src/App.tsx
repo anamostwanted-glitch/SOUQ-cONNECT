@@ -36,6 +36,13 @@ export default function App() {
   const [uiStyle, setUiStyle] = useState<'classic' | 'minimal'>('classic');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+
+  // Persist last active chat
+  useEffect(() => {
+    if (activeChatId) {
+      localStorage.setItem('last_active_chat_id', activeChatId);
+    }
+  }, [activeChatId]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [recentRequests, setRecentRequests] = useState<ProductRequest[]>([]);
   const [isMomentOfNeed, setIsMomentOfNeed] = useState(false);
@@ -84,6 +91,18 @@ export default function App() {
       document.title = `${viewTitles[currentView]} | ${settings?.siteName || 'Souq Connect'}`;
     }
   }, [currentView, settings, i18nInstance.language]);
+
+  useEffect(() => {
+    // Only auto-resume if entering chat view from elsewhere
+    const prevView = localStorage.getItem('prev_view');
+    if (currentView === 'chat' && !activeChatId && prevView !== 'chat') {
+      const lastId = localStorage.getItem('last_active_chat_id');
+      if (lastId) {
+        setActiveChatId(lastId);
+      }
+    }
+    localStorage.setItem('prev_view', currentView);
+  }, [currentView, activeChatId]);
 
   const renderView = () => {
     console.log('DEBUG: Current View:', currentView);

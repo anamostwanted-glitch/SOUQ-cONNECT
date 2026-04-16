@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useTranslation } from 'react-i18next';
 import { usePersistedState } from '../../../shared/hooks/usePersistedState';
+import { formatDistanceToNow } from 'date-fns';
+import { ar, enUS } from 'date-fns/locale';
 import { 
   collection, 
   query, 
@@ -23,7 +25,7 @@ import { UserProfile, Message, Chat, ProductRequest, Quote, QuoteItem, Offer, Ap
 import { translateText, generateSmartReplies, moderateContent, translateAudio, negotiateOffer, getPriceIntelligence, summarizeChat, analyzeSentiment, handleAiError } from '../../../core/services/geminiService';
 import { createNotification } from '../../../core/services/notificationService';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Mic, Square, ArrowLeft, User as UserIcon, Play, Pause, MessageSquare, Image as ImageIcon, Upload, Tag, Phone, X, ZoomIn, Sparkles as SparklesIcon, Check, CheckCheck, FileText, PlusCircle, Trash2, Download, Printer, Star, Bot, MapPin, Reply, CheckCircle, Settings, Clock, SmilePlus, Search, MoreVertical, Copy, Forward, Pin, ShieldCheck, BrainCircuit, Sparkles, Info, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Send, Mic, Square, ArrowLeft, User as UserIcon, Play, Pause, MessageSquare, Image as ImageIcon, Upload, Tag, Phone, X, ZoomIn, Sparkles as SparklesIcon, Check, CheckCheck, FileText, PlusCircle, Trash2, Download, Printer, Star, Bot, MapPin, Reply, CheckCircle, Settings, Clock, SmilePlus, Search, MoreVertical, Copy, Forward, Pin, ShieldCheck, BrainCircuit, Sparkles, Info, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Package } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { soundService, SoundType } from '../../../core/utils/soundService';
 import { Virtuoso } from 'react-virtuoso';
@@ -178,6 +180,8 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
   const [showSmartActions, setShowSmartActions] = useState(false);
   const [suggestedActions, setSuggestedActions] = useState<{ id: string; label: string; icon: any; action: () => void }[]>([]);
   const [isContextMinimized, setIsContextMinimized] = useState(false);
+  const [draggedMessageId, setDraggedMessageId] = useState<string | null>(null);
+  const [dragX, setDragX] = useState(0);
 
   // Chameleon Action Bar Logic
   useEffect(() => {
@@ -1276,6 +1280,14 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
     return false;
   });
 
+  const firstUnreadIndex = useMemo(() => {
+    if (!chat?.unreadCount || chat.unreadCount <= 0 || !profile) return -1;
+    // Find the first message not sent by current user that is unread
+    // In this simplified logic, we assume the last unreadCount messages are unread
+    const index = filteredMessages.length - chat.unreadCount;
+    return index >= 0 ? index : -1;
+  }, [filteredMessages, chat?.unreadCount, profile]);
+
   return (
     <div className="flex flex-col fixed inset-0 top-[73px] bg-brand-background z-20">
       {/* Luxury Smart Header */}
@@ -1338,13 +1350,28 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
             </div>
             <div className="flex items-center gap-1.5">
               {otherUserTyping ? (
-                <span className="text-[10px] font-bold text-brand-primary animate-pulse uppercase tracking-widest">
+                <span className="text-[10px] font-black text-brand-primary animate-pulse uppercase tracking-[0.2em]">
                   {isRtl ? 'يكتب الآن...' : 'Typing...'}
                 </span>
               ) : (
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${otherUser?.isOnline ? 'text-brand-success' : 'text-slate-400'}`}>
-                  {otherUser?.isOnline ? (isRtl ? 'متصل الآن' : 'Online') : (isRtl ? 'نشط منذ فترة' : 'Recently active')}
-                </span>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${otherUser?.isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`} />
+                  <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${otherUser?.isOnline ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {otherUser?.isOnline ? (isRtl ? 'متصل الآن' : 'Online Now') : (
+                      otherUser?.lastActive ? (
+                        isRtl ? `نشط ${formatDistanceToNow(new Date(otherUser.lastActive), { addSuffix: true, locale: ar })}` : `Active ${formatDistanceToNow(new Date(otherUser.lastActive), { addSuffix: true, locale: enUS })}`
+                      ) : (isRtl ? 'نشط مؤخراً' : 'Recently Active')
+                    )}
+                  </span>
+                  {otherUser?.role === 'supplier' && (
+                    <>
+                      <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                        {isRtl ? 'رد سريع' : 'Fast Response'}
+                      </span>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -1369,6 +1396,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
             <AnimatePresence>
               {showSmartActions && (
                 <motion.div
+                  key="smart-actions-dropdown"
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -1437,6 +1465,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       <AnimatePresence>
         {suggestedActions.length > 0 && (
           <motion.div 
+            key="chameleon-action-bar"
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -20, opacity: 0 }}
@@ -1462,6 +1491,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       <AnimatePresence>
         {request && (
           <motion.div 
+            key="product-context-card"
             initial={{ y: -10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             className={`absolute top-[4.5rem] ${isRtl ? 'left-4' : 'right-4'} z-30 max-w-[280px]`}
@@ -1512,6 +1542,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       <AnimatePresence>
         {isSearching && (
           <motion.div 
+            key="chat-search-bar"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -1542,6 +1573,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       <AnimatePresence>
         {chat?.pinnedMessageId && messages.find(m => m.id === chat.pinnedMessageId) && (
           <motion.div
+            key="pinned-message-bar"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -1589,33 +1621,65 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       <AnimatePresence>
         {request && !chat?.isCategoryChat && (
           <motion.div 
+            key="request-info-bar"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
-            className="bg-brand-primary text-white px-6 py-2 flex items-center justify-between shadow-inner"
+            className="bg-brand-primary text-white px-6 py-3 flex items-center justify-between shadow-inner relative overflow-hidden"
           >
-            <div className="flex items-center gap-3 overflow-hidden">
-              <div className="p-1.5 bg-brand-surface/20 rounded-lg shrink-0">
-                <Tag size={14} />
+            {/* Animated background pulse */}
+            <motion.div 
+              key="request-info-bg-pulse"
+              animate={{ opacity: [0.1, 0.2, 0.1] }}
+              transition={{ duration: 3, repeat: Infinity }}
+              className="absolute inset-0 bg-white"
+            />
+
+            <div className="flex items-center gap-3 overflow-hidden relative z-10">
+              <div className="p-2 bg-white/20 rounded-xl shrink-0 backdrop-blur-md border border-white/30">
+                <Package size={16} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-widest opacity-70 leading-none mb-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 leading-none mb-1.5">
                   {i18n.language === 'ar' ? 'المنتج المطلوب' : 'Requested Product'}
                 </p>
-                <h4 className="text-sm font-bold truncate">
+                <h4 className="text-sm font-black truncate tracking-tight">
                   {request.productName}
                 </h4>
               </div>
             </div>
-            <div className="flex items-center gap-4 shrink-0">
+
+            <div className="flex items-center gap-4 shrink-0 relative z-10">
               <div className="text-right hidden sm:block">
-                <p className="text-[10px] font-bold uppercase tracking-widest opacity-70 leading-none mb-1">
-                  {i18n.language === 'ar' ? 'الفئة' : 'Category'}
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 leading-none mb-1.5">
+                  {i18n.language === 'ar' ? 'آخر تفاعل' : 'Last Interaction'}
                 </p>
-                <p className="text-xs font-medium">{categoryName}</p>
+                <div className="flex items-center gap-1.5 justify-end">
+                  <Clock size={10} className="opacity-70" />
+                  <p className="text-xs font-black uppercase tracking-wider">
+                    {chat?.updatedAt ? formatDistanceToNow(new Date(chat.updatedAt), { addSuffix: true, locale: isRtl ? ar : enUS }) : '...'}
+                  </p>
+                </div>
               </div>
-              <div className="px-2 py-1 bg-brand-surface/20 rounded-lg text-[10px] font-black uppercase">
-                {request.status}
+
+              <div className="text-right hidden sm:block">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 leading-none mb-1.5">
+                  {i18n.language === 'ar' ? 'حالة الصفقة' : 'Deal Status'}
+                </p>
+                <div className="flex items-center gap-1.5 justify-end">
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${
+                    request.status === 'open' ? 'bg-emerald-400' : 
+                    request.status === 'closed' ? 'bg-slate-400' : 'bg-amber-400'
+                  }`} />
+                  <p className="text-xs font-black uppercase tracking-wider">{request.status}</p>
+                </div>
               </div>
+              
+              <HapticButton
+                onClick={() => setIsContextMinimized(!isContextMinimized)}
+                className="p-2 bg-white/20 rounded-xl hover:bg-white/30 transition-colors"
+              >
+                <Info size={16} />
+              </HapticButton>
             </div>
           </motion.div>
         )}
@@ -1626,6 +1690,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         <AnimatePresence>
           {(chatSummary || sentimentResult) && (
             <motion.div
+              key="ai-insights-panel"
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -1688,7 +1753,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         <Virtuoso
           className="h-full w-full"
           data={filteredMessages}
-          initialTopMostItemIndex={filteredMessages.length - 1}
+          initialTopMostItemIndex={firstUnreadIndex > 0 ? firstUnreadIndex : filteredMessages.length - 1}
           followOutput="smooth"
           components={{
             Header: () => (
@@ -1696,6 +1761,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                 <AnimatePresence>
                   {chatError && (
                     <motion.div
+                      key="chat-error-message"
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
@@ -1721,6 +1787,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                 <AnimatePresence>
                   {otherUserTyping && (
                     <motion.div 
+                      key="typing-indicator-bubble"
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -1761,31 +1828,58 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
             )
           }}
           itemContent={(index, msg) => (
-            <ChatMessage 
-              msg={msg}
-              index={index}
-              messages={filteredMessages}
-              profile={profile}
-              senderPhotos={senderPhotos}
-              senderNames={senderNames}
-              senderProfiles={senderProfiles}
-              translatedMessages={translatedMessages}
-              isTranslating={isTranslating}
-              handleTranslate={handleTranslate}
-              handleTranslateAudio={handleTranslateAudio}
-              setReplyingTo={setReplyingTo}
-              setZoomedImage={setZoomedImage}
-              activeReactionMessageId={activeReactionMessageId}
-              setActiveReactionMessageId={setActiveReactionMessageId}
-              activeMessageMenuId={activeMessageMenuId}
-              setActiveMessageMenuId={setActiveMessageMenuId}
-              handleReaction={handleReaction}
-              handlePinMessage={handlePinMessage}
-              handleDeleteMessage={handleDeleteMessage}
-              setMessageToForward={setMessageToForward}
-              setShowForwardModal={setShowForwardModal}
-              chat={chat}
-            />
+            <React.Fragment key={msg.id}>
+              {index === firstUnreadIndex && (
+                <div className="flex justify-center my-8 relative px-6">
+                  <div className="absolute inset-0 flex items-center px-6" aria-hidden="true">
+                    <div className="w-full border-t border-brand-primary/30"></div>
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="px-4 py-1.5 bg-brand-primary text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-lg shadow-brand-primary/20 flex items-center gap-2">
+                      <Clock size={12} />
+                      {isRtl ? 'رسائل جديدة' : 'New Messages'}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <ChatMessage 
+                msg={msg}
+                index={index}
+                messages={filteredMessages}
+                profile={profile}
+                senderPhotos={senderPhotos}
+                senderNames={senderNames}
+                senderProfiles={senderProfiles}
+                translatedMessages={translatedMessages}
+                isTranslating={isTranslating}
+                handleTranslate={handleTranslate}
+                handleTranslateAudio={handleTranslateAudio}
+                setReplyingTo={setReplyingTo}
+                setZoomedImage={setZoomedImage}
+                activeReactionMessageId={activeReactionMessageId}
+                setActiveReactionMessageId={setActiveReactionMessageId}
+                activeMessageMenuId={activeMessageMenuId}
+                setActiveMessageMenuId={setActiveMessageMenuId}
+                handleReaction={handleReaction}
+                handlePinMessage={handlePinMessage}
+                handleDeleteMessage={handleDeleteMessage}
+                setMessageToForward={setMessageToForward}
+                setShowForwardModal={setShowForwardModal}
+                chat={chat}
+                onDragStart={(id) => setDraggedMessageId(id)}
+                onDragEnd={() => {
+                  if (Math.abs(dragX) > 60) {
+                    const msg = filteredMessages.find(m => m.id === draggedMessageId);
+                    if (msg) {
+                      setReplyingTo(msg);
+                    }
+                  }
+                  setDraggedMessageId(null);
+                  setDragX(0);
+                }}
+                onDrag={(x) => setDragX(x)}
+              />
+            </React.Fragment>
           )}
         />
       </div>
@@ -1796,6 +1890,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         <AnimatePresence>
           {features.aiChat && (smartReplies.length > 0 || isGeneratingReplies) && !isExpired && (
             <motion.div 
+              key="smart-replies-bar"
               initial={{ opacity: 0, y: 10, height: 0 }}
               animate={{ opacity: 1, y: 0, height: 'auto' }}
               exit={{ opacity: 0, y: 10, height: 0 }}
@@ -1886,6 +1981,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
               <AnimatePresence>
                 {replyingTo && (
                   <motion.div 
+                    key="reply-context-bar"
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
@@ -1928,6 +2024,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                 <AnimatePresence>
                   {isRecording && (
                     <motion.div 
+                      key="voice-recording-overlay"
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 20 }}
@@ -1989,6 +2086,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
       <AnimatePresence>
         {zoomedImage && (
           <motion.div
+            key="image-zoom-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -2086,6 +2184,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
         <AnimatePresence>
           {showFilePreview && previewFiles.length > 0 && (
             <motion.div
+              key="file-preview-overlay"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

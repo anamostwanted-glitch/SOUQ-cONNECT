@@ -2,7 +2,6 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { getAnalytics } from 'firebase/analytics';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { handleFirestoreError, OperationType } from './utils/errorHandling';
 
@@ -10,7 +9,19 @@ console.log('Firebase Config:', firebaseConfig);
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const analytics = getAnalytics(app);
+
+// Initialize Analytics conditionally
+let analytics = null;
+import('firebase/analytics').then(({ isSupported, getAnalytics }) => {
+  isSupported().then(yes => {
+    if (yes) {
+      analytics = getAnalytics(app);
+      console.log('Firebase Analytics initialized');
+    }
+  }).catch(err => console.warn('Analytics support check failed:', err));
+}).catch(err => console.warn('Failed to load analytics module:', err));
+
+export { analytics };
 
 // Use the named database if provided, otherwise default to '(default)'
 const databaseId = firebaseConfig.firestoreDatabaseId || '(default)';

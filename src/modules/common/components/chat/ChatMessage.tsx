@@ -181,6 +181,9 @@ interface ChatMessageProps {
   setMessageToForward?: (msg: Message) => void;
   setShowForwardModal?: (show: boolean) => void;
   chat?: any;
+  onDragStart?: (id: string) => void;
+  onDragEnd?: () => void;
+  onDrag?: (x: number) => void;
 }
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -208,7 +211,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
   handleDeleteMessage,
   setMessageToForward,
   setShowForwardModal,
-  chat
+  chat,
+  onDragStart,
+  onDragEnd,
+  onDrag
 }) => {
   const { t, i18n } = useTranslation();
 
@@ -221,7 +227,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
 
   const getBubbleStyle = () => {
     if (isOwn) {
-      return "bg-gradient-to-br from-brand-primary to-brand-primary-dark text-white rounded-2xl rounded-tr-none shadow-lg shadow-brand-primary/20 border border-white/10";
+      return "bg-gradient-to-br from-brand-primary via-brand-primary to-brand-primary-dark text-white rounded-2xl rounded-tr-none shadow-lg shadow-brand-primary/20 border border-white/10";
     }
     return "bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl rounded-tl-none shadow-md border border-brand-border/30";
   };
@@ -243,7 +249,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
   const showDateHeader = dateString !== prevDateString;
 
   return (
-    <div className={`px-4 ${isNextFromSameSender ? 'pb-1' : 'pb-4'}`}>
+    <div className={`px-4 ${isNextFromSameSender ? 'pb-1' : 'pb-4'} relative overflow-hidden`}>
       {showDateHeader && (
         <div className="flex justify-center my-6 sticky top-2 z-10">
           <span className="px-4 py-1.5 bg-brand-surface/80 backdrop-blur-md border border-brand-border/30 rounded-full text-[10px] font-black text-brand-text-muted uppercase tracking-widest shadow-sm">
@@ -251,11 +257,25 @@ export const ChatMessage: React.FC<ChatMessageProps> = React.memo(({
           </span>
         </div>
       )}
+      
+      {/* Swipe Reply Indicator */}
+      <div className={`absolute top-1/2 -translate-y-1/2 transition-opacity duration-200 ${isOwn ? 'left-4' : 'right-4'} opacity-0 group-hover:opacity-100 pointer-events-none`}>
+        <div className="w-8 h-8 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+          <Reply size={16} className={isRtl ? 'rotate-180' : ''} />
+        </div>
+      </div>
+
       <motion.div 
+        drag="x"
+        dragConstraints={{ left: isOwn ? -100 : 0, right: isOwn ? 0 : 100 }}
+        dragElastic={0.2}
+        onDragStart={() => onDragStart?.(msg.id)}
+        onDragEnd={onDragEnd}
+        onDrag={(_, info) => onDrag?.(info.offset.x)}
         initial={{ opacity: 0, y: 10, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.2 }}
-        className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}
+        className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'} relative z-10`}
       >
         {/* Avatar */}
         <div className="w-8 h-8 shrink-0 mb-1">

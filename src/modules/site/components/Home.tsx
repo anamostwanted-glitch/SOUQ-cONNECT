@@ -1355,17 +1355,6 @@ const Home: React.FC<HomeProps> = ({
 
       </div>
     )}
-
-    {isVisualSearchOpen && (
-      <PremiumVisualSearchModal
-        isOpen={isVisualSearchOpen}
-        onClose={() => setIsVisualSearchOpen(false)}
-        profile={profile}
-        categories={categories}
-        allSuppliers={[]}
-        onStartChat={() => onNavigate('chat')}
-      />
-    )}
     {/* Floating Explore Button */}
     <motion.button
       whileHover={{ scale: 1.1 }}

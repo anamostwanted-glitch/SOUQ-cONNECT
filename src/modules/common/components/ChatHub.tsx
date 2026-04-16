@@ -13,7 +13,7 @@ import {
 import { db } from '../../../core/firebase';
 import { UserProfile, Chat, ProductRequest } from '../../../core/types';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
-import { Search, MessageSquare, User, Clock, ChevronRight, Sparkles, Bot } from 'lucide-react';
+import { Search, MessageSquare, User, Clock, ChevronRight, Sparkles, Bot, X } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { formatDistanceToNow } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
@@ -32,6 +32,7 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
   const [searchQuery, setSearchQuery] = useState('');
   const [otherUsers, setOtherUsers] = useState<Record<string, UserProfile>>({});
   const [requests, setRequests] = useState<Record<string, ProductRequest>>({});
+  const [lastChatId, setLastChatId] = useState<string | null>(localStorage.getItem('last_active_chat_id'));
 
   useEffect(() => {
     if (!profile) return;
@@ -180,17 +181,73 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
         </div>
       </div>
 
+      {/* Resume Last Chat Banner */}
+      <AnimatePresence>
+        {lastChatId && !searchQuery && (
+          <motion.div 
+            key="resume-last-chat-banner"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="px-6 mb-6"
+          >
+            <HapticButton
+              onClick={() => onOpenChat(lastChatId)}
+              className="w-full p-4 bg-gradient-to-r from-brand-primary/10 to-brand-primary/5 border border-brand-primary/20 rounded-[2rem] flex items-center justify-between group hover:border-brand-primary/40 transition-all relative"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-brand-primary text-white flex items-center justify-center shadow-lg shadow-brand-primary/20">
+                  <Clock size={20} />
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em]">
+                    {isRtl ? 'متابعة المحادثة الأخيرة' : 'Resume Last Chat'}
+                  </p>
+                  <p className="text-xs font-bold text-brand-text-main">
+                    {isRtl ? 'اضغط للعودة لآخر محادثة نشطة' : 'Tap to return to your last active chat'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div 
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    localStorage.removeItem('last_active_chat_id');
+                    setLastChatId(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation();
+                      localStorage.removeItem('last_active_chat_id');
+                      setLastChatId(null);
+                    }
+                  }}
+                  className="p-2 text-brand-text-muted hover:text-brand-error rounded-full hover:bg-brand-error/10 transition-colors cursor-pointer"
+                >
+                  <X size={16} />
+                </div>
+                <div className={`text-brand-primary transform transition-transform group-hover:translate-x-1 ${isRtl ? 'rotate-180' : ''}`}>
+                  <ChevronRight size={20} />
+                </div>
+              </div>
+            </HapticButton>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Conversations List */}
       <div className="flex-1 overflow-y-auto px-4 pb-24 custom-scrollbar">
         <AnimatePresence mode="popLayout">
           {loading ? (
-            <div className="flex flex-col gap-4">
+            <div key="loading-skeleton" className="flex flex-col gap-4">
               {[1, 2, 3, 4].map(i => (
                 <div key={i} className="h-20 bg-brand-surface/50 rounded-3xl animate-pulse" />
               ))}
             </div>
           ) : filteredChats.length > 0 ? (
-            <div className="flex flex-col gap-2">
+            <div key="chats-list" className="flex flex-col gap-2">
               {filteredChats.map((chat, index) => {
                 const otherId = profile?.uid === chat.customerId ? chat.supplierId : chat.customerId;
                 const otherUser = otherUsers[otherId];
@@ -264,7 +321,7 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div key="empty-chats-state" className="flex flex-col items-center justify-center py-20 text-center">
               <div className="w-20 h-20 bg-brand-primary/5 rounded-full flex items-center justify-center text-brand-primary mb-4">
                 <MessageSquare size={32} />
               </div>

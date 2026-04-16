@@ -181,92 +181,11 @@ export const AICategorySelector: React.FC<AICategorySelectorProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Popular & Grouped Categories */}
-      <div className="space-y-6">
-        {/* Popular Section */}
-        <div>
-          <div className="flex items-center gap-2 mb-4 px-2">
-            <TrendingUp size={14} className="text-brand-text-muted" />
-            <h3 className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">
-              {isRtl ? 'الفئات الشائعة' : 'Popular Categories'}
-            </h3>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {popularCategories.map(cat => {
-              const isSelected = selectedCategoryIds.includes(cat.id);
-              return (
-                <HapticButton
-                  key={cat.id}
-                  onClick={() => toggleCategory(cat.id)}
-                  className={`px-4 py-2 rounded-full text-xs font-bold border transition-all ${
-                    isSelected 
-                      ? 'bg-brand-primary border-brand-primary text-white shadow-md shadow-brand-primary/20' 
-                      : 'bg-brand-surface border-brand-border/50 text-brand-text-main hover:border-brand-primary/30'
-                  }`}
-                >
-                  {isRtl ? cat.nameAr : cat.nameEn}
-                </HapticButton>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Grouped Explorer */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 mb-4 px-2">
-            <Search size={14} className="text-brand-text-muted" />
-            <h3 className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">
-              {isRtl ? 'استكشاف كافة الفئات' : 'Explore All Categories'}
-            </h3>
-          </div>
-          {Object.entries(groupedCategories).map(([groupName, groupItems]) => (
-            <div key={groupName} className="bg-brand-surface/30 rounded-2xl border border-brand-border/30 overflow-hidden">
-              <button 
-                onClick={() => toggleGroup(groupName)}
-                className="w-full flex items-center justify-between p-4 hover:bg-brand-surface/50 transition-colors"
-              >
-                <span className="text-sm font-black text-brand-text-main">{groupName}</span>
-                <ChevronDown size={18} className={`text-brand-text-muted transition-transform ${expandedGroups.includes(groupName) ? 'rotate-180' : ''}`} />
-              </button>
-              <AnimatePresence>
-                {expandedGroups.includes(groupName) && (
-                  <motion.div 
-                    initial={{ height: 0 }}
-                    animate={{ height: 'auto' }}
-                    exit={{ height: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="p-4 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {groupItems.map(cat => {
-                        const isSelected = selectedCategoryIds.includes(cat.id);
-                        return (
-                          <button
-                            key={cat.id}
-                            onClick={() => toggleCategory(cat.id)}
-                            className={`flex items-center justify-between p-3 rounded-xl border transition-all text-start ${
-                              isSelected 
-                                ? 'bg-brand-primary/5 border-brand-primary text-brand-primary' 
-                                : 'bg-transparent border-brand-border/30 text-brand-text-main hover:border-brand-primary/20'
-                            }`}
-                          >
-                            <span className="text-xs font-bold">{isRtl ? cat.nameAr : cat.nameEn}</span>
-                            {isSelected && <Check size={14} />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Selection Summary Floating Bar */}
       <AnimatePresence>
         {selectedCategoryIds.length > 0 && (
           <motion.div 
+            key="selection-summary-bar"
             initial={{ y: 100 }}
             animate={{ y: 0 }}
             exit={{ y: 100 }}
