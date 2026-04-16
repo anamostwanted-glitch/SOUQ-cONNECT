@@ -57,6 +57,11 @@ export const SiteSettingsManager: React.FC = () => {
       gap: 16,
       aiAutoPilot: true
     },
+    seoTitleAr: 'سوق كونكت | منصة B2B والبحث البصري',
+    seoTitleEn: 'Souq Connect | B2B & Visual Search Platform',
+    seoDescriptionAr: 'أكبر منصة تجارة B2B ذكية للربط بين الموردين والعملاء باستخدام الذكاء الاصطناعي.',
+    seoDescriptionEn: 'The smartest B2B trading platform connecting suppliers and customers with AI.',
+    faviconUrl: '',
     socialProof: {
       enabled: true
     }
@@ -68,7 +73,7 @@ export const SiteSettingsManager: React.FC = () => {
   const [activeLogoTab, setActiveLogoTab] = useState<'hero' | 'header'>('hero');
   const [currentTab, setCurrentTab] = useState<'identity' | 'hero' | 'search' | 'market' | 'social' | 'registration'>('identity');
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'watermark' | 'loaderLogo') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'watermark' | 'loaderLogo' | 'favicon') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -84,9 +89,16 @@ export const SiteSettingsManager: React.FC = () => {
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       
+      const fieldMap: Record<string, keyof SiteSettings> = {
+        logo: 'logoUrl',
+        watermark: 'watermarkUrl',
+        loaderLogo: 'loaderLogoUrl',
+        favicon: 'faviconUrl'
+      };
+
       setSettings(prev => ({
         ...prev,
-        [type === 'logo' ? 'logoUrl' : type === 'watermark' ? 'watermarkUrl' : 'loaderLogoUrl']: url
+        [fieldMap[type]]: url
       }));
       toast.success(isRtl ? 'تم رفع الملف بنجاح' : 'File uploaded successfully');
     } catch (error) {

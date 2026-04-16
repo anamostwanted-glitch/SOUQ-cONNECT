@@ -360,13 +360,20 @@ export interface SiteSettings {
   referralTermsAr?: string;
   referralTermsEn?: string;
 
-  // Adaptive Neural Grid Settings
+  // Grid Settings
   gridSettings?: {
     mobileCols: number;
     webCols: number;
     gap: number;
     aiAutoPilot: boolean;
   };
+
+  // SEO & Meta Settings
+  seoTitleAr?: string;
+  seoTitleEn?: string;
+  seoDescriptionAr?: string;
+  seoDescriptionEn?: string;
+  faviconUrl?: string;
 }
 
 export interface SliderItem {
