@@ -75,8 +75,12 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
       onClose();
       setFormData({ name: '', email: '', password: '', role: 'customer' });
     } catch (error: any) {
-      handleFirestoreError(error, OperationType.CREATE, 'admin_create_user', false);
-      toast.error(error.message || (isRtl ? 'فشل إنشاء المستخدم' : 'Failed to create user'));
+      if (error.code === 'auth/email-already-in-use') {
+        toast.error(isRtl ? 'البريد الإلكتروني مستخدم بالفعل' : 'Email address is already in use');
+      } else {
+        handleFirestoreError(error, OperationType.CREATE, 'admin_create_user', false);
+        toast.error(error.message || (isRtl ? 'فشل إنشاء المستخدم' : 'Failed to create user'));
+      }
     } finally {
       setLoading(false);
     }

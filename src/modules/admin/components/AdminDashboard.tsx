@@ -31,6 +31,7 @@ import {
   Bell,
   Flag,
   FileText,
+  Wind,
   X
 } from 'lucide-react';
 import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc, orderBy, limit, setDoc } from 'firebase/firestore';
@@ -525,7 +526,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'cost', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
     { id: 'connect', label: isRtl ? 'نمو كونكت' : 'Connect Growth', icon: Zap, isNew: true },
     { id: 'gap-analysis', label: isRtl ? 'تحليل الفجوة' : 'Gap Analysis', icon: BarChart3, isNew: true },
-    { id: 'slider', label: isRtl ? 'إعدادات السلايدر' : 'Slider Settings', icon: Zap },
+    { id: 'slider', label: isRtl ? 'إعدادات السلايدر' : 'Slider Settings', icon: Wind },
   ];
 
   console.log('DEBUG: Admin Tabs:', tabs);
@@ -1066,7 +1067,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
         </AnimatePresence>
-        <DashboardCopilot />
       </main>
       {isCommandPaletteOpen && (
         <motion.div
