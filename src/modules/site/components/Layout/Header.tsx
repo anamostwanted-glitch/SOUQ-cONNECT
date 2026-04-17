@@ -184,7 +184,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Dark Mode Toggle */}
           <HapticButton 
             onClick={toggleDarkMode}
-            className="w-10 h-10 flex items-center justify-center hover:bg-brand-surface rounded-full transition-all text-brand-text-muted hover:text-brand-primary border border-brand-border"
+            className="hidden md:flex w-10 h-10 items-center justify-center hover:bg-brand-surface rounded-full transition-all text-brand-text-muted hover:text-brand-primary border border-brand-border"
             title={isRtl ? 'تبديل الوضع' : 'Toggle Theme'}
           >
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -193,7 +193,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Language Toggle */}
           <HapticButton 
             onClick={toggleLanguage}
-            className="w-10 h-10 flex items-center justify-center hover:bg-brand-surface rounded-full transition-all text-brand-text-muted hover:text-brand-primary"
+            className="hidden md:flex w-10 h-10 items-center justify-center hover:bg-brand-surface rounded-full transition-all text-brand-text-muted hover:text-brand-primary"
             title={isRtl ? 'تبديل اللغة' : 'Toggle Language'}
           >
             <Globe size={18} />

@@ -17,6 +17,32 @@ export const MarketSettings: React.FC<MarketSettingsProps> = ({ settings, setSet
       </h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="flex items-center justify-between p-4 bg-brand-surface border border-brand-border rounded-xl md:col-span-2">
+          <div className="space-y-1">
+            <h4 className="text-sm font-bold text-brand-text-main">
+              {isRtl ? 'الطيار الآلي بالذكاء الاصطناعي' : 'AI Auto-Pilot'}
+            </h4>
+            <p className="text-xs text-brand-text-muted">
+              {isRtl 
+                ? 'تعديل تخطيط الشبكة تلقائياً بناءً على حجم الشاشة وكمية المنتجات' 
+                : 'Automatically adjust grid layout based on screen size and item count'}
+            </p>
+          </div>
+          <button
+            onClick={() => setSettings(prev => ({
+              ...prev,
+              gridSettings: { ...prev.gridSettings, aiAutoPilot: !prev.gridSettings?.aiAutoPilot }
+            }))}
+            className={`w-12 h-6 rounded-full transition-all relative ${
+              settings.gridSettings?.aiAutoPilot ? 'bg-brand-primary' : 'bg-slate-300'
+            }`}
+          >
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+              settings.gridSettings?.aiAutoPilot ? (isRtl ? 'right-7' : 'left-7') : (isRtl ? 'right-1' : 'left-1')
+            }`} />
+          </button>
+        </div>
+
         <div className="space-y-2">
           <label className="text-sm font-bold text-brand-text-muted">
             {isRtl ? 'عدد الأعمدة (ويب)' : 'Web Columns'}

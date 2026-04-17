@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { MarketplaceItem, UserProfile } from '../../../core/types';
 import { BlurImage } from '../../../shared/components/BlurImage';
 import { Flag, Loader2 } from 'lucide-react';
@@ -45,7 +46,7 @@ const CountdownRing = ({ item }: { item: MarketplaceItem }) => {
   }, [item]);
 
   return (
-    <div className="text-[10px] font-black text-white bg-black/50 px-2 py-1 rounded-lg">
+    <div className="text-[8px] md:text-[10px] font-black text-white bg-black/50 px-1.5 md:px-2 py-1 rounded-none whitespace-nowrap">
       {timeLeft.days}d {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
     </div>
   );
@@ -57,6 +58,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onEdit,
   isOwner,
 }) => {
+  const { i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
   const [showReportModal, setShowReportModal] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
@@ -70,42 +73,54 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   const mainImage = item.images && item.images.length > 0 ? item.images[0] : 'https://picsum.photos/seed/product/400/500';
 
-  const glassClass = "bg-white/10 backdrop-blur-md shadow-xl";
-
   return (
     <motion.div 
       layout
-      whileHover={{ scale: 1.02 }}
-      className={`relative aspect-[4/5] overflow-hidden cursor-pointer group ${glassClass} transition-all duration-300`}
+      whileHover={{ y: -4 }}
+      className="relative flex flex-col overflow-hidden cursor-pointer group bg-brand-surface border border-brand-border rounded-none shadow-sm hover:shadow-xl transition-all duration-300"
       onClick={() => onViewDetails(item)}
     >
-      <BlurImage src={mainImage} alt={item.title} className="w-full h-full object-cover" />
-      <div className="absolute top-3 right-3">
-        <CountdownRing item={item} />
-      </div>
-      
-      {!isOwner && auth.currentUser && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowReportModal(true);
-          }}
-          className="absolute top-3 left-3 p-2 bg-black/20 backdrop-blur-md text-white rounded-xl border border-white/20 hover:bg-brand-error transition-all opacity-0 group-hover:opacity-100"
-        >
-          <Flag size={14} />
-        </button>
-      )}
+      <div className="relative aspect-[4/5] overflow-hidden bg-brand-background">
+        <BlurImage src={mainImage} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+        
+        {/* Title & Price Overlay (Hidden on mobile, visible on desktop) */}
+        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent hidden md:flex flex-col justify-end z-10">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-white font-bold text-[13px] line-clamp-1 leading-tight flex-1">
+              {isRtl ? (item.titleAr || item.title) : (item.titleEn || item.title)}
+            </h3>
+            <span className="text-brand-primary font-black text-[12px] shrink-0 bg-white/10 backdrop-blur-md px-2 py-1 rounded-none">
+              {item.price} {item.currency || 'SAR'}
+            </span>
+          </div>
+        </div>
 
-      {item.status === 'expired' && isOwner && onEdit && (
-        <div className="absolute bottom-3 left-3 right-3">
+        {!isOwner && auth.currentUser && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowReportModal(true);
+            }}
+            className="absolute top-3 left-3 p-2 bg-black/20 backdrop-blur-md text-white rounded-none border border-white/20 hover:bg-brand-error transition-all opacity-0 group-hover:opacity-100 z-20"
+          >
+            <Flag size={14} />
+          </button>
+        )}
+      </div>
+
+      {/* ONLY the counter below image - Visible on all devices */}
+      <div className="p-3 md:p-4 flex flex-col items-center justify-center gap-3">
+        <CountdownRing item={item} />
+        
+        {item.status === 'expired' && isOwner && onEdit && (
           <button 
             onClick={(e) => { e.stopPropagation(); onEdit({ ...item, status: 'active', expiryDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString() }); }}
-            className="w-full py-2 bg-brand-primary text-white text-[10px] font-black uppercase rounded-lg"
+            className="w-full py-2 bg-brand-primary text-white text-[10px] font-black uppercase rounded-none shadow-lg shadow-brand-primary/20 hover:scale-105 transition-all"
           >
-            إعادة نشر
+            {isRtl ? 'إعادة نشر المنتج' : 'Relist Product'}
           </button>
-        </div>
-      )}
+        )}
+      </div>
       
       <ReportModal
         isOpen={showReportModal}

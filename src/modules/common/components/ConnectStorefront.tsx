@@ -31,6 +31,7 @@ import { handleFirestoreError, OperationType } from '../../../core/utils/errorHa
 import imageCompression from 'browser-image-compression';
 import { getProfileInsights, optimizeSupplierProfile, handleAiError } from '../../../core/services/geminiService';
 import { ProfileSettings } from '../../user/components/ProfileSettings';
+import { getStoreShareUrl } from '../../marketplace/services/marketService';
 
 interface ConnectStorefrontProps {
   profile: UserProfile;
@@ -528,6 +529,32 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
     }
   };
 
+  const handleShare = async () => {
+    const url = getStoreShareUrl(profile.uid);
+    const shareData = {
+      title: isRtl ? `متجر ${profile.companyName || profile.name} الرسمي` : `${profile.companyName || profile.name}'s Official Store`,
+      text: isRtl 
+        ? `مرحباً بك في متجر ${profile.companyName || profile.name} الرسمي على منصة كونكت 🌐. \n\nاكتشف مجموعتنا الحصرية من المنتجات والخدمات المميزة، واطلب مباشرة من الرابط التالي. \n\nيسعدنا خدمتكم دائماً!` 
+        : `Welcome to ${profile.companyName || profile.name}'s official store on Connect 🌐. \n\nDiscover our exclusive range of premium products and services, and order directly from the link below. \n\nWe are always happy to serve you!`,
+      url: url,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success(isRtl ? 'تم نسخ الرابط بنجاح' : 'Link copied to clipboard');
+      } catch (err) {
+        toast.error(isRtl ? 'فشل نسخ الرابط' : 'Failed to copy link');
+      }
+    }
+  };
+
   const filteredProducts = products.filter(p => {
     const matchesCategory = activeCategory === 'all' || p.categories?.includes(activeCategory);
     const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -587,7 +614,11 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                 {isArchitectMode ? (isRtl ? 'حفظ' : 'Save') : (isRtl ? 'تعديل' : 'Edit')}
               </HapticButton>
             )}
-            <HapticButton className="p-2.5 bg-black/30 backdrop-blur-xl border border-white/10 rounded-xl text-white hover:bg-black/50 transition-all">
+            <HapticButton 
+              onClick={handleShare}
+              className="p-2.5 bg-black/30 backdrop-blur-xl border border-white/10 rounded-xl text-white hover:bg-black/50 transition-all"
+              title={isRtl ? 'مشاركة' : 'Share'}
+            >
               <Share2 size={18} />
             </HapticButton>
           </div>

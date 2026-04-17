@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FluidSlider } from './FluidSlider';
 import { PredictiveMatchSection } from './PredictiveMatchSection';
 import { fetchMarketplaceItems, fetchMarketTrends, fetchSuppliers, searchMarketplaceAndSuppliers, fetchPredictiveMatches } from '../services/marketService';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   collection, 
@@ -91,6 +91,9 @@ interface MarketInterfaceProps {
 import { useAuth } from '../../../core/providers/AuthProvider';
 import { useSettings } from '../../../core/providers/SettingsProvider';
 import { useCategories } from '../../../core/providers/CategoryProvider';
+import { CategoryNavTray } from './CategoryNavTray';
+
+import { SellerHub } from './SellerHub';
 
 export const MarketInterface: React.FC<MarketInterfaceProps> = ({ 
   onOpenChat, 
@@ -101,11 +104,18 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const { profile, viewMode } = useAuth();
-  const { features } = useSettings();
+  const { settings, features } = useSettings();
   const { categories } = useCategories();
   const queryClient = useQueryClient();
   const isRtl = i18n.language === 'ar';
   const scrollDirection = useScrollDirection();
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const isMinimized = scrollDirection === ScrollDirection.DOWN;
   
   const [internalActiveTab, setInternalActiveTab] = useState<'discover' | 'services' | 'myshop' | 'requests'>('discover');
@@ -120,7 +130,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   };
 
   // Basic state for now
-  const [searchTerm, setSearchTerm] = useState('');
+  // handleGlobalSearch will use the moved state
 
   // Handle global search events
   useEffect(() => {
@@ -141,8 +151,14 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const [editingItem, setEditingItem] = useState<MarketplaceItem | null>(null);
   const [showVisualSearch, setShowVisualSearch] = useState(false);
   const [showSmartCategories, setShowSmartCategories] = useState(false);
-  const [visualSearchResults, setVisualSearchResults] = useState<MarketplaceItem[] | null>(null);
   
+  // 3-Tier Navigation State
+  const [selectedHubId, setSelectedHubId] = useState<string | undefined>();
+  const [selectedSectorId, setSelectedSectorId] = useState<string | undefined>();
+  const [selectedNicheId, setSelectedNicheId] = useState<string | undefined>();
+
+  const isSearchHidden = scrollDirection === ScrollDirection.DOWN && windowWidth < 768;
+
   useEffect(() => {
     if (initialItemId) {
       const fetchInitialItem = async () => {
@@ -170,16 +186,82 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   
   const items = itemsData.items;
 
+  // Demand-Driven Taxonomy: Identify active categories
+  const activeCategoryIds = useMemo(() => {
+    const ids = new Set<string>();
+    items.forEach(item => {
+      item.categories?.forEach(catId => ids.add(catId));
+    });
+    return ids;
+  }, [items]);
+
+  const filteredCategories = useMemo(() => {
+    const rawCategories = !activeCategoryIds.size 
+      ? categories 
+      : categories.filter(cat => {
+          // Is this category active?
+          if (activeCategoryIds.has(cat.id)) return true;
+          
+          // Do any of its descendants have products?
+          const hasActiveDescendant = (parentId: string): boolean => {
+            const children = categories.filter(c => c.parentId === parentId);
+            return children.some(child => activeCategoryIds.has(child.id) || hasActiveDescendant(child.id));
+          };
+          
+          return hasActiveDescendant(cat.id);
+        });
+
+    // Core Team: Ensure absolute uniqueness of category objects by ID
+    return Array.from(new Map(rawCategories.map(c => [c.id, c])).values());
+  }, [categories, activeCategoryIds]);
+
+  // Adaptive Grid Calculation - Moved down below filteredItems
+  const [searchTerm, setSearchTerm] = useState('');
+  const [visualSearchResults, setVisualSearchResults] = useState<MarketplaceItem[] | null>(null);
+
   const filteredItems = (visualSearchResults 
     ? visualSearchResults 
     : items).filter(item => {
     const searchLower = searchTerm.toLowerCase();
     
-    // Core Team Enhancement: Filter only products in the Discover view
-    const itemCategories = categories.filter(c => item.categories?.includes(c.id));
-    const isServiceItem = itemCategories.some(c => c.categoryType === 'service');
+    // Core Team Enhancement: Hierarchical Category Filtering
+    const activeCategoryId = selectedNicheId || selectedSectorId || selectedHubId;
+    if (activeCategoryId) {
+      if (!item.categories?.includes(activeCategoryId)) {
+        // Find if the item belongs to any descendant of the filter
+        const itemCategories = categories.filter(c => item.categories?.includes(c.id));
+        const isDescendant = itemCategories.some(c => {
+          let current: any = c;
+          while (current) {
+            if (current.id === activeCategoryId) return true;
+            if (current.parentId) {
+               current = categories.find(cat => cat.id === current.parentId);
+            } else {
+              current = null;
+            }
+          }
+          return false;
+        });
+        if (!isDescendant) return false;
+      }
+    }
+
+    // Existing Discover View Filter: Strictly separate products and services
+    const isServiceItem = categories.filter(c => item.categories?.includes(c.id)).some(c => {
+      let current: any = c;
+      while (current) {
+        if (current.categoryType === 'service') return true;
+        if (current.parentId) {
+          current = categories.find(cat => cat.id === current.parentId);
+        } else {
+          current = null;
+        }
+      }
+      return false;
+    });
     
     if (activeTab === 'discover' && isServiceItem) return false;
+    if (activeTab === 'services' && !isServiceItem) return false;
 
     const matchesSearch = 
       (item.title?.toLowerCase() || '').includes(searchLower) || 
@@ -191,6 +273,24 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     
     return matchesSearch;
   });
+
+  const gridCols = React.useMemo(() => {
+    const isMobile = windowWidth < 768;
+    const defaultMobileCols = 2;
+    const defaultWebCols = 4;
+    
+    if (settings?.gridSettings) {
+      if (settings.gridSettings.aiAutoPilot) {
+        if (isMobile) {
+          return filteredItems.length > 10 ? 2 : 1;
+        } else {
+          return windowWidth > 1400 ? 5 : windowWidth > 1024 ? 4 : 3;
+        }
+      }
+      return isMobile ? (settings.gridSettings.mobileCols || defaultMobileCols) : (settings.gridSettings.webCols || defaultWebCols);
+    }
+    return isMobile ? defaultMobileCols : defaultWebCols;
+  }, [windowWidth, settings?.gridSettings, filteredItems.length]);
   
   return (
     <div className="min-h-screen bg-brand-background pb-32 overflow-x-hidden">
@@ -211,8 +311,17 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
         }
       />
       {/* Search Section */}
-      <div className="max-w-7xl mx-auto px-4 pt-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
+      <motion.div 
+        animate={{ 
+          height: isSearchHidden ? 0 : 'auto',
+          opacity: isSearchHidden ? 0 : 1,
+          marginBottom: isSearchHidden ? 0 : 32,
+          y: isSearchHidden ? -20 : 0
+        }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
+        className="max-w-7xl mx-auto px-4 pt-6 overflow-hidden hidden md:block" // Hidden on mobile via motion if we want, but let's use responsive classes
+      >
+        <div className={`flex flex-col md:flex-row items-center justify-between gap-4 ${isSearchHidden ? 'pointer-events-none' : ''}`}>
           <div className="flex-1 w-full max-w-2xl">
             <div className="relative group/search">
               <div className="absolute -inset-1 bg-gradient-to-r from-brand-primary/20 to-brand-teal/20 rounded-2xl blur opacity-25 group-focus-within/search:opacity-100 transition-opacity duration-500" />
@@ -255,9 +364,30 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
             </HapticButton>
           </div>
         </div>
-        
+      </motion.div>
+
+      {/* Mobile-Only Search Floating/Auto-hide Bar */}
+      <div className="md:hidden sticky top-0 z-[40] bg-brand-background/80 backdrop-blur-md border-b border-brand-border px-4 py-3 transition-transform duration-300" style={{ transform: isSearchHidden ? 'translateY(-100%)' : 'translateY(0)' }}>
+         <div className="relative flex items-center bg-white dark:bg-slate-900 border border-brand-border rounded-xl p-1 shadow-sm">
+            <div className="pl-3 text-brand-text-muted">
+              <Search size={16} />
+            </div>
+            <input 
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={isRtl ? 'بحث...' : 'Search...'}
+              className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-bold text-brand-text-main placeholder-brand-text-muted/50 py-1.5 px-1"
+            />
+            <HapticButton onClick={() => setShowVisualSearch(true)} className="p-2 text-brand-text-muted border-l border-brand-border ml-1">
+               <Camera size={16} />
+            </HapticButton>
+         </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4">
         {/* Tabs */}
-        <div className="flex p-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-xl mb-8 w-fit">
+        <div className="flex p-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-xl mb-6 w-fit md:mb-8">
           <button
             onClick={() => { setActiveTab('discover'); setShowAdminHub(false); }}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
@@ -288,6 +418,19 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           >
             {isRtl ? 'خبراء' : 'Experts'}
           </button>
+          {profile && (
+            <button
+              onClick={() => { setActiveTab('myshop'); setShowAdminHub(false); }}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                activeTab === 'myshop' && !showAdminHub
+                  ? 'text-brand-primary bg-white dark:bg-slate-700 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <ShoppingBag size={12} />
+              {isRtl ? 'متجري' : 'My Hub'}
+            </button>
+          )}
           {profile?.role === 'admin' && (
             <button
               onClick={() => setShowAdminHub(true)}
@@ -303,6 +446,20 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           )}
         </div>
 
+        {/* 3-Tier Professional Category Navigation */}
+        {activeTab === 'discover' && (
+          <CategoryNavTray 
+            categories={filteredCategories}
+            selectedHubId={selectedHubId}
+            selectedSectorId={selectedSectorId}
+            selectedNicheId={selectedNicheId}
+            onSelectHub={setSelectedHubId}
+            onSelectSector={setSelectedSectorId}
+            onSelectNiche={setSelectedNicheId}
+            isRtl={isRtl}
+          />
+        )}
+        
         {/* Content */}
         {activeTab === 'requests' ? (
           <div className="space-y-8">
@@ -341,6 +498,13 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
             profile={profile}
             onViewProfile={onViewProfile}
             onOpenChat={onOpenChat}
+            isRtl={isRtl}
+          />
+        ) : activeTab === 'myshop' ? (
+          <SellerHub 
+            profile={profile!}
+            categories={categories}
+            onEditItem={(item) => setEditingItem(item)}
             isRtl={isRtl}
           />
         ) : showAdminHub ? (
@@ -406,20 +570,104 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Array.from(new Map(filteredItems.map(item => [item.id, item])).values()).map(item => (
-              <ProductCard 
-                key={item.id || `market-item-${Math.random()}`} 
-                item={item} 
-                onOpenChat={onOpenChat}
-                onViewDetails={() => setSelectedItem(item)}
-                onViewProfile={onViewProfile}
-                isOwner={profile?.uid === item.sellerId}
-                isAdmin={profile?.role === 'admin'}
-                onDelete={() => {}}
-                onEdit={() => setEditingItem(item)}
-              />
-            ))}
+          <div className="space-y-12">
+            {/* Core Team: Grouped Discover Feed */}
+            {activeTab === 'discover' && !selectedHubId && !searchTerm ? (
+              // Grouped View (Demand-Driven)
+              filteredCategories.filter(cat => cat.tier === 'hub' || !cat.parentId).map(hub => {
+                const hubItemsRaw = filteredItems.filter(item => {
+                    const itemCats = categories.filter(c => item.categories?.includes(c.id));
+                    return itemCats.some(c => {
+                        let cur: any = c;
+                        while(cur) {
+                            if (cur.id === hub.id) return true;
+                            cur = cur.parentId ? categories.find(p => p.id === cur.parentId) : null;
+                        }
+                        return false;
+                    });
+                });
+                
+                // Core Team: Deduplicate items within the hub group to prevent key collisions
+                const hubItems = Array.from(new Map(hubItemsRaw.map(item => [item.id, item])).values());
+                
+                if (hubItems.length === 0) return null;
+
+                return (
+                  <div key={hub.id} className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-black text-brand-text-main flex items-center gap-2">
+                         <span className="w-1.5 h-6 bg-brand-primary rounded-full" />
+                         {isRtl ? hub.nameAr : hub.nameEn}
+                      </h3>
+                      <button 
+                        onClick={() => setSelectedHubId(hub.id)}
+                        className="text-xs font-bold text-brand-primary hover:underline"
+                      >
+                         {isRtl ? 'عرض الكل' : 'View All'}
+                      </button>
+                    </div>
+                    <div 
+                      className="grid"
+                      style={{ 
+                        gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                        gap: `${settings?.gridSettings?.gap || 16}px`
+                      }}
+                    >
+                      {hubItems.map((item, idx) => (
+                        <ProductCard 
+                          key={item.id || `hub-item-${hub.id}-${idx}`} 
+                          item={item} 
+                          onOpenChat={onOpenChat}
+                          onViewDetails={() => setSelectedItem(item)}
+                          onViewProfile={onViewProfile}
+                          isOwner={profile?.uid === item.sellerId}
+                          isAdmin={profile?.role === 'admin'}
+                          onDelete={() => {}}
+                          onEdit={() => setEditingItem(item)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              // Flat View (When filter/search is active)
+              <div 
+                className="grid"
+                style={{ 
+                  gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                  gap: `${settings?.gridSettings?.gap || 16}px`
+                }}
+              >
+                {Array.from(new Map(filteredItems.map(item => [item.id, item])).values()).map((item, idx) => (
+                  <ProductCard 
+                    key={item.id || `market-item-${idx}`} 
+                    item={item} 
+                    onOpenChat={onOpenChat}
+                    onViewDetails={() => setSelectedItem(item)}
+                    onViewProfile={onViewProfile}
+                    isOwner={profile?.uid === item.sellerId}
+                    isAdmin={profile?.role === 'admin'}
+                    onDelete={() => {}}
+                    onEdit={() => setEditingItem(item)}
+                  />
+                ))}
+              </div>
+            )}
+            
+            {filteredItems.length === 0 && (
+              <div className="py-20 text-center bg-brand-surface border border-dashed border-brand-border rounded-[2.5rem]">
+                <div className="w-16 h-16 bg-brand-background rounded-2xl flex items-center justify-center mx-auto mb-4 text-brand-text-muted">
+                  <Package size={32} />
+                </div>
+                <h3 className="text-xl font-black text-brand-text-main">
+                  {isRtl ? 'لا توجد منتجات متاحة' : 'No Products Available'}
+                </h3>
+                <p className="text-sm text-brand-text-muted max-w-xs mx-auto mt-2">
+                  {isRtl ? 'حاول تغيير معايير البحث أو استكشاف فئات أخرى.' : 'Try changing search criteria or explore other categories.'}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -84,7 +84,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ item, onClos
   const glassClass = "bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-white/20 dark:border-slate-700/50 shadow-2xl";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -199,7 +199,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({ item, onClos
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-slate-200/50 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50/50 dark:bg-slate-800/50">
+        <div className="p-6 pb-24 sm:pb-6 border-t border-slate-200/50 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50/50 dark:bg-slate-800/50">
           <button 
             type="button"
             onClick={onClose}

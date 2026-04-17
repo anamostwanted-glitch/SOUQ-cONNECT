@@ -239,41 +239,47 @@ export const RequestFeed: React.FC<RequestFeedProps> = ({
 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-brand-background border border-brand-border flex items-center justify-center text-brand-primary shrink-0 group-hover:scale-110 transition-transform">
-                      <Package size={24} />
+                    <div className="w-14 h-14 rounded-2xl bg-brand-background border border-brand-border flex items-center justify-center text-brand-primary shrink-0 group-hover:scale-110 transition-transform relative">
+                      <Package size={26} />
+                      {profile.categories?.includes(req.categoryId) && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-brand-primary rounded-full border-2 border-brand-surface animate-pulse" />
+                      )}
                     </div>
-                    <div>
-                      <h4 className="text-lg font-black text-brand-text-main group-hover:text-brand-primary transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-lg font-black text-brand-text-main group-hover:text-brand-primary transition-colors truncate">
                         {req.productName}
                       </h4>
-                      <div className="flex flex-wrap items-center gap-3 mt-1.5">
-                        <span className="flex items-center gap-1 text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2">
+                        <span className="flex items-center gap-1.5 text-[10px] font-black text-brand-text-muted uppercase tracking-widest bg-brand-background px-2 py-1 rounded-lg">
                           <Tag size={12} className="text-brand-primary" />
                           {isRtl ? req.categoryNameAr : req.categoryNameEn}
                         </span>
-                        <span className="flex items-center gap-1 text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">
+                        <span className="flex items-center gap-1.5 text-[10px] font-black text-brand-text-muted uppercase tracking-widest">
                           <Clock size={12} />
                           {new Date(req.createdAt).toLocaleDateString(isRtl ? 'ar-EG' : 'en-US')}
                         </span>
-                        <span className="flex items-center gap-1 text-[10px] font-bold text-brand-primary uppercase tracking-widest">
-                          <MessageSquare size={12} />
-                          {req.offerCount || 0} {isRtl ? 'عروض' : 'Offers'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                           <div className="w-1 h-1 bg-brand-border rounded-full" />
+                           <span className="text-[10px] font-black text-brand-primary uppercase tracking-widest">
+                             {req.offerCount || 0} {isRtl ? 'عروض مقدمة' : 'Offers Submitted'}
+                           </span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="text-right hidden md:block">
-                      <div className="text-xs font-black text-brand-text-muted uppercase tracking-widest mb-1">
-                        {isRtl ? 'الكمية' : 'Quantity'}
+                  <div className="flex items-center justify-between md:justify-end gap-6 mt-2 md:mt-0 p-3 md:p-0 bg-brand-background md:bg-transparent rounded-2xl border border-brand-border md:border-transparent">
+                    <div className="text-right">
+                      <div className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-0.5">
+                        {isRtl ? 'الكمية المطلوبة' : 'Needed Qty'}
                       </div>
                       <div className="text-lg font-black text-brand-text-main">
                         {req.quantity}
                       </div>
                     </div>
-                    <HapticButton className="p-3 bg-brand-primary text-white rounded-2xl shadow-lg shadow-brand-primary/20 group-hover:translate-x-1 transition-transform">
-                      <ChevronRight size={20} className={isRtl ? 'rotate-180' : ''} />
+                    <HapticButton className="px-6 py-3 bg-brand-primary text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-brand-primary/20 group-hover:translate-x-1 transition-transform flex items-center gap-2">
+                      {isRtl ? 'تقديم عرض' : 'Make Offer'}
+                      <ChevronRight size={16} className={isRtl ? 'rotate-180' : ''} />
                     </HapticButton>
                   </div>
                 </div>

@@ -313,9 +313,9 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({
               </div>
               <div className="flex flex-wrap gap-2">
                 {smartResults.length > 0 ? (
-                  smartResults.map((sub, idx) => (
+                  Array.from(new Map(smartResults.map(sub => [sub.id, sub])).values()).map((sub, idx) => (
                     <motion.div
-                      key={sub.id}
+                      key={sub.id || `smart-res-${idx}`}
                       initial={{ opacity: 0, scale: 0.9, y: 10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       transition={{ delay: idx * 0.05 }}

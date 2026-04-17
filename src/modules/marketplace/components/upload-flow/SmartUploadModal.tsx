@@ -737,7 +737,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
 
   return (
     <motion.div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[150] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm"
       onClick={(e) => {
         // Strictly prevent closure on backdrop click to avoid unexpected disappearance
         e.stopPropagation();
@@ -1301,7 +1301,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
         </div>
 
         {/* Footer */}
-        <div className="p-4 sm:p-8 border-t border-slate-200/50 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="p-4 sm:p-8 pb-24 sm:pb-8 border-t border-slate-200/50 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col sm:flex-row gap-4 items-center justify-between">
           <div className="text-xs text-slate-500 font-medium">
             {isRtl ? 'بالضغط على نشر، أنت توافق على شروط الاستخدام' : 'By clicking publish, you agree to our terms of service'}
           </div>

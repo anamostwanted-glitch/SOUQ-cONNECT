@@ -131,6 +131,9 @@ export interface Category {
   seoKeywords?: string[];
   status?: 'active' | 'deleted' | 'pending';
   deletedAt?: string;
+  iconName?: string; // Lucide icon name
+  imageUrl?: string;
+  tier?: 'hub' | 'sector' | 'niche'; // 3-tier taxonomy
 }
 
 export interface ProductRequest {

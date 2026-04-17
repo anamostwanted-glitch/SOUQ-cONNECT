@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, orderBy, limit, startAfter } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, startAfter, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
 import { MarketplaceItem, Category, MarketTrend, UserProfile } from '../../../core/types';
 import { callAiJson, handleAiError } from '../../../core/services/geminiService';
@@ -29,8 +29,7 @@ export const fetchMarketplaceItems = async (
     q = query(
       marketplaceRef,
       where('sellerId', '==', userId),
-      where('status', '==', 'active'),
-      // where('expiryDate', '>', now), // تحتاج إلى تحديث البيانات الموجودة أولاً
+      where('status', 'in', ['active', 'sold', 'expired', 'hidden']),
       ...constraints
     );
   } else if (categoryId) {
@@ -136,4 +135,26 @@ export const fetchPredictiveMatches = async (interests: string[], recentItems: s
     handleAiError(e, 'predictive_matching');
     return [];
   }
+};
+
+export const updateMarketplaceItemStatus = async (itemId: string, status: MarketplaceItem['status']): Promise<void> => {
+  const itemRef = doc(db, 'marketplace', itemId);
+  await updateDoc(itemRef, { 
+    status,
+    updatedAt: new Date().toISOString()
+  });
+};
+
+export const softDeleteMarketplaceItem = async (itemId: string): Promise<void> => {
+  const itemRef = doc(db, 'marketplace', itemId);
+  await updateDoc(itemRef, { 
+    status: 'deleted',
+    deletedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+};
+
+export const getStoreShareUrl = (userId: string): string => {
+  const baseUrl = window.location.origin;
+  return `${baseUrl}?view=profile&uid=${userId}`;
 };

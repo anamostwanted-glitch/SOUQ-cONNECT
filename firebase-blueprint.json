@@ -60,17 +60,21 @@
     },
     "Category": {
       "title": "Category",
-      "description": "Product categories",
+      "description": "Product categories including Hubs, Sectors, and Niches",
       "type": "object",
       "properties": {
         "nameAr": { "type": "string" },
         "nameEn": { "type": "string" },
-        "parentId": { "type": "string" },
+        "parentId": { "type": "string", "description": "ID of the parent category for hierarchy" },
         "order": { "type": "integer" },
         "keywords": { "type": "array", "items": { "type": "string" }, "description": "Active keywords for search optimization" },
-        "suggestedKeywords": { "type": "array", "items": { "type": "string" }, "description": "Keywords suggested by AI from user requests" }
+        "suggestedKeywords": { "type": "array", "items": { "type": "string" }, "description": "Keywords suggested by AI from user requests" },
+        "iconName": { "type": "string", "description": "Lucide icon name for display" },
+        "imageUrl": { "type": "string", "description": "Image for the category hub" },
+        "tier": { "type": "string", "enum": ["hub", "sector", "niche"], "description": "Hierarchy level" },
+        "status": { "type": "string", "enum": ["active", "hidden", "deleted"] }
       },
-      "required": ["nameAr", "nameEn"]
+      "required": ["nameAr", "nameEn", "tier"]
     },
     "Request": {
       "title": "Request",
