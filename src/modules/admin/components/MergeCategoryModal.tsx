@@ -120,7 +120,7 @@ export const MergeCategoryModal: React.FC<MergeCategoryModalProps> = ({
             <div className="space-y-4">
               {suggestions.map((suggestion, index) => (
                 <div 
-                  key={index}
+                  key={`merge-suggest-${suggestion.sourceId}-${suggestion.targetId}-${index}`}
                   className="p-6 bg-brand-background rounded-3xl border border-brand-border hover:border-brand-primary/30 transition-all group"
                 >
                   <div className="flex flex-col md:flex-row items-center justify-between gap-6">

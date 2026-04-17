@@ -271,8 +271,8 @@ export const AdminNeuralHub: React.FC = () => {
           <AnimatePresence mode="popLayout">
             {loading ? (
               <div className="space-y-4">
-                {[1, 2].map(i => (
-                  <div key={i} className="h-32 bg-white/5 animate-pulse rounded-[2rem]" />
+                {[1, 2, 3].map(i => (
+                  <div key={`neural-engine-skeleton-${i}`} className="h-32 bg-white/5 animate-pulse rounded-[2rem]" />
                 ))}
               </div>
             ) : keys.length === 0 ? (

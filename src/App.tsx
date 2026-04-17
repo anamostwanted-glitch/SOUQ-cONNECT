@@ -19,8 +19,8 @@ const Dashboard = lazy(() => import('./modules/site/components/Dashboard'));
 const DiscoveryCanvas = lazy(() => import('./components/Discovery/DiscoveryCanvas').then(m => ({ default: m.DiscoveryCanvas })));
 const ChatHub = lazy(() => import('./modules/common/components/ChatHub').then(m => ({ default: m.ChatHub })));
 const ChatView = lazy(() => import('./modules/common/components/ChatView'));
-const ProfileView = lazy(() => import('./modules/site/components/ProfileView').then(m => ({ default: m.ProfileView })));
-const ConnectRewards = lazy(() => import('./modules/user/components/ConnectRewards').then(m => ({ default: m.ConnectRewards })));
+const ProfileView = lazy(() => import('./modules/site/components/ProfileView'));
+const ConnectRewards = lazy(() => import('./modules/user/components/ConnectRewards').then(module => ({ default: module.ConnectRewards })));
 const UserNeuralHub = lazy(() => import('./modules/common/components/UserNeuralHub').then(m => ({ default: m.UserNeuralHub })));
 const Partnerships = lazy(() => import('./modules/site/components/Partnerships').then(m => ({ default: m.Partnerships })));
 const SmartHelp = lazy(() => import('./modules/common/components/SmartHelp').then(m => ({ default: m.SmartHelp })));
@@ -60,6 +60,8 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const viewParam = params.get('view');
     const itemIdParam = params.get('itemId');
+    const tabParam = params.get('tab');
+    const actionParam = params.get('action');
 
     if (viewParam) {
       setView(viewParam);
@@ -67,6 +69,16 @@ export default function App() {
     
     if (itemIdParam) {
       setInitialItemId(itemIdParam);
+    }
+
+    if (tabParam) {
+      setDashboardTab(tabParam);
+    }
+
+    // Special action mapping (e.g. from neural insights or external links)
+    if (actionParam === 'ai-portal') {
+      setView('dashboard');
+      setDashboardTab('ai-hub');
     }
   }, []);
 

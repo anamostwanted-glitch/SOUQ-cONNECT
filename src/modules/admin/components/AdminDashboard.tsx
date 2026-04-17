@@ -31,6 +31,7 @@ import {
   Bell,
   Flag,
   FileText,
+  Brain,
   Wind,
   X
 } from 'lucide-react';
@@ -38,6 +39,7 @@ import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc, orderBy
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { handleAiError } from '../../../core/services/geminiService';
 import { db } from '../../../core/firebase';
+import { HapticButton } from '../../../shared/components/HapticButton';
 import { UserProfile, AppFeatures, ProductRequest, Category } from '../../../core/types';
 import { AdminSidebar } from './AdminSidebar';
 import { CategoryManagement } from '../../../shared/components/CategoryManagement';
@@ -70,6 +72,7 @@ import { AdminGrowthChart } from './AdminGrowthChart';
 import { AdminDeepControl } from './AdminDeepControl';
 import { AdminUserManagement } from './AdminUserManagement';
 import { AdminStrategicOverview } from './AdminStrategicOverview';
+import { AdminSmartHub } from './AdminSmartHub';
 import { DashboardCopilot } from './DashboardCopilot';
 import { toast } from 'sonner';
 import { deleteDoc, writeBatch, where } from 'firebase/firestore';
@@ -511,6 +514,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const tabs = [
+    { id: 'smart-hub', label: isRtl ? 'مركز النبض الذكي' : 'Neural Smart Hub', icon: Brain, isNew: true },
     { id: 'overview', label: isRtl ? 'نظرة عامة' : 'Overview', icon: LayoutGrid },
     { id: 'weekly-reports', label: isRtl ? 'التقارير الأسبوعية' : 'Weekly Reports', icon: FileText, isNew: true },
     { id: 'users', label: isRtl ? 'المستخدمين' : 'Users', icon: Users },
@@ -572,7 +576,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 deals: Math.floor(Math.random() * 5) + 1
               };
               
-              await fetch('/api/send-email', {
+              const response = await fetch('/api/send-email', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -583,8 +587,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   data: { stats }
                 })
               });
+
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.details || errorData.error || 'Unknown error');
+              }
               successCount++;
-            } catch (err) {
+            } catch (err: any) {
               console.error(`Failed to send report to ${supplier.email}:`, err);
             }
           }
@@ -603,25 +612,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   return (
     <div className={`flex flex-col md:flex-row min-h-screen bg-brand-background ${isRtl ? 'font-arabic' : ''}`}>
-      <AdminSidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        tabs={tabs} 
-        isRtl={isRtl} 
-        profile={profile} 
-      />
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      <div className={`md:block ${isSidebarOpen ? 'block' : 'hidden'}`}>
+        <AdminSidebar 
+          activeTab={activeTab} 
+          setActiveTab={(tab) => {
+            setActiveTab(tab);
+            setIsSidebarOpen(false);
+          }} 
+          tabs={tabs} 
+          isRtl={isRtl} 
+          profile={profile} 
+        />
+      </div>
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-brand-background p-4 md:p-8">
         {/* Top Neural Bar */}
         <div className="max-w-6xl mx-auto mb-8 flex items-center justify-between gap-4">
-          <NeuralSearch 
-            onNavigate={handleNeuralSearchNavigate}
-            onFilter={handleNeuralSearchFilter}
-            availableTabs={tabs.map(t => t.id)}
-          />
+          <div className="flex items-center gap-4 flex-1">
+            <HapticButton
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2.5 bg-brand-surface border border-brand-border rounded-xl text-brand-text-muted md:hidden"
+            >
+              <Shield size={20} />
+            </HapticButton>
+            <NeuralSearch 
+              onNavigate={handleNeuralSearchNavigate}
+              onFilter={handleNeuralSearchFilter}
+              availableTabs={tabs.map(t => t.id)}
+            />
+          </div>
           
           <div className="flex items-center gap-3">
             <button className="p-2.5 bg-brand-surface border border-brand-border rounded-xl text-brand-text-muted hover:text-brand-primary transition-colors relative">
@@ -643,6 +680,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         <AnimatePresence mode="wait">
+          {activeTab === 'smart-hub' && (
+            <motion.div
+              key="smart-hub"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-7xl mx-auto"
+            >
+               <AdminSmartHub users={users} requests={requests} isRtl={isRtl} />
+            </motion.div>
+          )}
+
           {activeTab === 'overview' && (
             <motion.div
               key="overview"
@@ -662,7 +711,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   else if (action === 'site-settings' || action === 'site' || action === 'settings') setActiveTab('site-settings');
                   else if (action === 'categories-manager' || action === 'categories') setActiveTab('categories-manager');
                   else if (action === 'broadcast-center' || action === 'broadcast') setActiveTab('broadcast-center');
-                  else if (action === 'ai-hub' || action === 'ai') setActiveTab('ai-hub');
+                  else if (action === 'ai-hub' || action === 'ai' || action === 'ai-portal') setActiveTab('ai-hub');
                   else if (action === 'weekly-reports') setActiveTab('weekly-reports');
                 }}
               />

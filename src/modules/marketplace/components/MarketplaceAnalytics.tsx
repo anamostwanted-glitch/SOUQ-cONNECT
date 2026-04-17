@@ -36,8 +36,8 @@ export const MarketplaceAnalytics: React.FC = () => {
         {[
           { label: isRtl ? 'إجمالي المشاهدات' : 'Total Views', value: analytics.reduce((a, b) => a + b.views, 0), icon: Eye },
           { label: isRtl ? 'إجمالي النقرات' : 'Total Clicks', value: analytics.reduce((a, b) => a + b.clicks, 0), icon: MousePointer },
-        ].map((stat, i) => (
-          <div key={i} className="bg-brand-surface p-6 rounded-3xl border border-brand-border flex items-center gap-4">
+        ].map((stat) => (
+          <div key={`stat-${stat.label}`} className="bg-brand-surface p-6 rounded-3xl border border-brand-border flex items-center gap-4">
             <div className="p-4 rounded-2xl bg-brand-primary/10 text-brand-primary">
               <stat.icon size={24} />
             </div>

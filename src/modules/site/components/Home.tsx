@@ -98,6 +98,7 @@ const Home: React.FC<HomeProps> = ({
   const [success, setSuccess] = useState(false);
   const [aiStatus, setAiStatus] = useState('');
   const [matchedSuppliers, setMatchedSuppliers] = useState<UserProfile[]>([]);
+  const [matchMetadata, setMatchMetadata] = useState<Record<string, { score: number; highlight: string; strength: 'high' | 'medium' | 'perfect' }>>({});
   const [stats, setStats] = useState({ suppliers: 0, requests: 0, satisfaction: 98 });
   const [isMatching, setIsMatching] = useState(false);
   const [lastRequestId, setLastRequestId] = useState<string | null>(null);
@@ -808,7 +809,22 @@ const Home: React.FC<HomeProps> = ({
 
                 // --- SMART TIER ---
                 // Run AI matching in the background
-                const { uids: matchedIds, reasoning } = await matchSuppliers(trimmedQuery, categorySuppliers, categories, profile?.location);
+                const { matches, reasoning } = await matchSuppliers(trimmedQuery, categorySuppliers, categories, profile?.location);
+                
+                // Map metadata for UI display
+                const newMetadata: Record<string, any> = {};
+                matches.forEach(m => {
+                  newMetadata[m.uid] = {
+                    score: m.score,
+                    highlight: m.highlight,
+                    strength: m.strength,
+                    vectors: m.vectors,
+                    fit: isRtl ? m.fitAr : m.fitEn
+                  };
+                });
+                setMatchMetadata(newMetadata);
+
+                const matchedIds = matches.map(m => m.uid);
                 const uniqueMatchedIds = Array.from(new Set(matchedIds));
                 let matched = categorySuppliers.filter(s => uniqueMatchedIds.includes(s.uid));
                 
@@ -823,6 +839,7 @@ const Home: React.FC<HomeProps> = ({
                 // Update the request document with matched suppliers and reasoning for dashboard display
                 await updateDoc(doc(db, 'requests', requestRef.id), {
                   suggestedSupplierIds: matched.map(s => s.uid),
+                  matchMetadata: newMetadata,
                   aiReasoning: reasoning // Store the reasoning
                 });
               } catch (err) {
@@ -1328,18 +1345,22 @@ const Home: React.FC<HomeProps> = ({
                     </HapticButton>
                   </div>
                   <UserRequestCard 
+                    key={`home-request-${lastRequest.id}`}
                     request={lastRequest}
                     profile={profile!}
                     onOpenChat={onOpenChat || (() => {})}
                     onViewProfile={onViewProfile || (() => {})}
                     onDelete={(id) => setRequestToDelete(id)}
+                    variant="home"
                   />
                 </div>
               )}
 
               {matchedSuppliers.length > 0 && (
                 <MatchedSuppliersSection 
+                  key={`home-matches-${lastRequestId || 'default'}`}
                   matchedSuppliers={matchedSuppliers} 
+                  matchMetadata={matchMetadata}
                   isRtl={isRtl} 
                   onOpenChat={onOpenChat || (() => {})} 
                   onViewProfile={onViewProfile || (() => {})} 

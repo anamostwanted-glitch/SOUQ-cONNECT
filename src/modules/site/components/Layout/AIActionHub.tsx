@@ -124,39 +124,36 @@ export const AIActionHub: React.FC<AIActionHubProps> = ({
           </div>
 
           {/* Actions Grid */}
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
             {actions.map((action) => (
               <motion.div
                 key={action.id}
-                initial={{ opacity: 0, x: isRtl ? 20 : -20 }}
-                animate={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ delay: action.delay }}
+                className={action.id === 'request' ? 'col-span-2' : ''}
               >
                 <HapticButton
                   onClick={() => {
                     onAction(action.id as any);
                     onClose();
                   }}
-                  className="w-full group flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700/50 transition-all hover:shadow-xl hover:shadow-black/5 active:scale-[0.98]"
+                  className={`w-full group flex ${action.id === 'request' ? 'flex-row' : 'flex-col'} items-center gap-3 p-4 bg-brand-surface border border-brand-border/30 rounded-[2rem] transition-all hover:bg-white dark:hover:bg-gray-800 hover:shadow-xl hover:shadow-brand-primary/5 active:scale-95`}
                 >
-                  <div className={`w-14 h-14 bg-gradient-to-br ${action.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform relative`}>
+                  <div className={`w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br ${action.color} rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:rotate-6 transition-transform relative shrink-0`}>
                     {action.icon}
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full flex items-center justify-center">
-                      <Zap size={8} className="text-brand-primary fill-brand-primary" />
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-white dark:bg-gray-900 rounded-full flex items-center justify-center shadow-sm">
+                      <Zap size={10} className="text-brand-primary fill-brand-primary" />
                     </div>
                   </div>
                   
-                  <div className={`flex-1 ${isRtl ? 'text-right' : 'text-left'}`}>
-                    <h3 className="text-base font-black text-gray-900 dark:text-white">
+                  <div className={`flex-1 ${isRtl ? 'text-right' : 'text-left'} ${action.id === 'request' ? '' : 'text-center'}`}>
+                    <h3 className="text-sm font-black text-brand-text-main line-clamp-1">
                       {action.title}
                     </h3>
-                    <p className="text-xs text-gray-500 font-medium mt-0.5">
+                    <p className={`text-[10px] text-brand-text-muted font-medium mt-0.5 ${action.id === 'request' ? 'line-clamp-1' : 'line-clamp-2'}`}>
                       {action.desc}
                     </p>
-                  </div>
-
-                  <div className={`w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors ${isRtl ? 'rotate-180' : ''}`}>
-                    <ArrowRight size={20} />
                   </div>
                 </HapticButton>
               </motion.div>

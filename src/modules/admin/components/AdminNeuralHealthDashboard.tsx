@@ -27,7 +27,7 @@ export const AdminNeuralHealthDashboard: React.FC<HealthDashboardProps> = ({ key
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
       {stats.map((stat, i) => (
         <motion.div 
-          key={i}
+          key={`health-stat-${stat.label}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.1 }}

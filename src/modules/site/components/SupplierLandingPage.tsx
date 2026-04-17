@@ -113,7 +113,7 @@ export const SupplierLandingPage: React.FC<SupplierLandingPageProps> = ({ onStar
               <div className="flex items-center gap-4 px-4">
                 <div className="flex -space-x-3 rtl:space-x-reverse">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-gray-200 overflow-hidden">
+                    <div key={`onboard-avatar-skeleton-${i}`} className="w-10 h-10 rounded-full border-2 border-white bg-gray-200 overflow-hidden">
                       <img src={`https://picsum.photos/seed/supplier${i}/100/100`} alt="Supplier" referrerPolicy="no-referrer" />
                     </div>
                   ))}
@@ -136,7 +136,7 @@ export const SupplierLandingPage: React.FC<SupplierLandingPageProps> = ({ onStar
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 relative z-10">
             {benefits.map((benefit, index) => (
               <motion.div
-                key={index}
+                key={`supplier-benefit-${benefit.title}-${index}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 * index }}
@@ -183,7 +183,7 @@ export const SupplierLandingPage: React.FC<SupplierLandingPageProps> = ({ onStar
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             {steps.map((step, index) => (
-              <div key={index} className="relative group">
+              <div key={`onboarding-step-${step.title}-${index}`} className="relative group">
                 <span className="text-8xl font-black text-brand-primary/5 absolute -top-10 -left-4 group-hover:text-brand-teal/10 transition-colors duration-500">
                   {step.number}
                 </span>

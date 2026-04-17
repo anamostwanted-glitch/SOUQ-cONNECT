@@ -738,13 +738,13 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
           {[
-            { label: isRtl ? 'متابع' : 'Followers', value: profile.followersCount || 0, icon: UserPlus, color: 'text-brand-primary' },
-            { label: isRtl ? 'منتج' : 'Products', value: products.length, icon: Package, color: 'text-brand-teal' },
-            { label: isRtl ? 'مشاهدة' : 'Total Views', value: products.reduce((acc, p) => acc + (p.views || 0), 0), icon: TrendingUp, color: 'text-brand-warning' },
-            { label: isRtl ? 'ثقة' : 'Trust Score', value: `${profile.trustScore || 85}%`, icon: Award, color: 'text-brand-primary' }
+            { id: 'followers', label: isRtl ? 'متابع' : 'Followers', value: profile.followersCount || 0, icon: UserPlus, color: 'text-brand-primary' },
+            { id: 'products', label: isRtl ? 'منتج' : 'Products', value: products.length, icon: Package, color: 'text-brand-teal' },
+            { id: 'views', label: isRtl ? 'مشاهدة' : 'Total Views', value: products.reduce((acc, p) => acc + (p.views || 0), 0), icon: TrendingUp, color: 'text-brand-warning' },
+            { id: 'trust', label: isRtl ? 'ثقة' : 'Trust Score', value: `${profile.trustScore || 85}%`, icon: Award, color: 'text-brand-primary' }
           ].map((stat, idx) => (
             <motion.div 
-              key={idx}
+              key={`profile-stat-${stat.id}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 * idx }}
@@ -777,7 +777,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                 ...(isOwner ? [{ id: 'settings', label: isRtl ? 'الإعدادات' : 'Settings', icon: Settings }] : [])
               ].map((tab) => (
                 <HapticButton
-                  key={tab.id}
+                  key={`storefront-tab-${tab.id}`}
                   onClick={() => setActiveTab(tab.id as any)}
                   className={`px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all whitespace-nowrap ${
                     activeTab === tab.id 
@@ -833,7 +833,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                           </p>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {aiInsights.tips.map((tip, i) => (
-                              <div key={i} className="flex items-start gap-3 p-4 bg-brand-background/50 rounded-2xl border border-brand-border">
+                              <div key={`store-ai-tip-${i}-${tip.slice(0, 8)}`} className="flex items-start gap-3 p-4 bg-brand-background/50 rounded-2xl border border-brand-border">
                                 <CheckCircle2 size={16} className="text-brand-teal shrink-0 mt-0.5" />
                                 <p className="text-xs text-brand-text-muted font-bold leading-relaxed">{tip}</p>
                               </div>
@@ -884,13 +884,13 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                   {loading ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                       {[1, 2, 3, 4, 5, 6].map(i => (
-                        <div key={i} className="aspect-[4/5] bg-brand-surface animate-pulse rounded-[2.5rem] border border-brand-border" />
+                        <div key={`skeleton-${i}`} className="aspect-[4/5] bg-brand-surface animate-pulse rounded-[2.5rem] border border-brand-border" />
                       ))}
                     </div>
                   ) : filteredProducts.length > 0 ? (
                     <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8" : "space-y-6"}>
-                      {filteredProducts.map((product, index) => (
-                        <div key={product.id} className="relative group">
+                      {filteredProducts.map((product) => (
+                        <div key={`store-product-${product.id}`} className="relative group">
                           <ProductCard 
                             item={product} 
                             onOpenChat={onOpenChat} 
@@ -971,7 +971,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                           </p>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {aiInsights.tips.map((tip, i) => (
-                              <div key={i} className="flex items-start gap-3 p-4 bg-brand-background/50 rounded-2xl border border-brand-border">
+                              <div key={`requests-ai-tip-${i}-${tip.slice(0, 8)}`} className="flex items-start gap-3 p-4 bg-brand-background/50 rounded-2xl border border-brand-border">
                                 <CheckCircle2 size={16} className="text-brand-teal shrink-0 mt-0.5" />
                                 <p className="text-xs text-brand-text-muted font-bold leading-relaxed">{tip}</p>
                               </div>
@@ -988,7 +988,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
 
                   {requests.length > 0 ? (
                     requests.map(req => (
-                      <div key={req.id} className="bg-brand-surface p-6 rounded-[2rem] border border-brand-border flex justify-between items-center group hover:border-brand-primary/30 transition-all">
+                      <div key={`store-request-${req.id}`} className="bg-brand-surface p-6 rounded-[2rem] border border-brand-border flex justify-between items-center group hover:border-brand-primary/30 transition-all">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary">
                             <FileText size={20} />
@@ -1023,7 +1023,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                   {savedItems.length > 0 ? (
                     savedItems.map(item => (
                       <ProductCard 
-                        key={item.id} 
+                        key={`store-saved-${item.id}`} 
                         item={item} 
                         onOpenChat={onOpenChat} 
                         onViewDetails={() => onViewProduct(item)}
@@ -1099,8 +1099,8 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                         { icon: Facebook, label: 'Facebook', color: 'text-blue-600', key: 'facebook' },
                         { icon: Instagram, label: 'Instagram', color: 'text-pink-600', key: 'instagram' },
                         { icon: Twitter, label: 'Twitter', color: 'text-sky-500', key: 'twitter' }
-                      ].map((social, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
+                      ].map((social) => (
+                        <div key={`store-social-${social.key}`} className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
                           <div className="flex items-center gap-4">
                             <social.icon className={social.color} size={20} />
                             <span className="text-sm font-black text-brand-text-main">{social.label}</span>
@@ -1287,7 +1287,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     {productFormData.images.map((url, i) => (
-                      <div key={i} className="relative aspect-square rounded-3xl overflow-hidden border border-brand-border group">
+                      <div key={`product-edit-img-${url}-${i}`} className="relative aspect-square rounded-3xl overflow-hidden border border-brand-border group">
                         <img src={url} alt="" className="w-full h-full object-cover" />
                         <button 
                           onClick={() => setProductFormData(prev => ({ ...prev, images: prev.images.filter((_, idx) => idx !== i) }))}

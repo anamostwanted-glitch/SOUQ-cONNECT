@@ -1,6 +1,7 @@
 import { collection, addDoc, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { z } from 'zod';
+import { handleFirestoreError, OperationType } from '../utils/errorHandling';
 
 export const CampaignSchema = z.object({
   name: z.string().min(1, "Name is required").max(256),
@@ -25,5 +26,7 @@ export const subscribeToCampaigns = (callback: (campaigns: Campaign[]) => void) 
   return onSnapshot(q, (snapshot) => {
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign));
     callback(data);
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, 'campaigns', false);
   });
 };

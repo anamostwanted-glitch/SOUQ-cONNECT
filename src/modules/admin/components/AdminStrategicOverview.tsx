@@ -151,7 +151,7 @@ export const AdminStrategicOverview: React.FC<AdminStrategicOverviewProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {metrics.map((metric, i) => (
           <motion.div
-            key={i}
+            key={`strategic-metric-${metric.label}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
@@ -232,10 +232,10 @@ export const AdminStrategicOverview: React.FC<AdminStrategicOverviewProps> = ({
               { id: 'site', label: isRtl ? 'إعدادات الموقع' : 'Site Settings', icon: MousePointer2, color: 'bg-blue-500' },
               { id: 'categories', label: isRtl ? 'الفئات' : 'Categories', icon: Target, color: 'bg-emerald-500' },
               { id: 'broadcast', label: isRtl ? 'البث' : 'Broadcast', icon: Zap, color: 'bg-purple-500' },
-              { id: 'ai', label: isRtl ? 'الذكاء الاصطناعي' : 'AI Hub', icon: BrainCircuit, color: 'bg-pink-500' },
+              { id: 'ai-portal', label: isRtl ? 'الذكاء الاصطناعي' : 'AI Hub', icon: BrainCircuit, color: 'bg-pink-500' },
             ].map((item, i) => (
               <HapticButton
-                key={item.id}
+                key={`quick-access-${item.id}`}
                 onClick={() => onAction(item.id)}
                 className="aspect-square bg-brand-surface rounded-[2rem] border border-brand-border p-6 flex flex-col items-center justify-center gap-3 hover:shadow-xl hover:-translate-y-1 transition-all group"
               >

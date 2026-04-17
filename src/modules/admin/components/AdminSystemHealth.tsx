@@ -24,7 +24,7 @@ export const AdminSystemHealth: React.FC = () => {
       <div className="grid grid-cols-2 gap-4">
         {metrics.map((metric, i) => (
           <motion.div
-            key={i}
+            key={`sys-health-${metric.label}`}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.1 }}

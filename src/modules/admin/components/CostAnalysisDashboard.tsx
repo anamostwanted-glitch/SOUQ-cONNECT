@@ -250,7 +250,7 @@ export const CostAnalysisDashboard: React.FC = () => {
                   dataKey="value"
                 >
                   {featureDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${entry.name}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip 
@@ -262,7 +262,7 @@ export const CostAnalysisDashboard: React.FC = () => {
           </div>
           <div className="grid grid-cols-2 gap-4 mt-8">
             {featureDistribution.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2">
+              <div key={`feature-dist-${item.name}`} className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
                 <span className="text-xs font-bold text-brand-text-muted truncate">{item.name}</span>
                 <span className="text-xs font-black text-brand-text-main ml-auto">${item.value.toFixed(4)}</span>
@@ -316,8 +316,8 @@ export const CostAnalysisDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-brand-border/50">
-                {userCosts.map((user, idx) => (
-                  <tr key={idx} className="group">
+                {userCosts.map((user) => (
+                  <tr key={`user-cost-${user.uid}`} className="group">
                     <td className="py-4">
                       <div className="text-sm font-bold text-brand-text-main truncate max-w-[150px]">{user.email}</div>
                       <div className="text-[10px] text-brand-text-muted font-mono">{user.uid.substring(0, 8)}...</div>
@@ -345,8 +345,8 @@ export const CostAnalysisDashboard: React.FC = () => {
             {isRtl ? 'آخر العمليات' : 'Recent Operations'}
           </h3>
           <div className="space-y-4">
-            {logs.slice(0, 10).map((log, idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 bg-brand-background/50 rounded-2xl border border-brand-border/50 group hover:border-brand-primary/30 transition-all">
+            {logs.slice(0, 10).map((log) => (
+              <div key={`recent-op-${log.id}`} className="flex items-center justify-between p-4 bg-brand-background/50 rounded-2xl border border-brand-border/50 group hover:border-brand-primary/30 transition-all">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-brand-surface flex items-center justify-center text-brand-primary shadow-sm group-hover:scale-110 transition-transform">
                     <Cpu size={18} />

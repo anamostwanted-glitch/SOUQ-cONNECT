@@ -67,6 +67,8 @@ export const ConnectManager: React.FC = () => {
       if (snap.exists()) {
         setSettings(snap.data() as SiteSettings);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'settings/site', false);
     });
 
     // Listen to withdrawals

@@ -152,10 +152,10 @@ export const SupplyDemandAnalyzer: React.FC<SupplyDemandAnalyzerProps> = ({ cate
                     {isRtl ? 'الفجوات المكتشفة حسب الفئات' : 'Detected Gaps by Category'}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {analysisResult.gaps.map((gap: any, i: number) => {
+                    {analysisResult.gaps.map((gap: any) => {
                       const category = categories.find(c => c.id === gap.categoryId);
                       return (
-                        <div key={i} className="p-4 bg-brand-background rounded-2xl border border-brand-border flex items-center justify-between group hover:border-brand-primary/50 transition-all">
+                        <div key={`gap-${gap.categoryId}`} className="p-4 bg-brand-background rounded-2xl border border-brand-border flex items-center justify-between group hover:border-brand-primary/50 transition-all">
                           <div className="space-y-1">
                             <p className="text-sm font-black text-brand-text-main">
                               {isRtl ? category?.nameAr : category?.nameEn}
@@ -193,7 +193,7 @@ export const SupplyDemandAnalyzer: React.FC<SupplyDemandAnalyzerProps> = ({ cate
                   </h3>
                   <div className="space-y-4">
                     {(isRtl ? analysisResult.recommendationsAr : analysisResult.recommendationsEn).map((rec: string, i: number) => (
-                      <div key={i} className="flex gap-3 items-start group">
+                      <div key={`rec-${i}`} className="flex gap-3 items-start group">
                         <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center shrink-0 group-hover:bg-white/30 transition-all">
                           <ArrowRight size={14} className={isRtl ? 'rotate-180' : ''} />
                         </div>

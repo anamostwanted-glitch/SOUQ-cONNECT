@@ -1035,8 +1035,19 @@ export const categorizeProduct = async (query: string, categories: Category[]): 
   }
 };
 
-export const matchSuppliers = async (query: string, suppliers: UserProfile[], categories: Category[], userLocation?: string): Promise<{uids: string[], reasoning: string}> => {
-  if (suppliers.length === 0) return {uids: [], reasoning: 'No suppliers provided'};
+export const matchSuppliers = async (query: string, suppliers: UserProfile[], categories: Category[], userLocation?: string): Promise<{
+  matches: { 
+    uid: string; 
+    score: number; 
+    highlight: string; 
+    strength: 'high' | 'medium' | 'perfect';
+    vectors: { capability: number; capacity: number; consistency: number; logistics: number };
+    fitAr: string;
+    fitEn: string;
+  }[];
+  reasoning: string;
+}> => {
+  if (suppliers.length === 0) return { matches: [], reasoning: 'No suppliers provided' };
   
   try {
     const supplierList = suppliers.map(s => ({ 
@@ -1045,36 +1056,76 @@ export const matchSuppliers = async (query: string, suppliers: UserProfile[], ca
       bio: s.bio, 
       keywords: s.keywords,
       location: s.location,
-      categories: s.categories
+      categories: s.categories,
+      rating: s.rating || 0,
+      isVerified: s.isVerified || false
     }));
 
     const data = await callAiJson(
-      `Match the best suppliers for this request. 
-        Be strict: only return suppliers that truly match the product or service requested.
-        
-        Request: ${query}
+      `[HYPER-MATCH:OMEGA] Advanced multi-vector matchmaking for Souq Connect.
+        User Request: "${query}"
         User Location: ${userLocation || 'Not specified'}
-        Suppliers: ${JSON.stringify(supplierList)}
+        Suppliers Data: ${JSON.stringify(supplierList)}
         
-        Return a JSON object with:
-        - uids: Array of top 3-5 supplier UIDs that best match the request.
-        - reasoning: A brief explanation of why these suppliers were chosen.
+        Analyze each supplier using these vectors (0-100):
+        1. Capability: Specialist match for the specific item/service.
+        2. Capacity: Likelyhood they can handle the volume (based on profile).
+        3. Consistency: Trust factor (Verified = +20, Rating 4+ = +15).
+        4. Logistics: Distance/Proximity to User Location.
         
-        If no good matches are found, return an empty array for uids. Be very strict.`,
+        Return JSON structure:
+        {
+          "matches": [{
+            "uid": string,
+            "score": number (Weighted average),
+            "highlight": string (3-5 words max),
+            "strength": "high" | "medium" | "perfect",
+            "vectors": { "capability", "capacity", "consistency", "logistics" },
+            "fitAr": "Short explanation in Arabic",
+            "fitEn": "Short explanation in English"
+          }],
+          "reasoning": string (Strategic executive summary of this matching batch)
+        }`,
       {
         type: Type.OBJECT,
         properties: {
-          uids: { type: Type.ARRAY, items: { type: Type.STRING } },
+          matches: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                uid: { type: Type.STRING },
+                score: { type: Type.NUMBER },
+                highlight: { type: Type.STRING },
+                strength: { type: Type.STRING, enum: ['high', 'medium', 'perfect'] },
+                vectors: {
+                  type: Type.OBJECT,
+                  properties: {
+                    capability: { type: Type.NUMBER },
+                    capacity: { type: Type.NUMBER },
+                    consistency: { type: Type.NUMBER },
+                    logistics: { type: Type.NUMBER }
+                  }
+                },
+                fitAr: { type: Type.STRING },
+                fitEn: { type: Type.STRING }
+              },
+              required: ["uid", "score", "highlight", "strength", "vectors", "fitAr", "fitEn"]
+            }
+          },
           reasoning: { type: Type.STRING }
         },
-        required: ["uids", "reasoning"]
+        required: ["matches", "reasoning"]
       }
     );
 
-    return { uids: data.uids || [], reasoning: data.reasoning || '' };
+    return { 
+      matches: data.matches || [], 
+      reasoning: data.reasoning || '' 
+    };
   } catch (e: any) {
-    handleAiError(e, 'Matchmaking');
-    return { uids: [], reasoning: 'Matchmaking failed' };
+    handleAiError(e, 'Matchmaking Engine');
+    return { matches: [], reasoning: 'Matchmaking analysis failed' };
   }
 };
 
@@ -1392,6 +1443,52 @@ export const analyzeSystemHealth = async (systemData: any, language: string): Pr
       handleAiError(e, 'System Health analysis');
     }
     return { status: 'stable', headline: 'System Stable', insights: [], growthScore: 100 };
+  }
+};
+
+export const predictMarketTrends = async (marketData: any, language: string): Promise<any> => {
+  try {
+    const prompt = `Act as a senior market strategist for Souq Connect. Based on current data, predict the next 3 months of trends.
+      
+      Current Market Data: ${JSON.stringify(marketData)}
+      Language: ${language === 'ar' ? 'Arabic' : 'English'}
+      
+      Predict:
+      1. Trend Direction: 'surging', 'growing', 'stable', or 'warning'.
+      2. Predicted Growth % per month for the next 3 months.
+      3. Top 3 categories likely to explode in demand.
+      4. A strategic "Growth Lever" (the single most important action to take).
+      5. Confidence Score (0-100).
+      
+      Return JSON: { trend, monthlyGrowth: [month1, month2, month3], hotCategories: [name1, name2, name3], growthLever, confidenceScore }`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          trend: { type: Type.STRING, enum: ['surging', 'growing', 'stable', 'warning'] },
+          monthlyGrowth: { type: Type.ARRAY, items: { type: Type.NUMBER } },
+          hotCategories: { type: Type.ARRAY, items: { type: Type.STRING } },
+          growthLever: { type: Type.STRING },
+          confidenceScore: { type: Type.NUMBER }
+        },
+        required: ["trend", "monthlyGrowth", "hotCategories", "growthLever", "confidenceScore"]
+      }
+    );
+    
+    const tokens = (prompt.length + JSON.stringify(result).length) / 4;
+    await logUsage('Predictive Analysis', Math.ceil(tokens));
+    return result;
+  } catch (e: any) {
+    handleAiError(e, 'Market prediction');
+    return { 
+      trend: 'stable', 
+      monthlyGrowth: [5, 8, 12], 
+      hotCategories: ['Electronics', 'Home Service', 'Fashion'], 
+      growthLever: 'Increase supplier onboarding speed.',
+      confidenceScore: 70
+    };
   }
 };
 
@@ -1812,25 +1909,29 @@ export const analyzeSupplierDocument = async (
   };
 
   const proxyCall = async () => {
-    const prompt = `Analyze this commercial document (Commercial Registration, Tax ID, or License) for a supplier verification.
+    const prompt = `Act as a Neural Shield forensic investigator for a high-end marketplace. 
+      Analyze this commercial document for supplier verification with maximum scrutiny.
       Language: ${language === 'ar' ? 'Arabic' : 'English'}
       
-      Extract the following information if available:
-      - Company Name
-      - Registration Number
-      - Expiry Date
-      - Activity/Scope
+      Tasks:
+      1. Extract: Company Name, Registration Number, Expiry Date, Activity, Address.
+      2. Forensic Check: Look for signs of digital tampering, inconsistent fonts, misaligned text, or forged stamps.
+      3. Global Database Scan Prediction: Does this business name and number look structurally valid for its likely jurisdiction?
+      4. Risk Assessment: Determine a "Neural Trust Score" based on consistency.
       
-      Evaluate if the document looks authentic and valid.
-      Return ONLY a JSON object with:
-      - isValid (boolean)
-      - confidence (number 0-100)
-      - extractedData (object with fields above)
-      - analysisAr (string)
-      - analysisEn (string)
-      - recommendationAr (string)
-      - recommendationEn (string)
-      - trustScore (number 0-100)`;
+      Return ONLY a JSON object:
+      {
+        "isValid": boolean,
+        "confidence": number(0-100),
+        "trustScore": number(0-100),
+        "extractedData": { "companyName", "registrationNumber", "expiryDate", "activity", "address" },
+        "forensics": { "tamperDetected": boolean, "inconsistencies": string[], "stampValidity": string },
+        "analysisAr": string (detailed),
+        "analysisEn": string (detailed),
+        "recommendationAr": string,
+        "recommendationEn": string,
+        "securityTier": "tier_1_verified" | "tier_2_enhanced" | "high_risk"
+      }`;
 
     const data = await executeProxyCall({
       contents: [{
@@ -1871,25 +1972,29 @@ export const analyzeSupplierDocument = async (
         throw error;
       }
       const ai = new GoogleGenAI({ apiKey: key });
-      const prompt = `Analyze this commercial document (Commercial Registration, Tax ID, or License) for a supplier verification.
+      const prompt = `Act as a Neural Shield forensic investigator for a high-end marketplace. 
+        Analyze this commercial document for supplier verification with maximum scrutiny.
         Language: ${language === 'ar' ? 'Arabic' : 'English'}
         
-        Extract the following information if available:
-        - Company Name
-        - Registration Number
-        - Expiry Date
-        - Activity/Scope
+        Tasks:
+        1. Extract: Company Name, Registration Number, Expiry Date, Activity, Address.
+        2. Forensic Check: Look for signs of digital tampering, inconsistent fonts, misaligned text, or forged stamps.
+        3. Global Database Scan Prediction: Does this business name and number look structurally valid for its likely jurisdiction?
+        4. Risk Assessment: Determine a "Neural Trust Score" based on consistency.
         
-        Evaluate if the document looks authentic and valid.
-        Return ONLY a JSON object with:
-        - isValid (boolean)
-        - confidence (number 0-100)
-        - extractedData (object with fields above)
-        - analysisAr (string)
-        - analysisEn (string)
-        - recommendationAr (string)
-        - recommendationEn (string)
-        - trustScore (number 0-100)`;
+        Return ONLY a JSON object:
+        {
+          "isValid": boolean,
+          "confidence": number(0-100),
+          "trustScore": number(0-100),
+          "extractedData": { "companyName", "registrationNumber", "expiryDate", "activity", "address" },
+          "forensics": { "tamperDetected": boolean, "inconsistencies": string[], "stampValidity": string },
+          "analysisAr": string (detailed),
+          "analysisEn": string (detailed),
+          "recommendationAr": string,
+          "recommendationEn": string,
+          "securityTier": "tier_1_verified" | "tier_2_enhanced" | "high_risk"
+        }`;
 
       const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, "");
       const response = await ai.models.generateContent({

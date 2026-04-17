@@ -1,8 +1,10 @@
-import React from 'react';
-import { AdminDashboard } from '../../admin/components/AdminDashboard';
-import { ConnectCommandCenter } from '../../user/components/ConnectCommandCenter';
+import React, { lazy, Suspense } from 'react';
 import { useAuth } from '../../../core/providers/AuthProvider';
 import { useSettings } from '../../../core/providers/SettingsProvider';
+import { Loader2 } from 'lucide-react';
+
+const AdminDashboard = lazy(() => import('../../admin/components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const ConnectCommandCenter = lazy(() => import('../../user/components/ConnectCommandCenter').then(m => ({ default: m.ConnectCommandCenter })));
 
 interface DashboardProps {
   dashboardTab: string;
@@ -27,28 +29,35 @@ export default function Dashboard({
   // Determine the effective role based on viewMode if available, otherwise fallback to profile.role
   const effectiveRole = viewMode || profile.role;
 
-  // Routing based on effective role
-  if (effectiveRole === 'admin' || effectiveRole === 'manager' || effectiveRole === 'supervisor') {
-    return (
-      <AdminDashboard
-        profile={profile}
-        features={features}
-        onOpenChat={onOpenChat}
-        onViewProfile={onViewProfile}
-        activeTab={dashboardTab}
-        setActiveTab={setDashboardTab}
-      />
-    );
-  }
+  const loadingFallback = (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+      <Loader2 className="animate-spin text-brand-primary" size={40} />
+      <p className="text-brand-text-muted font-bold animate-pulse">
+        {profile.language === 'ar' ? 'جاري تهيئة لوحة التحكم العصبية...' : 'Initializing Neural Dashboard...'}
+      </p>
+    </div>
+  );
 
-  // Use the new unified Connect Command Center for both Suppliers and Customers
   return (
-    <ConnectCommandCenter
-      profile={profile}
-      features={features}
-      onOpenChat={onOpenChat}
-      onViewProfile={onViewProfile}
-      uiStyle={uiStyle}
-    />
+    <Suspense fallback={loadingFallback}>
+      {effectiveRole === 'admin' || effectiveRole === 'manager' || effectiveRole === 'supervisor' ? (
+        <AdminDashboard
+          profile={profile}
+          features={features}
+          onOpenChat={onOpenChat}
+          onViewProfile={onViewProfile}
+          activeTab={dashboardTab}
+          setActiveTab={setDashboardTab}
+        />
+      ) : (
+        <ConnectCommandCenter
+          profile={profile}
+          features={features}
+          onOpenChat={onOpenChat}
+          onViewProfile={onViewProfile}
+          uiStyle={uiStyle}
+        />
+      )}
+    </Suspense>
   );
 }

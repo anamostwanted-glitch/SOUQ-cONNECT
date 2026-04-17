@@ -84,8 +84,8 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ isRtl 
               </div>
 
               <ul className="space-y-3 py-4 border-t border-brand-border">
-                {(isRtl ? plan.featuresAr : plan.featuresEn).map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-3 text-sm text-brand-text-main">
+                {(isRtl ? plan.featuresAr : plan.featuresEn).map((feature) => (
+                  <li key={`feature-${plan.id}-${feature}`} className="flex items-start gap-3 text-sm text-brand-text-main">
                     <CheckCircle2 className="text-brand-teal shrink-0" size={16} />
                     <span>{feature}</span>
                   </li>

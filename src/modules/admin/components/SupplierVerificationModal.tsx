@@ -15,7 +15,12 @@ import {
   Building2,
   Hash,
   Activity,
-  ArrowRight
+  ArrowRight,
+  Fingerprint,
+  Lock,
+  Eye,
+  Scan,
+  ShieldQuestion
 } from 'lucide-react';
 import { UserProfile } from '../../../core/types';
 import { analyzeSupplierDocument, handleAiError } from '../../../core/services/geminiService';
@@ -128,8 +133,13 @@ export const SupplierVerificationModal: React.FC<SupplierVerificationModalProps>
               <ShieldCheck size={28} />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-brand-text-main">
-                {isRtl ? 'توثيق المورد الذكي' : 'Smart Supplier Verification'}
+              <h2 className="text-2xl font-black text-brand-text-main flex items-center gap-2">
+                {isRtl ? 'درع التحقق العصبي' : 'Neural Verification Shield'}
+                <div className="flex gap-1 ml-2">
+                   <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
+                   <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse [animation-delay:200ms]" />
+                   <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse [animation-delay:400ms]" />
+                </div>
               </h2>
               <p className="text-brand-text-muted text-sm font-bold">
                 {supplier.name} • {supplier.companyName}
@@ -226,18 +236,69 @@ export const SupplierVerificationModal: React.FC<SupplierVerificationModalProps>
                     className="space-y-6"
                   >
                     {/* Trust Score Card */}
-                    <div className="p-6 bg-brand-background rounded-[2rem] border border-brand-border flex items-center justify-between">
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'مؤشر الثقة' : 'Trust Score'}</p>
-                        <p className="text-3xl font-black text-brand-text-main">{analysisResult.trustScore}%</p>
+                    <div className="p-6 bg-brand-background rounded-[2rem] border border-brand-border flex items-center justify-between relative overflow-hidden group">
+                      <div className="absolute inset-0 bg-gradient-to-r from-brand-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="relative z-10 space-y-1">
+                        <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'مؤشر الثقة العصبية' : 'Neural Trust Score'}</p>
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-4xl font-black text-brand-text-main">{analysisResult.trustScore}%</p>
+                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                            analysisResult.securityTier === 'tier_1_verified' ? 'bg-brand-primary text-white' :
+                            analysisResult.securityTier === 'tier_2_enhanced' ? 'bg-brand-teal text-white' :
+                            'bg-brand-error text-white'
+                          }`}>
+                            {analysisResult.securityTier?.replace('_', ' ')}
+                          </span>
+                        </div>
                       </div>
-                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
-                        analysisResult.trustScore >= 80 ? 'bg-emerald-500/10 text-emerald-500' :
+                      <div className={`relative z-10 w-16 h-16 rounded-2xl flex items-center justify-center ${
+                        analysisResult.trustScore >= 80 ? 'bg-emerald-500/10 text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.2)]' :
                         analysisResult.trustScore >= 50 ? 'bg-amber-500/10 text-amber-500' :
-                        'bg-brand-error/10 text-brand-error'
+                        'bg-brand-error/10 text-brand-error animate-pulse'
                       }`}>
                         {analysisResult.trustScore >= 80 ? <ShieldCheck size={32} /> : <ShieldAlert size={32} />}
                       </div>
+                    </div>
+
+                    {/* Forensic Analysis Section */}
+                    <div className="p-6 bg-brand-surface border border-brand-border rounded-[2.5rem] space-y-4">
+                      <div className="flex items-center justify-between">
+                         <h4 className="text-xs font-black text-brand-text-main uppercase tracking-widest flex items-center gap-2">
+                           <Fingerprint size={14} className="text-brand-primary" />
+                           {isRtl ? 'التحريات الجنائية الرقمية' : 'Digital Forensics'}
+                         </h4>
+                         <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                           analysisResult.forensics?.tamperDetected ? 'bg-brand-error text-white' : 'bg-brand-teal text-white'
+                         }`}>
+                           {analysisResult.forensics?.tamperDetected ? (isRtl ? 'تم كشف تلاعب' : 'Tamper Detected') : (isRtl ? 'مستند سليم' : 'Intact')}
+                         </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                         <div className="p-4 bg-brand-background rounded-2xl border border-brand-border">
+                           <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'صحة الأرتام' : 'Stamp Validity'}</p>
+                           <p className="text-xs font-bold text-brand-text-main">{analysisResult.forensics?.stampValidity || 'Verified'}</p>
+                         </div>
+                         <div className="p-4 bg-brand-background rounded-2xl border border-brand-border">
+                           <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'سلامة الخطوط' : 'Font Integrity'}</p>
+                           <p className="text-xs font-bold text-brand-text-main">
+                             {analysisResult.forensics?.tamperDetected ? (isRtl ? 'خطوط غير متناسقة' : 'Inconsistent') : (isRtl ? 'خطوط أصلية' : 'Original Fonts')}
+                           </p>
+                         </div>
+                      </div>
+
+                      {analysisResult.forensics?.inconsistencies?.length > 0 && (
+                        <div className="p-4 bg-brand-error/5 border border-brand-error/10 rounded-2xl">
+                          <p className="text-[10px] font-black text-brand-error uppercase tracking-widest mb-2">{isRtl ? 'نقاط الارتياب' : 'Points of Suspicion'}</p>
+                          <ul className="space-y-1">
+                            {analysisResult.forensics.inconsistencies.map((inc: string, idx: number) => (
+                              <li key={idx} className="text-[10px] font-medium text-brand-text-main flex gap-2">
+                                <span className="text-brand-error">•</span> {inc}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
 
                     {/* Extracted Data */}

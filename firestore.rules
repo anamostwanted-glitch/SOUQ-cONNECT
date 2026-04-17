@@ -149,7 +149,7 @@ service cloud.firestore {
     match /users/{userId} {
       // PII Protection: Only owner or admin can read full profile.
       // Exception: Allow reading profiles for marketplace visibility and chat context.
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() || isMasterAdmin() || isAdmin();
       
       allow create: if isAuthenticated() && (
                       request.auth.uid == userId || 

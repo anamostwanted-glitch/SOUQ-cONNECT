@@ -880,3 +880,5 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     </TooltipProvider>
   );
 };
+
+export default ProfileView;

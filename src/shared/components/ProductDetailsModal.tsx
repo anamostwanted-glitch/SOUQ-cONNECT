@@ -299,7 +299,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
                   {item.images.map((_, idx) => (
                     <div 
-                      key={idx}
+                      key={`img-dot-${idx}`}
                       className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`}
                     />
                   ))}
@@ -448,7 +448,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                   </h4>
                   <div className="grid grid-cols-1 gap-2">
                     {item.features.map((feature, idx) => (
-                      <div key={idx} className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <div key={`product-feature-${idx}-${feature.slice(0, 10)}`} className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
                         <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                         <span>{feature}</span>
                       </div>

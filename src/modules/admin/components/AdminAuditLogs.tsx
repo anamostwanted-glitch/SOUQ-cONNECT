@@ -4,6 +4,7 @@ import { db } from '../../../core/firebase';
 import { AuditLog } from '../../../core/services/auditService';
 import { Loader2, History } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 
 export const AdminAuditLogs: React.FC = () => {
   const { i18n } = useTranslation();
@@ -14,8 +15,11 @@ export const AdminAuditLogs: React.FC = () => {
   useEffect(() => {
     const q = query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(50));
     const unsub = onSnapshot(q, (snapshot) => {
-      const logsData = snapshot.docs.map(doc => doc.data() as AuditLog);
+      const logsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditLog & { id: string }));
       setLogs(logsData);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'audit_logs', false);
       setLoading(false);
     });
     return () => unsub();
@@ -38,8 +42,8 @@ export const AdminAuditLogs: React.FC = () => {
         </h2>
       </div>
       <div className="space-y-4">
-        {logs.map((log, index) => (
-          <div key={index} className="p-4 bg-brand-background rounded-xl border border-brand-border flex justify-between items-center">
+        {logs.map((log: any) => (
+          <div key={log.id} className="p-4 bg-brand-background rounded-xl border border-brand-border flex justify-between items-center">
             <div>
               <p className="text-sm font-bold text-brand-text-main">{log.action}</p>
               <p className="text-xs text-brand-text-muted">{log.resource}</p>

@@ -64,10 +64,22 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ ca
   const [aiThinking, setAiThinking] = useState(false);
   const [smartResults, setSmartResults] = useState<Subcategory[]>([]);
   const [isAiSearching, setIsAiSearching] = useState(false);
+  const [sortBy, setSortBy] = useState<'grid' | 'az'>('grid');
 
   // Process real categories into DisplayCategory format
   const displayCategories = useMemo(() => {
-    const mainCategories = categories.filter(c => !c.parentId);
+    let rawCategories = [...categories];
+    
+    // Sort logic
+    if (sortBy === 'az') {
+      rawCategories.sort((a, b) => {
+        const nameA = isRtl ? a.nameAr : a.nameEn;
+        const nameB = isRtl ? b.nameAr : b.nameEn;
+        return nameA.localeCompare(nameB);
+      });
+    }
+
+    const mainCategories = rawCategories.filter(c => !c.parentId);
     
     return mainCategories.map((cat, index) => {
       const subcategories = categories
@@ -242,6 +254,26 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ ca
       </div>
 
       <div className="flex-1 overflow-y-auto pb-32 px-4 pt-4 space-y-8">
+        {/* View Switcher */}
+        <div className="flex items-center justify-between mb-4 mt-2">
+           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-text-muted">
+             {isRtl ? 'استكشف بذكاء' : 'Explore Smartly'}
+           </p>
+           <div className="flex bg-brand-surface p-1 rounded-xl border border-brand-border">
+              <button 
+                onClick={() => setSortBy('grid')}
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${sortBy === 'grid' ? 'bg-brand-primary text-white shadow-md' : 'text-brand-text-muted hover:text-brand-primary'}`}
+              >
+                {isRtl ? 'شبكة' : 'Grid'}
+              </button>
+              <button 
+                onClick={() => setSortBy('az')}
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${sortBy === 'az' ? 'bg-brand-primary text-white shadow-md' : 'text-brand-text-muted hover:text-brand-primary'}`}
+              >
+                {isRtl ? 'أ-ي' : 'A-Z'}
+              </button>
+           </div>
+        </div>
         
         {/* AI Suggestions Results */}
         <AnimatePresence>

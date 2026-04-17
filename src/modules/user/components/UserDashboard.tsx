@@ -410,7 +410,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             </h2>
             <AnimatePresence mode="popLayout">
               {isLoadingRequests ? (
-                [1, 2, 3].map(i => <RequestSkeleton key={i} />)
+                [1, 2, 3, 4].map(i => <RequestSkeleton key={`dashboard-req-skeleton-${i}`} />)
               ) : requests.length === 0 ? (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}

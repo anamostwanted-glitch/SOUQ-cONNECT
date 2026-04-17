@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Clock, MapPin, ChevronRight, ChevronDown, MessageSquare, 
-  Star, Building2, Sparkles, Package, Trash2
+  Star, Building2, Sparkles, Package, Trash2, ArrowRight
 } from 'lucide-react';
 import { doc, updateDoc, collection, query, where, getDocs, addDoc, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
@@ -18,6 +18,7 @@ interface UserRequestCardProps {
   onOpenChat: (chatId: string) => void;
   onViewProfile: (uid: string) => void;
   onDelete?: (requestId: string, imageUrl?: string) => void;
+  variant?: 'home' | 'dashboard';
 }
 
 export const UserRequestCard: React.FC<UserRequestCardProps> = ({
@@ -25,11 +26,13 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
   profile,
   onOpenChat,
   onViewProfile,
-  onDelete
+  onDelete,
+  variant = 'dashboard'
 }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   
+  const isHome = variant === 'home';
   const [isExpanded, setIsExpanded] = useState(false);
   const [suppliers, setSuppliers] = useState<UserProfile[]>([]);
   const [isSuggestingMore, setIsSuggestingMore] = useState(false);
@@ -65,12 +68,12 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
     return { matchScore, shortReasonAr, shortReasonEn, longReasonAr, longReasonEn };
   };
 
-  // Fetch suppliers for this request
+  // Fetch suppliers only if needed
   useEffect(() => {
-    if (suppliers.length === 0) {
+    if (!isHome && suppliers.length === 0) {
       fetchSuppliers().catch(err => handleFirestoreError(err, OperationType.LIST, 'users (suppliers)', false));
     }
-  }, []);
+  }, [isHome]);
 
   const fetchSuppliers = async () => {
     try {
@@ -173,126 +176,97 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 shadow-lg rounded-[2rem] p-5 md:p-6 relative overflow-hidden flex flex-col gap-5 group hover:shadow-xl transition-all duration-300"
+      className={`bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 shadow-lg rounded-[2.5rem] p-5 md:p-6 relative overflow-hidden flex flex-col gap-4 group hover:shadow-xl transition-all duration-300 ${isHome ? 'border-brand-primary/20 bg-gradient-to-br from-white/90 to-brand-primary/5' : ''}`}
     >
-      {/* Header */}
-      <div className="flex justify-between items-start gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border shrink-0 flex items-center gap-1.5 ${
-              request.status === 'open' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
-              'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-            }`}>
-              {request.status === 'open' && (
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
-                </span>
-              )}
-              {request.status === 'open' ? (
-                suppliers.length > 0 ? (
-                  <span className="flex items-center gap-1">
-                    <Sparkles size={10} className="text-amber-500" />
-                    {isRtl ? `تم العثور على ${suppliers.length} موردين` : `Found ${suppliers.length} matches`}
-                  </span>
-                ) : (
-                  isRtl ? 'جاري البحث...' : 'Searching...'
-                )
-              ) : (
-                isRtl ? 'مغلق' : 'Closed'
-              )}
+      {/* Status Bar - High Fidelity */}
+      <div className="flex items-center justify-between">
+        <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${
+          request.status === 'open' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+        }`}>
+          {request.status === 'open' && (
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
             </span>
-            <span className="text-[10px] font-bold text-brand-text-muted flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {new Date(request.createdAt).toLocaleDateString()}
-            </span>
-          </div>
-          <h4 className="text-lg md:text-xl font-black text-brand-text-main truncate">
-            {request.productName}
-          </h4>
+          )}
+          {request.status === 'open' ? (isRtl ? 'نشط' : 'Active Mission') : (isRtl ? 'مكتمل' : 'Completed')}
         </div>
         
-        {/* Delete Button */}
-        {onDelete && (profile?.uid === request.customerId || profile?.role === 'admin') && (
-          <HapticButton
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(request.id, request.imageUrl);
-            }}
-            className="p-2.5 text-brand-text-muted hover:text-brand-error hover:bg-brand-error/10 rounded-xl transition-all shrink-0 border border-transparent hover:border-brand-error/20"
-            title={isRtl ? 'حذف الطلب' : 'Delete Request'}
-          >
-            <Trash2 size={18} strokeWidth={2} />
-          </HapticButton>
-        )}
-      </div>
-
-      {/* Core Details */}
-      <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-brand-text-muted">
-        <div className="flex items-center gap-1.5 bg-brand-surface px-3 py-1.5 rounded-xl border border-brand-border/50">
-          <Package className="w-3.5 h-3.5 text-brand-primary" />
-          <span>{isRtl ? request.categoryNameAr || request.categoryId : request.categoryNameEn || request.categoryId}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold text-brand-text-muted flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {new Date(request.createdAt).toLocaleDateString(i18n.language === 'ar' ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'short' })}
+          </span>
+          {onDelete && (profile?.uid === request.customerId || profile?.role === 'admin') && (
+            <HapticButton
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(request.id, request.imageUrl);
+              }}
+              className="p-1.5 text-brand-text-muted hover:text-brand-error transition-colors"
+            >
+              <Trash2 size={14} />
+            </HapticButton>
+          )}
         </div>
-        {request.quantity && (
-          <div className="flex items-center gap-1.5 bg-brand-surface px-3 py-1.5 rounded-xl border border-brand-border/50">
-            <span className="text-brand-text-main">{request.quantity}</span>
-          </div>
-        )}
-        {request.location && (
-          <div className="flex items-center gap-1.5 bg-brand-surface px-3 py-1.5 rounded-xl border border-brand-border/50">
-            <MapPin className="w-3.5 h-3.5 text-brand-primary" />
-            <span className="truncate max-w-[100px]">{request.location}</span>
-          </div>
-        )}
       </div>
 
-      {/* Smart Section: Suggested Suppliers */}
-      {suppliers.length > 0 && auth.currentUser && (
-        <div className="bg-gradient-to-br from-brand-primary/5 via-transparent to-transparent rounded-2xl p-4 border border-brand-primary/10 mt-2">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-1.5 text-brand-primary">
+      {/* Main Content Area */}
+      <div className="flex gap-4">
+        {request.imageUrl && (
+          <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl overflow-hidden border border-brand-border shrink-0 shadow-sm">
+            <img src={request.imageUrl} alt={request.productName} className="w-full h-full object-cover" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0 flex flex-col justify-center">
+          <h4 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-tight">
+            {request.productName}
+          </h4>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-1.5 bg-brand-surface/50 px-2 py-0.5 rounded-lg border border-brand-border/30">
+              <Package className="w-3 h-3 text-brand-primary" />
+              <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider">
+                {isRtl ? request.categoryNameAr || request.categoryId : request.categoryNameEn || request.categoryId}
+              </span>
+            </div>
+            {request.quantity && (
+              <span className="text-[10px] font-bold text-brand-text-muted bg-brand-primary/5 px-2 py-0.5 rounded-lg">
+                {request.quantity}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Context-Aware Section (Supplier Chips vs Quick Stats) */}
+      {!isHome && suppliers.length > 0 && auth.currentUser && (
+        <div className="bg-gradient-to-br from-brand-primary/5 via-transparent to-transparent rounded-2xl p-4 border border-brand-primary/10">
+          <div className="flex items-center justify-between mb-3 text-brand-primary">
+            <div className="flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />
               <span className="text-[10px] font-black uppercase tracking-widest">
                 {isRtl ? 'موردون مقترحون لك' : 'Suggested for you'}
               </span>
             </div>
-            {suppliers.length > 3 && (
-              <span className="text-[10px] font-bold text-brand-text-muted bg-brand-surface px-2 py-0.5 rounded-lg">
-                +{suppliers.length - 3}
-              </span>
-            )}
           </div>
-          
           <div className="flex overflow-x-auto no-scrollbar gap-3 pb-1 -mx-2 px-2 snap-x">
-            {suppliers.map((supp, index) => {
+            {suppliers.map((supp) => {
               const { matchScore, shortReasonAr, shortReasonEn } = getAIMatchDetails(supp, request);
-
               return (
                 <div 
-                  key={supp.uid}
+                  key={`request-${request.id}-supp-chip-${supp.uid}`}
                   onClick={() => onViewProfile(supp.uid)}
-                  className="snap-start flex-shrink-0 flex items-center gap-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/40 dark:border-slate-700/50 rounded-2xl p-2 pr-4 cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:shadow-md hover:border-brand-primary/30 transition-all duration-300 group/chip min-w-[200px]"
+                  className="snap-start flex-shrink-0 flex items-center gap-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/40 rounded-2xl p-2 pr-4 cursor-pointer hover:bg-white hover:shadow-md transition-all min-w-[180px]"
                 >
-                  <div className="relative w-12 h-12 rounded-xl bg-brand-surface overflow-hidden flex-shrink-0 border border-brand-border group-hover/chip:border-brand-primary/30 transition-colors">
-                    <img 
-                      src={getUserImageUrl(supp)} 
-                      alt={supp.name} 
-                      className="w-full h-full object-cover" 
-                      referrerPolicy="no-referrer"
-                    />
-                    {/* Match Score Badge */}
-                    <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-emerald-400 to-emerald-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-tl-lg rounded-br-xl shadow-sm">
+                  <div className="relative w-10 h-10 rounded-xl bg-brand-surface overflow-hidden flex-shrink-0 border border-brand-border">
+                    <img src={getUserImageUrl(supp)} alt={supp.name} className="w-full h-full object-cover" />
+                    <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white text-[8px] font-black px-1 py-0.5 rounded-tl-md">
                       {matchScore}%
                     </div>
                   </div>
-                  <div className="flex flex-col justify-center flex-1 min-w-0">
-                    <span className="text-xs font-bold text-brand-text-main truncate group-hover/chip:text-brand-primary transition-colors">
-                      {supp.name}
-                    </span>
-                    <div className="flex items-center gap-1 text-[9px] text-brand-text-muted font-bold mt-0.5 truncate">
-                      <Sparkles size={8} className="text-brand-primary/60 shrink-0" />
-                      <span className="truncate">{isRtl ? shortReasonAr : shortReasonEn}</span>
-                    </div>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="text-[11px] font-bold text-brand-text-main truncate">{supp.name}</span>
+                    <span className="text-[9px] text-brand-text-muted font-bold truncate">{isRtl ? shortReasonAr : shortReasonEn}</span>
                   </div>
                 </div>
               );
@@ -301,21 +275,32 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex gap-3 mt-1">
+      {/* Navigation & Action Footer */}
+      <div className="flex items-center justify-between gap-3 mt-1">
         <HapticButton 
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex-1 py-3.5 bg-transparent text-brand-text-main text-xs font-black uppercase tracking-widest rounded-2xl border-2 border-brand-border hover:bg-brand-surface hover:border-brand-primary/30 transition-all flex items-center justify-center gap-2"
+          onClick={() => isHome ? setIsExpanded(!isExpanded) : setIsExpanded(!isExpanded)}
+          className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            isHome ? 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 border border-brand-primary/20' : 'bg-transparent text-brand-text-main border-2 border-brand-border hover:bg-brand-surface'
+          }`}
         >
-          {isExpanded ? (isRtl ? 'إخفاء التفاصيل' : 'Hide Details') : (isRtl ? 'عرض التفاصيل' : 'View Details')}
-          {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />}
+          {isExpanded ? (isRtl ? 'أقل' : 'Less') : (isRtl ? 'التفاصيل' : 'Details')}
+          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} className={isRtl ? 'rotate-180' : ''} />}
         </HapticButton>
-        
-        {/* Quick Chat Button if there's a pinned supplier or just a general action */}
-        {request.offersCount ? (
-          <HapticButton className="px-5 py-3.5 bg-brand-primary text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-brand-primary-hover transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-primary/20">
-            <MessageSquare size={16} />
-            <span className="hidden sm:inline">{request.offersCount} {isRtl ? 'عروض' : 'Offers'}</span>
+
+        {isHome && (
+          <HapticButton 
+            onClick={() => onOpenChat(request.id)} // Assuming this opens the request management view or similar
+            className="px-6 py-3.5 bg-brand-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-brand-primary/20 flex items-center gap-2"
+          >
+            {isRtl ? 'إدارة المهمة' : 'Manage Mission'}
+            <ArrowRight size={14} className={isRtl ? 'rotate-180' : ''} />
+          </HapticButton>
+        )}
+
+        {!isHome && request.offersCount ? (
+          <HapticButton className="px-5 py-3.5 bg-brand-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-lg">
+            <MessageSquare size={14} />
+            <span>{request.offersCount} {isRtl ? 'عروض' : 'Offers'}</span>
           </HapticButton>
         ) : null}
       </div>
@@ -358,11 +343,11 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
                   </div>
                   
                   <div className="space-y-3">
-                    {suppliers.map((supp, index) => {
+                    {suppliers.map((supp) => {
                       const { matchScore, longReasonAr, longReasonEn } = getAIMatchDetails(supp, request);
 
                       return (
-                        <div key={supp.uid} className="bg-brand-surface/50 border border-brand-border rounded-2xl p-4 hover:border-brand-primary/30 transition-colors">
+                        <div key={`request-${request.id}-supp-analysis-${supp.uid}`} className="bg-brand-surface/50 border border-brand-border rounded-2xl p-4 hover:border-brand-primary/30 transition-colors">
                           <div className="flex items-start justify-between gap-4 mb-3">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-xl overflow-hidden border border-brand-border shrink-0">

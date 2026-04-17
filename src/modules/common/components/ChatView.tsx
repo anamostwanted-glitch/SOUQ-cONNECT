@@ -183,6 +183,18 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
   const [draggedMessageId, setDraggedMessageId] = useState<string | null>(null);
   const [dragX, setDragX] = useState(0);
 
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [pulseVisible, setPulseVisible] = useState(false);
+
+  // Auto-pulse when messages change to simulate AI monitoring
+  useEffect(() => {
+    if (messages.length > 0) {
+      setPulseVisible(true);
+      const timer = setTimeout(() => setPulseVisible(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [messages.length]);
+
   // Chameleon Action Bar Logic
   useEffect(() => {
     if (messages.length === 0) return;

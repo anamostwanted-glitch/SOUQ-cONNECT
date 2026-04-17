@@ -301,12 +301,66 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
             />
           </div>
         ) : showAdminHub ? (
-          <div className="p-6 rounded-[2rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-3xl border border-white/30 dark:border-slate-700/40 shadow-xl flex flex-col justify-center items-center text-center">
-            <div className="w-16 h-16 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary mb-4">
-              <Database size={32} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom duration-700">
+            <div className="p-8 bg-brand-surface border border-brand-border rounded-[2.5rem] shadow-xl relative overflow-hidden group hover:border-brand-primary/30 transition-all">
+              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform">
+                <ShieldCheck size={120} />
+              </div>
+              <div className="w-14 h-14 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary mb-6">
+                <Database size={28} />
+              </div>
+              <h3 className="text-xl font-black text-brand-text-main mb-2">{isRtl ? 'نظرة عامة على الإدارة' : 'Marketplace Oversight'}</h3>
+              <p className="text-sm text-brand-text-muted mb-8 leading-relaxed">
+                {isRtl ? 'تحكم في نشاط السوق، راقب الموردين الجدد، وقم بالموافقة على الطلبات المعلقة.' : 'Control market activity, monitor new suppliers, and approve pending requests.'}
+              </p>
+              
+              <div className="flex flex-wrap gap-4">
+                 <div className="px-4 py-2 bg-brand-background rounded-xl border border-brand-border flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-brand-amber animate-pulse" />
+                    <span className="text-xs font-bold text-brand-text-main">
+                      {isRtl ? 'طلبات معلقة: 12' : '12 Pending Requests'}
+                    </span>
+                 </div>
+                 <div className="px-4 py-2 bg-brand-background rounded-xl border border-brand-border flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-brand-primary animate-pulse" />
+                    <span className="text-xs font-bold text-brand-text-main">
+                      {isRtl ? 'موردين غير موثقين: 5' : '5 Unverified Suppliers'}
+                    </span>
+                 </div>
+              </div>
+
+              <HapticButton 
+                onClick={() => {
+                  // Direct user to the actual Admin Dashboard
+                  window.dispatchEvent(new CustomEvent('change-view', { detail: 'admin' }));
+                }}
+                className="mt-8 w-full py-4 bg-brand-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-brand-primary-hover shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-2"
+              >
+                <ArrowLeft size={18} className={isRtl ? '' : 'rotate-180'} />
+                {isRtl ? 'الانتقال للوحة التحكم الكاملة' : 'Go to Full Hub'}
+              </HapticButton>
             </div>
-            <h3 className="text-lg font-black text-brand-text-main mb-2">{isRtl ? 'إدارة البيانات' : 'Data Management'}</h3>
-            <p className="text-sm text-brand-text-muted mb-6">{isRtl ? 'تصدير وتحليل بيانات المستخدمين والموردين' : 'Export and analyze user and supplier data'}</p>
+
+            <div className="p-8 bg-brand-primary text-white rounded-[2.5rem] shadow-xl relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform">
+                 <Zap size={100} />
+               </div>
+               <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-white mb-6">
+                 <TrendingUp size={28} />
+               </div>
+               <h3 className="text-xl font-black mb-2">{isRtl ? 'النمو الاستراتيجي' : 'Strategic Growth'}</h3>
+               <p className="text-sm opacity-80 mb-8 leading-relaxed">
+                 {isRtl ? 'تحليل النبض الذكي يكشف عن نمو بنسبة 14٪ في قطاع الإلكترونيات هذا الأسبوع.' : 'Neural Pulse analysis reveals 14% growth in the Electronics sector this week.'}
+               </p>
+               <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                 <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: '65%' }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                    className="h-full bg-white"
+                 />
+               </div>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

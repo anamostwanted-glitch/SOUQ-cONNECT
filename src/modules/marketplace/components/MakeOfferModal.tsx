@@ -87,7 +87,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         if (customerSnap.exists()) {
           const customerData = customerSnap.data();
           if (customerData.email) {
-            fetch('/api/send-email', {
+            const response = await fetch('/api/send-email', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -97,11 +97,16 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                 language: isRtl ? 'ar' : 'en',
                 data: { productName: request.productName }
               })
-            }).catch(console.error);
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.warn('Email notification failed but offer was saved:', errorData.details || errorData.error);
+            }
           }
         }
       } catch (e) {
-        console.error('Failed to send offer email:', e);
+        console.error('Failed to send offer email process:', e);
       }
 
       toast.success(isRtl ? 'تم إرسال عرضك بنجاح!' : 'Offer sent successfully!');

@@ -45,7 +45,7 @@ export const UserNeuralHub: React.FC<{ profile: any; isRtl: boolean }> = ({ prof
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {insights.map((insight, index) => (
           <motion.div
-            key={index}
+            key={`user-neural-insight-${insight.title}-${index}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}

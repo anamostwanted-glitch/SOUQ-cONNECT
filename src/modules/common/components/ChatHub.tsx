@@ -243,7 +243,7 @@ export const ChatHub: React.FC<ChatHubProps> = ({ profile, onOpenChat, onBack })
           {loading ? (
             <div key="loading-skeleton" className="flex flex-col gap-4">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-20 bg-brand-surface/50 rounded-3xl animate-pulse" />
+                <div key={`chat-skeleton-${i}`} className="h-20 bg-brand-surface/50 rounded-3xl animate-pulse" />
               ))}
             </div>
           ) : filteredChats.length > 0 ? (
