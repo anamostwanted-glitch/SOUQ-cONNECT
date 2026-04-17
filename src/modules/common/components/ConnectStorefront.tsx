@@ -98,7 +98,12 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
     website: profile.website || '',
     logoUrl: profile.logoUrl || '',
     coverUrl: profile.coverUrl || 'https://picsum.photos/seed/neural/1200/400',
-    socialLinks: profile.socialLinks || { facebook: '', instagram: '', twitter: '' }
+    socialLinks: profile.socialLinks || { facebook: '', instagram: '', twitter: '' },
+    // B2B Trust Fields
+    experienceYears: profile.experienceYears || 1,
+    expertiseLevel: profile.expertiseLevel || 'Intermediate',
+    notableClients: profile.notableClients || [],
+    industriesServed: profile.industriesServed || []
   });
 
   const handleFieldChange = (field: string, value: any) => {
@@ -117,7 +122,11 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
         website: profile.website || '',
         logoUrl: profile.logoUrl || '',
         coverUrl: profile.coverUrl || 'https://picsum.photos/seed/cover/1200/400',
-        socialLinks: profile.socialLinks || { facebook: '', instagram: '', twitter: '' }
+        socialLinks: profile.socialLinks || { facebook: '', instagram: '', twitter: '' },
+        experienceYears: profile.experienceYears || 1,
+        expertiseLevel: profile.expertiseLevel || 'Intermediate',
+        notableClients: profile.notableClients || [],
+        industriesServed: profile.industriesServed || []
       });
     }
   }, [profile, isArchitectMode]);
@@ -462,6 +471,10 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
         logoUrl: editData.logoUrl,
         coverUrl: editData.coverUrl,
         socialLinks: editData.socialLinks,
+        experienceYears: editData.experienceYears,
+        expertiseLevel: editData.expertiseLevel,
+        notableClients: editData.notableClients,
+        industriesServed: editData.industriesServed,
         categories: editCategories,
         keywords: editKeywords,
         updatedAt: new Date().toISOString()
@@ -1004,6 +1017,106 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                   exit={{ opacity: 0, x: -20 }}
                   className="grid grid-cols-1 md:grid-cols-2 gap-8"
                 >
+                  {/* B2B Expert Trust Module */}
+                  <Card className="bg-brand-surface border-brand-border rounded-[2.5rem] p-8 space-y-6 md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xl font-black text-brand-text-main flex items-center gap-3">
+                        <Award size={20} className="text-brand-primary" />
+                        {isRtl ? 'الأداء والخبرة المهنية' : 'Expertise & Authority'}
+                      </h4>
+                      {profile.isB2BVerified && (
+                        <Badge className="bg-brand-primary text-white border-none py-1.5 px-4 rounded-xl flex items-center gap-2">
+                          <CheckCircle2 size={14} />
+                          {isRtl ? 'اعتماد مؤسسي' : 'B2B Verified'}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="p-6 bg-brand-background rounded-2xl border border-brand-border flex flex-col items-center text-center group hover:border-brand-primary/30 transition-all">
+                        <TrendingUp className="text-brand-primary mb-3" size={24} />
+                        <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'سنوات الخبرة' : 'Years of Experience'}</p>
+                        {isArchitectMode ? (
+                          <input 
+                            type="number"
+                            value={editData.experienceYears}
+                            onChange={(e) => handleFieldChange('experienceYears', parseInt(e.target.value) || 0)}
+                            className="w-20 text-center text-2xl font-black text-brand-text-main bg-transparent border-b border-brand-primary outline-none"
+                          />
+                        ) : (
+                          <p className="text-2xl font-black text-brand-text-main">+{editData.experienceYears || 5}</p>
+                        )}
+                      </div>
+                      <div className="p-6 bg-brand-background rounded-2xl border border-brand-border flex flex-col items-center text-center group hover:border-brand-primary/30 transition-all">
+                        <Star className="text-brand-warning mb-3" size={24} />
+                        <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'مستوى الخبرة' : 'Expertise Level'}</p>
+                        {isArchitectMode ? (
+                          <select 
+                            value={editData.expertiseLevel}
+                            onChange={(e) => handleFieldChange('expertiseLevel', e.target.value)}
+                            className="bg-transparent text-sm font-black text-brand-text-main outline-none border-b border-brand-primary"
+                          >
+                            <option value="Intermediate">Intermediate</option>
+                            <option value="Expert">Expert</option>
+                            <option value="Elite">Elite</option>
+                            <option value="Master">Master</option>
+                          </select>
+                        ) : (
+                          <p className="text-2xl font-black text-brand-text-main">{editData.expertiseLevel || 'Master'}</p>
+                        )}
+                      </div>
+                      <div className="p-6 bg-brand-background rounded-2xl border border-brand-border flex flex-col items-center text-center group hover:border-brand-primary/30 transition-all">
+                        <Briefcase className="text-brand-teal mb-3" size={24} />
+                        <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'قطاع النشاط' : 'Primary Sector'}</p>
+                        <p className="text-2xl font-black text-brand-text-main">{isRtl ? 'تقني / لوجستي' : 'Tech / Logistics'}</p>
+                      </div>
+                    </div>
+
+                    {isArchitectMode && (
+                      <div className="pt-4 space-y-4">
+                        <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-[0.2em]">{isRtl ? 'تعديل العملاء المؤسسيين' : 'Edit Corporate Clients'}</p>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text"
+                            id="newClientInput"
+                            placeholder={isRtl ? 'اسم العميل المرموق...' : 'Notable client name...'}
+                            className="flex-1 bg-brand-background border border-brand-border rounded-xl px-4 py-2 text-sm outline-none"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const input = e.currentTarget;
+                                if (input.value.trim()) {
+                                  handleFieldChange('notableClients', [...(editData.notableClients || []), input.value.trim()]);
+                                  input.value = '';
+                                }
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {(editData.notableClients || []).map((client, idx) => (
+                            <Badge key={`edit-client-${idx}`} className="bg-brand-primary/10 text-brand-primary py-1 px-3 flex items-center gap-2">
+                              {client}
+                              <X size={10} className="cursor-pointer" onClick={() => handleFieldChange('notableClients', editData.notableClients.filter((_, i) => i !== idx))} />
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {!isArchitectMode && editData.notableClients && editData.notableClients.length > 0 && (
+                      <div className="pt-4 space-y-4">
+                        <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-[0.2em]">{isRtl ? 'عملاء مؤسسيون سابقون' : 'Notable Corporate Clients'}</p>
+                        <div className="flex flex-wrap gap-3">
+                          {editData.notableClients.map((client, idx) => (
+                            <Badge key={`client-${idx}`} variant="outline" className="py-2 px-4 rounded-xl border-brand-border bg-brand-background text-brand-text-main font-bold">
+                              {client}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+
                   <Card className="bg-brand-surface border-brand-border rounded-[2.5rem] p-8 space-y-6">
                     <h4 className="text-xl font-black text-brand-text-main flex items-center gap-3">
                       <Info size={20} className="text-brand-primary" />

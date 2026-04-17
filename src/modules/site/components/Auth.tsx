@@ -196,6 +196,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           profileData.location = location;
           profileData.categories = selectedCategoryIds;
           profileData.supplierType = supplierType;
+          profileData.onboardingCompleted = true; // Mark onboarding as complete since they filled business info
           if (logoFile) {
             try {
               const logoRef = ref(storage, `logos/${user.uid}`);

@@ -322,7 +322,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
               <div className="space-y-4">
                 {requests.map((req, idx) => (
                   <UserRequestCard 
-                    key={`${req.id}-${idx}`}
+                    key={`ccc-user-req-${req.id || idx}`}
                     request={req}
                     profile={profile}
                     onOpenChat={onOpenChat}
@@ -336,7 +336,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
               <div className="space-y-4">
                 {requests.map((req, idx) => (
                   <VendorRequestCard 
-                    key={`${req.id}-${idx}`}
+                    key={`ccc-vendor-req-${req.id || idx}`}
                     request={req}
                     profile={profile}
                     onOpenChat={onOpenChat}
@@ -398,7 +398,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
         </div>
         <div className="space-y-4">
             {recent.map((req, idx) => (
-            <div key={`${req.id}-${idx}`} className={`${cardClass} flex flex-col gap-4`}>
+            <div key={`ccc-recent-req-${req.id || idx}`} className={`${cardClass} flex flex-col gap-4`}>
               <div className="flex justify-between items-start">
                 <h4 className="font-black text-brand-text-main">{req.productName}</h4>
                 <span className="text-xs font-bold text-brand-text-muted">{new Date(req.createdAt).toLocaleDateString()}</span>
@@ -406,7 +406,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
               {req.matchedSuppliers && req.matchedSuppliers.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto pb-2">
                     {req.matchedSuppliers.map((supplier, sIdx) => (
-                    <div key={`${supplier.uid}-${sIdx}`} className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-xs font-bold whitespace-nowrap">
+                    <div key={`ccc-recent-supplier-${supplier.uid || sIdx}`} className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-xs font-bold whitespace-nowrap">
                       {supplier.name}
                     </div>
                   ))}

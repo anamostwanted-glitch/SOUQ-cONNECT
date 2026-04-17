@@ -1,10 +1,11 @@
-import React, { lazy, Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { useAuth } from '../../../core/providers/AuthProvider';
 import { useSettings } from '../../../core/providers/SettingsProvider';
 import { Loader2 } from 'lucide-react';
+import { lazyWithRetry } from '../../../core/utils/lazyWithRetry';
 
-const AdminDashboard = lazy(() => import('../../admin/components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
-const ConnectCommandCenter = lazy(() => import('../../user/components/ConnectCommandCenter').then(m => ({ default: m.ConnectCommandCenter })));
+const AdminDashboard = lazyWithRetry(() => import('../../admin/components/AdminDashboard').then(m => m.AdminDashboard));
+const ConnectCommandCenter = lazyWithRetry(() => import('../../user/components/ConnectCommandCenter').then(m => m.ConnectCommandCenter));
 
 interface DashboardProps {
   dashboardTab: string;

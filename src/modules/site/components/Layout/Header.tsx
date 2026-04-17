@@ -121,6 +121,21 @@ export const Header: React.FC<HeaderProps> = ({
             <Menu size={20} />
           </HapticButton>
           
+          {/* Site Logo - Visible on mobile when menu is there */}
+          <HapticButton
+            onClick={() => setView('home')}
+            className="flex items-center gap-1.5 md:gap-2 px-1"
+            style={{ transform: `scale(${logoScale})` }}
+          >
+            {siteLogo ? (
+              <img src={siteLogo} alt={siteName} className="h-6 md:h-8 w-auto object-contain" referrerPolicy="no-referrer" />
+            ) : (
+              <div className="w-6 h-6 md:w-8 md:h-8 bg-brand-primary rounded-lg flex items-center justify-center text-white font-black text-xs">
+                {siteName?.[0] || 'C'}
+              </div>
+            )}
+          </HapticButton>
+
           <div className="hidden md:block">
             {profile ? (
               <HapticButton

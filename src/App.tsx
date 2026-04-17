@@ -76,8 +76,10 @@ export default function App() {
       if (id) setActiveChatId(id);
     } else if (path.includes('marketplace')) {
       const itemId = params.get('itemId');
+      const tab = params.get('tab');
       setView('marketplace');
       if (itemId) setInitialItemId(itemId);
+      if (tab) setDashboardTab(tab);
     } else if (path.includes('profile')) {
       const uid = params.get('uid');
       if (uid) {
@@ -136,9 +138,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Auto-redirect new suppliers to onboarding
-    if (profile?.role === 'supplier' && (!profile.categories || profile.categories.length === 0) && currentView !== 'supplier_onboarding' && currentView !== 'auth') {
+    // Auto-redirect new suppliers to onboarding if they haven't completed it
+    const isNewSupplier = profile?.role === 'supplier' && !profile.onboardingCompleted;
+    if (isNewSupplier && currentView !== 'supplier_onboarding' && currentView !== 'auth' && currentView !== 'supplier_landing') {
       setView('supplier_onboarding');
+    }
+
+    // Redirect completed suppliers AWAY from onboarding
+    if (profile?.role === 'supplier' && profile.onboardingCompleted && currentView === 'supplier_onboarding') {
+      setView('home');
     }
   }, [profile, currentView]);
 
@@ -223,12 +231,8 @@ export default function App() {
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>
             <Auth 
-              onAuthSuccess={(role) => { 
-                if (role === 'supplier' || viewMode === 'supplier') {
-                  setView('supplier_onboarding');
-                } else {
-                  setView('home'); 
-                }
+              onAuthSuccess={() => { 
+                setView('home'); 
               }} 
               initialRole={viewMode} 
             />

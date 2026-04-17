@@ -50,12 +50,19 @@ const CATEGORY_ICONS = [
 
 interface SmartCategoryExplorerProps {
   categories: FireCategory[];
+  filterType?: 'product' | 'service';
   onSelectCategory?: (categoryId: string, subcategoryId?: string) => void;
   onVisualSearch?: () => void;
   onHoverCategory?: (categoryId: string) => void;
 }
 
-export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ categories, onSelectCategory, onVisualSearch, onHoverCategory }) => {
+export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ 
+  categories, 
+  filterType,
+  onSelectCategory, 
+  onVisualSearch, 
+  onHoverCategory 
+}) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,6 +76,11 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({ ca
   // Process real categories into DisplayCategory format
   const displayCategories = useMemo(() => {
     let rawCategories = [...categories];
+    
+    // Core Team Filter: Isolate Product vs Service
+    if (filterType) {
+      rawCategories = rawCategories.filter(c => c.categoryType === filterType || !c.categoryType);
+    }
     
     // Sort logic
     if (sortBy === 'az') {

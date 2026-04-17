@@ -55,6 +55,7 @@ export interface UserProfile {
   isOnline?: boolean;
   isDeleted?: boolean;
   lastLoginAt?: string;
+  walletBalance?: number;
   averageResponseTime?: number;
   notificationPreferences?: NotificationPreferences;
   conciergeConsent?: boolean;
@@ -87,6 +88,18 @@ export interface UserProfile {
     recommendationsEn: string[];
     lastUpdated: string;
   };
+  // B2B Expert Trust & Authority Fields
+  isB2BVerified?: boolean;
+  experienceYears?: number;
+  expertiseLevel?: 'Intermediate' | 'Expert' | 'Elite' | 'Master';
+  notableClients?: string[];
+  certifications?: {
+    name: string;
+    issuer: string;
+    year: string;
+    description?: string;
+  }[];
+  industriesServed?: string[];
   aiBio?: {
     bioAr: string;
     bioEn: string;
@@ -112,6 +125,10 @@ export interface Category {
   suggestedKeywords?: string[];
   autoKeywords?: string[];
   categoryType?: 'product' | 'service';
+  descriptionAr?: string;
+  descriptionEn?: string;
+  slug?: string;
+  seoKeywords?: string[];
   status?: 'active' | 'deleted' | 'pending';
   deletedAt?: string;
 }

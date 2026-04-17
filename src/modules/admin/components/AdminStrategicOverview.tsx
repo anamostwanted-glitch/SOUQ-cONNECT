@@ -33,6 +33,7 @@ interface AdminStrategicOverviewProps {
     chats: number;
     connections: number;
     activeUsers: number;
+    volume?: number;
   };
   timeRange: 'day' | 'week' | 'year';
   setTimeRange: (range: 'day' | 'week' | 'year') => void;
@@ -50,25 +51,25 @@ export const AdminStrategicOverview: React.FC<AdminStrategicOverviewProps> = ({
 
   const metrics: StrategicMetric[] = [
     { 
-      label: isRtl ? 'الزوار' : 'Visitors', 
-      value: stats.visitors.toLocaleString(), 
+      label: isRtl ? 'حجم التداول' : 'Trading Volume', 
+      value: `${(stats.volume || 0).toLocaleString()} SAR`, 
+      change: 22.4, 
+      icon: TrendingUp, 
+      color: 'text-brand-primary' 
+    },
+    { 
+      label: isRtl ? 'سرعة الصفقات' : 'Deal Velocity', 
+      value: `${stats.connections > 0 ? (stats.chats / stats.connections).toFixed(1) : '0'}x`, 
       change: 12.5, 
-      icon: Eye, 
-      color: 'text-blue-500' 
-    },
-    { 
-      label: isRtl ? 'المحادثات' : 'Conversations', 
-      value: stats.chats.toLocaleString(), 
-      change: 8.2, 
-      icon: MessageSquare, 
-      color: 'text-emerald-500' 
-    },
-    { 
-      label: isRtl ? 'الارتباطات' : 'Connections', 
-      value: stats.connections.toLocaleString(), 
-      change: 14.7, 
       icon: Zap, 
-      color: 'text-amber-500' 
+      color: 'text-brand-teal' 
+    },
+    { 
+      label: isRtl ? 'نقاط نمو كونكت' : 'Connect Growth Score', 
+      value: `${Math.floor((stats.activeUsers / (stats.visitors || 1)) * 100)}%`, 
+      change: 5.2, 
+      icon: BrainCircuit, 
+      color: 'text-pink-500' 
     },
     { 
       label: isRtl ? 'المستخدمين النشطين' : 'Active Users', 

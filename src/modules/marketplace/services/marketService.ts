@@ -5,7 +5,7 @@ import { callAiJson, handleAiError } from '../../../core/services/geminiService'
 import { Type } from "@google/genai";
 
 export const fetchMarketplaceItems = async (
-  activeTab: 'discover' | 'myshop' | 'requests', 
+  activeTab: 'discover' | 'services' | 'myshop' | 'requests', 
   userId?: string, 
   categoryId?: string,
   lastDoc?: any, // For pagination

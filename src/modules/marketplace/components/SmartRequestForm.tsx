@@ -19,6 +19,7 @@ import { HapticButton } from '../../../shared/components/HapticButton';
 import { callAiJson, handleAiError } from '../../../core/services/geminiService';
 import { Type } from '@google/genai';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { notifyMatchingSuppliers } from '../../../core/services/notificationService';
 
 interface SmartRequestFormProps {
   profile: UserProfile;
@@ -110,7 +111,7 @@ export const SmartRequestForm: React.FC<SmartRequestFormProps> = ({
 
     setLoading(true);
     try {
-      await addDoc(collection(db, 'requests'), {
+      const docRef = await addDoc(collection(db, 'requests'), {
         customerId: profile.uid,
         customerName: profile.name,
         productName: formData.productName,
@@ -125,7 +126,18 @@ export const SmartRequestForm: React.FC<SmartRequestFormProps> = ({
         offerCount: 0
       });
 
-      toast.success(isRtl ? 'تم نشر طلبك بنجاح! سيصلك عروض قريباً.' : 'Request posted! You will receive offers soon.');
+      // Growth Hack: Instant Push Notifications to matching suppliers
+      const matchCount = await notifyMatchingSuppliers(
+        docRef.id,
+        formData.categoryId,
+        formData.productName,
+        isRtl
+      );
+
+      toast.success(isRtl 
+        ? `تم نشر طلبك! تم تنبيه ${matchCount} مورد متخصص.` 
+        : `Request posted! ${matchCount} expert suppliers notified.`
+      );
       onSuccess();
       onClose();
     } catch (error) {

@@ -10,7 +10,8 @@ import {
   ArrowRight,
   Info,
   Clock,
-  Trash2
+  Trash2,
+  Target
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
@@ -72,6 +73,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
     const safeLink = (typeof link === 'string') ? link : '';
     if (safeLink.includes('chat')) return <MessageSquare size={18} />;
     if (safeLink.includes('request')) return <ShoppingBag size={18} />;
+    if (safeLink.includes('requestId')) return <Target size={18} />;
     if (safeLink.includes('offer')) return <Zap size={18} />;
     return <Info size={18} />;
   };
@@ -79,6 +81,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
   const getColor = (link?: string) => {
     const safeLink = (typeof link === 'string') ? link : '';
     if (safeLink.includes('chat')) return 'text-brand-primary bg-brand-primary/10';
+    if (safeLink.includes('requestId')) return 'text-brand-primary bg-brand-primary/10 animate-pulse';
     if (safeLink.includes('request')) return 'text-brand-teal bg-brand-teal/10';
     if (safeLink.includes('offer')) return 'text-brand-warning bg-brand-warning/10';
     return 'text-brand-text-muted bg-brand-background';

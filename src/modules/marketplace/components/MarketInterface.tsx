@@ -71,9 +71,11 @@ import { SmartUploadModal } from './upload-flow/SmartUploadModal';
 import { EditProductModal } from './EditProductModal';
 import { SmartCategoryExplorer } from './SmartCategoryExplorer';
 import { VisualSearchModal } from '../../../shared/components/search/VisualSearchModal';
+import { SEOHead } from '../../../shared/components/SEOHead';
 import { ProductDiscoveryCanvas } from './ProductDiscoveryCanvas';
 import { SmartRequestForm } from './SmartRequestForm';
 import { RequestFeed } from './RequestFeed';
+import { ProfessionalHub } from './ProfessionalHub';
 import { MakeOfferModal } from './MakeOfferModal';
 import { BroadcastBox } from './BroadcastBox';
 import { ScrollDirection, useScrollDirection } from '../../../shared/hooks/useScrollDirection';
@@ -81,8 +83,8 @@ import { ScrollDirection, useScrollDirection } from '../../../shared/hooks/useSc
 interface MarketInterfaceProps {
   onOpenChat: (chatId: string) => void;
   onViewProfile: (uid: string) => void;
-  activeTab?: 'discover' | 'myshop' | 'requests';
-  setActiveTab?: (tab: 'discover' | 'myshop' | 'requests') => void;
+  activeTab?: 'discover' | 'services' | 'myshop' | 'requests';
+  setActiveTab?: (tab: 'discover' | 'services' | 'myshop' | 'requests') => void;
   initialItemId?: string | null;
 }
 
@@ -106,10 +108,10 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const scrollDirection = useScrollDirection();
   const isMinimized = scrollDirection === ScrollDirection.DOWN;
   
-  const [internalActiveTab, setInternalActiveTab] = useState<'discover' | 'myshop' | 'requests'>('discover');
+  const [internalActiveTab, setInternalActiveTab] = useState<'discover' | 'services' | 'myshop' | 'requests'>('discover');
   
   const activeTab = externalActiveTab || internalActiveTab;
-  const setActiveTab = (tab: 'discover' | 'myshop' | 'requests') => {
+  const setActiveTab = (tab: 'discover' | 'services' | 'myshop' | 'requests') => {
     if (setExternalActiveTab) {
       setExternalActiveTab(tab);
     } else {
@@ -168,10 +170,17 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   
   const items = itemsData.items;
 
-  const filteredItems = visualSearchResults 
+  const filteredItems = (visualSearchResults 
     ? visualSearchResults 
-    : items.filter(item => {
+    : items).filter(item => {
     const searchLower = searchTerm.toLowerCase();
+    
+    // Core Team Enhancement: Filter only products in the Discover view
+    const itemCategories = categories.filter(c => item.categories?.includes(c.id));
+    const isServiceItem = itemCategories.some(c => c.categoryType === 'service');
+    
+    if (activeTab === 'discover' && isServiceItem) return false;
+
     const matchesSearch = 
       (item.title?.toLowerCase() || '').includes(searchLower) || 
       (item.description?.toLowerCase() || '').includes(searchLower) ||
@@ -185,6 +194,22 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   
   return (
     <div className="min-h-screen bg-brand-background pb-32 overflow-x-hidden">
+      <SEOHead 
+        title={
+          activeTab === 'discover' ? (isRtl ? 'سوق الجملة والمنتجات' : 'Wholesale Product Marketplace') :
+          activeTab === 'requests' ? (isRtl ? 'بث طلبات المنتجات' : 'Product Request Broadcast') :
+          activeTab === 'services' ? (isRtl ? 'رادار الخبراء والخدمات' : 'Expert & Service Radar') :
+          (isRtl ? 'السوق الذكي' : 'Smart Marketplace')
+        }
+        description={isRtl 
+          ? 'اكتشف أفضل الموردين والمنتجات والخدمات المهنية في مكان واحد. بوابتك لنمو أعمالك في الشرق الأوسط.' 
+          : 'Discover the best suppliers, products, and professional services in one place. Your gateway to business growth.'
+        }
+        keywords={isRtl 
+          ? ['سوق جملة', 'الشرق الأوسط', 'خدمات أعمال', 'موردين', 'تجارة إلكترونية B2B'] 
+          : ['wholesale market', 'middle east', 'business services', 'suppliers', 'B2B ecommerce']
+        }
+      />
       {/* Search Section */}
       <div className="max-w-7xl mx-auto px-4 pt-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
@@ -253,6 +278,16 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           >
             {isRtl ? 'الطلبات' : 'Requests'}
           </button>
+          <button
+            onClick={() => { setActiveTab('services'); setShowAdminHub(false); }}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              activeTab === 'services' && !showAdminHub
+                ? 'text-brand-primary bg-white dark:bg-slate-700 shadow-sm' 
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            {isRtl ? 'خبراء' : 'Experts'}
+          </button>
           {profile?.role === 'admin' && (
             <button
               onClick={() => setShowAdminHub(true)}
@@ -300,6 +335,14 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
               onMakeOffer={(req) => setSelectedRequestForOffer(req)} 
             />
           </div>
+        ) : activeTab === 'services' ? (
+          <ProfessionalHub 
+            categories={categories}
+            profile={profile}
+            onViewProfile={onViewProfile}
+            onOpenChat={onOpenChat}
+            isRtl={isRtl}
+          />
         ) : showAdminHub ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom duration-700">
             <div className="p-8 bg-brand-surface border border-brand-border rounded-[2.5rem] shadow-xl relative overflow-hidden group hover:border-brand-primary/30 transition-all">
@@ -364,9 +407,9 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {filteredItems.map(item => (
+            {Array.from(new Map(filteredItems.map(item => [item.id, item])).values()).map(item => (
               <ProductCard 
-                key={item.id} 
+                key={item.id || `market-item-${Math.random()}`} 
                 item={item} 
                 onOpenChat={onOpenChat}
                 onViewDetails={() => setSelectedItem(item)}

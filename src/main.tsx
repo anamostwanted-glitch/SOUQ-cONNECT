@@ -40,8 +40,9 @@ window.addEventListener('unhandledrejection', (event) => {
     return;
   }
 
-  // Ignore dynamic import errors (handled by vite:preloadError)
-  if (errorMessage.includes('Failed to fetch dynamically imported module')) {
+  // Ignore dynamic import errors (handled by vite:preloadError or lazyWithRetry)
+  if (errorMessage.includes('Failed to fetch dynamically imported module') || errorMessage.includes('Importing a cell from a closed bucket')) {
+    console.warn('Suppressing dynamic import error in global handler (handled by retry logic)');
     event.preventDefault();
     return;
   }
@@ -56,13 +57,16 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 import { CoreProvider } from './core/providers/CoreProvider';
+import { HelmetProvider } from 'react-helmet-async';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <CoreProvider>
-        <App />
-      </CoreProvider>
+      <HelmetProvider>
+        <CoreProvider>
+          <App />
+        </CoreProvider>
+      </HelmetProvider>
     </ErrorBoundary>
   </StrictMode>,
 );

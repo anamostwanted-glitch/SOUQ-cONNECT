@@ -42,8 +42,8 @@ import { handleFirestoreError, OperationType } from '../../../core/utils/errorHa
 
 import { ProfileSettings } from './ProfileSettings';
 import { UserSettings } from './UserSettings';
-
 import { UserRequestCard } from './UserRequestCard';
+import { WalletHub } from './WalletHub';
 
 interface UserDashboardProps {
   profile: UserProfile;
@@ -470,9 +470,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {favoriteItems.map(item => (
+                {Array.from(new Map(favoriteItems.map(item => [item.id, item])).values()).map(item => (
                   <ProductCard 
-                    key={item.id} 
+                    key={item.id || `favorite-${Math.random()}`} 
                     item={item} 
                     onOpenChat={onOpenChat}
                     onViewDetails={() => setSelectedProduct(item)}
@@ -495,45 +495,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           </div>
         );
       case 'wallet':
-        return (
-          <div className="space-y-6">
-            <div className="bg-gradient-to-br from-brand-primary to-brand-teal p-6 rounded-3xl text-white shadow-xl shadow-brand-primary/20 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-              <div className="relative z-10">
-                <div className="flex justify-between items-start mb-8">
-                  <div>
-                    <p className="text-white/80 text-sm font-medium mb-1">{isRtl ? 'الرصيد المتاح' : 'Available Balance'}</p>
-                    <h2 className="text-4xl font-black tracking-tight">0.00 <span className="text-xl font-medium text-white/80">{isRtl ? 'ر.س' : 'SAR'}</span></h2>
-                  </div>
-                  <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
-                    <Wallet size={24} className="text-white" />
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <HapticButton className="flex-1 bg-white text-brand-primary py-3 rounded-xl font-bold shadow-sm hover:bg-white/90 transition-colors flex items-center justify-center gap-2">
-                    <Plus size={18} />
-                    {isRtl ? 'شحن الرصيد' : 'Top Up'}
-                  </HapticButton>
-                  <HapticButton className="flex-1 bg-white/20 backdrop-blur-sm text-white py-3 rounded-xl font-bold border border-white/30 hover:bg-white/30 transition-colors">
-                    {isRtl ? 'سحب' : 'Withdraw'}
-                  </HapticButton>
-                </div>
-              </div>
-            </div>
-            
-            <h3 className="text-lg font-bold text-brand-text-main mt-8 mb-4">{isRtl ? 'طرق الدفع' : 'Payment Methods'}</h3>
-            <div className={`${glassClass} rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:border-brand-primary transition-colors`}>
-              <div className="w-12 h-12 bg-brand-background rounded-xl flex items-center justify-center text-brand-text-muted">
-                <CreditCard size={24} />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-brand-text-main">{isRtl ? 'إضافة بطاقة جديدة' : 'Add New Card'}</h4>
-                <p className="text-xs text-brand-text-muted">{isRtl ? 'مدى، فيزا، ماستركارد' : 'Mada, Visa, Mastercard'}</p>
-              </div>
-              <ChevronRight size={20} className={`text-brand-text-muted ${isRtl ? 'rotate-180' : ''}`} />
-            </div>
-          </div>
-        );
+        return <WalletHub profile={profile} isRtl={isRtl} />;
       case 'addresses':
         return (
           <div className="space-y-4">

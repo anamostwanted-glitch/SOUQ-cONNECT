@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Home as HomeIcon, Bot, LayoutDashboard, ShoppingBag, MessageSquare, Bell, Sparkles, Store, Compass, LayoutGrid } from 'lucide-react';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { useTranslation } from 'react-i18next';
+import { UserRole } from '../../../../core/types';
 import { ScrollDirection } from '../../../../shared/hooks/useScrollDirection';
 
 interface BottomNavProps {
@@ -18,7 +19,7 @@ interface BottomNavProps {
   onToggleNotifications: () => void;
   showNotifications: boolean;
   onPrefetch?: (view: string) => void;
-  viewMode: 'customer' | 'supplier' | 'admin';
+  viewMode: UserRole;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
