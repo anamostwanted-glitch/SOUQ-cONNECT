@@ -335,6 +335,20 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["reporterId", "targetId", "targetType", "reason", "status", "createdAt"]
+    },
+    "Activity": {
+      "title": "Activity",
+      "description": "Log of user actions for transparency and engagement",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["message_sent", "request_created", "offer_received", "profile_updated", "login", "view_product"] },
+        "descriptionAr": { "type": "string" },
+        "descriptionEn": { "type": "string" },
+        "metadata": { "type": "object", "description": "Dynamic data like requestId or chatId" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "descriptionAr", "descriptionEn", "createdAt"]
     }
   },
   "firestore": {
@@ -357,6 +371,7 @@
     "/withdrawal_requests/{requestId}": { "schema": "WithdrawalRequest", "description": "User withdrawal requests" },
     "/campaigns/{campaignId}": { "schema": "Campaign", "description": "Marketing campaigns" },
     "/campaigns/{campaignId}/ads/{adId}": { "schema": "CampaignAd", "description": "Campaign ads" },
-    "/reports/{reportId}": { "schema": "Report", "description": "User reports" }
+    "/reports/{reportId}": { "schema": "Report", "description": "User reports" },
+    "/activities/{activityId}": { "schema": "Activity", "description": "User daily movement logs" }
   }
 }

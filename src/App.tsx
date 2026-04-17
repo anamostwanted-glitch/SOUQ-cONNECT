@@ -10,6 +10,9 @@ import { useAuth } from './core/providers/AuthProvider';
 import { useSettings } from './core/providers/SettingsProvider';
 import { useCategories } from './core/providers/CategoryProvider';
 import { PageLoader } from './shared/components/PageLoader';
+import { NotificationCenter } from './modules/common/components/NotificationCenter';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from './core/firebase';
 
 const Home = lazy(() => import('./modules/site/components/Home'));
 const Auth = lazy(() => import('./modules/site/components/Auth'));
@@ -37,6 +40,56 @@ export default function App() {
   const [uiStyle, setUiStyle] = useState<'classic' | 'minimal'>('classic');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+
+  // Global Notifications Listener for Badge Count
+  useEffect(() => {
+    if (!profile?.uid) return;
+    const q = query(
+      collection(db, 'notifications'),
+      where('userId', '==', profile.uid),
+      where('read', '==', false)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setUnreadNotificationsCount(snap.size);
+    });
+    return () => unsub();
+  }, [profile?.uid]);
+
+  // Deep Link Navigation Logic
+  const handleDeepNavigate = (link: string) => {
+    if (!link) return;
+    
+    // Support both full URLs and internal paths
+    const cleanLink = link.includes('://') ? new URL(link).pathname + new URL(link).search : link;
+    const [path, search] = cleanLink.split('?');
+    const params = new URLSearchParams(search);
+
+    if (path.includes('dashboard')) {
+      const tab = params.get('tab');
+      setView('dashboard');
+      if (tab) setDashboardTab(tab);
+    } else if (path.includes('chat')) {
+      const id = params.get('id') || params.get('chatId');
+      setView('chat');
+      if (id) setActiveChatId(id);
+    } else if (path.includes('marketplace')) {
+      const itemId = params.get('itemId');
+      setView('marketplace');
+      if (itemId) setInitialItemId(itemId);
+    } else if (path.includes('profile')) {
+      const uid = params.get('uid');
+      if (uid) {
+        setSelectedProfileId(uid);
+        setView('profile');
+      }
+    } else if (path.includes('smart_pulse')) {
+      setView('smart_pulse');
+    } else if (path.includes('connect')) {
+      setView('connect');
+    }
+  };
 
   // Persist last active chat
   useEffect(() => {
@@ -301,6 +354,13 @@ export default function App() {
   return (
     <div className="min-h-screen relative">
       <Toaster position="top-center" richColors />
+      
+      <NotificationCenter 
+        isOpen={isNotificationsOpen} 
+        onClose={() => setIsNotificationsOpen(false)}
+        onNavigate={handleDeepNavigate}
+      />
+
       <AnimatePresence mode="wait">
           <motion.div
             key="content"
@@ -322,6 +382,8 @@ export default function App() {
               setUiStyle={setUiStyle}
               onBack={onBack}
               isMomentOfNeed={isMomentOfNeed}
+              onOpenNotifications={() => setIsNotificationsOpen(true)}
+              notificationsUnreadCount={unreadNotificationsCount}
             >
               {renderView()}
             </Layout>

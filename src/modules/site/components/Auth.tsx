@@ -24,6 +24,7 @@ import { handleFirestoreError, OperationType } from '../../../core/utils/errorHa
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { SocialAuthButtons } from './SocialAuthButtons';
 import { toast } from 'sonner';
+import { logActivity } from '../../../core/utils/activityLogger';
 
 interface AuthProps {
   onAuthSuccess: (role: UserRole) => void;
@@ -158,6 +159,13 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
             body: JSON.stringify({ role: userData.role })
           });
+          
+          await logActivity(
+            'login',
+            'تم تسجيل الدخول إلى المنصة',
+            'Logged in to the platform'
+          );
+
           onAuthSuccess(userData.role);
         }
       } else {
@@ -239,6 +247,12 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
 
         toast.success(i18n.language === 'ar' ? 'تم التسجيل بنجاح!' : 'Registration successful!');
         
+        await logActivity(
+          'login',
+          `تم إنشاء حساب جديد كـ ${role === 'supplier' ? 'مزود خدمة' : 'عميل'}`,
+          `Created a new account as a ${role}`
+        );
+
         // Call success callback to redirect user
         onAuthSuccess(role);
       }

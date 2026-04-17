@@ -43,6 +43,8 @@ interface LayoutProps {
   chatUnreadCount?: number;
   progress?: number | null;
   isMomentOfNeed?: boolean;
+  onOpenNotifications?: () => void;
+  notificationsUnreadCount?: number;
 }
 
 import { useAuth } from '../../../../core/providers/AuthProvider';
@@ -62,7 +64,9 @@ export const Layout: React.FC<LayoutProps> = ({
   onPrefetch,
   chatUnreadCount = 0,
   progress = null,
-  isMomentOfNeed = false
+  isMomentOfNeed = false,
+  onOpenNotifications,
+  notificationsUnreadCount = 0
 }) => {
   const { t } = useTranslation();
   const { profile, viewMode, setViewMode } = useAuth();
@@ -80,7 +84,6 @@ export const Layout: React.FC<LayoutProps> = ({
   const [headerAnimationSpeed, setHeaderAnimationSpeed] = useState<'slow' | 'normal' | 'fast'>(settings?.headerAnimationSpeed ?? settings?.animationSpeed ?? 'normal');
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [locationName, setLocationName] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
@@ -202,7 +205,7 @@ export const Layout: React.FC<LayoutProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
-        setShowNotifications(false);
+        // No-op - notifications handled globally in App.tsx
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -219,7 +222,6 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const handleNotificationClick = async (n: Notification) => {
     await markAsRead(n.id);
-    setShowNotifications(false);
     if (n.imageUrl) {
       setSelectedNotification(n);
       return;
@@ -271,10 +273,8 @@ export const Layout: React.FC<LayoutProps> = ({
           toggleLanguage={toggleLanguage}
           isLoadingLocation={isLoadingLocation}
           locationName={locationName}
-          unreadCount={unreadCount}
+          unreadCount={notificationsUnreadCount}
           notifications={notifications}
-          showNotifications={showNotifications}
-          setShowNotifications={setShowNotifications}
           onNotificationClick={handleNotificationClick}
           onVisualSearch={() => {
             if (window.innerWidth < 768) {
@@ -285,6 +285,7 @@ export const Layout: React.FC<LayoutProps> = ({
           }}
           onMobileMenuOpen={() => setIsMobileMenuOpen(true)}
           onOpenHelpCenter={() => setShowHelpCenter(true)}
+          onOpenNotifications={onOpenNotifications}
           notifRef={notifRef}
           onBack={currentView !== 'home' ? onBack : undefined}
         />
@@ -349,7 +350,7 @@ export const Layout: React.FC<LayoutProps> = ({
         onOpenHelpCenter={() => setShowHelpCenter(true)}
       />
 
-      {currentView !== 'chat' && (uiStyle !== 'minimal' || currentView !== 'home') && !isAIHubOpen && !isVisualSearchOpen && (
+      {currentView !== 'chat' && !isAIHubOpen && !isVisualSearchOpen && (
         <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden">
           <BottomNav 
             currentView={currentView}
@@ -360,9 +361,11 @@ export const Layout: React.FC<LayoutProps> = ({
             unreadCount={chatUnreadCount}
             scrollDirection={scrollDirection}
             onVisualSearch={() => setIsAIHubOpen(true)}
-            onToggleNotifications={() => setShowNotifications(!showNotifications)}
-            showNotifications={showNotifications}
+            onToggleNotifications={onOpenNotifications || (() => {})}
+            onMobileMenuOpen={() => setIsMobileMenuOpen(true)}
+            showNotifications={false}
             onPrefetch={onPrefetch}
+            viewMode={viewMode}
           />
         </div>
       )}

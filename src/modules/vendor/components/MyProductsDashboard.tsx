@@ -234,7 +234,7 @@ export const MyProductsDashboard: React.FC = () => {
         <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8" : "space-y-4"}>
           {filteredItems.map((item, idx) => (
             <motion.div
-              key={item.id}
+              key={`${item.id}-${idx}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}

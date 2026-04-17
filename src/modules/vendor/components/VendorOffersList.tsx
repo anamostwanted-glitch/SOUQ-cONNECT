@@ -101,7 +101,7 @@ export const VendorOffersList: React.FC<VendorOffersListProps> = ({ profile, onO
     <div className="space-y-4">
       {offers.map((offer, index) => (
         <motion.div
-          key={offer.id}
+          key={`${offer.id}-${index}`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.05 }}

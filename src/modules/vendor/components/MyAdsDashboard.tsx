@@ -108,8 +108,8 @@ export const MyAdsDashboard: React.FC = () => {
 
       {/* Ads List */}
       <div className="space-y-4">
-        {ads.map(ad => (
-          <div key={ad.id} className="bg-brand-surface p-6 rounded-3xl border border-brand-border flex items-center justify-between">
+        {ads.map((ad, idx) => (
+          <div key={`${ad.id}-${idx}`} className="bg-brand-surface p-6 rounded-3xl border border-brand-border flex items-center justify-between">
             <div>
               <h3 className="font-bold text-brand-text-main">{ad.title}</h3>
               <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full ${ad.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>

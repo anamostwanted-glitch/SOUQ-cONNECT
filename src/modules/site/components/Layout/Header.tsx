@@ -33,12 +33,13 @@ interface HeaderProps {
   locationName: string | null;
   unreadCount: number;
   notifications: Notification[];
-  showNotifications: boolean;
-  setShowNotifications: (show: boolean) => void;
+  showNotifications?: boolean;
+  setShowNotifications?: (show: boolean) => void;
   onNotificationClick: (n: Notification) => void;
   onVisualSearch: () => void;
   onMobileMenuOpen: () => void;
   onOpenHelpCenter: () => void;
+  onOpenNotifications?: () => void;
   notifRef: React.RefObject<HTMLDivElement>;
   onBack?: () => void;
 }
@@ -71,6 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
   onVisualSearch,
   onMobileMenuOpen,
   onOpenHelpCenter,
+  onOpenNotifications,
   notifRef,
   onBack,
 }) => {
@@ -109,30 +111,38 @@ export const Header: React.FC<HeaderProps> = ({
           </HapticButton>
         )}
 
-        {/* Profile / Login */}
-        <div className="relative shrink-0">
-          {profile ? (
-            <HapticButton
-              onClick={() => setView('profile')}
-              className="w-10 h-10 rounded-full overflow-hidden border-2 border-white dark:border-gray-800 shadow-sm relative z-10 hover:ring-2 hover:ring-brand-primary/20 transition-all"
-              style={{ transform: `scale(${logoScale})` }}
-            >
-              <img src={getUserImageUrl(profile)} alt={profile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              {/* Online Status Pulse */}
-              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full z-20" />
-            </HapticButton>
-          ) : (
-            <HapticButton 
-              onClick={() => setView('role-selection')}
-              className="px-4 h-10 rounded-full bg-brand-primary text-white flex items-center gap-2 shadow-lg shadow-brand-primary/20 relative z-10 transition-all hover:scale-105 active:scale-95"
-              style={{ transform: `scale(${logoScale})` }}
-            >
-              <UserIcon size={16} />
-              <span className="text-xs font-bold whitespace-nowrap">
-                {isRtl ? 'دخول' : 'Login'}
-              </span>
-            </HapticButton>
-          )}
+        {/* Site Logo or Mobile Menu Trigger */}
+        <div className="flex items-center gap-2 px-1 md:px-2 relative z-10">
+          <HapticButton
+            onClick={onMobileMenuOpen}
+            className="md:hidden w-10 h-10 flex items-center justify-center rounded-full hover:bg-brand-surface text-brand-text-muted transition-all"
+            title={isRtl ? 'القائمة' : 'Menu'}
+          >
+            <Menu size={20} />
+          </HapticButton>
+          
+          <div className="hidden md:block">
+            {profile ? (
+              <HapticButton
+                onClick={() => setView('profile')}
+                className="w-10 h-10 rounded-full overflow-hidden border-2 border-white dark:border-gray-800 shadow-sm hover:ring-2 hover:ring-brand-primary/20 transition-all"
+                style={{ transform: `scale(${logoScale})` }}
+              >
+                <img src={getUserImageUrl(profile)} alt={profile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              </HapticButton>
+            ) : (
+              <HapticButton 
+                onClick={() => setView('role-selection')}
+                className="px-4 h-10 rounded-full bg-brand-primary text-white flex items-center gap-2 shadow-lg shadow-brand-primary/20 transition-all hover:scale-105 active:scale-95"
+                style={{ transform: `scale(${logoScale})` }}
+              >
+                <UserIcon size={16} />
+                <span className="text-xs font-bold whitespace-nowrap">
+                  {isRtl ? 'دخول' : 'Login'}
+                </span>
+              </HapticButton>
+            )}
+          </div>
         </div>
 
         {/* Smart AI Search / Context */}
@@ -174,17 +184,18 @@ export const Header: React.FC<HeaderProps> = ({
             <Globe size={18} />
           </HapticButton>
 
-          {/* Notifications */}
+          {/* Notifications Trigger */}
           {profile && (
-            <NotificationDropdown 
-              isOpen={showNotifications}
-              setIsOpen={setShowNotifications}
-              notifications={notifications}
-              unreadCount={unreadCount}
-              isRtl={isRtl}
-              onNotificationClick={onNotificationClick}
-              notifRef={notifRef}
-            />
+            <HapticButton 
+              onClick={onOpenNotifications || (() => setShowNotifications(true))}
+              className="w-10 h-10 flex items-center justify-center hover:bg-brand-surface rounded-full transition-all text-brand-text-muted hover:text-brand-primary relative"
+              title={isRtl ? 'الإشعارات' : 'Notifications'}
+            >
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <span className="absolute top-2 right-2 w-2 h-2 bg-brand-primary rounded-full border-2 border-white dark:border-slate-900 animate-pulse" />
+              )}
+            </HapticButton>
           )}
 
           {/* Bento Menu */}

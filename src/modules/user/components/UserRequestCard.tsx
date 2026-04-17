@@ -250,11 +250,11 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
             </div>
           </div>
           <div className="flex overflow-x-auto no-scrollbar gap-3 pb-1 -mx-2 px-2 snap-x">
-            {suppliers.map((supp) => {
+            {suppliers.map((supp, sIdx) => {
               const { matchScore, shortReasonAr, shortReasonEn } = getAIMatchDetails(supp, request);
               return (
                 <div 
-                  key={`request-${request.id}-supp-chip-${supp.uid}`}
+                  key={`req-${request.id}-supp-${supp.uid}-${sIdx}`}
                   onClick={() => onViewProfile(supp.uid)}
                   className="snap-start flex-shrink-0 flex items-center gap-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/40 rounded-2xl p-2 pr-4 cursor-pointer hover:bg-white hover:shadow-md transition-all min-w-[180px]"
                 >
@@ -343,11 +343,11 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
                   </div>
                   
                   <div className="space-y-3">
-                    {suppliers.map((supp) => {
+                    {suppliers.map((supp, sIdx) => {
                       const { matchScore, longReasonAr, longReasonEn } = getAIMatchDetails(supp, request);
 
                       return (
-                        <div key={`request-${request.id}-supp-analysis-${supp.uid}`} className="bg-brand-surface/50 border border-brand-border rounded-2xl p-4 hover:border-brand-primary/30 transition-colors">
+                        <div key={`req-${request.id}-analysis-${supp.uid}-${sIdx}`} className="bg-brand-surface/50 border border-brand-border rounded-2xl p-4 hover:border-brand-primary/30 transition-colors">
                           <div className="flex items-start justify-between gap-4 mb-3">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-xl overflow-hidden border border-brand-border shrink-0">

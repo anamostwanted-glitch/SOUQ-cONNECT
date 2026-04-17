@@ -528,7 +528,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
   return (
     <div className="min-h-screen bg-brand-background pb-32 font-sans">
       {/* Immersive Header (Neural Identity Studio Style) */}
-      <div className="relative h-72 md:h-96 w-full overflow-hidden">
+      <div className="relative h-60 md:h-96 w-full overflow-hidden">
         <motion.div 
           initial={{ scale: 1.1 }}
           animate={{ scale: 1 }}
@@ -547,54 +547,54 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
         
         {/* Neural Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-brand-background via-brand-background/40 to-transparent" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.2)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.1)_100%)]" />
         
         {/* Top Controls */}
-        <div className="absolute top-6 left-6 right-6 flex justify-between items-center z-20">
+        <div className="absolute top-4 md:top-6 left-4 md:left-6 right-4 md:right-6 flex justify-between items-center z-20">
           {onBack && (
             <HapticButton 
               onClick={onBack}
-              className="p-3 bg-black/30 backdrop-blur-xl border border-white/10 rounded-2xl text-white hover:bg-black/50 transition-all"
+              className="p-2.5 bg-black/30 backdrop-blur-xl border border-white/10 rounded-xl text-white hover:bg-black/50 transition-all"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={18} />
             </HapticButton>
           )}
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {(isOwner || isAdmin) && (
               <HapticButton 
                 onClick={() => setIsArchitectMode(!isArchitectMode)}
-                className={`px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-2xl ${
+                className={`px-4 md:px-6 py-2.5 md:py-3 rounded-[1.2rem] font-black text-[9px] md:text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-2xl ${
                   isArchitectMode 
                     ? 'bg-brand-primary text-white scale-105' 
                     : 'bg-black/30 backdrop-blur-xl border border-white/10 text-white hover:bg-black/50'
                 }`}
               >
-                <Zap size={14} className={isArchitectMode ? 'animate-pulse' : ''} />
-                {isArchitectMode ? (isRtl ? 'وضع المعماري نشط' : 'Architect Mode Active') : (isRtl ? 'وضع المعماري' : 'Architect Mode')}
+                <Zap size={12} className={isArchitectMode ? 'animate-pulse' : ''} />
+                {isArchitectMode ? (isRtl ? 'حفظ' : 'Save') : (isRtl ? 'تعديل' : 'Edit')}
               </HapticButton>
             )}
-            <HapticButton className="p-3 bg-black/30 backdrop-blur-xl border border-white/10 rounded-2xl text-white hover:bg-black/50 transition-all">
-              <Share2 size={20} />
+            <HapticButton className="p-2.5 bg-black/30 backdrop-blur-xl border border-white/10 rounded-xl text-white hover:bg-black/50 transition-all">
+              <Share2 size={18} />
             </HapticButton>
           </div>
         </div>
 
         {isArchitectMode && (
-          <label className="absolute bottom-8 right-8 p-4 bg-brand-primary text-white rounded-2xl cursor-pointer shadow-[0_8px_32px_rgba(var(--brand-primary-rgb),0.4)] hover:scale-110 transition-all z-20">
-            {isUploading === 'cover' ? <div className="animate-spin h-5 w-5 border-b-2 border-white rounded-full" /> : <Camera size={20} />}
+          <label className="absolute bottom-6 right-6 p-3 bg-brand-primary text-white rounded-xl cursor-pointer shadow-lg hover:scale-110 transition-all z-20">
+            {isUploading === 'cover' ? <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full" /> : <Camera size={18} />}
             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'cover')} />
           </label>
         )}
       </div>
 
       {/* Profile Identity Card (Floating Over Cover) */}
-      <div className="max-w-6xl mx-auto px-6 -mt-32 relative z-30">
-        <div className="bg-brand-surface/80 backdrop-blur-3xl rounded-[3.5rem] border border-brand-border shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-8 md:p-12 flex flex-col md:flex-row gap-10 items-center md:items-end">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-20 md:-mt-32 relative z-30">
+        <div className="bg-brand-surface/90 backdrop-blur-3xl rounded-[2.5rem] md:rounded-[3.5rem] border border-brand-border shadow-xl p-6 md:p-12 flex flex-col md:flex-row gap-6 md:gap-10 items-center md:items-end">
           {/* Logo Section */}
-          <div className="relative -mt-24 md:-mt-32 group">
-            <div className="relative w-40 h-40 md:w-52 md:h-52 rounded-[3.5rem] p-1.5 bg-gradient-to-tr from-brand-primary via-brand-warning to-brand-primary animate-gradient-xy shadow-2xl">
-              <div className="w-full h-full rounded-[3.2rem] bg-brand-surface overflow-hidden border-4 border-brand-surface relative">
+          <div className="relative -mt-20 md:-mt-32 group">
+            <div className="relative w-32 h-32 md:w-52 md:h-52 rounded-[2.5rem] md:rounded-[3.5rem] p-1 bg-gradient-to-tr from-brand-primary via-brand-warning to-brand-primary animate-gradient-xy shadow-xl">
+              <div className="w-full h-full rounded-[2.3rem] md:rounded-[3.2rem] bg-brand-surface overflow-hidden border-2 md:border-4 border-brand-surface relative">
                 {editData.logoUrl || profile.logoUrl ? (
                   <img 
                     src={editData.logoUrl || profile.logoUrl} 
@@ -602,162 +602,120 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full bg-brand-primary/5 flex items-center justify-center text-brand-primary text-5xl font-black">
+                  <div className="w-full h-full bg-brand-primary/5 flex items-center justify-center text-brand-primary text-3xl md:text-5xl font-black">
                     {editData.name?.charAt(0)?.toUpperCase() || '?'}
                   </div>
                 )}
                 
                 {isUploading === 'logo' && (
                   <div className="absolute inset-0 bg-brand-surface/80 backdrop-blur-sm flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-primary" />
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary" />
                   </div>
                 )}
                 
                 {isArchitectMode && (
                   <label className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity backdrop-blur-sm">
-                    <Camera size={40} />
+                    <Camera size={32} />
                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} />
                   </label>
                 )}
               </div>
             </div>
             {profile.isVerified && (
-              <div className="absolute -bottom-2 -right-2 bg-brand-primary text-white p-4 rounded-[1.5rem] shadow-2xl border-4 border-brand-surface">
-                <ShieldCheck size={28} />
+              <div className="absolute -bottom-1 -right-1 bg-brand-primary text-white p-2 md:p-3 rounded-xl md:rounded-[1.2rem] shadow-lg border-2 md:border-4 border-brand-surface">
+                <ShieldCheck size={18} className="md:w-6 md:h-6" />
               </div>
             )}
           </div>
 
           {/* Info Section */}
-          <div className="flex-1 text-center md:text-left rtl:md:text-right space-y-6">
-            <div className="space-y-3">
+          <div className="flex-1 text-center md:text-left rtl:md:text-right space-y-4">
+            <div className="space-y-2">
               {isArchitectMode ? (
                 <input 
                   type="text"
                   value={editData.name}
                   onChange={(e) => handleFieldChange('name', e.target.value)}
-                  className="text-4xl md:text-5xl font-black text-brand-text-main bg-brand-background/50 border border-brand-border rounded-[1.5rem] px-6 py-3 w-full outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all"
+                  className="text-2xl md:text-5xl font-black text-brand-text-main bg-brand-background/50 border border-brand-border rounded-2xl px-4 py-2 w-full outline-none"
                 />
               ) : (
-                <div className="flex flex-col md:flex-row items-center md:items-end gap-4">
-                  <h1 className="text-4xl md:text-6xl font-black text-brand-text-main tracking-tight leading-none">
+                <div className="flex flex-col md:flex-row items-center md:items-end gap-2 md:gap-4">
+                  <h1 className="text-2xl md:text-6xl font-black text-brand-text-main tracking-tight">
                     {editData.name}
                   </h1>
-                  <Badge className="bg-brand-primary/10 text-brand-primary border-none text-[10px] uppercase tracking-widest font-black py-2 px-4 rounded-full mb-1">
-                    {profile.role === 'supplier' ? (
-                      <>
-                        {profile.supplierType === 'merchant' && (isRtl ? 'متجر معتمد' : 'Verified Merchant')}
-                        {profile.supplierType === 'service_provider' && (isRtl ? 'مقدم خدمة معتمد' : 'Verified Service Provider')}
-                        {profile.supplierType === 'both' && (isRtl ? 'مورد متكامل' : 'Integrated Supplier')}
-                        {!profile.supplierType && (isRtl ? 'مورد معتمد' : 'Verified Supplier')}
-                      </>
-                    ) : (isRtl ? 'عضو' : 'Member')}
+                  <Badge className="bg-brand-primary/10 text-brand-primary border-none text-[8px] md:text-[10px] uppercase tracking-widest font-black py-1.5 md:py-2 px-3 md:px-4 rounded-full">
+                    {profile.role === 'supplier' ? (isRtl ? 'مورد معتمد' : 'Verified') : (isRtl ? 'عضو' : 'Member')}
                   </Badge>
                 </div>
               )}
               
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 text-brand-text-muted font-bold text-sm">
-                <div className="flex items-center gap-2 px-4 py-2 bg-brand-background/50 rounded-full border border-brand-border">
-                  <MapPin size={16} className="text-brand-primary" />
-                  {isArchitectMode ? (
-                    <input 
-                      type="text"
-                      value={editData.location}
-                      onChange={(e) => handleFieldChange('location', e.target.value)}
-                      className="bg-transparent border-none outline-none focus:ring-0 w-32"
-                    />
-                  ) : (
-                    <span>{editData.location || (isRtl ? 'المملكة العربية السعودية' : 'Saudi Arabia')}</span>
-                  )}
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-brand-text-muted font-bold text-xs">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-background/50 rounded-full border border-brand-border">
+                  <MapPin size={14} className="text-brand-primary" />
+                  <span>{editData.location || (isRtl ? 'المملكة العربية السعودية' : 'Saudi Arabia')}</span>
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-brand-background/50 rounded-full border border-brand-border">
-                  <Star size={16} className="text-brand-warning fill-brand-warning" />
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-background/50 rounded-full border border-brand-border">
+                  <Star size={14} className="text-brand-warning fill-brand-warning" />
                   <span className="text-brand-text-main">4.9</span>
-                  <span className="text-xs opacity-60">(120 {isRtl ? 'تقييم' : 'Reviews'})</span>
                 </div>
               </div>
             </div>
 
             {/* Bio Section */}
-            <div className="relative group max-w-3xl">
+            <div className="relative group max-w-2xl mx-auto md:mx-0">
               {isArchitectMode ? (
-                <div className="relative">
-                  <textarea 
-                    value={editData.bio}
-                    onChange={(e) => handleFieldChange('bio', e.target.value)}
-                    placeholder={isRtl ? 'اكتب نبذة عن متجرك...' : 'Write a bio about your store...'}
-                    className="w-full h-32 bg-brand-background/50 border border-brand-border rounded-[1.5rem] p-6 text-sm font-medium outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all resize-none"
-                  />
-                  <HapticButton 
-                    onClick={handleAiRefineBio}
-                    disabled={isAiAnalyzing}
-                    className="absolute bottom-4 right-4 p-3 bg-brand-primary text-white rounded-2xl shadow-xl hover:scale-110 transition-all disabled:opacity-50"
-                  >
-                    {isAiAnalyzing ? <div className="animate-spin h-5 w-5 border-b-2 border-white rounded-full" /> : <Sparkles size={20} />}
-                  </HapticButton>
-                </div>
+                <textarea 
+                  value={editData.bio}
+                  onChange={(e) => handleFieldChange('bio', e.target.value)}
+                  className="w-full h-24 bg-brand-background/50 border border-brand-border rounded-xl p-4 text-sm outline-none resize-none"
+                />
               ) : (
-                <p className="text-brand-text-muted text-lg leading-relaxed font-medium">
-                  {editData.bio || (isRtl ? 'لا يوجد وصف متاح لهذا المتجر حالياً.' : 'No description available for this store yet.')}
+                <p className="text-brand-text-muted text-sm md:text-lg leading-relaxed font-medium line-clamp-2 md:line-clamp-none">
+                  {editData.bio || (isRtl ? 'لا يوجد وصف متاح.' : 'No description available.')}
                 </p>
               )}
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col gap-4 shrink-0 w-full md:w-auto pb-2">
+          <div className="flex flex-row md:flex-col gap-3 shrink-0 w-full md:w-56 pb-2">
             {!isArchitectMode && (
               <>
-                {!isOwner && (
-                  <HapticButton 
-                    onClick={handleFollow}
-                    className={`w-full md:w-56 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest transition-all shadow-2xl flex items-center justify-center gap-3 ${
-                      isFollowing 
-                        ? 'bg-brand-surface text-brand-text-main border border-brand-border' 
-                        : 'bg-brand-primary text-white shadow-brand-primary/30'
-                    }`}
-                  >
-                    {isFollowing ? <UserMinus size={20} /> : <UserPlus size={20} />}
-                    {isFollowing ? (isRtl ? 'إلغاء المتابعة' : 'Unfollow') : (isRtl ? 'متابعة' : 'Follow')}
-                  </HapticButton>
-                )}
-                <div className="flex gap-3">
-                  <HapticButton className="flex-1 py-5 bg-brand-surface text-brand-text-main border border-brand-border rounded-[1.5rem] font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-brand-background transition-colors">
-                    <MessageCircle size={20} />
-                    {isRtl ? 'مراسلة' : 'Message'}
-                  </HapticButton>
-                  <HapticButton className="p-5 bg-brand-surface text-brand-text-main border border-brand-border rounded-[1.5rem] hover:bg-brand-background transition-colors">
-                    <MoreHorizontal size={24} />
-                  </HapticButton>
-                </div>
+                <HapticButton 
+                  onClick={handleFollow}
+                  className={`flex-1 py-4 md:py-5 rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                    isFollowing 
+                      ? 'bg-brand-surface text-brand-text-main border border-brand-border' 
+                      : 'bg-brand-primary text-white'
+                  }`}
+                >
+                  {isFollowing ? <UserMinus size={18} /> : <UserPlus size={18} />}
+                  {isFollowing ? (isRtl ? 'إلغاء' : 'Unfollow') : (isRtl ? 'متابعة' : 'Follow')}
+                </HapticButton>
+                <HapticButton 
+                  onClick={() => onOpenChat(profile.uid)}
+                  className="p-4 md:py-5 md:px-6 bg-brand-surface text-brand-text-main border border-brand-border rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-brand-background transition-colors"
+                >
+                  <MessageCircle size={18} />
+                  <span className="hidden md:inline">{isRtl ? 'مراسلة' : 'Message'}</span>
+                </HapticButton>
               </>
             )}
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+        {/* Compressed Stats Row (Better for Mobile) */}
+        <div className="grid grid-cols-4 gap-2 md:gap-4 mt-6 md:mt-8">
           {[
-            { id: 'followers', label: isRtl ? 'متابع' : 'Followers', value: profile.followersCount || 0, icon: UserPlus, color: 'text-brand-primary' },
-            { id: 'products', label: isRtl ? 'منتج' : 'Products', value: products.length, icon: Package, color: 'text-brand-teal' },
-            { id: 'views', label: isRtl ? 'مشاهدة' : 'Total Views', value: products.reduce((acc, p) => acc + (p.views || 0), 0), icon: TrendingUp, color: 'text-brand-warning' },
-            { id: 'trust', label: isRtl ? 'ثقة' : 'Trust Score', value: `${profile.trustScore || 85}%`, icon: Award, color: 'text-brand-primary' }
-          ].map((stat, idx) => (
-            <motion.div 
-              key={`profile-stat-${stat.id}`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 * idx }}
-              className="bg-brand-surface p-6 rounded-[2rem] border border-brand-border flex items-center gap-4 group hover:border-brand-primary/30 transition-all"
-            >
-              <div className={`w-12 h-12 rounded-2xl bg-brand-background flex items-center justify-center ${stat.color} shadow-inner group-hover:scale-110 transition-transform`}>
-                <stat.icon size={20} />
-              </div>
-              <div>
-                <div className="text-xl font-black text-brand-text-main">{stat.value}</div>
-                <div className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">{stat.label}</div>
-              </div>
-            </motion.div>
+            { id: 'followers', label: isRtl ? 'متابع' : 'Followers', value: profile.followersCount || 0, color: 'text-brand-primary' },
+            { id: 'products', label: isRtl ? 'منتج' : 'Products', value: products.length, color: 'text-brand-teal' },
+            { id: 'trust', label: isRtl ? 'ثقة' : 'Trust', value: `${profile.trustScore || 85}%`, color: 'text-brand-primary' },
+            { id: 'deals', label: isRtl ? 'صفقة' : 'Deals', value: '40+', color: 'text-brand-warning' }
+          ].map((stat) => (
+            <div key={`profile-stat-mini-${stat.id}`} className="bg-brand-surface p-3 md:p-6 rounded-2xl md:rounded-[2rem] border border-brand-border flex flex-col items-center justify-center text-center">
+              <div className={`text-sm md:text-xl font-black text-brand-text-main ${stat.color}`}>{stat.value}</div>
+              <div className="text-[7px] md:text-[10px] font-bold text-brand-text-muted uppercase tracking-wider">{stat.label}</div>
+            </div>
           ))}
         </div>
 
