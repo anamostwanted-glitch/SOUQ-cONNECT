@@ -114,12 +114,17 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const viewParam = params.get('view');
+    const uidParam = params.get('uid');
     const itemIdParam = params.get('itemId');
     const tabParam = params.get('tab');
     const actionParam = params.get('action');
 
     if (viewParam) {
       setView(viewParam);
+    }
+
+    if (uidParam) {
+      setSelectedProfileId(uidParam);
     }
     
     if (itemIdParam) {
@@ -314,7 +319,10 @@ export default function App() {
           </Suspense>
         );
       case 'profile':
-        if (selectedProfileId === profile?.uid || (!selectedProfileId && profile)) {
+        // Core Team: Allow owners to view their own profile if explicitly targeted via UID/Deep Link
+        // Otherwise, default to dashboard for own profile to allow editing
+        const isDeepLink = new URLSearchParams(window.location.search).has('uid');
+        if ((selectedProfileId === profile?.uid && !isDeepLink) || (!selectedProfileId && profile)) {
           setView('dashboard');
           return null;
         }
@@ -325,6 +333,7 @@ export default function App() {
               profile={selectedProfileId ? null : profile} 
               currentUserProfile={profile}
               features={features} 
+              onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
               onBack={() => {
                 setSelectedProfileId(null);
                 setView('home');

@@ -14,7 +14,7 @@ export const CustomerProfileLayout = (props: any) => {
         isAdmin={isAdmin}
         onBack={onBack}
         onViewProduct={onViewProduct}
-        onOpenChat={(id) => console.log('Open chat with', id)}
+        onOpenChat={props.onOpenChat}
         {...editProps}
       />
     </TooltipProvider>
@@ -32,7 +32,7 @@ export const SupplierProfileLayout = (props: any) => {
         isAdmin={isAdmin}
         onBack={onBack}
         onViewProduct={onViewProduct}
-        onOpenChat={(id) => console.log('Open chat with', id)}
+        onOpenChat={props.onOpenChat}
         {...editProps}
       />
     </TooltipProvider>
@@ -50,7 +50,7 @@ export const AdminProfileLayout = (props: any) => {
         isAdmin={isAdmin}
         onBack={onBack}
         onViewProduct={onViewProduct}
-        onOpenChat={(id) => console.log('Open chat with', id)}
+        onOpenChat={props.onOpenChat}
         {...editProps}
       />
     </TooltipProvider>

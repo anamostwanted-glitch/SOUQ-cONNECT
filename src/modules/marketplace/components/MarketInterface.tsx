@@ -687,8 +687,21 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           <ProductDetailsModal
             item={selectedItem}
             onClose={() => setSelectedItem(null)}
-            onContactSeller={() => {}}
+            onContactSeller={(item) => {
+              setSelectedItem(null);
+              onOpenChat(item.sellerId);
+            }}
             onViewProfile={onViewProfile}
+            onNext={() => {
+              const currentIndex = filteredItems.findIndex(i => i.id === selectedItem.id);
+              const nextIndex = (currentIndex + 1) % filteredItems.length;
+              setSelectedItem(filteredItems[nextIndex]);
+            }}
+            onPrev={() => {
+              const currentIndex = filteredItems.findIndex(i => i.id === selectedItem.id);
+              const prevIndex = (currentIndex - 1 + filteredItems.length) % filteredItems.length;
+              setSelectedItem(filteredItems[prevIndex]);
+            }}
           />
         )}
       </AnimatePresence>

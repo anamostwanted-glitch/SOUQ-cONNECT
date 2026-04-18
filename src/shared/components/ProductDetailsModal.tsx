@@ -52,13 +52,17 @@ interface ProductDetailsModalProps {
   onClose: () => void;
   onContactSeller: (item: MarketplaceItem) => void;
   onViewProfile: (uid: string) => void;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
 export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   item,
   onClose,
   onContactSeller,
-  onViewProfile
+  onViewProfile,
+  onNext,
+  onPrev
 }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language.startsWith('ar');
@@ -135,6 +139,35 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
     };
     fetchSellerStats();
   }, [item]);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Priority 1: Close
+      if (e.key === 'Escape') onClose();
+
+      // Priority 2: Product Navigation (Vertical logic to avoid gallery conflict)
+      if (e.key === 'ArrowDown') onNext?.();
+      if (e.key === 'ArrowUp') onPrev?.();
+
+      // Priority 3: Image Gallery Navigation (Horizontal logic)
+      if (e.key === 'ArrowRight') {
+        if (isRtl) {
+          setCurrentImageIndex(prev => (prev - 1 + item.images.length) % item.images.length);
+        } else {
+          setCurrentImageIndex(prev => (prev + 1) % item.images.length);
+        }
+      }
+      if (e.key === 'ArrowLeft') {
+        if (isRtl) {
+          setCurrentImageIndex(prev => (prev + 1) % item.images.length);
+        } else {
+          setCurrentImageIndex(prev => (prev - 1 + item.images.length) % item.images.length);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, onNext, onPrev, isRtl, item.images.length]);
 
   const handleFollowSeller = async () => {
     if (!auth.currentUser || !item || isFollowLoading) return;
@@ -248,20 +281,19 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="bg-white w-full sm:w-full max-w-5xl h-[90vh] sm:h-auto sm:max-h-[90vh] rounded-t-[32px] sm:rounded-[32px] overflow-hidden flex flex-col md:flex-row shadow-2xl relative"
+          className="bg-white w-full sm:w-full max-w-5xl h-[90vh] sm:h-auto sm:max-h-[90vh] rounded-t-[32px] sm:rounded-[32px] overflow-hidden flex flex-col md:flex-row shadow-2xl relative group/modal"
         >
-          {/* Mobile Handle */}
-          <div className="absolute top-0 left-0 w-full h-8 flex items-center justify-center sm:hidden z-20">
-            <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
-          </div>
-
-          {/* Close Button (Mobile) */}
+          {/* Core Team: Fixed High-Impact Close Button (Universal) */}
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 z-30 p-2 bg-black/20 backdrop-blur-md hover:bg-black/40 rounded-full text-white transition-all md:hidden"
+            className="absolute top-6 right-6 z-[110] p-3 bg-white/10 backdrop-blur-2xl hover:bg-white/30 border border-white/20 rounded-full text-white transition-all shadow-2xl group/close"
+            title={isRtl ? 'إغلاق' : 'Close'}
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6 group-hover/close:rotate-90 transition-transform duration-300" />
           </button>
+
+          {/* Mobile Swipe Navigation Indicator */}
+          <div className="absolute top-0 left-0 w-full h-1 z-[110] bg-brand-primary/20 sm:hidden" />
 
           {/* Image Section */}
           <div className="w-full md:w-3/5 bg-slate-100 relative group aspect-[4/5] md:aspect-auto">
@@ -332,9 +364,32 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           {/* Content Section */}
           <div className="w-full md:w-2/5 p-6 sm:p-10 overflow-y-auto flex flex-col flex-1 min-h-0">
             <div className="flex items-center justify-between mb-6">
-              <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-xs font-bold uppercase tracking-widest">
-                {item.categories && item.categories.length > 0 ? item.categories[0] : ''}
-              </span>
+              <div className="flex items-center gap-4">
+                <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-xs font-bold uppercase tracking-widest">
+                  {item.categories && item.categories.length > 0 ? item.categories[0] : ''}
+                </span>
+
+                {/* Core Team: Product-to-Product Navigation (High-End Interface) */}
+                <div className="hidden md:flex items-center bg-slate-100 rounded-xl p-1 gap-1 border border-slate-200">
+                  <button 
+                    onClick={onPrev}
+                    className="p-1.5 hover:bg-white hover:text-brand-primary rounded-lg transition-all text-slate-400 disabled:opacity-30"
+                    disabled={!onPrev}
+                    title={isRtl ? 'المنتج السابق' : 'Previous Product'}
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <div className="w-[1px] h-4 bg-slate-200" />
+                  <button 
+                    onClick={onNext}
+                    className="p-1.5 hover:bg-white hover:text-brand-primary rounded-lg transition-all text-slate-400 disabled:opacity-30"
+                    disabled={!onNext}
+                    title={isRtl ? 'المنتج التالي' : 'Next Product'}
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
               <div className="flex gap-2">
                 <button 
                   onClick={handleShare}
@@ -365,9 +420,6 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                   </button>
                 </>
               )}
-                <button onClick={onClose} className="hidden sm:block p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
-                  <X className="w-6 h-6" />
-                </button>
               </div>
             </div>
 

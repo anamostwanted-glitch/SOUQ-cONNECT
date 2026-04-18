@@ -51,6 +51,7 @@ interface ProfileViewProps {
   profile?: UserProfile | null;
   currentUserProfile?: UserProfile | null;
   features: AppFeatures;
+  onOpenChat: (id: string) => void;
   onBack?: () => void;
 }
 
@@ -58,7 +59,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   userId, 
   profile: initialProfile, 
   currentUserProfile,
-  features, 
+  features,
+  onOpenChat,
   onBack 
 }) => {
   const { t, i18n } = useTranslation();
@@ -758,6 +760,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     isChangingEmail, setIsChangingEmail, newEmail, setNewEmail,
     emailChangeStatus, emailChangeMessage, handleEmailChange,
     onViewProduct: setSelectedItem,
+    onOpenChat,
     isAdmin
   };
 
@@ -772,8 +775,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <ProductDetailsModal
             item={selectedItem}
             onClose={() => setSelectedItem(null)}
-            onContactSeller={() => {
+            onContactSeller={(item) => {
               setSelectedItem(null);
+              onOpenChat(item.sellerId);
             }}
             onViewProfile={(uid) => {
               if (uid === userId) {
@@ -781,6 +785,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               } else {
                 // Navigate to another profile if needed
               }
+            }}
+            onNext={() => {
+              if (!selectedItem) return;
+              const currentIndex = supplierProducts.findIndex(i => i.id === selectedItem.id);
+              const nextIndex = (currentIndex + 1) % supplierProducts.length;
+              setSelectedItem(supplierProducts[nextIndex]);
+            }}
+            onPrev={() => {
+              if (!selectedItem) return;
+              const currentIndex = supplierProducts.findIndex(i => i.id === selectedItem.id);
+              const prevIndex = (currentIndex - 1 + supplierProducts.length) % supplierProducts.length;
+              setSelectedItem(supplierProducts[prevIndex]);
             }}
           />
         )}

@@ -549,8 +549,8 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
     const shareData = {
       title: isRtl ? `متجر ${profile.companyName || profile.name} الرسمي` : `${profile.companyName || profile.name}'s Official Store`,
       text: isRtl 
-        ? `مرحباً بك في متجر ${profile.companyName || profile.name} الرسمي على منصة كونكت 🌐. \n\nاكتشف مجموعتنا الحصرية من المنتجات والخدمات المميزة، واطلب مباشرة من الرابط التالي. \n\nيسعدنا خدمتكم دائماً!` 
-        : `Welcome to ${profile.companyName || profile.name}'s official store on Connect 🌐. \n\nDiscover our exclusive range of premium products and services, and order directly from the link below. \n\nWe are always happy to serve you!`,
+        ? `مرحباً بك في متجر ${profile.companyName || profile.name} الرسمي على منصة كونكت 🌐. \n\nاكتشف مجموعتنا الحصرية من المنتجات والخدمات المميزة، واطلب مباشرة من الرابط التالي: \n${url} \n\nيسعدنا خدمتكم دائماً!` 
+        : `Welcome to ${profile.companyName || profile.name}'s official store on Connect 🌐. \n\nDiscover our exclusive range of premium products and services, and order directly from the link below: \n${url} \n\nWe are always happy to serve you!`,
       url: url,
     };
 
