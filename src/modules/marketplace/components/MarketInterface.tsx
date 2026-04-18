@@ -57,7 +57,8 @@ import {
   Menu,
   Mic,
   Database,
-  Wallet
+  Wallet,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType, handleAiError } from '../../../core/utils/errorHandling';
@@ -129,6 +130,8 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     }
   };
 
+  const [searchTerm, setSearchTerm] = useState('');
+
   // Basic state for now
   // handleGlobalSearch will use the moved state
 
@@ -157,7 +160,39 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const [selectedSectorId, setSelectedSectorId] = useState<string | undefined>();
   const [selectedNicheId, setSelectedNicheId] = useState<string | undefined>();
 
+  // Core Team: AI Search Refinement State
+  const [searchRefinements, setSearchRefinements] = useState<string[]>([]);
+  const [isSearchingAI, setIsSearchingAI] = useState(false);
+
   const isSearchHidden = scrollDirection === ScrollDirection.DOWN && windowWidth < 768;
+
+  // AI-Driven Search Refinement
+  useEffect(() => {
+    if (searchTerm.length > 2) {
+      const timer = setTimeout(async () => {
+        setIsSearchingAI(true);
+        try {
+          const { suggestCategoriesFromQuery } = await import('../../../core/services/geminiService');
+          const suggestedIds = await suggestCategoriesFromQuery(searchTerm, categories, i18n.language);
+          const suggestedNames = suggestedIds
+            .map(id => {
+              const cat = categories.find(c => c.id === id);
+              return cat ? (isRtl ? cat.nameAr : cat.nameEn) : null;
+            })
+            .filter(Boolean) as string[];
+          
+          setSearchRefinements(suggestedNames);
+        } catch (error) {
+          console.error('Search refinement failed:', error);
+        } finally {
+          setIsSearchingAI(false);
+        }
+      }, 600);
+      return () => clearTimeout(timer);
+    } else {
+      setSearchRefinements([]);
+    }
+  }, [searchTerm, categories, isRtl, i18n.language]);
 
   useEffect(() => {
     if (initialItemId) {
@@ -216,7 +251,6 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   }, [categories, activeCategoryIds]);
 
   // Adaptive Grid Calculation - Moved down below filteredItems
-  const [searchTerm, setSearchTerm] = useState('');
   const [visualSearchResults, setVisualSearchResults] = useState<MarketplaceItem[] | null>(null);
 
   const filteredItems = (visualSearchResults 
@@ -345,6 +379,40 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                   </HapticButton>
                 </div>
               </div>
+
+              {/* AI Search Refinements Tray */}
+              <AnimatePresence>
+                {searchRefinements.length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-brand-border rounded-2xl shadow-2xl p-4 z-50 overflow-hidden"
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <Sparkles size={14} className="text-brand-primary animate-pulse" />
+                      <span className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em]">
+                        {isRtl ? 'مقترحات ذكية' : 'AI Refinements'}
+                      </span>
+                      {isSearchingAI && <Loader2 size={12} className="animate-spin text-brand-primary ml-auto" />}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {searchRefinements.map((refinement, idx) => (
+                        <button
+                          key={`${refinement}-${idx}`}
+                          onClick={() => {
+                            setSearchTerm(refinement);
+                            setSearchRefinements([]);
+                          }}
+                          className="px-3 py-1.5 bg-brand-primary/5 hover:bg-brand-primary/10 text-brand-primary text-xs font-bold rounded-lg transition-all border border-brand-primary/10"
+                        >
+                          {refinement}
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -596,7 +664,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                   <div key={hub.id} className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-black text-brand-text-main flex items-center gap-2">
-                         <span className="w-1.5 h-6 bg-brand-primary rounded-full" />
+                         <span className="w-1.5 h-6 bg-brand-primary" />
                          {isRtl ? hub.nameAr : hub.nameEn}
                       </h3>
                       <button 
@@ -610,7 +678,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                       className="grid"
                       style={{ 
                         gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
-                        gap: `${settings?.gridSettings?.gap || 16}px`
+                        gap: typeof window !== 'undefined' && window.innerWidth < 768 ? '2px' : `${settings?.gridSettings?.gap || 16}px`
                       }}
                     >
                       {hubItems.map((item, idx) => (
@@ -636,7 +704,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                 className="grid"
                 style={{ 
                   gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
-                  gap: `${settings?.gridSettings?.gap || 16}px`
+                  gap: typeof window !== 'undefined' && window.innerWidth < 768 ? '2px' : `${settings?.gridSettings?.gap || 16}px`
                 }}
               >
                 {Array.from(new Map(filteredItems.map(item => [item.id, item])).values()).map((item, idx) => (
@@ -656,8 +724,8 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
             )}
             
             {filteredItems.length === 0 && (
-              <div className="py-20 text-center bg-brand-surface border border-dashed border-brand-border rounded-[2.5rem]">
-                <div className="w-16 h-16 bg-brand-background rounded-2xl flex items-center justify-center mx-auto mb-4 text-brand-text-muted">
+              <div className="py-20 text-center bg-brand-surface border border-dashed border-brand-border">
+                <div className="w-16 h-16 bg-brand-background flex items-center justify-center mx-auto mb-4 text-brand-text-muted">
                   <Package size={32} />
                 </div>
                 <h3 className="text-xl font-black text-brand-text-main">

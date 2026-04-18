@@ -457,7 +457,7 @@ const BrandingSettings: React.FC<BrandingSettingsProps> = ({ onBack }) => {
                   { p: '#7c3aed', s: '#2e1065' }, // Violet
                 ].map((preset, idx) => (
                   <button
-                    key={idx}
+                    key={`preset-${preset.p}-${idx}`}
                     onClick={() => setBranding({...branding, primaryColor: preset.p, secondaryColor: preset.s})}
                     className="w-8 h-8 rounded-full border-2 border-white shadow-sm hover:scale-110 transition-transform"
                     style={{ background: `linear-gradient(135deg, ${preset.p} 50%, ${preset.s} 50%)` }}

@@ -38,7 +38,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
   const { compressImage } = useSmartCompression();
 
   const [images, setImages] = useState<ImageFile[]>(item?.images.map((url, i) => ({ 
-    id: i.toString(), 
+    id: `img-existing-${i}-${Date.now()}`, 
     previewUrl: url, 
     status: 'success',
     file: new File([], 'existing-image'),
@@ -1174,7 +1174,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                   <motion.span 
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    key={idx} 
+                    key={`${feature}-${idx}`} 
                     className="px-3 py-1.5 bg-brand-primary/10 text-brand-primary rounded-xl text-xs font-bold flex items-center gap-2 border border-brand-primary/20"
                   >
                     {feature}

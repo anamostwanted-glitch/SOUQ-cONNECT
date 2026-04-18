@@ -299,15 +299,40 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           <div className="w-full md:w-3/5 bg-slate-100 relative group aspect-[4/5] md:aspect-auto">
             <div className="w-full h-full relative overflow-hidden md:absolute md:inset-0">
               <AnimatePresence mode="wait">
-                <motion.img 
+                <motion.div
                   key={currentImageIndex}
-                  src={item.images[currentImageIndex]} 
-                  alt={displayTitle}
-                  initial={{ opacity: 0, scale: 1.1 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="w-full h-full object-cover"
-                />
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  onDragEnd={(_, info) => {
+                    const swipeThreshold = 50;
+                    if (info.offset.x > swipeThreshold) {
+                      // Swipe Right -> Previous (considering isRtl)
+                      if (isRtl) {
+                        setCurrentImageIndex(prev => (prev + 1) % item.images.length);
+                      } else {
+                        setCurrentImageIndex(prev => (prev - 1 + item.images.length) % item.images.length);
+                      }
+                    } else if (info.offset.x < -swipeThreshold) {
+                      // Swipe Left -> Next
+                      if (isRtl) {
+                        setCurrentImageIndex(prev => (prev - 1 + item.images.length) % item.images.length);
+                      } else {
+                        setCurrentImageIndex(prev => (prev + 1) % item.images.length);
+                      }
+                    }
+                  }}
+                  className="w-full h-full cursor-grab active:cursor-grabbing"
+                >
+                  <motion.img 
+                    src={item.images[currentImageIndex]} 
+                    alt={displayTitle}
+                    initial={{ opacity: 0, scale: 1.1 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="w-full h-full object-cover pointer-events-none"
+                    referrerPolicy="no-referrer"
+                  />
+                </motion.div>
               </AnimatePresence>
             </div>
 
@@ -362,7 +387,9 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           </div>
 
           {/* Content Section */}
-          <div className="w-full md:w-2/5 p-6 sm:p-10 overflow-y-auto flex flex-col flex-1 min-h-0">
+          <div className="w-full md:w-2/5 p-6 sm:p-10 overflow-y-auto flex flex-col flex-1 min-h-0 bg-white dark:bg-slate-900 scroll-smooth pb-32 sm:pb-10">
+            {/* Desktop-only Product Nav (already exists at top of content in hidden-md) */}
+            
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-4">
                 <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-xs font-bold uppercase tracking-widest">
@@ -594,9 +621,9 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
               </div>
             </div>
 
-            {/* Actions */}
+            {/* Actions (Desktop Only - Mobile is handled by fixed dock) */}
             {auth.currentUser && item.sellerId !== auth.currentUser.uid && (
-              <div className="mt-auto pt-6 border-t border-slate-100 flex flex-col gap-3">
+              <div className="hidden md:flex mt-auto pt-6 border-t border-slate-100 flex-col gap-3">
                 <div className="flex gap-3">
                   <HapticButton 
                     onClick={() => onContactSeller(item)}
@@ -621,6 +648,51 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                   productId={item.id}
                   variant="full"
                 />
+              </div>
+            )}
+          </div>
+
+          {/* Unified Mobile Action & Nav Dock (Fixed Bottom) */}
+          <div className="fixed bottom-0 left-0 right-0 z-[130] bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-slate-200 dark:border-slate-700 p-4 md:hidden flex flex-col gap-3 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]" dir={isRtl ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between gap-4">
+              <HapticButton 
+                onClick={onPrev}
+                disabled={!onPrev}
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-white dark:bg-slate-900 rounded-xl text-brand-text-main font-black text-[10px] uppercase tracking-widest border border-slate-200 dark:border-slate-700 disabled:opacity-30"
+              >
+                {isRtl ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                {isRtl ? 'السابق' : 'Prev'}
+              </HapticButton>
+              <div className="px-2 text-[9px] font-black text-brand-primary uppercase tracking-[0.2em] animate-pulse">
+                {isRtl ? 'تصفح سريع' : 'Quick Nav'}
+              </div>
+              <HapticButton 
+                onClick={onNext}
+                disabled={!onNext}
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-white dark:bg-slate-900 rounded-xl text-brand-text-main font-black text-[10px] uppercase tracking-widest border border-slate-200 dark:border-slate-700 disabled:opacity-30"
+              >
+                {isRtl ? 'التالي' : 'Next'}
+                {isRtl ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+              </HapticButton>
+            </div>
+
+            {auth.currentUser && item.sellerId !== auth.currentUser.uid && (
+              <div className="flex gap-2">
+                <HapticButton 
+                  onClick={() => onContactSeller(item)}
+                  className="flex-1 flex items-center justify-center gap-2 bg-brand-primary text-white py-3 rounded-xl font-bold text-xs shadow-lg shadow-brand-primary/20"
+                >
+                  <MessageSquare size={16} />
+                  {t('contact_seller', 'Contact')}
+                </HapticButton>
+                {item.sellerPhone && (
+                  <WhatsAppButton 
+                    phoneNumber={item.sellerPhone}
+                    productName={displayTitle || ''}
+                    productId={item.id}
+                    variant="icon"
+                  />
+                )}
               </div>
             )}
           </div>

@@ -26,10 +26,11 @@ const DEFAULT_BRANDING: BrandingPreferences = {
 export const UserBrandingSettings: React.FC<UserBrandingSettingsProps> = ({ profile }) => {
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
-  const { branding: globalBranding, updateBranding } = useBranding();
-  const [branding, setBranding] = useState<BrandingPreferences>(profile.branding || globalBranding || DEFAULT_BRANDING);
+  const { branding: currentBranding, siteBranding, updateBranding } = useBranding();
+  const [branding, setBranding] = useState<BrandingPreferences>(profile.branding || currentBranding || DEFAULT_BRANDING);
   const [saving, setSaving] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [showConfirmReset, setShowConfirmReset] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
@@ -71,9 +72,23 @@ export const UserBrandingSettings: React.FC<UserBrandingSettingsProps> = ({ prof
     }
   };
 
+  const handleReset = () => {
+    if (!showConfirmReset) {
+      setShowConfirmReset(true);
+      // Automatically cancel confirmation after 3 seconds if not clicked
+      setTimeout(() => setShowConfirmReset(false), 3000);
+      return;
+    }
+    
+    // Reset to global site branding if available, otherwise fallback to hardcoded defaults
+    setBranding(siteBranding || DEFAULT_BRANDING);
+    setShowConfirmReset(false);
+    toast.info(isRtl ? 'تمت العودة للقيم الافتراضية. لا تنس الحفظ.' : 'Reset to default values. Don\'t forget to save.');
+  };
+
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
             <Palette size={24} />
@@ -83,14 +98,29 @@ export const UserBrandingSettings: React.FC<UserBrandingSettingsProps> = ({ prof
             <p className="text-xs font-bold text-brand-text-muted uppercase tracking-widest">{isRtl ? 'خصص مظهر حسابك' : 'Customize your account look'}</p>
           </div>
         </div>
-        <HapticButton
-          onClick={handleAiSuggest}
-          disabled={isAiLoading}
-          className="flex items-center gap-2 bg-brand-surface border border-brand-border text-brand-text-main px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/5 hover:text-brand-primary transition-all"
-        >
-          {isAiLoading ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
-          {isRtl ? 'اقتراح ذكي' : 'AI Suggest'}
-        </HapticButton>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <HapticButton
+            onClick={handleReset}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              showConfirmReset 
+                ? 'bg-brand-error text-white border-brand-error animate-pulse' 
+                : 'bg-brand-surface border border-brand-border text-brand-text-muted hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <RotateCcw size={14} className={showConfirmReset ? 'animate-spin' : ''} />
+            {showConfirmReset 
+              ? (isRtl ? 'تأكيد الإرجاع؟' : 'Confirm Reset?') 
+              : (isRtl ? 'الوضع الافتراضي' : 'Default Mode')}
+          </HapticButton>
+          <HapticButton
+            onClick={handleAiSuggest}
+            disabled={isAiLoading}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-brand-surface border border-brand-border text-brand-text-main px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary/5 hover:text-brand-primary transition-all"
+          >
+            {isAiLoading ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
+            {isRtl ? 'اقتراح ذكي' : 'AI Suggest'}
+          </HapticButton>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

@@ -5,7 +5,8 @@ import { UserProfile, BrandingPreferences } from '../types';
 import { handleFirestoreError, OperationType } from '../utils/errorHandling';
 
 interface BrandingContextType {
-  branding: BrandingPreferences | null;
+  branding: BrandingPreferences;
+  siteBranding: BrandingPreferences;
   updateBranding: (newBranding: BrandingPreferences) => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
@@ -74,6 +75,7 @@ const hexToHSL = (hex: string) => {
 
 export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [branding, setBranding] = useState<BrandingPreferences>(DEFAULT_BRANDING);
+  const [siteBranding, setSiteBranding] = useState<BrandingPreferences>(DEFAULT_BRANDING);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark' || 
@@ -101,7 +103,11 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Listen to global site settings
     const unsubscribeGlobal = onSnapshot(doc(db, 'settings', 'site'), (siteDoc) => {
       if (siteDoc.exists() && siteDoc.data().branding) {
-        setBranding(prev => ({ ...prev, ...siteDoc.data().branding }));
+        setSiteBranding(prev => ({ ...prev, ...siteDoc.data().branding }));
+        // Only apply site branding to 'branding' state if we don't have a user or user doesn't have custom branding
+        if (!auth.currentUser) {
+          setBranding(prev => ({ ...prev, ...siteDoc.data().branding }));
+        }
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'settings/site', false);
@@ -190,7 +196,7 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   return (
-    <BrandingContext.Provider value={{ branding, updateBranding, isDarkMode, toggleDarkMode }}>
+    <BrandingContext.Provider value={{ branding, siteBranding, updateBranding, isDarkMode, toggleDarkMode }}>
       {children}
     </BrandingContext.Provider>
   );

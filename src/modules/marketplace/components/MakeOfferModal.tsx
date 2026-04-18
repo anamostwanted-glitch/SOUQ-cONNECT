@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { notifyNewOffer } from '../../../core/services/notificationService';
 
 interface MakeOfferModalProps {
   isOpen: boolean;
@@ -69,45 +70,14 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         offerCount: increment(1)
       });
 
-      // 3. Create notification for customer
-      await addDoc(collection(db, 'notifications'), {
-        userId: request.customerId,
-        titleAr: 'عرض سعر جديد',
-        titleEn: 'New Price Offer',
-        bodyAr: `قدم ${profile.name} عرضاً لطلبك: ${request.productName}`,
-        bodyEn: `${profile.name} made an offer for your request: ${request.productName}`,
-        link: `/marketplace/requests/${request.id}`,
-        read: false,
-        createdAt: new Date().toISOString()
-      });
-
-      // 4. Send Email Notification to Customer
-      try {
-        const customerSnap = await getDoc(doc(db, 'users', request.customerId));
-        if (customerSnap.exists()) {
-          const customerData = customerSnap.data();
-          if (customerData.email) {
-            const response = await fetch('/api/send-email', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: customerData.email,
-                name: customerData.name,
-                template: 'new_offer',
-                language: isRtl ? 'ar' : 'en',
-                data: { productName: request.productName }
-              })
-            });
-
-            if (!response.ok) {
-              const errorData = await response.json();
-              console.warn('Email notification failed but offer was saved:', errorData.details || errorData.error);
-            }
-          }
-        }
-      } catch (e) {
-        console.error('Failed to send offer email process:', e);
-      }
+      // 3. Growth: Smart Notifications (In-App & Email)
+      await notifyNewOffer(
+        request.customerId,
+        profile.name,
+        request.productName,
+        request.id,
+        isRtl
+      );
 
       toast.success(isRtl ? 'تم إرسال عرضك بنجاح!' : 'Offer sent successfully!');
       onClose();

@@ -518,7 +518,7 @@ export const AdminSmartHub: React.FC<AdminSmartHubProps> = ({ users, requests, i
                  />
                  <Bar dataKey="value" radius={[10, 10, 10, 10]} barSize={40}>
                    {categoryHeatmap.map((entry, index) => (
-                     <Cell key={`cell-${index}`} fill={index === 0 ? '#1b97a7' : '#0ea5e9'} fillOpacity={0.8 - (index * 0.1)} />
+                     <Cell key={`cell-${entry.name}`} fill={index === 0 ? '#1b97a7' : '#0ea5e9'} fillOpacity={0.8 - (index * 0.1)} />
                    ))}
                  </Bar>
               </BarChart>
@@ -527,7 +527,7 @@ export const AdminSmartHub: React.FC<AdminSmartHubProps> = ({ users, requests, i
 
           <div className="mt-6 flex flex-wrap gap-4 justify-center">
             {categoryHeatmap.slice(0, 3).map((cat, i) => (
-              <div key={`sector-legend-${i}-${cat.name}`} className="flex items-center gap-2">
+              <div key={`sector-legend-${cat.name}`} className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-brand-primary' : i === 1 ? 'bg-brand-teal' : 'bg-brand-amber'}`} />
                 <span className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">{cat.name}</span>
               </div>

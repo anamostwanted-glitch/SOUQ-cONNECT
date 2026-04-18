@@ -154,7 +154,7 @@ export const ProfessionalHub: React.FC<ProfessionalHubProps> = ({
                  { name: 'سارة خالد', skill: 'تصميم جرافيك', rating: 5.0 },
                  { name: 'فهد العامري', skill: 'صيانة معدات', rating: 4.8 }
                ].map((pro, i) => (
-                 <div key={i} className="flex items-center justify-between group cursor-pointer" onClick={() => {}}>
+                 <div key={pro.name} className="flex items-center justify-between group cursor-pointer" onClick={() => {}}>
                     <div className="flex items-center gap-4">
                        <div className="w-12 h-12 rounded-2xl bg-brand-background overflow-hidden border border-brand-border">
                           <img src={`https://picsum.photos/seed/pro${i}/100/100`} alt={pro.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />

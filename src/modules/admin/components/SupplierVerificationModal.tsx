@@ -29,6 +29,7 @@ import { db } from '../../../core/firebase';
 import { toast } from 'sonner';
 
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { notifySupplierApproval } from '../../../core/services/notificationService';
 
 interface SupplierVerificationModalProps {
   isOpen: boolean;
@@ -98,6 +99,10 @@ export const SupplierVerificationModal: React.FC<SupplierVerificationModalProps>
         verificationExpiryDate: analysisResult?.extractedData?.expiryDate || null,
         trustScore: analysisResult?.trustScore || (isVerified ? 70 : 0)
       });
+      
+      // Notify the supplier about the verification result
+      await notifySupplierApproval(supplier.uid, isVerified, isRtl);
+
       toast.success(isVerified ? (isRtl ? 'تم توثيق المورد' : 'Supplier verified') : (isRtl ? 'تم رفض التوثيق' : 'Verification rejected'));
       onClose();
     } catch (error) {

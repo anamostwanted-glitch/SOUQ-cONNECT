@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { MarketplaceItem, UserProfile } from '../../../core/types';
 import { BlurImage } from '../../../shared/components/BlurImage';
-import { Flag, Loader2 } from 'lucide-react';
+import { Flag, Loader2, Play, ShieldCheck, Sparkles, TrendingUp, Zap } from 'lucide-react';
 import { ReportModal } from '../../../shared/components/ReportModal';
 import { auth, db } from '../../../core/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -33,7 +33,6 @@ const CountdownRing = ({ item }: { item: MarketplaceItem }) => {
       if (remaining <= 0) {
         clearInterval(timer);
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-        // هنا يمكن إضافة منطق لتحديث حالة الإعلان إلى 'expired' في Firestore
       } else {
         const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
         const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -46,8 +45,10 @@ const CountdownRing = ({ item }: { item: MarketplaceItem }) => {
   }, [item]);
 
   return (
-    <div className="text-[8px] md:text-[10px] font-black text-white bg-black/50 px-1.5 md:px-2 py-1 rounded-none whitespace-nowrap">
-      {timeLeft.days}d {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
+    <div className="text-[10px] font-black text-brand-text-muted bg-brand-background px-2 py-1 border border-brand-border flex items-center gap-1.5 whitespace-nowrap">
+      <Zap size={10} className="text-brand-primary" />
+      {timeLeft.days > 0 && <span>{timeLeft.days}d</span>}
+      <span>{timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s</span>
     </div>
   );
 };
@@ -58,7 +59,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onEdit,
   isOwner,
 }) => {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const [showReportModal, setShowReportModal] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -72,28 +73,55 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   }, []);
 
   const mainImage = item.images && item.images.length > 0 ? item.images[0] : 'https://picsum.photos/seed/product/400/500';
+  const displayTitle = isRtl ? (item.titleAr || item.title) : (item.titleEn || item.title);
 
   return (
     <motion.div 
       layout
       whileHover={{ y: -4 }}
-      className="relative flex flex-col overflow-hidden cursor-pointer group bg-brand-surface border border-brand-border rounded-none shadow-sm hover:shadow-xl transition-all duration-300"
+      className="relative flex flex-col overflow-hidden cursor-pointer group bg-brand-surface border-2 border-brand-border transition-colors hover:border-brand-primary"
       onClick={() => onViewDetails(item)}
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-brand-background">
-        <BlurImage src={mainImage} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+        <BlurImage 
+          src={mainImage} 
+          alt={displayTitle} 
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" 
+          referrerPolicy="no-referrer"
+        />
         
-        {/* Title & Price Overlay (Hidden on mobile, visible on desktop) */}
-        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent hidden md:flex flex-col justify-end z-10">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-white font-bold text-[13px] line-clamp-1 leading-tight flex-1">
-              {isRtl ? (item.titleAr || item.title) : (item.titleEn || item.title)}
-            </h3>
-            <span className="text-brand-primary font-black text-[12px] shrink-0 bg-white/10 backdrop-blur-md px-2 py-1 rounded-none">
-              {item.price} {item.currency || 'SAR'}
-            </span>
-          </div>
+        {/* Badges Overlay - Desktop Only */}
+        <div className="absolute top-3 left-3 hidden md:flex flex-col gap-2 z-20">
+          {item.isVerifiedSupplier && (
+            <motion.div 
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              className="bg-brand-primary text-white p-2 border border-white/20"
+              title={isRtl ? 'مورد موثق' : 'Verified Supplier'}
+            >
+              <ShieldCheck size={14} />
+            </motion.div>
+          )}
+          {item.isHighQuality && (
+            <motion.div 
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="bg-amber-500 text-white p-2 border border-white/20"
+              title={isRtl ? 'جودة عالية' : 'High Quality'}
+            >
+              <Sparkles size={14} />
+            </motion.div>
+          )}
         </div>
+
+        {/* View Count Badge - Desktop Only */}
+        {item.views !== undefined && item.views > 10 && (
+          <div className="absolute top-3 right-3 hidden md:flex bg-black/40 backdrop-blur-md px-2 py-1 flex items-center gap-1.5 text-[10px] font-black text-white border border-white/10">
+            <TrendingUp size={10} className="text-emerald-400" />
+            {item.views}
+          </div>
+        )}
 
         {!isOwner && auth.currentUser && (
           <button
@@ -101,26 +129,50 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               e.stopPropagation();
               setShowReportModal(true);
             }}
-            className="absolute top-3 left-3 p-2 bg-black/20 backdrop-blur-md text-white rounded-none border border-white/20 hover:bg-brand-error transition-all opacity-0 group-hover:opacity-100 z-20"
+            className="absolute bottom-3 left-3 hidden md:flex p-2 bg-white/20 backdrop-blur-md text-white border border-white/20 hover:bg-brand-error transition-all opacity-0 group-hover:opacity-100 z-20"
           >
             <Flag size={14} />
           </button>
         )}
       </div>
 
-      {/* ONLY the counter below image - Visible on all devices */}
-      <div className="p-3 md:p-4 flex flex-col items-center justify-center gap-3">
-        <CountdownRing item={item} />
-        
-        {item.status === 'expired' && isOwner && onEdit && (
+      {/* Information Area - Desktop Only/Standard */}
+      <div className="hidden md:flex p-4 md:p-5 flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-brand-text-main font-black text-sm md:text-base line-clamp-1 leading-tight group-hover:text-brand-primary transition-colors">
+            {displayTitle}
+          </h3>
+          <div className="flex items-center justify-between">
+            <div className="text-brand-primary font-black text-base md:text-lg flex items-baseline gap-1">
+              {item.price.toLocaleString()}
+              <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">{item.currency || 'SAR'}</span>
+            </div>
+            <CountdownRing item={item} />
+          </div>
+        </div>
+
+        {(item.status === 'expired' && isOwner && onEdit) ? (
           <button 
             onClick={(e) => { e.stopPropagation(); onEdit({ ...item, status: 'active', expiryDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString() }); }}
-            className="w-full py-2 bg-brand-primary text-white text-[10px] font-black uppercase rounded-none shadow-lg shadow-brand-primary/20 hover:scale-105 transition-all"
+            className="w-full py-3 bg-brand-primary text-white text-[10px] font-black uppercase shadow-lg shadow-brand-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
           >
             {isRtl ? 'إعادة نشر المنتج' : 'Relist Product'}
           </button>
+        ) : (
+          <div className="pt-2 border-t border-brand-border flex items-center justify-end">
+            <div className="text-[10px] font-bold text-brand-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+              {isRtl ? 'التفاصيل' : 'Details'}
+              <Play size={8} className="fill-current" />
+            </div>
+          </div>
         )}
       </div>
+
+      {/* Mobile Only: Hidden Info Overlay (User requested to remove info from images on mobile) */}
+      <div className="hidden md:flex absolute inset-0 z-30 pointer-events-none flex flex-col justify-end p-3">
+        {/* Scrim hidden on mobile to show raw image */}
+      </div>
+
       
       <ReportModal
         isOpen={showReportModal}
