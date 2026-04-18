@@ -660,7 +660,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         const docSnap = await getDoc(docRef);
         
         if (docSnap.exists()) {
-          setProfile({ uid: docSnap.id, ...docSnap.data() } as UserProfile);
+          const profileData = { uid: docSnap.id, ...docSnap.data() } as UserProfile;
+          setProfile(profileData);
+
+          // Growth Hack: Track shared link visits - Core Team Implementation
+          const params = new URLSearchParams(window.location.search);
+          if (params.get('source') === 'share' && targetUid !== auth.currentUser?.uid) {
+            // Check if we already counted this visit in this session to prevent spam
+            const sessionKey = `v_${targetUid}`;
+            if (!sessionStorage.getItem(sessionKey)) {
+              updateDoc(docRef, {
+                sharedViews: increment(1)
+              }).then(() => {
+                sessionStorage.setItem(sessionKey, '1');
+              }).catch(err => console.error("Stat update failed", err));
+            }
+          }
         }
 
         // Fetch categories

@@ -156,5 +156,5 @@ export const softDeleteMarketplaceItem = async (itemId: string): Promise<void> =
 
 export const getStoreShareUrl = (userId: string): string => {
   const baseUrl = window.location.origin;
-  return `${baseUrl}?view=profile&uid=${userId}`;
+  return `${baseUrl}?view=profile&uid=${userId}&source=share`;
 };

@@ -20,7 +20,8 @@ import {
   Package,
   Share2,
   Copy,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck
 } from 'lucide-react';
 import { MarketplaceItem, UserProfile, Category } from '../../../core/types';
 import { fetchMarketplaceItems, updateMarketplaceItemStatus, softDeleteMarketplaceItem, getStoreShareUrl } from '../services/marketService';
@@ -72,9 +73,10 @@ export const SellerHub: React.FC<SellerHubProps> = ({ profile, categories, onEdi
       active: items.filter(i => i.status === 'active').length,
       sold: items.filter(i => i.status === 'sold').length,
       views: totalViews,
+      sharedViews: profile.sharedViews || 0,
       growth: '+12%' // Placeholder for now
     };
-  }, [items]);
+  }, [items, profile.sharedViews]);
 
   // Core Team: Robust deduplication for inventory workspace to prevent key collisions
   const uniqueItems = useMemo(() => {
@@ -137,7 +139,7 @@ export const SellerHub: React.FC<SellerHubProps> = ({ profile, categories, onEdi
               <div className="text-center md:text-start">
                  <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
                     <h2 className="text-2xl font-black text-brand-text-main">{profile.companyName || profile.name}</h2>
-                    {profile.isVerifiedSupplier && <ShieldCheck size={20} className="text-brand-primary" />}
+                    {profile.isVerified && <ShieldCheck size={20} className="text-brand-primary" />}
                  </div>
                  <p className="text-sm text-brand-text-muted font-bold flex items-center justify-center md:justify-start gap-2">
                     <Package size={14} />
@@ -205,8 +207,8 @@ export const SellerHub: React.FC<SellerHubProps> = ({ profile, categories, onEdi
               <Eye size={20} />
            </div>
            <div>
-              <p className="text-brand-text-muted text-[10px] uppercase font-black tracking-widest mb-1">{isRtl ? 'إجمالي المشاهدات' : 'Total Views'}</p>
-              <p className="text-4xl font-black text-brand-text-main">{stats.views}</p>
+              <p className="text-brand-text-muted text-[10px] uppercase font-black tracking-widest mb-1">{isRtl ? 'زيارات الرابط' : 'Link Visits'}</p>
+              <p className="text-4xl font-black text-brand-text-main">{stats.sharedViews}</p>
            </div>
         </div>
 
@@ -215,8 +217,8 @@ export const SellerHub: React.FC<SellerHubProps> = ({ profile, categories, onEdi
               <MessageSquare size={20} />
            </div>
            <div>
-              <p className="text-brand-text-muted text-[10px] uppercase font-black tracking-widest mb-1">{isRtl ? 'الفرص (Leads)' : 'Market Leads'}</p>
-              <p className="text-4xl font-black text-brand-text-main">--</p>
+              <p className="text-brand-text-muted text-[10px] uppercase font-black tracking-widest mb-1">{isRtl ? 'مشاهدات الكتالوج' : 'Catalog Views'}</p>
+              <p className="text-4xl font-black text-brand-text-main">{stats.views}</p>
            </div>
         </div>
       </div>

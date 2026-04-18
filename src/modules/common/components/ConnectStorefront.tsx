@@ -32,6 +32,7 @@ import imageCompression from 'browser-image-compression';
 import { getProfileInsights, optimizeSupplierProfile, handleAiError } from '../../../core/services/geminiService';
 import { ProfileSettings } from '../../user/components/ProfileSettings';
 import { getStoreShareUrl } from '../../marketplace/services/marketService';
+import { createNotification } from '../../../core/services/notificationService';
 
 interface ConnectStorefrontProps {
   profile: UserProfile;
@@ -408,6 +409,20 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
         });
         setIsFollowing(true);
         toast.success(isRtl ? 'تمت المتابعة بنجاح!' : 'Following successfully!');
+        
+        // Notify the merchant - Core Team Implementation
+        if (auth.currentUser) {
+          createNotification({
+            userId: profile.uid,
+            titleAr: 'متابع جديد لمتجرك! 👤',
+            titleEn: 'New Follower for your store! 👤',
+            bodyAr: `قام ${auth.currentUser.displayName || 'أحد المستخدمين'} بمتابعة متجرك. ابقَ على تواصل!`,
+            bodyEn: `${auth.currentUser.displayName || 'A user'} followed your store. Stay connected!`,
+            actionType: 'view_profile',
+            targetId: auth.currentUser.uid,
+            imageUrl: auth.currentUser.photoURL || undefined
+          });
+        }
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}/follow`, false);

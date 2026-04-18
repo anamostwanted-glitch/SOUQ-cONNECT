@@ -62,6 +62,7 @@ export interface UserProfile {
   branding?: BrandingPreferences;
   referralPoints?: number;
   loyaltyPoints?: number;
+  sharedViews?: number;
   commercialRegistration?: string;
   subscriptionPlan?: 'basic' | 'pro' | 'enterprise';
   subscriptionExpiry?: string;
