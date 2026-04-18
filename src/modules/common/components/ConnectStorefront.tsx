@@ -26,6 +26,7 @@ import { Badge } from "../../../shared/components/ui/badge";
 import { Card, CardContent } from "../../../shared/components/ui/card";
 import { Skeleton } from "../../../shared/components/ui/skeleton";
 import { ProductCard } from '../../marketplace/components/ProductCard';
+import { AuthorityCard } from '../../../shared/components/AuthorityCard';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import imageCompression from 'browser-image-compression';
@@ -578,6 +579,48 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
     return matchesCategory && matchesSearch;
   });
 
+  // Neural Authority Engine - Dynamic Calculation of Real Metrics
+  const authorityMetrics = React.useMemo(() => {
+    if (!profile || profile.role === 'customer') return null;
+
+    const productsCount = products.length;
+    const verifiedPhotosCount = products.filter(p => p.isAuthenticPhoto).length;
+    
+    // 1. Visual Integrity Score (Base 40 + contribution from photos)
+    let visualScore = 60; // Base professional score
+    if (productsCount > 0) {
+      visualScore = Math.min(100, 60 + (verifiedPhotosCount / productsCount) * 40);
+    }
+
+    // 2. Trust Score (Weighted average of verification, rating and visual integrity)
+    let trustScore = 40; // Entry level
+    if (profile.isVerified) trustScore += 30;
+    if (profile.rating) trustScore += (profile.rating / 5) * 20;
+    trustScore += (visualScore / 100) * 10;
+    
+    // 3. Authority Level Logic
+    let level: 'Seed' | 'Root' | 'Growth' | 'Titan' = 'Seed';
+    if (productsCount >= 20 && trustScore >= 85) level = 'Titan';
+    else if (productsCount >= 10 && trustScore >= 70) level = 'Growth';
+    else if (productsCount >= 3 || trustScore >= 50) level = 'Root';
+
+    return {
+      visualIntegrityScore: Math.round(visualScore),
+      trustScore: Math.round(trustScore),
+      authorityLevel: level,
+      verifiedRealPhotosCount: verifiedPhotosCount
+    };
+  }, [products, profile]);
+
+  // Augment profile with neural metrics for the AuthorityCard
+  const profileWithAuthority = React.useMemo(() => {
+    if (!authorityMetrics) return profile;
+    return {
+      ...profile,
+      ...authorityMetrics
+    };
+  }, [profile, authorityMetrics]);
+
   const uniqueCategories = Array.from(new Set(products.flatMap(p => p.categories || [])));
 
   return (
@@ -762,6 +805,18 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
             )}
           </div>
         </div>
+
+        {/* Authority Integration - The New Face of Trust */}
+        {(profile.role === 'supplier' || profile.role === 'admin') && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-8 md:mt-12"
+          >
+            <AuthorityCard profile={profileWithAuthority} />
+          </motion.div>
+        )}
 
         {/* Compressed Stats Row (Better for Mobile) */}
         <div className="grid grid-cols-4 gap-2 md:gap-4 mt-6 md:mt-8">

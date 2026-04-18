@@ -10,6 +10,7 @@ import { useAuth } from './core/providers/AuthProvider';
 import { useSettings } from './core/providers/SettingsProvider';
 import { useCategories } from './core/providers/CategoryProvider';
 import { PageLoader } from './shared/components/PageLoader';
+import { SmartVoiceHub } from './shared/components/SmartVoiceHub';
 import { NotificationCenter } from './modules/common/components/NotificationCenter';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from './core/firebase';
@@ -42,6 +43,7 @@ export default function App() {
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [isVoiceHubOpen, setIsVoiceHubOpen] = useState(false);
 
   // Global Notifications Listener for Badge Count
   useEffect(() => {
@@ -270,7 +272,10 @@ export default function App() {
                 profile={profile}
                 features={features}
                 onBack={() => setActiveChatId(null)}
-                onViewProfile={(uid) => { /* handle profile view */ }}
+                onViewProfile={(uid) => {
+                  setSelectedProfileId(uid);
+                  setView('profile');
+                }}
               />
             </Suspense>
           );
@@ -357,6 +362,22 @@ export default function App() {
     }
   };
 
+  const onVoiceProcessed = (data: any) => {
+    // Intelligent Navigation based on Voice Intent
+    if (data.product) {
+      // If it's a listing intent (supplier) or a search (customer)
+      if (profile?.role === 'supplier') {
+        setView('dashboard');
+        setDashboardTab('products');
+        // In a real app, we'd pre-populate the 'Add Product' form here
+      } else {
+        setView('marketplace');
+        setDashboardTab('all' as any);
+        // We could also pass the product name as a search query
+      }
+    }
+  };
+
   const onBack = () => {
     // Logic to go back based on currentView
     if (currentView === 'chat') setActiveChatId(null);
@@ -400,6 +421,12 @@ export default function App() {
             >
               {renderView()}
             </Layout>
+
+            <SmartVoiceHub 
+              isOpen={isVoiceHubOpen} 
+              onClose={() => setIsVoiceHubOpen(false)}
+              onProcessed={onVoiceProcessed}
+            />
           </motion.div>
       </AnimatePresence>
     </div>

@@ -1409,72 +1409,74 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                 else setShowUserProfileModal(true);
               }
             }}
-            className={`relative ${!chat?.isCategoryChat ? 'cursor-pointer group' : ''}`}
+            className={`flex items-center gap-3 flex-1 min-w-0 ${!chat?.isCategoryChat ? 'cursor-pointer group/header' : ''}`}
           >
-            <div className="w-11 h-11 rounded-2xl overflow-hidden border-2 border-white dark:border-slate-800 shadow-md transition-transform group-hover:scale-105 bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-              {chat?.isCategoryChat ? (
-                <MessageSquare size={20} />
-              ) : otherUser?.photoURL || otherUser?.logoUrl ? (
-                <img 
-                  src={otherUser?.photoURL || otherUser?.logoUrl} 
-                  alt={otherUser?.name}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <UserIcon size={20} />
-              )}
-            </div>
-            {otherUserTyping && (
-              <div className="absolute -bottom-1 -right-1 bg-brand-primary text-white p-1 rounded-full border-2 border-white dark:border-slate-900 animate-bounce">
-                <div className="flex gap-0.5">
-                  <span className="w-1 h-1 bg-white rounded-full animate-pulse"></span>
-                  <span className="w-1 h-1 bg-white rounded-full animate-pulse delay-75"></span>
-                  <span className="w-1 h-1 bg-white rounded-full animate-pulse delay-150"></span>
-                </div>
+            <div className="relative">
+              <div className="w-11 h-11 rounded-2xl overflow-hidden border-2 border-white dark:border-slate-800 shadow-md transition-all group-hover/header:rotate-3 group-hover/header:scale-105 bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                {chat?.isCategoryChat ? (
+                  <MessageSquare size={20} />
+                ) : otherUser?.photoURL || otherUser?.logoUrl ? (
+                  <img 
+                    src={otherUser?.photoURL || otherUser?.logoUrl} 
+                    alt={otherUser?.name}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <UserIcon size={20} />
+                )}
               </div>
-            )}
-            {!otherUserTyping && otherUser?.isOnline && (
-              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-brand-success rounded-full border-2 border-white dark:border-slate-900 shadow-sm"></div>
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h3 className="font-black text-slate-900 dark:text-white truncate text-base tracking-tight">
-                {chat?.isCategoryChat ? categoryName : (otherUser?.name || (isRtl ? 'بائع' : 'Seller'))}
-              </h3>
-              {otherUser?.role === 'supplier' && (
-                <div className="bg-brand-primary/10 text-brand-primary p-0.5 rounded-md">
-                  <ShieldCheck size={12} />
+              {otherUserTyping && (
+                <div className="absolute -bottom-1 -right-1 bg-brand-primary text-white p-1 rounded-full border-2 border-white dark:border-slate-900 animate-bounce">
+                  <div className="flex gap-0.5">
+                    <span className="w-1 h-1 bg-white rounded-full animate-pulse"></span>
+                    <span className="w-1 h-1 bg-white rounded-full animate-pulse delay-75"></span>
+                    <span className="w-1 h-1 bg-white rounded-full animate-pulse delay-150"></span>
+                  </div>
                 </div>
+              )}
+              {!otherUserTyping && otherUser?.isOnline && (
+                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-brand-success rounded-full border-2 border-white dark:border-slate-900 shadow-sm"></div>
               )}
             </div>
-            <div className="flex items-center gap-1.5">
-              {otherUserTyping ? (
-                <span className="text-[10px] font-black text-brand-primary animate-pulse uppercase tracking-[0.2em]">
-                  {isRtl ? 'يكتب الآن...' : 'Typing...'}
-                </span>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${otherUser?.isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`} />
-                  <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${otherUser?.isOnline ? 'text-emerald-600' : 'text-slate-400'}`}>
-                    {otherUser?.isOnline ? (isRtl ? 'متصل الآن' : 'Online Now') : (
-                      otherUser?.lastActive ? (
-                        isRtl ? `نشط ${formatDistanceToNow(new Date(otherUser.lastActive), { addSuffix: true, locale: ar })}` : `Active ${formatDistanceToNow(new Date(otherUser.lastActive), { addSuffix: true, locale: enUS })}`
-                      ) : (isRtl ? 'نشط مؤخراً' : 'Recently Active')
-                    )}
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-black text-slate-900 dark:text-white truncate text-base tracking-tight group-hover/header:text-brand-primary transition-colors">
+                  {chat?.isCategoryChat ? categoryName : (otherUser?.name || (isRtl ? 'بائع' : 'Seller'))}
+                </h3>
+                {otherUser?.role === 'supplier' && (
+                  <div className="bg-brand-primary/10 text-brand-primary p-0.5 rounded-md">
+                    <ShieldCheck size={12} />
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                {otherUserTyping ? (
+                  <span className="text-[10px] font-black text-brand-primary animate-pulse uppercase tracking-[0.2em]">
+                    {isRtl ? 'يكتب الآن...' : 'Typing...'}
                   </span>
-                  {otherUser?.role === 'supplier' && (
-                    <>
-                      <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                        {isRtl ? 'رد سريع' : 'Fast Response'}
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${otherUser?.isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`} />
+                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${otherUser?.isOnline ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      {otherUser?.isOnline ? (isRtl ? 'متصل الآن' : 'Online Now') : (
+                        otherUser?.lastActive ? (
+                          isRtl ? `نشط ${formatDistanceToNow(new Date(otherUser.lastActive), { addSuffix: true, locale: ar })}` : `Active ${formatDistanceToNow(new Date(otherUser.lastActive), { addSuffix: true, locale: enUS })}`
+                        ) : (isRtl ? 'نشط مؤخراً' : 'Recently Active')
+                      )}
+                    </span>
+                    {otherUser?.role === 'supplier' && (
+                      <>
+                        <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                          {isRtl ? 'رد سريع' : 'Fast Response'}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

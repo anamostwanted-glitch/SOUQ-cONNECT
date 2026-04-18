@@ -94,7 +94,8 @@ import { useSettings } from '../../../core/providers/SettingsProvider';
 import { useCategories } from '../../../core/providers/CategoryProvider';
 import { CategoryNavTray } from './CategoryNavTray';
 
-import { SellerHub } from './SellerHub';
+import { GlobalCurrencyToggle } from '../../../shared/components/GlobalCurrencyToggle';
+import { useGlobalMarket } from '../../../core/providers/GlobalMarketProvider';
 
 export const MarketInterface: React.FC<MarketInterfaceProps> = ({ 
   onOpenChat, 
@@ -106,6 +107,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const { t, i18n } = useTranslation();
   const { profile, viewMode } = useAuth();
   const { settings, features } = useSettings();
+  const { currency, setCurrency, isSyncing, greeting, nuance, region } = useGlobalMarket();
   const { categories } = useCategories();
   const queryClient = useQueryClient();
   const isRtl = i18n.language === 'ar';
@@ -416,6 +418,10 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <GlobalCurrencyToggle 
+              currentCurrency={currency} 
+              onCurrencyChange={setCurrency} 
+            />
             <HapticButton
               onClick={() => setShowSmartCategories(true)}
               className="px-6 py-3 bg-brand-primary/10 text-brand-primary rounded-xl font-bold flex items-center gap-2 hover:bg-brand-primary/20 transition-all"
@@ -454,6 +460,40 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
       </div>
 
       <div className="max-w-7xl mx-auto px-4">
+        {/* Global Market Pulse Banner */}
+        <AnimatePresence>
+          {(greeting || nuance) && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="mb-6 overflow-hidden"
+            >
+              <div className="p-4 bg-brand-primary/5 border border-brand-primary/10 rounded-2xl flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                    <Globe size={20} className={isSyncing ? 'animate-spin' : ''} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-brand-text-main flex items-center gap-2">
+                       {greeting || (isRtl ? 'أهلاً بك في السوق العالمي' : 'Welcome to Global Market')}
+                       <span className="px-1.5 py-0.5 bg-brand-primary text-white text-[9px] rounded-md font-bold uppercase tracking-wider">{region}</span>
+                    </h4>
+                    <p className="text-xs text-brand-text-muted font-medium mt-0.5">
+                       {nuance || (isRtl ? 'جاري مزامنة بيانات السوق الإقليمية...' : 'Syncing regional market data...')}
+                    </p>
+                  </div>
+                </div>
+                {isSyncing && (
+                  <div className="flex items-center gap-2 px-3 py-1 bg-white/50 dark:bg-slate-900/50 rounded-lg">
+                    <Loader2 size={12} className="animate-spin text-brand-primary" />
+                    <span className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'مزامنة' : 'Syncing'}</span>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Tabs */}
         <div className="flex p-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-xl mb-6 w-fit md:mb-8">
           <button

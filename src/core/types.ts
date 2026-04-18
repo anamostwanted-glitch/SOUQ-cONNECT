@@ -38,6 +38,8 @@ export interface UserProfile {
   supplierType?: 'merchant' | 'service_provider' | 'both';
   keywords?: string[];
   language?: 'ar' | 'en';
+  currency?: string;
+  region?: string;
   createdAt: string;
   lastActive?: string;
   rating?: number;
@@ -106,6 +108,9 @@ export interface UserProfile {
     bioEn: string;
     lastUpdated: string;
   };
+  visualIntegrityScore?: number;
+  authorityLevel?: 'Seed' | 'Root' | 'Growth' | 'Titan';
+  verifiedRealPhotosCount?: number;
   socialLinks?: {
     facebook?: string;
     instagram?: string;
@@ -299,6 +304,7 @@ export interface MarketplaceItem {
   averageResponseTime?: number;
   sellerPhone?: string;
   isHighQuality?: boolean;
+  isAuthenticPhoto?: boolean;
   features?: string[];
   classification?: string;
   views?: number;

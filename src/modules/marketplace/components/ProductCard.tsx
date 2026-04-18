@@ -3,10 +3,11 @@ import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { MarketplaceItem, UserProfile } from '../../../core/types';
 import { BlurImage } from '../../../shared/components/BlurImage';
-import { Flag, Loader2, Play, ShieldCheck, Sparkles, TrendingUp, Zap } from 'lucide-react';
+import { Camera, Flag, Loader2, Play, ShieldCheck, Sparkles, TrendingUp, Zap } from 'lucide-react';
 import { ReportModal } from '../../../shared/components/ReportModal';
 import { auth, db } from '../../../core/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { useGlobalMarket } from '../../../core/providers/GlobalMarketProvider';
 
 interface ProductCardProps {
   item: MarketplaceItem;
@@ -60,6 +61,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isOwner,
 }) => {
   const { i18n, t } = useTranslation();
+  const { exchangeRate, currency } = useGlobalMarket();
   const isRtl = i18n.language === 'ar';
   const [showReportModal, setShowReportModal] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -113,6 +115,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <Sparkles size={14} />
             </motion.div>
           )}
+          {item.isAuthenticPhoto && (
+            <motion.div 
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="bg-blue-600 text-white p-2 border border-white/20"
+              title={isRtl ? 'صورة حقيقية' : 'Authentic Photo'}
+            >
+              <Camera size={14} />
+            </motion.div>
+          )}
         </div>
 
         {/* View Count Badge - Desktop Only */}
@@ -143,9 +156,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {displayTitle}
           </h3>
           <div className="flex items-center justify-between">
-            <div className="text-brand-primary font-black text-base md:text-lg flex items-baseline gap-1">
-              {item.price.toLocaleString()}
-              <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">{item.currency || 'SAR'}</span>
+            <div className="text-brand-primary font-black text-base md:text-lg flex flex-col items-start leading-none">
+              <div className="flex items-baseline gap-1">
+                {(item.price * (currency === item.currency ? 1 : exchangeRate)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">{currency}</span>
+              </div>
+              {currency !== item.currency && (
+                <span className="text-[8px] font-bold text-brand-text-muted/60 uppercase mt-0.5">
+                  ≈ {item.price.toLocaleString()} {item.currency}
+                </span>
+              )}
             </div>
             <CountdownRing item={item} />
           </div>

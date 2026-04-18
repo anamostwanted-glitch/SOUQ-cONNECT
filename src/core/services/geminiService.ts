@@ -414,6 +414,38 @@ async function retryWithBackoff<T>(fn: (apiKey: string | null) => Promise<T>, re
   return execute(retries, delay);
 }
 
+export const generateGlobalMarketContext = async (region: string, baseCurrency: string, targetCurrency: string): Promise<any> => {
+  return AIResilienceManager.execute(async () => {
+    const prompt = `[GLOBAL-EXPANSION:JSON] Generate a market context for ${region}. 
+      Base Currency: ${baseCurrency}, Target Currency: ${targetCurrency}.
+      
+      Provide details on:
+      1. Currency Exchange Rate (approximate for UI display).
+      2. Regional Business Units (e.g., metric vs imperial).
+      3. Regional Trade Nuances.
+      4. Professional Greeting for this region.
+      
+      JSON: { exchangeRate: number, units: string, nuanceAr: string, nuanceEn: string, greetingAr: string, greetingEn: string }`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          exchangeRate: { type: Type.NUMBER },
+          units: { type: Type.STRING },
+          nuanceAr: { type: Type.STRING },
+          nuanceEn: { type: Type.STRING },
+          greetingAr: { type: Type.STRING },
+          greetingEn: { type: Type.STRING }
+        },
+        required: ["exchangeRate", "units", "nuanceAr", "nuanceEn", "greetingAr", "greetingEn"]
+      }
+    );
+    return result;
+  }, { exchangeRate: 1, units: 'Metric', nuanceEn: 'Standard global trade rules apply', greetingEn: 'Hello' }, 'Global market analysis', isFailure);
+};
+
 export const analyzeSystemPulse = async (systemData: any, language: string): Promise<any> => {
   return { status: 'ok', message: 'System pulse is normal' };
 };
@@ -454,6 +486,32 @@ export const suggestColorHarmony = async (primaryColor: string): Promise<{ secon
 
 
 // ... existing code ...
+
+export const generateProductSellingPoints = async (productData: any, language: string): Promise<string[]> => {
+  const fallback = language === 'ar' ? ['جودة عالية', 'مورد موثق', 'سعر تنافسي'] : ['High Quality', 'Verified Supplier', 'Competitive Price'];
+  
+  return AIResilienceManager.execute(async () => {
+    const prompt = `Analyze this product and extract exactly 3 short, high-impact "Selling Points" or "Pulse Points" that would make a buyer interested.
+      Product: ${JSON.stringify(productData)}
+      Language: ${language === 'ar' ? 'Arabic' : 'English'}
+      
+      Return ONLY a JSON array of 3 strings. Each string should be very short (1-3 words).`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.ARRAY,
+        items: { type: Type.STRING }
+      }
+    );
+    
+    if (!result || !Array.isArray(result)) return fallback;
+    
+    const tokens = (prompt.length + JSON.stringify(result).length) / 4;
+    await logUsage('Product Pulse Points', Math.ceil(tokens));
+    return result.slice(0, 3);
+  }, fallback, 'Product pulse analysis', isFailure);
+};
 
 export const analyzeUserBehavior = async (profile: UserProfile, recentSearches: string[], recentRequests: ProductRequest[]): Promise<{isMomentOfNeed: boolean; reason: string; recommendedAction: string}> => {
   const fallback = { isMomentOfNeed: false, reason: 'Analysis failed', recommendedAction: 'none' };
@@ -541,7 +599,24 @@ export const processSmartVoice = async (transcript: string): Promise<any> => {
     }
 
     const result = await callAiJson(
-      `[V-RFQ:JSON] Map transcript to RFQ: "${transcript}". JSON: {product, quantity, budget, urgency, professionalSummary}`,
+      `[V-RFQ:NEURAL] 
+      Context: Jordanian/Levantine Marketplace (Souq Connect).
+      User Dialect: White Arabic/Jordanian (عامية بيضاء).
+      Input Transcript: "${transcript}"
+      
+      Task: Extract structured intent from this voice transcript. 
+      - Map local units (e.g., 'طن', 'متر', 'جالون') correctly.
+      - Understand local quality terms (e.g., 'نخب أول', 'فرز ثاني').
+      - If it's a selling intent, capture product details.
+      - If it's a buying intent, capture requirements.
+      
+      Return JSON: {
+        product: string (Professional Arabic),
+        quantity: string,
+        budget: string,
+        urgency: string,
+        professionalSummary: string (A 1-sentence professional business capture of the intent in Arabic)
+      }`,
       {
         type: Type.OBJECT,
         properties: {

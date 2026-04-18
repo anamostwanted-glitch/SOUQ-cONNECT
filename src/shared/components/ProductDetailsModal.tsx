@@ -28,9 +28,12 @@ import {
   Zap,
   Award,
   BrainCircuit,
-  Flag
+  Flag,
+  Camera,
+  Activity
 } from 'lucide-react';
 import { MarketplaceItem, PriceInsight, UserProfile } from '../../core/types';
+import { generateProductSellingPoints } from '../../core/services/geminiService';
 import { 
   doc, 
   updateDoc, 
@@ -42,6 +45,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../../core/firebase';
 import { handleFirestoreError, OperationType, handleAiError } from '../../core/utils/errorHandling';
+import { soundService, SoundType } from '../../core/utils/soundService';
 import { BlurImage } from './BlurImage';
 import { HapticButton } from './HapticButton';
 import { WhatsAppButton } from './WhatsAppButton';
@@ -73,6 +77,8 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   const [isFollowingSeller, setIsFollowingSeller] = React.useState(false);
   const [isFollowLoading, setIsFollowLoading] = React.useState(false);
   const [priceInsight, setPriceInsight] = React.useState<PriceInsight | null>(null);
+  const [pulsePoints, setPulsePoints] = React.useState<string[]>([]);
+  const [isPulseLoading, setIsPulseLoading] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null);
 
@@ -83,6 +89,25 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
       });
     }
   }, []);
+
+  React.useEffect(() => {
+    const fetchPulsePoints = async () => {
+      if (!item) return;
+      setIsPulseLoading(true);
+      try {
+        const points = await generateProductSellingPoints(item, i18n.language);
+        setPulsePoints(points);
+        // Play AI Pulse sound for a premium feel
+        soundService.play(SoundType.AI_PULSE);
+        if (navigator.vibrate) navigator.vibrate(20); // Subtle haptic pulse
+      } catch (error) {
+        console.error('Failed to generate pulse points:', error);
+      } finally {
+        setIsPulseLoading(false);
+      }
+    };
+    fetchPulsePoints();
+  }, [item?.id, i18n.language]);
 
   const displayTitle = isRtl 
     ? (item?.titleAr || item?.title) 
@@ -386,6 +411,12 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                     {t('hq_product', 'HQ Product')}
                   </div>
                 )}
+                {item.isAuthenticPhoto && (
+                  <div className="bg-blue-600 text-white px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1.5 shadow-lg shadow-blue-600/20 uppercase tracking-wider border border-white/20">
+                    <Camera className="w-3.5 h-3.5" />
+                    {isRtl ? 'صورة حقيقية' : 'Authentic Photo'}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -400,19 +431,25 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                   </span>
 
                   {/* Core Team: Product-to-Product Navigation (High-End Interface) */}
-                  <div className="hidden md:flex items-center bg-slate-100 rounded-xl p-1 gap-1 border border-slate-200">
+                  <div className="hidden md:flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1 border border-slate-200 dark:border-slate-700">
                     <button 
-                      onClick={onPrev}
-                      className="p-1.5 hover:bg-white hover:text-brand-primary rounded-lg transition-all text-slate-400 disabled:opacity-30"
+                      onClick={() => {
+                        onPrev?.();
+                        if (navigator.vibrate) navigator.vibrate(10);
+                      }}
+                      className="p-1.5 hover:bg-white dark:hover:bg-slate-700 hover:text-brand-primary rounded-lg transition-all text-slate-400 disabled:opacity-30"
                       disabled={!onPrev}
                       title={isRtl ? 'المنتج السابق' : 'Previous Product'}
                     >
                       <ChevronLeft size={16} />
                     </button>
-                    <div className="w-[1px] h-4 bg-slate-200" />
+                    <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700" />
                     <button 
-                      onClick={onNext}
-                      className="p-1.5 hover:bg-white hover:text-brand-primary rounded-lg transition-all text-slate-400 disabled:opacity-30"
+                      onClick={() => {
+                        onNext?.();
+                        if (navigator.vibrate) navigator.vibrate(10);
+                      }}
+                      className="p-1.5 hover:bg-white dark:hover:bg-slate-700 hover:text-brand-primary rounded-lg transition-all text-slate-400 disabled:opacity-30"
                       disabled={!onNext}
                       title={isRtl ? 'المنتج التالي' : 'Next Product'}
                     >
@@ -506,6 +543,53 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                           ? 'تحليلنا يظهر أن هذا السعر أقل بنسبة 12% من متوسط السوق لهذه الفئة.' 
                           : 'Our analysis shows this price is 12% lower than the market average for this category.'}
                       </p>
+                    </div>
+                  )}
+                </motion.div>
+
+                {/* Neural Pulse (AI Selling Points) */}
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="p-6 rounded-3xl bg-black dark:bg-slate-800 border border-slate-800 relative overflow-hidden group mb-8"
+                >
+                  <div className="absolute top-0 right-0 p-4 opacity-20 transition-transform duration-500">
+                    <Activity size={60} className="text-brand-primary" />
+                  </div>
+                  
+                  <h4 className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                    <div className="relative">
+                      <Zap size={14} className="text-brand-primary relative z-10" />
+                      <motion.div 
+                        animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className="absolute inset-0 bg-brand-primary rounded-full blur-sm"
+                      />
+                    </div>
+                    {isRtl ? 'النبض العصبي' : 'Neural Pulse'}
+                  </h4>
+
+                  {isPulseLoading ? (
+                    <div className="flex gap-2">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="h-8 w-20 bg-white/5 animate-pulse rounded-lg border border-white/10" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {pulsePoints.map((point, idx) => (
+                        <motion.div 
+                          key={idx}
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ delay: 0.2 + idx * 0.1 }}
+                          className="px-4 py-2 bg-brand-primary/10 border border-brand-primary/20 rounded-xl text-brand-primary text-xs font-black uppercase tracking-tight flex items-center gap-2 group/point"
+                        >
+                          <span className="w-1 h-1 bg-brand-primary rounded-full group-hover/point:scale-150 transition-transform" />
+                          {point}
+                        </motion.div>
+                      ))}
                     </div>
                   )}
                 </motion.div>
