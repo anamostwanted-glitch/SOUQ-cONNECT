@@ -275,7 +275,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xl">
+      <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xl">
         <motion.div 
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
@@ -283,377 +283,382 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className="bg-white w-full sm:w-full max-w-5xl h-[90vh] sm:h-auto sm:max-h-[90vh] rounded-t-[32px] sm:rounded-[32px] overflow-hidden flex flex-col md:flex-row shadow-2xl relative group/modal"
         >
-          {/* Core Team: Fixed High-Impact Close Button (Universal) */}
-          <button 
-            onClick={onClose}
-            className="absolute top-6 right-6 z-[110] p-3 bg-white/10 backdrop-blur-2xl hover:bg-white/30 border border-white/20 rounded-full text-white transition-all shadow-2xl group/close"
-            title={isRtl ? 'إغلاق' : 'Close'}
-          >
-            <X className="w-6 h-6 group-hover/close:rotate-90 transition-transform duration-300" />
-          </button>
-
-          {/* Mobile Swipe Navigation Indicator */}
-          <div className="absolute top-0 left-0 w-full h-1 z-[110] bg-brand-primary/20 sm:hidden" />
-
-          {/* Image Section */}
-          <div className="w-full md:w-3/5 bg-slate-100 relative group aspect-[4/5] md:aspect-auto">
-            <div className="w-full h-full relative overflow-hidden md:absolute md:inset-0">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentImageIndex}
-                  drag="x"
-                  dragConstraints={{ left: 0, right: 0 }}
-                  onDragEnd={(_, info) => {
-                    const swipeThreshold = 50;
-                    if (info.offset.x > swipeThreshold) {
-                      // Swipe Right -> Previous (considering isRtl)
-                      if (isRtl) {
-                        setCurrentImageIndex(prev => (prev + 1) % item.images.length);
-                      } else {
-                        setCurrentImageIndex(prev => (prev - 1 + item.images.length) % item.images.length);
-                      }
-                    } else if (info.offset.x < -swipeThreshold) {
-                      // Swipe Left -> Next
-                      if (isRtl) {
-                        setCurrentImageIndex(prev => (prev - 1 + item.images.length) % item.images.length);
-                      } else {
-                        setCurrentImageIndex(prev => (prev + 1) % item.images.length);
-                      }
-                    }
-                  }}
-                  className="w-full h-full cursor-grab active:cursor-grabbing"
-                >
-                  <motion.img 
-                    src={item.images[currentImageIndex]} 
-                    alt={displayTitle}
-                    initial={{ opacity: 0, scale: 1.1 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="w-full h-full object-cover pointer-events-none"
-                    referrerPolicy="no-referrer"
-                  />
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
-            {/* Image Navigation */}
-            {item.images.length > 1 && (
-              <>
-                <button 
-                  onClick={() => setCurrentImageIndex(prev => (prev - 1 + item.images.length) % item.images.length)}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/20 backdrop-blur-md hover:bg-white/40 rounded-full text-white transition-all opacity-0 group-hover:opacity-100"
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-                <button 
-                  onClick={() => setCurrentImageIndex(prev => (prev + 1) % item.images.length)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/20 backdrop-blur-md hover:bg-white/40 rounded-full text-white transition-all opacity-0 group-hover:opacity-100"
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-                
-                {/* Dots */}
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
-                  {item.images.map((_, idx) => (
-                    <div 
-                      key={`img-dot-${idx}`}
-                      className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* Badges */}
-            <div className="absolute top-6 left-6 flex flex-col gap-2">
-              {item.sellerRole === 'supplier' ? (
-                <div className="bg-brand-primary text-white px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1.5 shadow-lg shadow-brand-primary/20 uppercase tracking-wider border border-white/20">
-                  <Building2 className="w-3.5 h-3.5" />
-                  {isRtl ? 'مورد معتمد' : 'Verified Supplier'}
-                </div>
-              ) : (
-                <div className="bg-brand-secondary text-white px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1.5 shadow-lg shadow-brand-secondary/20 uppercase tracking-wider border border-white/20">
-                  <User className="w-3.5 h-3.5" />
-                  {isRtl ? 'بائع مجتمعي' : 'Community Seller'}
-                </div>
-              )}
-              {item.isHighQuality && (
-                <div className="bg-amber-500 text-white px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1.5 shadow-lg shadow-amber-500/20 uppercase tracking-wider border border-white/20">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  {t('hq_product', 'HQ Product')}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Content Section */}
-          <div className="w-full md:w-2/5 p-6 sm:p-10 overflow-y-auto flex flex-col flex-1 min-h-0 bg-white dark:bg-slate-900 scroll-smooth pb-32 sm:pb-10">
-            {/* Desktop-only Product Nav (already exists at top of content in hidden-md) */}
+          {/* Main Scrollable Container (Mobile: Whole Modal | Desktop: Split logic) */}
+          <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden scroll-smooth no-scrollbar">
             
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-xs font-bold uppercase tracking-widest">
-                  {item.categories && item.categories.length > 0 ? item.categories[0] : ''}
-                </span>
+            {/* Core Team: Fixed High-Impact Close Button (Universal - Outside Scroll to stay visible) */}
+            <button 
+              onClick={onClose}
+              className="fixed top-6 right-6 z-[1050] p-3 bg-white/20 backdrop-blur-2xl hover:bg-white/40 border border-white/20 rounded-full text-white transition-all shadow-2xl group/close sm:absolute"
+              title={isRtl ? 'إغلاق' : 'Close'}
+            >
+              <X className="w-6 h-6 group-hover/close:rotate-90 transition-transform duration-300" />
+            </button>
 
-                {/* Core Team: Product-to-Product Navigation (High-End Interface) */}
-                <div className="hidden md:flex items-center bg-slate-100 rounded-xl p-1 gap-1 border border-slate-200">
+            {/* Mobile Swipe Navigation Indicator */}
+            <div className="absolute top-0 left-0 w-full h-1 z-[110] bg-brand-primary/20 sm:hidden" />
+
+            {/* Image Section */}
+            <div className="w-full md:w-3/5 bg-slate-100 relative group aspect-[4/5] md:aspect-auto shrink-0 md:h-full">
+              <div className="w-full h-full relative overflow-hidden md:absolute md:inset-0">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentImageIndex}
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    onDragEnd={(_, info) => {
+                      const swipeThreshold = 50;
+                      if (info.offset.x > swipeThreshold) {
+                        // Swipe Right -> Previous (considering isRtl)
+                        if (isRtl) {
+                          setCurrentImageIndex(prev => (prev + 1) % item.images.length);
+                        } else {
+                          setCurrentImageIndex(prev => (prev - 1 + item.images.length) % item.images.length);
+                        }
+                      } else if (info.offset.x < -swipeThreshold) {
+                        // Swipe Left -> Next
+                        if (isRtl) {
+                          setCurrentImageIndex(prev => (prev - 1 + item.images.length) % item.images.length);
+                        } else {
+                          setCurrentImageIndex(prev => (prev + 1) % item.images.length);
+                        }
+                      }
+                    }}
+                    className="w-full h-full cursor-grab active:cursor-grabbing"
+                  >
+                    <motion.img 
+                      src={item.images[currentImageIndex]} 
+                      alt={displayTitle}
+                      initial={{ opacity: 0, scale: 1.1 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="w-full h-full object-cover pointer-events-none"
+                      referrerPolicy="no-referrer"
+                    />
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+
+              {/* Image Navigation */}
+              {item.images.length > 1 && (
+                <>
                   <button 
-                    onClick={onPrev}
-                    className="p-1.5 hover:bg-white hover:text-brand-primary rounded-lg transition-all text-slate-400 disabled:opacity-30"
-                    disabled={!onPrev}
-                    title={isRtl ? 'المنتج السابق' : 'Previous Product'}
+                    onClick={() => setCurrentImageIndex(prev => (prev - 1 + item.images.length) % item.images.length)}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/20 backdrop-blur-md hover:bg-white/40 rounded-full text-white transition-all opacity-0 group-hover:opacity-100"
                   >
-                    <ChevronLeft size={16} />
+                    <ChevronLeft className="w-6 h-6" />
                   </button>
-                  <div className="w-[1px] h-4 bg-slate-200" />
                   <button 
-                    onClick={onNext}
-                    className="p-1.5 hover:bg-white hover:text-brand-primary rounded-lg transition-all text-slate-400 disabled:opacity-30"
-                    disabled={!onNext}
-                    title={isRtl ? 'المنتج التالي' : 'Next Product'}
+                    onClick={() => setCurrentImageIndex(prev => (prev + 1) % item.images.length)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/20 backdrop-blur-md hover:bg-white/40 rounded-full text-white transition-all opacity-0 group-hover:opacity-100"
                   >
-                    <ChevronRight size={16} />
+                    <ChevronRight className="w-6 h-6" />
                   </button>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button 
-                  onClick={handleShare}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
-                  title={isRtl ? 'مشاركة' : 'Share'}
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
-                {auth.currentUser && (
-                  <>
-                    <button 
-                      onClick={() => setShowReportModal(true)}
-                      className="p-2 hover:bg-red-50 rounded-full transition-colors text-slate-400 hover:text-red-500"
-                      title={isRtl ? 'إبلاغ' : 'Report'}
-                    >
-                      <Flag className="w-5 h-5" />
-                    </button>
-                    <button 
-                      onClick={handleToggleFavorite}
-                    disabled={isTogglingFavorite}
-                    className={`p-2 rounded-full transition-colors ${
-                      isFavorite 
-                        ? 'text-red-500 bg-red-50 hover:bg-red-100' 
-                        : 'text-slate-400 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
-                  </button>
-                </>
-              )}
-              </div>
-            </div>
-
-            <h1 className="text-3xl font-black text-slate-900 mb-2 leading-tight tracking-tight">{displayTitle}</h1>
-            <div className="flex items-center gap-4 mb-8">
-              <div className="text-4xl font-black text-brand-primary flex items-baseline gap-2">
-                {item.price.toLocaleString()}
-                <span className="text-lg font-bold text-slate-400">{item.currency}</span>
-              </div>
-              {item.isHighQuality && (
-                <div className="px-3 py-1 bg-amber-500/10 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-500/20 flex items-center gap-1">
-                  <Award size={12} />
-                  Premium Choice
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-8 mb-10">
-              {/* AI Price Intelligence */}
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="p-6 rounded-3xl bg-gradient-to-br from-brand-primary/5 to-brand-teal/5 border border-brand-primary/10 relative overflow-hidden group"
-              >
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-                  <BrainCircuit size={60} />
-                </div>
-                <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                  <Zap size={14} className="animate-pulse" />
-                  {isRtl ? 'ذكاء الأسعار' : 'Price Intelligence'}
-                </h4>
-                
-                {priceInsight ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-bold text-slate-600">{isRtl ? 'السعر الموصى به' : 'Recommended Price'}</div>
-                      <div className="text-lg font-black text-brand-primary">{priceInsight.recommendedPrice} {item.currency}</div>
-                    </div>
-                    <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden flex">
-                      <div className="h-full bg-brand-primary" style={{ width: '60%' }} />
-                    </div>
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                      {priceInsight.analysis}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-bold text-emerald-600">
-                      <TrendingUp size={16} />
-                      {isRtl ? 'سعر تنافسي للغاية' : 'Highly Competitive Price'}
-                    </div>
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                      {isRtl 
-                        ? 'تحليلنا يظهر أن هذا السعر أقل بنسبة 12% من متوسط السوق لهذه الفئة.' 
-                        : 'Our analysis shows this price is 12% lower than the market average for this category.'}
-                    </p>
-                  </div>
-                )}
-              </motion.div>
-
-              {/* Description */}
-              <div>
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                  <Tag className="w-4 h-4" />
-                  {t('item_description', 'Description')}
-                </h4>
-                <p className="text-slate-600 leading-relaxed text-sm sm:text-base font-medium">
-                  {displayDescription}
-                </p>
-              </div>
-
-              {/* Features (AI Generated) */}
-              {item.features && item.features.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-brand-primary" />
-                    {t('key_features', 'Key Features')}
-                  </h4>
-                  <div className="grid grid-cols-1 gap-2">
-                    {item.features.map((feature, idx) => (
-                      <div key={`product-feature-${idx}-${feature.slice(0, 10)}`} className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                        <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                        <span>{feature}</span>
-                      </div>
+                  
+                  {/* Dots */}
+                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
+                    {item.images.map((_, idx) => (
+                      <div 
+                        key={`img-dot-${idx}`}
+                        className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`}
+                      />
                     ))}
                   </div>
-                </div>
+                </>
               )}
 
-              {/* Seller Info */}
-              <div className="p-5 bg-slate-50 rounded-[24px] border border-slate-100">
-                {auth.currentUser ? (
-                  <>
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-14 h-14 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary font-bold text-2xl border-2 border-white shadow-sm">
-                        {item.sellerName.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-slate-800">{item.sellerName}</h4>
-                          {item.isVerifiedSupplier && <CheckCircle className="w-4 h-4 text-emerald-500" />}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                          <span className={`px-2 py-0.5 rounded-full ${item.sellerRole === 'supplier' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-brand-secondary/10 text-brand-secondary'}`}>
-                            {item.sellerRole === 'supplier' ? (isRtl ? 'مورد' : 'Supplier') : (isRtl ? 'بائع مجتمعي' : 'Community Seller')}
-                          </span>
-                          <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                          <span className="flex items-center gap-1 text-brand-primary">
-                            <Users className="w-3 h-3" />
-                            {sellerFollowersCount} {isRtl ? 'متابع' : 'Followers'}
-                          </span>
-                        </div>
-                      </div>
-                      {auth.currentUser && item.sellerId !== auth.currentUser.uid && (
-                        <button 
-                          onClick={handleFollowSeller}
-                          disabled={isFollowLoading}
-                          className={`ml-auto px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                            isFollowingSeller 
-                              ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' 
-                              : 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20'
-                          }`}
-                        >
-                          {isFollowingSeller ? <UserMinus className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-                          {isFollowingSeller ? (isRtl ? 'إلغاء' : 'Following') : (isRtl ? 'متابعة' : 'Follow')}
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => onViewProfile(item.sellerId)}
-                        className={`p-2 hover:bg-white rounded-xl transition-colors text-slate-400 hover:text-brand-primary ${auth.currentUser && item.sellerId !== auth.currentUser.uid ? '' : 'ml-auto'}`}
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 text-sm text-slate-500">
-                        <MapPin className="w-4 h-4 text-brand-primary" />
-                        <span>{item.location || t('unknown_location', 'Unknown Location')}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm text-slate-500">
-                        <Clock className="w-4 h-4 text-brand-primary" />
-                        <span>{new Date(item.createdAt).toLocaleDateString(i18n.language, { dateStyle: 'medium' })}</span>
-                      </div>
-                      {item.sellerPhone && (
-                        <div className="flex items-center gap-3 text-sm text-slate-500">
-                          <Phone className="w-4 h-4 text-brand-primary" />
-                          <span>{item.sellerPhone}</span>
-                        </div>
-                      )}
-                    </div>
-                  </>
+              {/* Badges */}
+              <div className="absolute top-6 left-6 flex flex-col gap-2">
+                {item.sellerRole === 'supplier' ? (
+                  <div className="bg-brand-primary text-white px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1.5 shadow-lg shadow-brand-primary/20 uppercase tracking-wider border border-white/20">
+                    <Building2 className="w-3.5 h-3.5" />
+                    {isRtl ? 'مورد معتمد' : 'Verified Supplier'}
+                  </div>
                 ) : (
-                  <div className="text-center py-4">
-                    <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary mx-auto mb-3">
-                      <Shield size={24} />
-                    </div>
-                    <h4 className="text-sm font-black text-slate-900 mb-1">
-                      {isRtl ? 'سجل دخولك لمشاهدة معلومات البائع' : 'Login to view seller information'}
-                    </h4>
-                    <p className="text-[10px] text-slate-500 font-medium mb-4">
-                      {isRtl ? 'لحماية خصوصية الموردين، يجب تسجيل الدخول أولاً' : 'To protect supplier privacy, please login first'}
-                    </p>
-                    <HapticButton 
-                      onClick={onClose}
-                      className="px-6 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-primary/20"
-                    >
-                      {isRtl ? 'تسجيل الدخول' : 'Login Now'}
-                    </HapticButton>
+                  <div className="bg-brand-secondary text-white px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1.5 shadow-lg shadow-brand-secondary/20 uppercase tracking-wider border border-white/20">
+                    <User className="w-3.5 h-3.5" />
+                    {isRtl ? 'بائع مجتمعي' : 'Community Seller'}
+                  </div>
+                )}
+                {item.isHighQuality && (
+                  <div className="bg-amber-500 text-white px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1.5 shadow-lg shadow-amber-500/20 uppercase tracking-wider border border-white/20">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {t('hq_product', 'HQ Product')}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Actions (Desktop Only - Mobile is handled by fixed dock) */}
-            {auth.currentUser && item.sellerId !== auth.currentUser.uid && (
-              <div className="hidden md:flex mt-auto pt-6 border-t border-slate-100 flex-col gap-3">
-                <div className="flex gap-3">
-                  <HapticButton 
-                    onClick={() => onContactSeller(item)}
-                    className="flex-1 flex items-center justify-center gap-3 bg-brand-primary text-white py-4 rounded-2xl font-bold hover:bg-brand-primary-hover transition-all shadow-xl shadow-brand-primary/20"
-                  >
-                    <MessageSquare className="w-6 h-6" />
-                    {t('contact_seller', 'Contact Seller')}
-                  </HapticButton>
-                  {item.sellerPhone && (
-                    <a 
-                      href={`tel:${item.sellerPhone}`}
-                      className="p-4 bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition-all"
+            {/* Content Section */}
+            <div className="w-full md:w-2/5 p-6 sm:p-10 md:overflow-y-auto flex flex-col flex-1 min-h-0 bg-white dark:bg-slate-900 scroll-smooth pb-40 sm:pb-10">
+              {/* Desktop-only Product Nav (already exists at top of content in hidden-md) */}
+              
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-xs font-bold uppercase tracking-widest">
+                    {item.categories && item.categories.length > 0 ? item.categories[0] : ''}
+                  </span>
+
+                  {/* Core Team: Product-to-Product Navigation (High-End Interface) */}
+                  <div className="hidden md:flex items-center bg-slate-100 rounded-xl p-1 gap-1 border border-slate-200">
+                    <button 
+                      onClick={onPrev}
+                      className="p-1.5 hover:bg-white hover:text-brand-primary rounded-lg transition-all text-slate-400 disabled:opacity-30"
+                      disabled={!onPrev}
+                      title={isRtl ? 'المنتج السابق' : 'Previous Product'}
                     >
-                      <Phone className="w-6 h-6" />
-                    </a>
+                      <ChevronLeft size={16} />
+                    </button>
+                    <div className="w-[1px] h-4 bg-slate-200" />
+                    <button 
+                      onClick={onNext}
+                      className="p-1.5 hover:bg-white hover:text-brand-primary rounded-lg transition-all text-slate-400 disabled:opacity-30"
+                      disabled={!onNext}
+                      title={isRtl ? 'المنتج التالي' : 'Next Product'}
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={handleShare}
+                    className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+                    title={isRtl ? 'مشاركة' : 'Share'}
+                  >
+                    <Share2 className="w-5 h-5" />
+                  </button>
+                  {auth.currentUser && (
+                    <>
+                      <button 
+                        onClick={() => setShowReportModal(true)}
+                        className="p-2 hover:bg-red-50 rounded-full transition-colors text-slate-400 hover:text-red-500"
+                        title={isRtl ? 'إبلاغ' : 'Report'}
+                      >
+                        <Flag className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={handleToggleFavorite}
+                      disabled={isTogglingFavorite}
+                      className={`p-2 rounded-full transition-colors ${
+                        isFavorite 
+                          ? 'text-red-500 bg-red-50 hover:bg-red-100' 
+                          : 'text-slate-400 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
+                    </button>
+                  </>
+                )}
+                </div>
+              </div>
+
+              <h1 className="text-3xl font-black text-slate-900 mb-2 leading-tight tracking-tight">{displayTitle}</h1>
+              <div className="flex items-center gap-4 mb-8">
+                <div className="text-4xl font-black text-brand-primary flex items-baseline gap-2">
+                  {item.price.toLocaleString()}
+                  <span className="text-lg font-bold text-slate-400">{item.currency}</span>
+                </div>
+                {item.isHighQuality && (
+                  <div className="px-3 py-1 bg-amber-500/10 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-500/20 flex items-center gap-1">
+                    <Award size={12} />
+                    Premium Choice
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-8 mb-10">
+                {/* AI Price Intelligence */}
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="p-6 rounded-3xl bg-gradient-to-br from-brand-primary/5 to-brand-teal/5 border border-brand-primary/10 relative overflow-hidden group"
+                >
+                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                    <BrainCircuit size={60} />
+                  </div>
+                  <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                    <Zap size={14} className="animate-pulse" />
+                    {isRtl ? 'ذكاء الأسعار' : 'Price Intelligence'}
+                  </h4>
+                  
+                  {priceInsight ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-bold text-slate-600">{isRtl ? 'السعر الموصى به' : 'Recommended Price'}</div>
+                        <div className="text-lg font-black text-brand-primary">{priceInsight.recommendedPrice} {item.currency}</div>
+                      </div>
+                      <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden flex">
+                        <div className="h-full bg-brand-primary" style={{ width: '60%' }} />
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                        {priceInsight.analysis}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-bold text-emerald-600">
+                        <TrendingUp size={16} />
+                        {isRtl ? 'سعر تنافسي للغاية' : 'Highly Competitive Price'}
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                        {isRtl 
+                          ? 'تحليلنا يظهر أن هذا السعر أقل بنسبة 12% من متوسط السوق لهذه الفئة.' 
+                          : 'Our analysis shows this price is 12% lower than the market average for this category.'}
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
+
+                {/* Description */}
+                <div>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                    <Tag className="w-4 h-4" />
+                    {t('item_description', 'Description')}
+                  </h4>
+                  <p className="text-slate-600 leading-relaxed text-sm sm:text-base font-medium">
+                    {displayDescription}
+                  </p>
+                </div>
+
+                {/* Features (AI Generated) */}
+                {item.features && item.features.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-brand-primary" />
+                      {t('key_features', 'Key Features')}
+                    </h4>
+                    <div className="grid grid-cols-1 gap-2">
+                      {item.features.map((feature, idx) => (
+                        <div key={`product-feature-${idx}-${feature.slice(0, 10)}`} className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                          <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                          <span>{feature}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Seller Info */}
+                <div className="p-5 bg-slate-50 rounded-[24px] border border-slate-100">
+                  {auth.currentUser ? (
+                    <>
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="w-14 h-14 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary font-bold text-2xl border-2 border-white shadow-sm">
+                          {item.sellerName.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-slate-800">{item.sellerName}</h4>
+                            {item.isVerifiedSupplier && <CheckCircle className="w-4 h-4 text-emerald-500" />}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                            <span className={`px-2 py-0.5 rounded-full ${item.sellerRole === 'supplier' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-brand-secondary/10 text-brand-secondary'}`}>
+                              {item.sellerRole === 'supplier' ? (isRtl ? 'مورد' : 'Supplier') : (isRtl ? 'بائع مجتمعي' : 'Community Seller')}
+                            </span>
+                            <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                            <span className="flex items-center gap-1 text-brand-primary">
+                              <Users className="w-3 h-3" />
+                              {sellerFollowersCount} {isRtl ? 'متابع' : 'Followers'}
+                            </span>
+                          </div>
+                        </div>
+                        {auth.currentUser && item.sellerId !== auth.currentUser.uid && (
+                          <button 
+                            onClick={handleFollowSeller}
+                            disabled={isFollowLoading}
+                            className={`ml-auto px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                              isFollowingSeller 
+                                ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' 
+                                : 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20'
+                            }`}
+                          >
+                            {isFollowingSeller ? <UserMinus className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                            {isFollowingSeller ? (isRtl ? 'إلغاء' : 'Following') : (isRtl ? 'متابعة' : 'Follow')}
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => onViewProfile(item.sellerId)}
+                          className={`p-2 hover:bg-white rounded-xl transition-colors text-slate-400 hover:text-brand-primary ${auth.currentUser && item.sellerId !== auth.currentUser.uid ? '' : 'ml-auto'}`}
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 text-sm text-slate-500">
+                          <MapPin className="w-4 h-4 text-brand-primary" />
+                          <span>{item.location || t('unknown_location', 'Unknown Location')}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-slate-500">
+                          <Clock className="w-4 h-4 text-brand-primary" />
+                          <span>{new Date(item.createdAt).toLocaleDateString(i18n.language, { dateStyle: 'medium' })}</span>
+                        </div>
+                        {item.sellerPhone && (
+                          <div className="flex items-center gap-3 text-sm text-slate-500">
+                            <Phone className="w-4 h-4 text-brand-primary" />
+                            <span>{item.sellerPhone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-4">
+                      <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary mx-auto mb-3">
+                        <Shield size={24} />
+                      </div>
+                      <h4 className="text-sm font-black text-slate-900 mb-1">
+                        {isRtl ? 'سجل دخولك لمشاهدة معلومات البائع' : 'Login to view seller information'}
+                      </h4>
+                      <p className="text-[10px] text-slate-500 font-medium mb-4">
+                        {isRtl ? 'لحماية خصوصية الموردين، يجب تسجيل الدخول أولاً' : 'To protect supplier privacy, please login first'}
+                      </p>
+                      <HapticButton 
+                        onClick={onClose}
+                        className="px-6 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-primary/20"
+                      >
+                        {isRtl ? 'تسجيل الدخول' : 'Login Now'}
+                      </HapticButton>
+                    </div>
                   )}
                 </div>
-                
-                <WhatsAppButton 
-                  phoneNumber={item.sellerPhone}
-                  productName={displayTitle}
-                  productId={item.id}
-                  variant="full"
-                />
               </div>
-            )}
+
+              {/* Actions (Desktop Only - Mobile is handled by fixed dock) */}
+              {auth.currentUser && item.sellerId !== auth.currentUser.uid && (
+                <div className="hidden md:flex mt-auto pt-6 border-t border-slate-100 flex-col gap-3">
+                  <div className="flex gap-3">
+                    <HapticButton 
+                      onClick={() => onContactSeller(item)}
+                      className="flex-1 flex items-center justify-center gap-3 bg-brand-primary text-white py-4 rounded-2xl font-bold hover:bg-brand-primary-hover transition-all shadow-xl shadow-brand-primary/20"
+                    >
+                      <MessageSquare className="w-6 h-6" />
+                      {t('contact_seller', 'Contact Seller')}
+                    </HapticButton>
+                    {item.sellerPhone && (
+                      <a 
+                        href={`tel:${item.sellerPhone}`}
+                        className="p-4 bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition-all"
+                      >
+                        <Phone className="w-6 h-6" />
+                      </a>
+                    )}
+                  </div>
+                  
+                  <WhatsAppButton 
+                    phoneNumber={item.sellerPhone}
+                    productName={displayTitle}
+                    productId={item.id}
+                    variant="full"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
+
           {/* Unified Mobile Action & Nav Dock (Fixed Bottom) */}
-          <div className="fixed bottom-0 left-0 right-0 z-[130] bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-slate-200 dark:border-slate-700 p-4 md:hidden flex flex-col gap-3 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]" dir={isRtl ? 'rtl' : 'ltr'}>
+          <div className="fixed bottom-0 left-0 right-0 z-[1030] bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-t border-slate-200 dark:border-slate-700 p-4 md:hidden flex flex-col gap-3 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]" dir={isRtl ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between gap-4">
               <HapticButton 
                 onClick={onPrev}
