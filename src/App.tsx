@@ -142,6 +142,16 @@ export default function App() {
       setView('dashboard');
       setDashboardTab('ai-hub');
     }
+
+    // Voice-Driven Navigation Listener
+    const handleVoiceNav = (e: any) => {
+      if (e.detail?.view) {
+        setView(e.detail.view);
+        if (e.detail.tab) setDashboardTab(e.detail.tab);
+      }
+    };
+    window.addEventListener('voice-navigation', handleVoiceNav);
+    return () => window.removeEventListener('voice-navigation', handleVoiceNav);
   }, []);
 
   useEffect(() => {

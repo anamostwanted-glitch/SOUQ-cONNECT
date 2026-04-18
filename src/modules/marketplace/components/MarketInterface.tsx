@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FluidSlider } from './FluidSlider';
 import { PredictiveMatchSection } from './PredictiveMatchSection';
 import { fetchMarketplaceItems, fetchMarketTrends, fetchSuppliers, searchMarketplaceAndSuppliers, fetchPredictiveMatches } from '../services/marketService';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   collection, 
@@ -58,12 +58,16 @@ import {
   Mic,
   Database,
   Wallet,
-  Loader2
+  Loader2,
+  Globe
 } from 'lucide-react';
+import { SellerHub } from './SellerHub';
 import { toast } from 'sonner';
-import { handleFirestoreError, OperationType, handleAiError } from '../../../core/utils/errorHandling';
+import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { handleAiError, recognizeFilterIntent, recognizeNavigationIntent } from '../../../core/services/geminiService';
 import { Skeleton } from '../../../shared/components/Skeleton';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { soundService, SoundType } from '../../../core/utils/soundService';
 import { ProductCard } from './ProductCard';
 import { ProductCardSkeleton } from './ProductCardSkeleton';
 import { SupplierSpotlight } from './SupplierSpotlight';
@@ -156,6 +160,33 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   const [editingItem, setEditingItem] = useState<MarketplaceItem | null>(null);
   const [showVisualSearch, setShowVisualSearch] = useState(false);
   const [showSmartCategories, setShowSmartCategories] = useState(false);
+  const [voiceFilters, setVoiceFilters] = useState<{
+    location?: string;
+    priceRange?: { min?: number; max?: number };
+    sortBy?: string;
+    querySuffix?: string;
+  }>({});
+  const [isRefiningVoice, setIsRefiningVoice] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  const startVoiceRefinement = () => {
+    if (recognitionRef.current && !isRefiningVoice) {
+      try {
+        recognitionRef.current.start();
+        setIsRefiningVoice(true);
+        soundService.play(SoundType.NEURAL_TAP);
+        if (navigator.vibrate) navigator.vibrate(40);
+      } catch (e) {
+        console.error('Speech start error:', e);
+      }
+    }
+  };
+
+  const stopVoiceRefinement = () => {
+    if (recognitionRef.current && isRefiningVoice) {
+      recognitionRef.current.stop();
+    }
+  };
   
   // 3-Tier Navigation State
   const [selectedHubId, setSelectedHubId] = useState<string | undefined>();
@@ -223,6 +254,50 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   
   const items = itemsData.items;
 
+  // Initialize Speech Recognition
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = i18n.language === 'ar' ? 'ar-JO' : 'en-US';
+
+      recognitionRef.current.onresult = async (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript) {
+          setIsRefiningVoice(true);
+          toast.info(isRtl ? `جاري معالجة: "${transcript}"` : `Processing: "${transcript}"`, { icon: <Sparkles className="animate-pulse text-brand-primary" size={16} /> });
+          
+          try {
+            // 1. Check for Navigation Intent First
+            const navIntent = await recognizeNavigationIntent(transcript, i18n.language);
+            if (navIntent && navIntent.view && navIntent.view !== 'home' && navIntent.view !== 'marketplace') {
+              window.dispatchEvent(new CustomEvent('voice-navigation', { detail: navIntent }));
+              soundService.play(SoundType.SUCCESS);
+              return;
+            }
+
+            // 2. Fallback to Filter Refinement
+            const newFilters = await recognizeFilterIntent(transcript, items, i18n.language);
+            if (newFilters) {
+              setVoiceFilters(prev => ({ ...prev, ...newFilters }));
+              soundService.play(SoundType.SUCCESS);
+              toast.success(isRtl ? 'تم تحديث النتائج بذكاء' : 'Results refined intelligently');
+            }
+          } catch (err) {
+            console.error('Voice refinement failed:', err);
+            soundService.play(SoundType.ERROR);
+          } finally {
+            setIsRefiningVoice(false);
+          }
+        }
+      };
+
+      recognitionRef.current.onend = () => setIsRefiningVoice(false);
+    }
+  }, [i18n.language, items, isRtl]);
+
   // Demand-Driven Taxonomy: Identify active categories
   const activeCategoryIds = useMemo(() => {
     const ids = new Set<string>();
@@ -255,60 +330,84 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   // Adaptive Grid Calculation - Moved down below filteredItems
   const [visualSearchResults, setVisualSearchResults] = useState<MarketplaceItem[] | null>(null);
 
-  const filteredItems = (visualSearchResults 
-    ? visualSearchResults 
-    : items).filter(item => {
-    const searchLower = searchTerm.toLowerCase();
-    
-    // Core Team Enhancement: Hierarchical Category Filtering
-    const activeCategoryId = selectedNicheId || selectedSectorId || selectedHubId;
-    if (activeCategoryId) {
-      if (!item.categories?.includes(activeCategoryId)) {
-        // Find if the item belongs to any descendant of the filter
-        const itemCategories = categories.filter(c => item.categories?.includes(c.id));
-        const isDescendant = itemCategories.some(c => {
-          let current: any = c;
-          while (current) {
-            if (current.id === activeCategoryId) return true;
-            if (current.parentId) {
-               current = categories.find(cat => cat.id === current.parentId);
-            } else {
-              current = null;
+  // Core Team: Integrated Intelligent Filter Logic (Text + Category + Voice)
+  const filteredItems = useMemo(() => {
+    let result = (visualSearchResults ? visualSearchResults : items).filter(item => {
+      const searchLower = searchTerm.toLowerCase();
+      
+      // 1. Hierarchical Category Filtering
+      const activeCategoryId = selectedNicheId || selectedSectorId || selectedHubId;
+      if (activeCategoryId) {
+        if (!item.categories?.includes(activeCategoryId)) {
+          const itemCategories = categories.filter(c => item.categories?.includes(c.id));
+          const isDescendant = itemCategories.some(c => {
+            let current: any = c;
+            while (current) {
+              if (current.id === activeCategoryId) return true;
+              current = current.parentId ? categories.find(cat => cat.id === current.parentId) : null;
             }
-          }
-          return false;
-        });
-        if (!isDescendant) return false;
-      }
-    }
-
-    // Existing Discover View Filter: Strictly separate products and services
-    const isServiceItem = categories.filter(c => item.categories?.includes(c.id)).some(c => {
-      let current: any = c;
-      while (current) {
-        if (current.categoryType === 'service') return true;
-        if (current.parentId) {
-          current = categories.find(cat => cat.id === current.parentId);
-        } else {
-          current = null;
+            return false;
+          });
+          if (!isDescendant) return false;
         }
       }
-      return false;
-    });
-    
-    if (activeTab === 'discover' && isServiceItem) return false;
-    if (activeTab === 'services' && !isServiceItem) return false;
 
-    const matchesSearch = 
-      (item.title?.toLowerCase() || '').includes(searchLower) || 
-      (item.description?.toLowerCase() || '').includes(searchLower) ||
-      (item.titleAr && item.titleAr.toLowerCase().includes(searchLower)) ||
-      (item.titleEn && item.titleEn.toLowerCase().includes(searchLower)) ||
-      (item.descriptionAr && item.descriptionAr.toLowerCase().includes(searchLower)) ||
-      (item.descriptionEn && item.descriptionEn.toLowerCase().includes(searchLower));
-    
-    return matchesSearch;
-  });
+      // 2. Discover/Services Tab Isolation
+      const isServiceItem = categories.filter(c => item.categories?.includes(c.id)).some(c => {
+        let current: any = c;
+        while (current) {
+          if (current.categoryType === 'service') return true;
+          current = current.parentId ? categories.find(cat => cat.id === current.parentId) : null;
+        }
+        return false;
+      });
+      
+      if (activeTab === 'discover' && isServiceItem) return false;
+      if (activeTab === 'services' && !isServiceItem) return false;
+
+      // 3. Search Term Matching
+      const matchesSearch = 
+        (item.title?.toLowerCase() || '').includes(searchLower) || 
+        (item.description?.toLowerCase() || '').includes(searchLower) ||
+        (item.titleAr?.toLowerCase() || '').includes(searchLower) ||
+        (item.titleEn?.toLowerCase() || '').includes(searchLower);
+      
+      if (!matchesSearch) return false;
+
+      // 4. Voice Filter: Location
+      if (voiceFilters.location) {
+        const loc = voiceFilters.location.toLowerCase();
+        if (!item.location?.toLowerCase().includes(loc)) return false;
+      }
+
+      // 5. Voice Filter: Price Range
+      if (voiceFilters.priceRange) {
+        const { min, max } = voiceFilters.priceRange;
+        if (min !== undefined && item.price < min) return false;
+        if (max !== undefined && item.price > max) return false;
+      }
+
+      // 6. Voice Filter: Query Suffix (Advanced matching)
+      if (voiceFilters.querySuffix) {
+        const suffix = voiceFilters.querySuffix.toLowerCase();
+        const matchesSuffix = 
+          (item.title?.toLowerCase() || '').includes(suffix) || 
+          (item.description?.toLowerCase() || '').includes(suffix);
+        if (!matchesSuffix) return false;
+      }
+
+      return true;
+    });
+
+    // 7. Voice Filter: Sorting
+    if (voiceFilters.sortBy) {
+      if (voiceFilters.sortBy === 'price_asc') result.sort((a, b) => a.price - b.price);
+      if (voiceFilters.sortBy === 'price_desc') result.sort((a, b) => b.price - a.price);
+      if (voiceFilters.sortBy === 'newest') result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
+    return result;
+  }, [items, visualSearchResults, searchTerm, activeTab, voiceFilters, categories, selectedNicheId, selectedSectorId, selectedHubId]);
 
   const gridCols = React.useMemo(() => {
     const isMobile = windowWidth < 768;
@@ -490,6 +589,73 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                   </div>
                 )}
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Neural Voice Filters Chips */}
+        <AnimatePresence>
+          {Object.keys(voiceFilters).length > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="flex flex-wrap gap-2 mb-6"
+            >
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary/10 text-brand-primary rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-primary/20">
+                <BrainCircuit size={12} className="animate-pulse" />
+                {isRtl ? 'فلاتر عصبية نشطة' : 'Active Neural Filters'}
+              </div>
+
+              {voiceFilters.location && (
+                <motion.div layout className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-bold border border-brand-border shadow-sm group">
+                  <MapPin size={10} className="text-brand-primary" />
+                  {voiceFilters.location}
+                  <button onClick={() => setVoiceFilters(prev => ({ ...prev, location: undefined }))} className="hover:text-rose-500 transition-colors">
+                    <X size={10} />
+                  </button>
+                </motion.div>
+              )}
+
+              {voiceFilters.priceRange && (
+                <motion.div layout className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-bold border border-brand-border shadow-sm group">
+                  <Wallet size={10} className="text-brand-primary" />
+                  {voiceFilters.priceRange.min !== undefined && `${voiceFilters.priceRange.min} - `}
+                  {voiceFilters.priceRange.max !== undefined && `${voiceFilters.priceRange.max} ${t('currency')}`}
+                  <button onClick={() => setVoiceFilters(prev => ({ ...prev, priceRange: undefined }))} className="hover:text-rose-500 transition-colors">
+                    <X size={10} />
+                  </button>
+                </motion.div>
+              )}
+
+              {voiceFilters.sortBy && (
+                <motion.div layout className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-bold border border-brand-border shadow-sm group">
+                  <TrendingUp size={10} className="text-brand-primary" />
+                  {voiceFilters.sortBy === 'price_asc' && (isRtl ? 'الأرخص' : 'Cheapest')}
+                  {voiceFilters.sortBy === 'price_desc' && (isRtl ? 'الأغلى' : 'Most Expensive')}
+                  {voiceFilters.sortBy === 'newest' && (isRtl ? 'الأحدث' : 'Newest')}
+                  <button onClick={() => setVoiceFilters(prev => ({ ...prev, sortBy: undefined }))} className="hover:text-rose-500 transition-colors">
+                    <X size={10} />
+                  </button>
+                </motion.div>
+              )}
+
+              {voiceFilters.querySuffix && (
+                <motion.div layout className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-bold border border-brand-border shadow-sm group">
+                  <Sparkles size={10} className="text-brand-primary" />
+                  {voiceFilters.querySuffix}
+                  <button onClick={() => setVoiceFilters(prev => ({ ...prev, querySuffix: undefined }))} className="hover:text-rose-500 transition-colors">
+                    <X size={10} />
+                  </button>
+                </motion.div>
+              )}
+
+              <HapticButton 
+                onClick={() => setVoiceFilters({})} 
+                className="text-[10px] font-black text-rose-500 uppercase tracking-widest px-3 py-1.5 hover:bg-rose-500/5 rounded-xl transition-colors"
+              >
+                {isRtl ? 'مسح الكل' : 'Clear All'}
+              </HapticButton>
             </motion.div>
           )}
         </AnimatePresence>

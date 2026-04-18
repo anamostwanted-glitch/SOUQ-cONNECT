@@ -81,12 +81,13 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
     }
   }, [i18n.language]);
 
-  const toggleListening = () => {
-    if (isListening) {
+  const toggleListening = (stop = false) => {
+    if (stop || isListening) {
       recognitionRef.current?.stop();
     } else {
       recognitionRef.current?.start();
       setIsListening(true);
+      if (navigator.vibrate) navigator.vibrate(40);
     }
   };
 
@@ -1224,8 +1225,10 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                   </h3>
                 </div>
                 <HapticButton 
-                  onClick={toggleListening}
-                  className={`p-2 rounded-full transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}
+                  onPointerDown={() => toggleListening(false)}
+                  onPointerUp={() => toggleListening(true)}
+                  onPointerLeave={() => toggleListening(true)}
+                  className={`p-2 rounded-full transition-all touch-none select-none z-10 ${isListening ? 'bg-red-500 text-white animate-pulse scale-110 shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}
                 >
                   <Mic size={16} />
                 </HapticButton>

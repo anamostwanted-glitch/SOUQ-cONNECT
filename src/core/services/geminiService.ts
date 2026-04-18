@@ -586,6 +586,101 @@ export const analyzeSmartImage = async (base64Data: string, mimeType: string): P
   }, fallback, 'Smart Image Analysis', isFailure);
 };
 
+/**
+ * Process voice commands for search result refinement.
+ */
+/**
+ * Translate voice commands into application navigation intents.
+ */
+export const recognizeNavigationIntent = async (transcript: string, language: string): Promise<any> => {
+  const fallback = { view: 'home' };
+
+  return AIResilienceManager.execute(async () => {
+    const prompt = `[NAV-INTENT:NEURAL]
+      User Voice Command: "${transcript}"
+      Language: ${language === 'ar' ? 'Arabic' : 'English'}
+      
+      Task: Translate the user's spoken command into a structured application view.
+      Available Views & Keywords:
+      - home: "الرئيسية", "البيت", "البداية", "home", "main"
+      - marketplace: "السوق", "البضائع", "أريد شراء", "marketplace", "market", "buy"
+      - dashboard: "لوحة التحكم", "إحصائياتي", "dashboard", "stats", "my ads"
+      - chat: "الرسائل", "المحادثات", "chat", "messages", "inbox"
+      - profile: "ملفي الشخصي", "حسابي", "profile", "account", "settings"
+      - smart_pulse: "نبض السوق", "أخبار السوق", "pulse", "trends"
+      - connect: "المكافآت", "نقاطي", "rewards", "points"
+      - neural_hub: "التحليل الذكي", "عصب التطبيق", "neural", "analysis"
+      
+      Return ONLY a JSON object with a 'view' property and an optional 'tab' property (for dashboard).`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          view: { type: Type.STRING, enum: ["home", "marketplace", "dashboard", "chat", "profile", "smart_pulse", "connect", "neural_hub"] },
+          tab: { type: Type.STRING }
+        },
+        required: ["view"]
+      }
+    );
+    
+    const tokens = (prompt.length + JSON.stringify(result).length) / 4;
+    await logUsage('Voice Navigation Recognition', Math.ceil(tokens));
+    return result;
+  }, fallback, 'Voice navigation refinement', isFailure);
+};
+
+export const recognizeFilterIntent = async (transcript: string, currentItems: any[], language: string): Promise<any> => {
+  const fallback = { filters: {} };
+
+  return AIResilienceManager.execute(async () => {
+    const prompt = `[SEARCH-REFINE:NEURAL]
+      User Voice Command: "${transcript}"
+      Context: User is looking at marketplace results. 
+      Recent top results context: ${JSON.stringify(currentItems.slice(0, 5).map(i => ({ title: i.titleEn || i.title, price: i.price, location: i.location })))}
+      Language: ${language === 'ar' ? 'Arabic' : 'English'}
+      
+      Task: Translate the user's spoken command into structured marketplace filters.
+      Supported filters:
+      - priceRange: { min: number, max: number } (e.g., "under 500", "between 1000 and 2000")
+      - location: string (e.g., "Amman", "Zarqa", "Irbid")
+      - sortBy: "price_asc" | "price_desc" | "newest" | "rating"
+      - querySuffix: string (e.g., if they say "show me the blue ones", suffix is "blue")
+      
+      Return ONLY a JSON object with a 'filters' property containing the extracted keys.`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          filters: {
+            type: Type.OBJECT,
+            properties: {
+              priceRange: {
+                type: Type.OBJECT,
+                properties: {
+                  min: { type: Type.NUMBER },
+                  max: { type: Type.NUMBER }
+                }
+              },
+              location: { type: Type.STRING },
+              sortBy: { type: Type.STRING, enum: ["price_asc", "price_desc", "newest", "rating"] },
+              querySuffix: { type: Type.STRING }
+            }
+          }
+        },
+        required: ["filters"]
+      }
+    );
+    
+    const tokens = (prompt.length + JSON.stringify(result).length) / 4;
+    await logUsage('Voice Search Refinement', Math.ceil(tokens));
+    return result.filters;
+  }, fallback, 'Voice search refinement', isFailure);
+};
+
 export const processSmartVoice = async (transcript: string): Promise<any> => {
   const fallback = { success: false };
 

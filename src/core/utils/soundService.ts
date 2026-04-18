@@ -6,7 +6,9 @@ export enum SoundType {
   TYPING = 'typing',
   RECEIVED = 'received',
   SENT = 'sent',
-  AI_PULSE = 'ai_pulse'
+  AI_PULSE = 'ai_pulse',
+  GHOST_PULSE = 'ghost_pulse',
+  NEURAL_TAP = 'neural_tap'
 }
 
 const SOUND_URLS: Record<string, string> = {
@@ -14,7 +16,9 @@ const SOUND_URLS: Record<string, string> = {
   success: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3',
   error: 'https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3',
   message: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3',
-  ai_pulse: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'
+  ai_pulse: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
+  ghost_pulse: 'https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3',
+  neural_tap: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'
 };
 
 export const soundService = {

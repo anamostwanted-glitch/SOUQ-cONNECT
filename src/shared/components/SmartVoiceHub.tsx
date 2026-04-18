@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { HapticButton } from './HapticButton';
 import { soundService, SoundType } from '../../core/utils/soundService';
-import { processSmartVoice } from '../../core/services/geminiService';
+import { processSmartVoice, recognizeNavigationIntent } from '../../core/services/geminiService';
 import { toast } from 'sonner';
 
 interface SmartVoiceHubProps {
@@ -30,8 +30,12 @@ export const SmartVoiceHub: React.FC<SmartVoiceHubProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [result, setResult] = useState<any>(null);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [shouldCancel, setShouldCancel] = useState(false);
   
   const recognitionRef = useRef<any>(null);
+  const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const startXRef = useRef<number | null>(null);
 
   useEffect(() => {
     setIsOpen(initialIsOpen);
@@ -49,7 +53,7 @@ export const SmartVoiceHub: React.FC<SmartVoiceHubProps> = ({
   };
 
   const startRecording = () => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || isProcessing) return;
     
     // Check for Speech Recognition API
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -59,9 +63,12 @@ export const SmartVoiceHub: React.FC<SmartVoiceHubProps> = ({
       return;
     }
 
+    setShouldCancel(false);
+    setDragOffset(0);
+
     try {
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
+      recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = isRtl ? 'ar-JO' : 'en-US';
 
@@ -69,7 +76,7 @@ export const SmartVoiceHub: React.FC<SmartVoiceHubProps> = ({
         setIsRecording(true);
         setTranscript('');
         soundService.play(SoundType.SUCCESS);
-        if (navigator.vibrate) navigator.vibrate(20);
+        if (navigator.vibrate) navigator.vibrate(40);
       };
 
       recognitionRef.current.onresult = (event: any) => {
@@ -82,14 +89,13 @@ export const SmartVoiceHub: React.FC<SmartVoiceHubProps> = ({
 
       recognitionRef.current.onerror = (event: any) => {
         console.error('Speech recognition error', event.error);
-        setIsRecording(false);
+        if (event.error !== 'aborted') {
+          setIsRecording(false);
+        }
       };
 
       recognitionRef.current.onend = () => {
         setIsRecording(false);
-        if (transcript) {
-          handleProcessVoice(transcript);
-        }
       };
 
       recognitionRef.current.start();
@@ -99,17 +105,71 @@ export const SmartVoiceHub: React.FC<SmartVoiceHubProps> = ({
     }
   };
 
-  const stopRecording = () => {
+  const stopRecording = (cancel = false) => {
+    if (!isRecording) return;
+
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
+    
     setIsRecording(false);
+    
+    if (cancel) {
+      setTranscript('');
+      soundService.play(SoundType.GHOST_PULSE); // Use a distinct sound for cancel
+      if (navigator.vibrate) navigator.vibrate([10, 30, 10]);
+    } else if (transcript) {
+      handleProcessVoice(transcript);
+    }
+    
+    setDragOffset(0);
+    setShouldCancel(false);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (isProcessing) return;
+    startXRef.current = e.clientX;
+    startRecording();
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isRecording || startXRef.current === null) return;
+    
+    const diff = e.clientX - startXRef.current;
+    // Swipe left to cancel in LTR, swipe right to cancel in RTL
+    const slide = isRtl ? Math.max(0, diff) : Math.min(0, diff);
+    setDragOffset(slide);
+    
+    if (Math.abs(slide) > 120) {
+      setShouldCancel(true);
+    } else {
+      setShouldCancel(false);
+    }
+  };
+
+  const handlePointerUp = () => {
+    if (!isRecording) return;
+    stopRecording(shouldCancel);
+    startXRef.current = null;
   };
 
   const handleProcessVoice = async (text: string) => {
     setIsProcessing(true);
     setResult(null);
     try {
+      // 1. Check for Navigation Intent First (Teleportation)
+      const navIntent = await recognizeNavigationIntent(text, i18n.language);
+      if (navIntent && navIntent.view && navIntent.view !== 'home') {
+        window.dispatchEvent(new CustomEvent('voice-navigation', { detail: navIntent }));
+        toast.success(isRtl ? `جاري الانتقال: ${navIntent.view}` : `Navigating to ${navIntent.view}`, {
+          icon: <Zap className="text-brand-amber animate-pulse" size={16} />
+        });
+        soundService.play(SoundType.SUCCESS);
+        setIsOpen(false);
+        return;
+      }
+
+      // 2. Fallback to Standard Commerce Processing
       const data = await processSmartVoice(text);
       setResult(data);
       soundService.play(SoundType.AI_PULSE);
@@ -216,39 +276,60 @@ export const SmartVoiceHub: React.FC<SmartVoiceHubProps> = ({
                   </AnimatePresence>
 
                   <div className="flex flex-col items-center gap-6">
-                    <HapticButton
-                      onClick={isRecording ? stopRecording : startRecording}
-                      disabled={isProcessing}
-                      className={`w-28 h-28 md:w-40 md:h-40 rounded-full flex items-center justify-center transition-all relative ${
-                        isRecording 
-                          ? 'bg-red-500 scale-110 shadow-[0_0_50px_rgba(239,68,68,0.5)]' 
-                          : 'bg-brand-primary shadow-xl hover:scale-105'
-                      } ${isProcessing ? 'opacity-50 grayscale' : ''}`}
-                    >
-                      {isProcessing ? (
-                        <Loader2 size={48} className="text-white animate-spin" />
-                      ) : isRecording ? (
-                        <MicOff size={48} className="text-white" />
-                      ) : (
-                        <Mic size={48} className="text-white" />
-                      )}
+                    <div className="relative">
+                      <HapticButton
+                        onPointerDown={handlePointerDown}
+                        onPointerMove={handlePointerMove}
+                        onPointerUp={handlePointerUp}
+                        onPointerLeave={handlePointerUp}
+                        disabled={isProcessing}
+                        className={`w-28 h-28 md:w-40 md:h-40 rounded-full flex items-center justify-center transition-all relative z-10 touch-none select-none ${
+                          isRecording 
+                            ? 'bg-red-500 scale-110 shadow-[0_0_50px_rgba(239,68,68,0.5)]' 
+                            : 'bg-brand-primary shadow-xl hover:scale-105'
+                        } ${isProcessing ? 'opacity-50 grayscale' : ''} ${shouldCancel ? 'opacity-30 scale-90 grayscale' : ''}`}
+                        style={{ transform: `translateX(${dragOffset}px)` }}
+                      >
+                        {isProcessing ? (
+                          <Loader2 size={48} className="text-white animate-spin" />
+                        ) : isRecording ? (
+                          <MicOff size={48} className="text-white" />
+                        ) : (
+                          <Mic size={48} className="text-white" />
+                        )}
 
-                      {/* Ripple Effect when Silent */}
-                      {!isRecording && !isProcessing && (
-                         <motion.div 
-                           animate={{ scale: [1, 1.4], opacity: [0.5, 0] }}
-                           transition={{ repeat: Infinity, duration: 1.5 }}
-                           className="absolute inset-0 bg-brand-primary rounded-full"
-                         />
-                      )}
-                    </HapticButton>
+                        {/* Ripple Effect when Silent */}
+                        {!isRecording && !isProcessing && (
+                          <motion.div 
+                            animate={{ scale: [1, 1.4], opacity: [0.5, 0] }}
+                            transition={{ repeat: Infinity, duration: 1.5 }}
+                            className="absolute inset-0 bg-brand-primary rounded-full -z-10"
+                          />
+                        )}
+                        
+                        {/* Direction Arrow during hold */}
+                        {isRecording && !shouldCancel && (
+                           <motion.div 
+                             initial={{ opacity: 0 }}
+                             animate={{ opacity: 1, x: isRtl ? [40, 60, 40] : [-40, -60, -40] }}
+                             transition={{ repeat: Infinity, duration: 1.5 }}
+                             className="absolute top-1/2 -translate-y-1/2 flex items-center gap-1 text-white/50"
+                             style={{ [isRtl ? 'right' : 'left']: '-80px' }}
+                           >
+                              {isRtl ? <Check size={16} className="rotate-180" /> : <Check size={16} className="-rotate-180" />}
+                           </motion.div>
+                        )}
+                      </HapticButton>
+                    </div>
 
                     <div className="text-sm font-black text-brand-text-main uppercase tracking-widest mt-4">
                       {isProcessing 
                         ? (isRtl ? 'جاري التحليل...' : 'Analyzing...') 
                         : isRecording 
-                          ? (isRtl ? 'جاري الاستماع...' : 'Listening...') 
-                          : (isRtl ? 'إضغط واحكي' : 'Tap to Speak')}
+                          ? (shouldCancel 
+                              ? (isRtl ? 'اترك للإلغاء' : 'Release to Cancel') 
+                              : (isRtl ? 'اسحب لليسار للإلغاء' : 'Slide left to cancel')) 
+                          : (isRtl ? 'اضغط باستمرار للتحدث' : 'Hold to Speak')}
                     </div>
                   </div>
                 </div>

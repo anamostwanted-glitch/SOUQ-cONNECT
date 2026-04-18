@@ -25,7 +25,7 @@ import { UserProfile, Message, Chat, ProductRequest, Quote, QuoteItem, Offer, Ap
 import { translateText, generateSmartReplies, moderateContent, translateAudio, negotiateOffer, getPriceIntelligence, summarizeChat, analyzeSentiment, handleAiError } from '../../../core/services/geminiService';
 import { createNotification } from '../../../core/services/notificationService';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Mic, Square, ArrowLeft, User as UserIcon, Play, Pause, MessageSquare, Image as ImageIcon, Upload, Tag, Phone, X, ZoomIn, Sparkles as SparklesIcon, Check, CheckCheck, FileText, PlusCircle, Trash2, Download, Printer, Star, Bot, MapPin, Reply, CheckCircle, Settings, Clock, SmilePlus, Search, MoreVertical, Copy, Forward, Pin, ShieldCheck, BrainCircuit, Sparkles, Info, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Package } from 'lucide-react';
+import { Send, Mic, Square, ArrowLeft, User as UserIcon, Play, Pause, MessageSquare, Image as ImageIcon, Upload, Tag, Phone, X, ZoomIn, Sparkles as SparklesIcon, Check, CheckCheck, FileText, PlusCircle, Trash2, Download, Printer, Star, Bot, MapPin, Reply, CheckCircle, Settings, Clock, SmilePlus, Search, MoreVertical, Copy, Forward, Pin, ShieldCheck, BrainCircuit, Sparkles, Info, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Package, ChevronRight } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { soundService, SoundType } from '../../../core/utils/soundService';
 import { Virtuoso } from 'react-virtuoso';
@@ -2134,19 +2134,28 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                       exit={{ opacity: 0, x: 20 }}
                       className="absolute inset-0 flex items-center px-5 gap-3"
                     >
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
                         <span className="text-xs font-black text-rose-500 uppercase tracking-widest">{isRtl ? 'جاري التسجيل...' : 'Recording...'}</span>
                       </div>
-                      <div className="flex-1 flex items-center gap-1 h-4">
-                        {Array.from({ length: 20 }).map((_, i) => (
+                      <div className="flex-1 flex items-center gap-1 h-4 overflow-hidden">
+                        {Array.from({ length: 15 }).map((_, i) => (
                           <motion.div 
                             key={i}
                             animate={{ height: [4, Math.random() * 16 + 4, 4] }}
                             transition={{ repeat: Infinity, duration: 0.5, delay: i * 0.05 }}
-                            className="w-1 bg-rose-500/40 rounded-full"
+                            className="w-1 bg-rose-500/40 rounded-full shrink-0"
                           />
                         ))}
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter opacity-60">
+                         {isRtl ? 'اسحب للإلغاء' : 'Slide to cancel'}
+                         <motion.div 
+                           animate={{ x: isRtl ? [5, 0, 5] : [-5, 0, -5] }}
+                           transition={{ repeat: Infinity, duration: 1.5 }}
+                         >
+                            {isRtl ? <ChevronRight size={10} /> : <ChevronLeft size={10} />}
+                         </motion.div>
                       </div>
                     </motion.div>
                   )}
@@ -2158,14 +2167,25 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
               {!inputText.trim() && !isUploading ? (
                 <HapticButton
                   type="button"
-                  onMouseDown={startRecording}
-                  onMouseUp={stopRecording}
-                  onTouchStart={startRecording}
-                  onTouchEnd={stopRecording}
-                  disabled={isRecording || isExpired || isModerating}
-                  className={`p-3.5 rounded-2xl transition-all ${isRecording ? 'bg-rose-500 text-white scale-110 shadow-xl shadow-rose-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-brand-primary hover:bg-brand-primary/10'}`}
+                  onPointerDown={handleTouchStart}
+                  onPointerUp={handleTouchEnd}
+                  onPointerLeave={handleTouchEnd}
+                  onPointerMove={handleTouchMove}
+                  disabled={isExpired || isModerating}
+                  className={`p-3.5 rounded-2xl transition-all touch-none select-none relative z-10 ${isRecording ? 'bg-rose-500 text-white scale-125 shadow-2xl shadow-rose-500/40 -translate-y-2' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-brand-primary hover:bg-brand-primary/10'}`}
+                  style={{ 
+                    transform: isRecording ? `translate(${slideOffset}px, -8px) scale(1.25)` : 'none'
+                  }}
                 >
                   {isRecording ? <Mic size={20} className="animate-pulse" /> : <Mic size={20} />}
+                  
+                  {isRecording && (
+                    <motion.div 
+                      animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
+                      transition={{ repeat: Infinity, duration: 1 }}
+                      className="absolute inset-0 bg-rose-500 rounded-2xl -z-10"
+                    />
+                  )}
                 </HapticButton>
               ) : (
                 <HapticButton
