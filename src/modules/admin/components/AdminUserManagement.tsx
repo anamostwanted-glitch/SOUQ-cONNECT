@@ -282,8 +282,15 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                           )}
                         </div>
                         <div>
-                          <div className="text-sm font-black text-brand-text-main group-hover:text-brand-primary transition-colors">
-                            {user.name || (isRtl ? 'بدون اسم' : 'Unnamed')}
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-black text-brand-text-main group-hover:text-brand-primary transition-colors">
+                              {user.name || (isRtl ? 'بدون اسم' : 'Unnamed')}
+                            </div>
+                            {(user as any).isBeta && (
+                              <span className="px-1.5 py-0.5 bg-brand-amber text-white text-[7px] font-black rounded-sm uppercase tracking-tighter">
+                                BETA
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-[10px] font-bold text-brand-text-muted flex items-center gap-1">
@@ -294,6 +301,12 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                               <span className="text-[10px] font-bold text-brand-text-muted flex items-center gap-1">
                                 <Phone size={10} />
                                 {user.phone}
+                              </span>
+                            )}
+                            {(user as any).invitedBy === 'admin' && (
+                              <span className="text-[10px] font-bold text-brand-primary flex items-center gap-1">
+                                <ShieldCheck size={10} />
+                                {isRtl ? 'بدعوة' : 'Invited'}
                               </span>
                             )}
                           </div>

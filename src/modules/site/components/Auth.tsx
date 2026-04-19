@@ -25,6 +25,7 @@ import { HapticButton } from '../../../shared/components/HapticButton';
 import { SocialAuthButtons } from './SocialAuthButtons';
 import { toast } from 'sonner';
 import { logActivity } from '../../../core/utils/activityLogger';
+import { analytics } from '../../../core/services/AnalyticsService';
 
 interface AuthProps {
   onAuthSuccess: (role: UserRole) => void;
@@ -50,6 +51,18 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [isBetaInvite, setIsBetaInvite] = useState(false);
+  
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('ref') === 'beta_invite') {
+      setIsBetaInvite(true);
+      if (params.get('role') === 'supplier') {
+        setRole('supplier');
+        setStep('register-supplier');
+      }
+    }
+  }, []);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   
@@ -124,6 +137,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
   const nextStep = () => {
     if (validateStep()) {
       setSupplierSubStep(prev => prev + 1);
+      analytics.trackOnboarding(supplierSubStep + 1);
     }
   };
 
@@ -149,6 +163,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
+        analytics.trackEvent('login', { method: 'email' });
         const docSnap = await getDoc(doc(db, 'users', auth.currentUser!.uid));
         if (docSnap.exists()) {
           const userData = docSnap.data() as UserProfile;
@@ -172,6 +187,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
         setUploading(true);
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
+        analytics.trackEvent('registration_complete', { role, method: 'email' });
         
         // Send verification email (non-blocking and resilient)
         sendEmailVerification(user).then(() => {
@@ -188,7 +204,9 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           role: role,
           createdAt: new Date().toISOString(),
           isVerified: false,
-          status: 'active'
+          status: 'active',
+          isBeta: isBetaInvite,
+          invitedBy: isBetaInvite ? 'admin' : null
         };
 
         if (role === 'supplier') {

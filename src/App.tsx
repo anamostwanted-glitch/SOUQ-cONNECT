@@ -14,6 +14,7 @@ import { SmartVoiceHub } from './shared/components/SmartVoiceHub';
 import { NotificationCenter } from './modules/common/components/NotificationCenter';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from './core/firebase';
+import { analytics } from './core/services/AnalyticsService';
 
 const Home = lazy(() => import('./modules/site/components/Home'));
 const Auth = lazy(() => import('./modules/site/components/Auth'));
@@ -44,6 +45,11 @@ export default function App() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [isVoiceHubOpen, setIsVoiceHubOpen] = useState(false);
+
+  // Track Session Start
+  useEffect(() => {
+    analytics.trackEvent('session_start');
+  }, []);
 
   // Global Notifications Listener for Badge Count
   useEffect(() => {

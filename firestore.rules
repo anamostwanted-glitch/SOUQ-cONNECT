@@ -70,6 +70,12 @@ service cloud.firestore {
       );
     }
 
+    // Analytics Events
+    match /analytics_events/{eventId} {
+      allow create: if isSignedIn() || request.auth == null; // Allow anonymous session tracking
+      allow read, update, delete: if isAdmin();
+    }
+
     function isValidUser(data) {
       let allowedFields = ['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'coordinates', 'website', 'logoUrl', 'coverUrl', 'photoURL', 'photoUrl', 'providerId', 'categories', 'keywords', 'language', 'createdAt', 'updatedAt', 'lastActive', 'bio', 'businessDescription', 'supplierType', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'verificationExpiryDate', 'trustScore', 'followersCount', 'followingCount', 'followers', 'following', 'logoGenerationUsage', 'isOnline', 'isDeleted', 'lastLoginAt', 'averageResponseTime', 'notificationPreferences', 'conciergeConsent', 'branding', 'referralPoints', 'loyaltyPoints', 'commercialRegistration', 'subscriptionPlan', 'subscriptionExpiry', 'referralCode', 'referredBy', 'onboardingCompleted', 'favoriteProducts', 'aiInsights', 'aiBio', 'socialLinks', 'status', 'deletedAt', 'deletedBy'];
       return data.get('uid', '') is string &&

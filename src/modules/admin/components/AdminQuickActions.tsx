@@ -22,6 +22,7 @@ export const AdminQuickActions: React.FC<AdminQuickActionsProps> = ({ onAction }
   const isRtl = i18n.language === 'ar';
 
   const actions = [
+    { id: 'invite_supplier', label: isRtl ? 'دعوة مورد' : 'Invite Supplier', icon: UserPlus, color: 'bg-brand-primary' },
     { id: 'add_user', label: isRtl ? 'إضافة مستخدم' : 'Add User', icon: UserPlus, color: 'bg-blue-500' },
     { id: 'add_category', label: isRtl ? 'إضافة قسم' : 'Add Category', icon: PlusCircle, color: 'bg-emerald-500' },
     { id: 'create_campaign', label: isRtl ? 'حملة إعلانية' : 'New Campaign', icon: Megaphone, color: 'bg-rose-500' },

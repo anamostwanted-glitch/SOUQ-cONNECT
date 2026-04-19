@@ -105,6 +105,7 @@ import { CategoryNavTray } from './CategoryNavTray';
 import { GlobalCurrencyToggle } from '../../../shared/components/GlobalCurrencyToggle';
 import { useGlobalMarket } from '../../../core/providers/GlobalMarketProvider';
 import { useMarketplaceFilters } from '../hooks/useMarketplaceFilters';
+import { analytics } from '../../../core/services/AnalyticsService';
 
 export const MarketInterface: React.FC<MarketInterfaceProps> = ({ 
   onOpenChat, 
@@ -280,6 +281,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   // AI-Driven Search Refinement
   useEffect(() => {
     if (searchTerm.length > 2) {
+      analytics.trackEvent('search_performed', { query: searchTerm, activeTab });
       setIsDemandAnalyzing(true);
       const timer = setTimeout(async () => {
         const currentSearchTerm = searchTerm;
@@ -332,7 +334,9 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
         try {
           const itemSnap = await getDoc(doc(db, 'marketplace', initialItemId));
           if (itemSnap.exists()) {
-            setSelectedItem({ id: itemSnap.id, ...itemSnap.data() } as MarketplaceItem);
+            const data = { id: itemSnap.id, ...itemSnap.data() } as MarketplaceItem;
+            setSelectedItem(data);
+            analytics.trackEvent('product_view', { productId: initialItemId, name: data.titleAr || data.titleEn || data.title });
           }
         } catch (error) {
           handleFirestoreError(error, OperationType.GET, `marketplace/${initialItemId}`, false);

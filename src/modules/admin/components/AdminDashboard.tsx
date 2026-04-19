@@ -74,6 +74,7 @@ import { AdminDeepControl } from './AdminDeepControl';
 import { AdminUserManagement } from './AdminUserManagement';
 import { AdminStrategicOverview } from './AdminStrategicOverview';
 import { AdminSmartHub } from './AdminSmartHub';
+import { InviteSupplierModal } from './InviteSupplierModal';
 import { DashboardCopilot } from './DashboardCopilot';
 import { toast } from 'sonner';
 import { deleteDoc, writeBatch, where } from 'firebase/firestore';
@@ -119,6 +120,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [selectedSupplierForVerification, setSelectedSupplierForVerification] = useState<UserProfile | null>(null);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'year'>('day');
   const [strategicStats, setStrategicStats] = useState({
@@ -572,6 +574,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     switch (actionId) {
       case 'add_user':
         setIsCreateUserModalOpen(true);
+        break;
+      case 'invite_supplier':
+        setIsInviteModalOpen(true);
         break;
       case 'add_category':
         setActiveTab('categories-manager');
@@ -1174,6 +1179,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </motion.div>
           )}
         </AnimatePresence>
+        <InviteSupplierModal 
+          isOpen={isInviteModalOpen}
+          onClose={() => setIsInviteModalOpen(false)}
+          isRtl={isRtl}
+        />
       </main>
       {isCommandPaletteOpen && (
         <motion.div

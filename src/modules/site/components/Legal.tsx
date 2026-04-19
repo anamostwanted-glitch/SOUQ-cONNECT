@@ -14,62 +14,62 @@ const Legal: React.FC<LegalProps> = ({ type, onBack }) => {
 
   const content = {
     privacy: {
-      title: isRtl ? 'سياسة الخصوصية' : 'Privacy Policy',
-      lastUpdated: isRtl ? 'آخر تحديث: 14 مارس 2026' : 'Last Updated: March 14, 2026',
+      title: isRtl ? 'سياسة الخصوصية والأمان' : 'Privacy & Security Policy',
+      lastUpdated: isRtl ? 'آخر تحديث: 19 أبريل 2026' : 'Last Updated: April 19, 2026',
       sections: [
         {
-          title: isRtl ? '1. جمع المعلومات' : '1. Information Collection',
+          title: isRtl ? '1. المعلومات التي نجمعها' : '1. Information We Collect',
           body: isRtl 
-            ? 'نقوم بجمع المعلومات التي تقدمها لنا مباشرة عند إنشاء حساب، مثل الاسم، البريد الإلكتروني، رقم الهاتف، وتفاصيل الشركة. كما نجمع بيانات الموقع الجغرافي لتقديم خدمات أفضل.'
-            : 'We collect information you provide directly to us when creating an account, such as name, email, phone number, and company details. We also collect geolocation data to provide better services.'
+            ? 'نجمع المعلومات اللازمة لضمان سلامة العمليات التجارية، بما في ذلك: الهوية الشخصية، السجل التجاري، بيانات الموقع الجغرافي الدقيقة عبر GPS، ومعلومات الاتصال. كما نستخدم ملفات تعريف الارتباط لتحسين تجربة المستخدم وتحليل نبض السوق.'
+            : 'We collect information necessary for secure business operations, including: personal identity, commercial registration, precise GPS location data, and contact information. We also use cookies to enhance user experience and analyze market pulse.'
         },
         {
-          title: isRtl ? '2. استخدام المعلومات' : '2. Use of Information',
+          title: isRtl ? '2. كيفية استخدام البيانات والذكاء الاصطناعي' : '2. Data Usage & AI Processing',
           body: isRtl
-            ? 'نستخدم المعلومات لتسهيل التواصل بين المشترين والموردين، ومعالجة الطلبات، وتحسين تجربة المستخدم، وإرسال التنبيهات الضرورية.'
-            : 'We use the information to facilitate communication between buyers and suppliers, process requests, improve user experience, and send necessary notifications.'
+            ? 'نستخدم بياناتك لتشغيل محرك المطابقة الذكي (Smart Matching) المدعوم بـ Gemini AI. يتم تحليل طلباتك لتقديم أفضل الموردين لك، وتحليل أداء الموردين لرفع مستوى الموثوقية في الشبكة. نحن لا نشارك بياناتك الحساسة مع أي طرف خارجي لأغراض تسويقية.'
+            : 'We use your data to power the Smart Matching engine driven by Gemini AI. Your requests are analyzed to present the best suppliers, and supplier performance is analyzed to raise network reliability. We do not share your sensitive data with external parties for marketing purposes.'
         },
         {
-          title: isRtl ? '3. حماية البيانات' : '3. Data Protection',
+          title: isRtl ? '3. معايير أمان فريق النواة' : '3. Core Team Security Standards',
           body: isRtl
-            ? 'نحن نطبق إجراءات أمنية تقنية وإدارية متقدمة لحماية بياناتك الشخصية من الوصول غير المصرح به أو الإفصاح أو التغيير.'
-            : 'We implement advanced technical and administrative security measures to protect your personal data from unauthorized access, disclosure, or alteration.'
+            ? 'يتم تشفير جميع البيانات الحساسة ونقلها عبر بروتوكولات آمنة. يطبق فريق النواة (Core Team) معايير وصول صارمة (ABAC) لضمان أن بياناتك متاحة فقط للأطراف المخولة قانوناً وتجارياً بمشاهدتها.'
+            : 'All sensitive data is encrypted and transmitted via secure protocols. The Core Team implements strict Attribute-Based Access Control (ABAC) to ensure your data is accessible only to parties legally and commercially authorized to view it.'
         },
         {
-          title: isRtl ? '4. مشاركة البيانات' : '4. Data Sharing',
+          title: isRtl ? '4. حقوق المستخدم' : '4. User Rights',
           body: isRtl
-            ? 'لا نقوم ببيع بياناتك الشخصية لأطراف ثالثة. يتم مشاركة المعلومات فقط مع الأطراف المعنية بالعملية التجارية (مثل الموردين عند تقديم طلب).'
-            : 'We do not sell your personal data to third parties. Information is only shared with parties involved in the business process (e.g., suppliers when making a request).'
+            ? 'لك الحق في الوصول إلى بياناتك، تصحيحها، أو طلب حذف حسابك (بناءً على سياسة الحذف الناعم الخاصة بنا). يمكنك إدارة تفضيلات الخصوصية وتنبيهات الذكاء الاصطناعي من خلال لوحة التحكم الخاصة بك.'
+            : 'You have the right to access, correct, or request deletion of your account (subject to our Soft Delete policy). You can manage privacy preferences and AI alerts through your dashboard.'
         }
       ]
     },
     terms: {
-      title: isRtl ? 'شروط الاستخدام' : 'Terms of Use',
-      lastUpdated: isRtl ? 'آخر تحديث: 14 مارس 2026' : 'Last Updated: March 14, 2026',
+      title: isRtl ? 'شروط الخدمة التجارية' : 'Commercial Terms of Service',
+      lastUpdated: isRtl ? 'آخر تحديث: 19 أبريل 2026' : 'Last Updated: April 19, 2026',
       sections: [
         {
-          title: isRtl ? '1. قبول الشروط' : '1. Acceptance of Terms',
+          title: isRtl ? '1. الأهلية والتحقق' : '1. Eligibility & Verification',
           body: isRtl
-            ? 'باستخدامك لهذا التطبيق، فإنك توافق على الالتزام بهذه الشروط والأحكام وجميع القوانين واللوائح المعمول بها.'
-            : 'By using this application, you agree to be bound by these terms and conditions and all applicable laws and regulations.'
+            ? 'لاستخدام سوق كونيكت كمورد، يجب أن تمتلك سجلاً تجارياً سارياً وهصية قانونية معتبرة. نحن نحتفظ بالحق في تعليق أي حساب لا يستوفي معايير التحقق الخاصة بنا (Verified Status).'
+            : 'To use Souq Connect as a supplier, you must possess a valid commercial registration and legal identity. We reserve the right to suspend any account that does not meet our Verification Status standards.'
         },
         {
-          title: isRtl ? '2. سلوك المستخدم' : '2. User Conduct',
+          title: isRtl ? '2. النزاعات التجارية' : '2. Business Disputes',
           body: isRtl
-            ? 'يجب استخدام التطبيق لأغراض تجارية مشروعة فقط. يمنع منعاً باتاً نشر محتوى مسيء، احتيالي، أو ينتهك حقوق الملكية الفكرية للآخرين.'
-            : 'The application must be used for legitimate business purposes only. It is strictly prohibited to post offensive, fraudulent content, or content that violates the intellectual property rights of others.'
+            ? 'سوق كونيكت هو وسيط ذكي يسهل الربط بين المؤسسات. نحن لا نتحمل المسؤولية القانونية عن جودة البضائع أو الخدمات أو شروط الدفع خارج المنصة. ننصح باستخدام العقود الموثقة والتوثيق عبر المحادثات الرسمية داخل المنصة.'
+            : 'Souq Connect is a smart intermediary facilitating institutional connections. We assume no legal liability for goods quality, services, or off-platform payment terms. We recommend using documented contracts and official platform chat for all business logs.'
         },
         {
-          title: isRtl ? '3. المسؤولية' : '3. Liability',
+          title: isRtl ? '3. الملكية الفكرية والذكاء الاصطناعي' : '3. Intellectual Property & AI Models',
           body: isRtl
-            ? 'نحن نعمل كمنصة للربط بين الأطراف، ولسنا مسؤولين عن جودة المنتجات أو الخدمات المقدمة من قبل الموردين أو أي نزاعات تجارية تنشأ بينهم.'
-            : 'We act as a platform to connect parties and are not responsible for the quality of products or services provided by suppliers or any business disputes that arise between them.'
+            ? 'جميع خوارزميات المطابقة والتصاميم ونظام "نبض السوق" هي ملكية فكرية مملوكة للمنصة. يمنع استخدام الأنظمة لاستخراج البيانات (Scraping) أو محاولة عكس هندسة نماذج الذكاء الاصطناعي الخاصة بنا.'
+            : 'All matching algorithms, designs, and the "Market Pulse" system are intellectual property owned by the platform. Scraping or attempting to reverse engineer our AI models is strictly prohibited.'
         },
         {
-          title: isRtl ? '4. الحسابات والأمان' : '4. Accounts and Security',
+          title: isRtl ? '4. الإنهاء والحذف الناعم' : '4. Termination & Soft Delete',
           body: isRtl
-            ? 'أنت مسؤول عن الحفاظ على سرية معلومات حسابك وكلمة المرور، وعن جميع الأنشطة التي تحدث تحت حسابك.'
-            : 'You are responsible for maintaining the confidentiality of your account information and password, and for all activities that occur under your account.'
+            ? 'نحتفظ بالحق في إنهاء الخدمة لأي مستخدم يتلاعب بالأسعار أو ينتهك معايير النزاهة التجارية. تخضع جميع عمليات الحذف لسياسة "الحذف الناعم" (Soft Delete) حيث يتم الاحتفاظ بالبيانات لأغراض تدقيق النظام والامتثال القانوني.'
+            : 'We reserve the right to terminate service for any user manipulating prices or violating business integrity standards. All deletions follow our Soft Delete policy where data is retained for system audit and legal compliance purposes.'
         }
       ]
     }

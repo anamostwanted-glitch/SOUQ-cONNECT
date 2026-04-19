@@ -124,7 +124,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Site Logo - Visible on mobile when menu is there */}
           <HapticButton
             onClick={() => setView('home')}
-            className="flex items-center gap-1.5 md:gap-2 px-1"
+            className="flex items-center gap-1.5 md:gap-2 px-1 relative"
             style={{ transform: `scale(${logoScale})` }}
           >
             {siteLogo ? (
@@ -134,6 +134,9 @@ export const Header: React.FC<HeaderProps> = ({
                 {siteName?.[0] || 'C'}
               </div>
             )}
+            <div className="absolute -top-1 -right-4 md:-right-6 px-1 py-0.5 bg-brand-amber text-white text-[7px] md:text-[8px] font-black rounded-sm uppercase tracking-tighter shadow-sm transform rotate-12">
+              BETA
+            </div>
           </HapticButton>
 
           <div className="hidden md:block">
