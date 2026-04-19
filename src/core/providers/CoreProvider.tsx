@@ -3,6 +3,7 @@ import { AuthProvider } from './AuthProvider';
 import { SettingsProvider } from './SettingsProvider';
 import { CategoryProvider } from './CategoryProvider';
 import { BrandingProvider } from './BrandingProvider';
+import { AccessibilityProvider } from './AccessibilityProvider';
 import { GlobalMarketProvider } from './GlobalMarketProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { I18nextProvider } from 'react-i18next';
@@ -26,7 +27,9 @@ export const CoreProvider: React.FC<{ children: React.ReactNode }> = ({ children
             <SettingsProvider>
               <CategoryProvider>
                 <BrandingProvider>
-                  {children}
+                  <AccessibilityProvider>
+                    {children}
+                  </AccessibilityProvider>
                 </BrandingProvider>
               </CategoryProvider>
             </SettingsProvider>

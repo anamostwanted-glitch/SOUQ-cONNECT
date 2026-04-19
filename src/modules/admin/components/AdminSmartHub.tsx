@@ -77,6 +77,7 @@ export const AdminSmartHub: React.FC<AdminSmartHubProps> = ({ users, requests, i
 
   // Hot category data from real categories
   const categoryHeatmap = categories.slice(0, 5).map(cat => ({
+    id: cat.id,
     name: isRtl ? cat.nameAr : cat.nameEn,
     value: Math.floor(Math.random() * 500 + 100)
   }));
@@ -527,7 +528,7 @@ export const AdminSmartHub: React.FC<AdminSmartHubProps> = ({ users, requests, i
 
           <div className="mt-6 flex flex-wrap gap-4 justify-center">
             {categoryHeatmap.slice(0, 3).map((cat, i) => (
-              <div key={`sector-legend-${cat.name}`} className="flex items-center gap-2">
+              <div key={`sector-legend-${cat.id || cat.name}`} className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-brand-primary' : i === 1 ? 'bg-brand-teal' : 'bg-brand-amber'}`} />
                 <span className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">{cat.name}</span>
               </div>

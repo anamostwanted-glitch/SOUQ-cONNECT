@@ -16,7 +16,9 @@ import {
   BarChart3,
   Zap,
   Users,
-  History
+  History,
+  Bell,
+  Accessibility
 } from 'lucide-react';
 
 interface BentoMatrixProps {
@@ -64,6 +66,8 @@ export const BentoMatrix: React.FC<BentoMatrixProps> = ({
           icon: Settings,
           items: [
             { id: 'settings', title: isRtl ? 'إعدادات النظام' : 'System Config', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-500/10', stat: 'Active' },
+            { id: 'notifications', title: isRtl ? 'الإشعارات' : 'Notifications', icon: Bell, color: 'text-amber-500', bg: 'bg-amber-500/10', stat: stats.notificationsEnabled ? (isRtl ? 'مشغل' : 'On') : (isRtl ? 'معطل' : 'Off') },
+            { id: 'inclusive_mode', title: isRtl ? 'وضع الشمولية' : 'Accessibility', icon: Accessibility, color: 'text-brand-teal', bg: 'bg-brand-teal/10', stat: 'New' },
             { id: 'branding_settings', title: isRtl ? 'الهوية البصرية' : 'Visual Identity', icon: Palette, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: 'Custom' }
           ]
         }
@@ -97,6 +101,8 @@ export const BentoMatrix: React.FC<BentoMatrixProps> = ({
           items: [
             { id: 'subscription', title: isRtl ? 'الاشتراك' : 'Plan', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-500/10', stat: 'Pro' },
             { id: 'store_settings', title: isRtl ? 'الإعدادات' : 'Settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-500/10', stat: 'Ready' },
+            { id: 'notifications', title: isRtl ? 'الإشعارات' : 'Notifications', icon: Bell, color: 'text-amber-500', bg: 'bg-amber-500/10', stat: stats.notificationsEnabled ? (isRtl ? 'مشغل' : 'On') : (isRtl ? 'معطل' : 'Off') },
+            { id: 'inclusive_mode', title: isRtl ? 'وضع الشمولية' : 'Inclusive', icon: Accessibility, color: 'text-brand-teal', bg: 'bg-brand-teal/10', stat: 'v1.0' },
             { id: 'branding_settings', title: isRtl ? 'الهوية البصرية' : 'Branding', icon: Palette, color: 'text-brand-primary', bg: 'bg-brand-primary/10', stat: 'Active' }
           ]
         }

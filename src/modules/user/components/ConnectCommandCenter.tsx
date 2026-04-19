@@ -47,6 +47,8 @@ import { toast } from 'sonner';
 import { handleFirestoreError, OperationType, handleAiError } from '../../../core/utils/errorHandling';
 import { ProfileSettings } from './ProfileSettings';
 import { UserSettings } from './UserSettings';
+import { NotificationSettings } from './NotificationSettings';
+import { InclusiveCenter } from './command-center/InclusiveCenter';
 import { ProfileCompletionMeter } from '../../../shared/components/ProfileCompletionMeter';
 import { Badge } from '../../../shared/components/ui/badge';
 import { Card } from '../../../shared/components/ui/card';
@@ -258,7 +260,8 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
         requestsCount: requests.length,
         adsCount: myMarketItems.length,
         favoritesCount: profile.favoriteProducts?.length || 0,
-        productsCount: myMarketItems.length
+        productsCount: myMarketItems.length,
+        notificationsEnabled: profile.notificationPreferences?.newRequests !== false
       }}
       onCardClick={setActiveSubView}
       cardClass={cardClass}
@@ -287,7 +290,8 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
               <span className="font-black text-sm uppercase tracking-widest">{isRtl ? 'العودة للمركز' : 'Back to Connect'}</span>
             </HapticButton>
             <h2 className="text-2xl font-black text-brand-text-main">
-              {activeSubView === 'settings' || activeSubView === 'store_settings' ? (isRtl ? 'الإعدادات' : 'Settings') : ''}
+              {activeSubView === 'settings' || activeSubView === 'store_settings' ? (isRtl ? 'الإعدادات' : 'Settings') : 
+               activeSubView === 'inclusive_mode' ? (isRtl ? 'وضع الشمولية' : 'Inclusive Mode') : ''}
             </h2>
           </div>
 
@@ -297,6 +301,11 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
             )}
             {activeSubView === 'neural_activity' && (
               <UserActivityFeed />
+            )}
+            {activeSubView === 'notifications' && (
+              <div className="space-y-6">
+                <NotificationSettings profile={profile} onUpdate={() => {}} />
+              </div>
             )}
             {(activeSubView === 'settings' || activeSubView === 'store_settings') && (
               <div className="space-y-6">
@@ -318,11 +327,14 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
                 <UserSettings profile={profile} />
               </div>
             )}
+            {activeSubView === 'inclusive_mode' && (
+              <InclusiveCenter isRtl={isRtl} />
+            )}
             {activeSubView === 'requests' && (
               <div className="space-y-4">
                 {requests.map((req, idx) => (
                   <UserRequestCard 
-                    key={`ccc-user-req-${req.id || idx}`}
+                    key={`ccc-user-req-${req.id || `idx-${idx}`}`}
                     request={req}
                     profile={profile}
                     onOpenChat={onOpenChat}
@@ -336,7 +348,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
               <div className="space-y-4">
                 {requests.map((req, idx) => (
                   <VendorRequestCard 
-                    key={`ccc-vendor-req-${req.id || idx}`}
+                    key={`ccc-vendor-req-${req.id || `idx-${idx}`}`}
                     request={req}
                     profile={profile}
                     onOpenChat={onOpenChat}
@@ -398,7 +410,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
         </div>
         <div className="space-y-4">
             {recent.map((req, idx) => (
-            <div key={`ccc-recent-req-${req.id || idx}`} className={`${cardClass} flex flex-col gap-4`}>
+            <div key={`ccc-recent-req-${req.id || `idx-${idx}`}`} className={`${cardClass} flex flex-col gap-4`}>
               <div className="flex justify-between items-start">
                 <h4 className="font-black text-brand-text-main">{req.productName}</h4>
                 <span className="text-xs font-bold text-brand-text-muted">{new Date(req.createdAt).toLocaleDateString()}</span>
@@ -406,7 +418,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
               {req.matchedSuppliers && req.matchedSuppliers.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto pb-2">
                     {req.matchedSuppliers.map((supplier, sIdx) => (
-                    <div key={`ccc-recent-supplier-${supplier.uid || sIdx}`} className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-xs font-bold whitespace-nowrap">
+                    <div key={`ccc-recent-supplier-${supplier.uid || `sidx-${sIdx}`}`} className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-xs font-bold whitespace-nowrap">
                       {supplier.name}
                     </div>
                   ))}

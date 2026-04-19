@@ -203,6 +203,32 @@
     @apply text-slate-900 font-bold;
   }
 
+  /* Accessibility Overrides */
+  .text-large {
+    font-size: 1.15rem !important;
+  }
+  .text-extra-large {
+    font-size: 1.3rem !important;
+  }
+
+  .high-contrast {
+    --brand-text-main: #000000;
+    --brand-text-muted: #111111;
+    --brand-background: #ffffff;
+    --brand-border: #000000;
+  }
+
+  .dyslexic-font {
+    font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
+  }
+
+  .reduced-motion * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

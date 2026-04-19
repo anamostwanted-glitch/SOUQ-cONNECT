@@ -11,7 +11,8 @@ import {
   Info,
   Clock,
   Trash2,
-  Target
+  Target,
+  AlertCircle
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
@@ -168,9 +169,23 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
                           <p className="text-xs font-medium text-brand-text-muted leading-relaxed">
                             {isRtl ? notif.bodyAr : notif.bodyEn}
                           </p>
-                          <div className="flex items-center gap-2 pt-2 text-[10px] font-bold text-brand-text-muted uppercase">
-                            <Clock size={10} />
-                            {notif.createdAt ? new Date(notif.createdAt).toLocaleDateString() : ''}
+                          <div className="flex flex-wrap items-center gap-2 pt-2">
+                            {notif.matchScore && (
+                              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-primary/10 text-brand-primary text-[9px] font-black uppercase tracking-wider">
+                                <Target size={10} />
+                                {notif.matchScore}% {isRtl ? 'مطابقة' : 'Match'}
+                              </div>
+                            )}
+                            {notif.isUrgent && (
+                              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 text-[9px] font-black uppercase tracking-wider animate-pulse">
+                                <AlertCircle size={10} />
+                                {isRtl ? 'عاجل' : 'Urgent'}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-brand-text-muted uppercase">
+                              <Clock size={10} />
+                              {notif.createdAt ? new Date(notif.createdAt).toLocaleDateString() : ''}
+                            </div>
                           </div>
                         </div>
                         <div className="opacity-0 group-hover:opacity-100 transition-all self-center text-brand-primary">

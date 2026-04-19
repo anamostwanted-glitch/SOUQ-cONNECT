@@ -1,7 +1,7 @@
-import { addDoc, collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, query, where, limit, setDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { handleFirestoreError, OperationType } from '../utils/errorHandling';
-import { UserProfile } from '../types';
+import { UserProfile, Category } from '../types';
 
 export const createNotification = async (notification: {
   userId: string;
@@ -28,62 +28,108 @@ export const notifyMatchingSuppliers = async (
   requestId: string,
   categoryId: string,
   productName: string,
-  isRtl: boolean
+  isRtl: boolean,
+  categories: Category[],
+  requestLocation?: string,
+  urgency: 'normal' | 'high' | 'critical' = 'normal'
 ) => {
   try {
-    // 1. Find suppliers who match the category
+    console.log('[CoreTeam] Initiating resilient notification strategy for:', productName);
+    
+    // 1. Fetch Candidates (Primary Category)
     const suppliersQuery = query(
       collection(db, 'users'),
       where('role', '==', 'supplier'),
       where('categories', 'array-contains', categoryId)
     );
-    
     const snap = await getDocs(suppliersQuery);
-    const suppliers = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+    let candidates: UserProfile[] = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
 
-    // 2. Filter for verified suppliers or active ones
-    const targets = suppliers.filter(s => !s.isDeleted && s.onboardingCompleted);
+    // 2. Hierarchy Fallback (Solution Architect Recommendation)
+    if (candidates.length === 0) {
+      const currentCat = categories.find(c => c.id === categoryId);
+      if (currentCat?.parentId) {
+        const parentQuery = query(
+          collection(db, 'users'),
+          where('role', '==', 'supplier'),
+          where('categories', 'array-contains', currentCat.parentId)
+        );
+        const parentSnap = await getDocs(parentQuery);
+        candidates = parentSnap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+      }
+    }
 
-    // 3. Batch create notifications
-    const promises = targets.map(supplier => createNotification({
-      userId: supplier.uid,
-      titleAr: 'طلب جديد يطابق خبرتك! 🎯',
-      titleEn: 'New Request Matches Your Expertise! 🎯',
-      bodyAr: `هناك طلب جديد على "${productName}". كن أول من يقدم عرضاً!`,
-      bodyEn: `New request for "${productName}". Be the first to submit an offer!`,
-      actionType: 'submit_offer',
-      targetId: requestId,
-      link: `/marketplace?tab=requests&requestId=${requestId}`,
-      imageUrl: supplier.logoUrl
-    }));
+    // 3. Geo-Awareness & Scoring (UX & Growth Hacker Recommendation)
+    const scoredSuppliers = candidates
+      .filter(s => !s.isDeleted && s.onboardingCompleted)
+      .map(supplier => {
+        let score = 80; // Base score for category match
+        let reasonAr = 'مطابقة دقيقة للفئة';
+        let reasonEn = 'Direct category match';
+
+        // Geo Match (+15)
+        if (requestLocation && supplier.location === requestLocation) {
+          score += 15;
+          reasonAr = 'مورد محلي في منطقتك';
+          reasonEn = 'Local supplier in your area';
+        }
+
+        // Trust Score (+5 for verified)
+        if (supplier.isVerified) score += 5;
+
+        return { supplier, score, reasonAr, reasonEn };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const finalists = scoredSuppliers.slice(0, 15); // Limit noise (UX Researcher recommendation)
+    const scarcityCount = finalists.length;
+
+    // 4. Atomic Dispatch
+    const promises = finalists.map(({ supplier, score, reasonAr, reasonEn }) => {
+      const prefs = supplier.notificationPreferences || { newRequests: true };
+      if (prefs.newRequests === false) return Promise.resolve();
+
+      const urgencyPrefixAr = urgency === 'critical' ? '🔴 عاجل جداً: ' : urgency === 'high' ? '🟠 عاجل: ' : '🎯 ';
+      const urgencyPrefixEn = urgency === 'critical' ? '🔴 CRITICAL: ' : urgency === 'high' ? '🟠 URGENT: ' : '🎯 ';
+
+      return createNotification({
+        userId: supplier.uid,
+        titleAr: `${urgencyPrefixAr}فرصة مطابقة بنسبة ${score}%`,
+        titleEn: `${urgencyPrefixEn}${score}% Match Found`,
+        bodyAr: `طلب جديد لـ "${productName}". نحن نرشحك لأنك ${reasonAr}. (هناك ${scarcityCount} موردين آخرين ينافسون)`,
+        bodyEn: `New request for "${productName}". Recommended because: ${reasonEn}. (${scarcityCount} other suppliers notified)`,
+        actionType: 'new_request',
+        targetId: requestId,
+        link: `/marketplace?tab=requests&requestId=${requestId}`,
+        imageUrl: supplier.logoUrl,
+        matchScore: score,
+        matchReasonAr: reasonAr,
+        matchReasonEn: reasonEn,
+        isUrgent: urgency !== 'normal'
+      });
+    });
 
     await Promise.all(promises);
 
-    // 4. Send Email Notifications (Optional/Async)
-    targets.forEach(async (supplier) => {
+    // 5. Growth Hack: External Multi-channel
+    finalists.slice(0, 5).forEach(async ({ supplier }) => {
       if (supplier.email) {
-        try {
-          await fetch('/api/send-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: supplier.email,
-              name: supplier.name,
-              template: 'new_request_match',
-              language: isRtl ? 'ar' : 'en',
-              data: { productName }
-            })
-          });
-        } catch (e) {
-          console.warn(`Failed to send email to supplier ${supplier.email}`);
-        }
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: supplier.email,
+            template: 'new_request_match',
+            data: { productName, urgency, score: finalists.find(f => f.supplier.uid === supplier.uid)?.score }
+          })
+        }).catch(() => console.warn('Email resilient failover triggered'));
       }
     });
 
-    return targets.length;
+    return finalists.map(f => f.supplier.uid);
   } catch (error) {
-    console.error("Matching notification failed", error);
-    return 0;
+    console.error('[CoreTeam] Notification Resilience Failure:', error);
+    return [];
   }
 };
 

@@ -44,7 +44,8 @@ export const SmartRequestForm: React.FC<SmartRequestFormProps> = ({
     categoryNameAr: '',
     categoryNameEn: '',
     budget: '',
-    quantity: '1'
+    quantity: '1',
+    urgency: 'normal' as 'normal' | 'high' | 'critical'
   });
 
   useEffect(() => {
@@ -121,22 +122,26 @@ export const SmartRequestForm: React.FC<SmartRequestFormProps> = ({
         categoryNameEn: formData.categoryNameEn,
         budget: formData.budget ? Number(formData.budget) : null,
         quantity: Number(formData.quantity),
+        urgency: formData.urgency,
         status: 'open',
         createdAt: new Date().toISOString(),
         offerCount: 0
       });
 
       // Growth Hack: Instant Push Notifications to matching suppliers
-      const matchCount = await notifyMatchingSuppliers(
+      const matchedIds = await notifyMatchingSuppliers(
         docRef.id,
         formData.categoryId,
         formData.productName,
-        isRtl
+        isRtl,
+        categories,
+        profile.location,
+        formData.urgency
       );
 
       toast.success(isRtl 
-        ? `تم نشر طلبك! تم تنبيه ${matchCount} مورد متخصص.` 
-        : `Request posted! ${matchCount} expert suppliers notified.`
+        ? `تم نشر طلبك! تم تنبيه ${matchedIds.length} مورد متخصص.` 
+        : `Request posted! ${matchedIds.length} expert suppliers notified.`
       );
       onSuccess();
       onClose();
@@ -247,6 +252,33 @@ export const SmartRequestForm: React.FC<SmartRequestFormProps> = ({
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                   className="w-full bg-brand-background border border-brand-border rounded-2xl p-4 text-brand-text-main focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
                 />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest flex items-center gap-2">
+                <AlertCircle size={14} />
+                {isRtl ? 'الأولوية' : 'Priority / Urgency'}
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'normal', labelAr: 'عادية', labelEn: 'Normal', color: 'bg-brand-background' },
+                  { id: 'high', labelAr: 'عاجل', labelEn: 'Urgent', color: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
+                  { id: 'critical', labelAr: 'طارئ', labelEn: 'Critical', color: 'bg-red-500/10 text-red-600 border-red-500/20' }
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, urgency: opt.id as any })}
+                    className={`p-3 rounded-xl border text-xs font-bold transition-all ${
+                      formData.urgency === opt.id 
+                        ? `${opt.color.replace('/10', '/30')} ring-2 ring-current` 
+                        : 'bg-brand-background border-brand-border text-brand-text-muted'
+                    }`}
+                  >
+                    {isRtl ? opt.labelAr : opt.labelEn}
+                  </button>
+                ))}
               </div>
             </div>
 

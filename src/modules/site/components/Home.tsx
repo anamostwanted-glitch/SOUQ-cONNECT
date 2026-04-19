@@ -51,6 +51,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { notifyMatchingSuppliers } from '../../../core/services/notificationService';
 
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
@@ -689,113 +690,27 @@ const Home: React.FC<HomeProps> = ({
           try {
             console.log('Starting notification process for categoryId:', categoryId);
             
-            // 1. Get suppliers in the specific category
-            const suppliersQuery = query(
-              collection(db, 'users'),
-              where('role', '==', 'supplier'),
-              where('categories', 'array-contains', categoryId)
+            // Centralized notification logic (handles category lookup, parent categories, and internal/email/WA)
+            const matchedSupplierIds = await notifyMatchingSuppliers(
+              requestRef.id,
+              categoryId,
+              trimmedQuery,
+              isRtl,
+              currentCategories,
+              profile?.location,
+              'normal' // Search results default to normal urgency
             );
-            const suppliersSnap = await getDocs(suppliersQuery);
+
+            console.log('Suppliers notified:', matchedSupplierIds.length);
             
-            let categorySuppliers: UserProfile[] = [];
-            suppliersSnap.forEach((doc) => {
-              categorySuppliers.push({ uid: doc.id, ...doc.data() } as UserProfile);
-            });
-
-            // 2. If no suppliers in subcategory, try parent category
-            if (categorySuppliers.length === 0) {
-              const currentCat = categories.find(c => c.id === categoryId);
-              if (currentCat?.parentId) {
-                console.log('No suppliers in subcategory, checking parent category:', currentCat.parentId);
-                const parentSuppliersQuery = query(
-                  collection(db, 'users_public'),
-                  where('role', '==', 'supplier'),
-                  where('categories', 'array-contains', currentCat.parentId)
-                );
-                const parentSuppliersSnap = await getDocs(parentSuppliersQuery);
-                parentSuppliersSnap.forEach((doc) => {
-                  categorySuppliers.push({ uid: doc.id, ...doc.data() } as UserProfile);
-                });
-              }
-            }
-
-            // 3. Fallback: If still no suppliers, try to find suppliers by keywords or name (broad search)
-            if (categorySuppliers.length === 0) {
-              console.log('No suppliers found in categories, performing broad search...');
-              const allSuppliersQuery = query(
+            if (matchedSupplierIds.length > 0) {
+              // Fetch the actual profiles for the suppliers we just notified (for UI display)
+              const categorySuppliersQuery = query(
                 collection(db, 'users_public'),
-                where('role', '==', 'supplier'),
-                limit(50)
+                where('uid', 'in', matchedSupplierIds.slice(0, 10))
               );
-              const allSuppliersSnap = await getDocs(allSuppliersQuery);
-              const allSuppliers = allSuppliersSnap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile));
-              
-              // Simple keyword matching as a fallback before AI matchmaking
-              const keywords = trimmedQuery.toLowerCase().split(' ');
-              categorySuppliers = allSuppliers.filter(s => {
-                const nameMatch = (s.companyName || s.name || '').toLowerCase().includes(trimmedQuery.toLowerCase());
-                const keywordMatch = s.keywords?.some(k => keywords.includes(k.toLowerCase()));
-                const bioMatch = (s.bio || '').toLowerCase().includes(trimmedQuery.toLowerCase());
-                return nameMatch || keywordMatch || bioMatch;
-              });
-            }
-
-            console.log('Suppliers found for matching:', categorySuppliers.length);
-            
-            if (categorySuppliers.length > 0) {
-              const batch = writeBatch(db);
-              
-              // Fetch preferences for all suppliers in one go or check individually
-              // For now, we will fetch preferences for each supplier
-              for (const supplier of categorySuppliers) {
-                const prefs = supplier.notificationPreferences || { newRequests: true, offers: true, aiInsights: true };
-                
-                if (prefs.newRequests) {
-                  // 1. Internal Notification
-                  const notifRef = doc(collection(db, 'notifications'));
-                  batch.set(notifRef, {
-                    userId: supplier.uid,
-                    titleAr: 'طلب جديد',
-                    titleEn: 'New Request',
-                    bodyAr: `هناك طلب جديد لـ "${trimmedQuery}" قد يهمك.`,
-                    bodyEn: `There is a new request for "${trimmedQuery}" that might interest you.`,
-                    link: 'dashboard',
-                    actionType: 'submit_offer',
-                    targetId: requestRef.id,
-                    read: false,
-                    createdAt: new Date().toISOString()
-                  });
-
-                  // 2. Email Notification
-                  if (supplier.email) {
-                    fetch('/api/send-email', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        email: supplier.email,
-                        name: supplier.name,
-                        template: 'new_request',
-                        language: i18n.language,
-                        data: { productName: trimmedQuery }
-                      })
-                    }).catch(console.error);
-                  }
-
-                  // 3. WhatsApp Notification
-                  if (supplier.phone) {
-                    fetch('/api/send-whatsapp', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        phoneNumber: supplier.phone,
-                        message: `New request for "${trimmedQuery}" on Souq Connect. Check your dashboard!`
-                      })
-                    }).catch(console.error);
-                  }
-                }
-              }
-              await batch.commit();
-              console.log('Notifications created for suppliers who enabled newRequests.');
+              const categorySuppliersSnap = await getDocs(categorySuppliersQuery);
+              const categorySuppliers = categorySuppliersSnap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile));
 
               // Smart Matchmaking
               setIsMatching(true);

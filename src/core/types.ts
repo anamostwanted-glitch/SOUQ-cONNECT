@@ -166,6 +166,7 @@ export interface ProductRequest {
   createdAt: string;
   location?: string;
   quantity?: string;
+  urgency?: 'normal' | 'high' | 'critical';
   approvedSuppliers?: string[];
   matchedSuppliers?: UserProfile[];
   suggestedSupplierIds?: string[];
@@ -264,8 +265,12 @@ export interface Notification {
   bodyEn: string;
   imageUrl?: string;
   link?: string;
-  actionType?: 'submit_offer' | 'accept_chat' | 'general';
+  actionType?: 'submit_offer' | 'accept_chat' | 'general' | 'price_drop' | 'new_request';
   targetId?: string;
+  matchScore?: number;
+  matchReasonAr?: string;
+  matchReasonEn?: string;
+  isUrgent?: boolean;
   read: boolean;
   createdAt: string;
 }
