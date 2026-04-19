@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { 
   Mic, MicOff, X, Zap, Loader2, Sparkles, 
   MessageSquare, ShoppingBag, Search, Check,
-  AlertCircle, Volume2
+  AlertCircle, Volume2, Building2
 } from 'lucide-react';
 import { HapticButton } from './HapticButton';
 import { soundService, SoundType } from '../../core/utils/soundService';
@@ -159,12 +159,13 @@ export const SmartVoiceHub: React.FC<SmartVoiceHubProps> = ({
     try {
       // 1. Check for Navigation Intent First (Teleportation)
       const navIntent = await recognizeNavigationIntent(text, i18n.language);
-      if (navIntent && navIntent.view && navIntent.view !== 'home') {
+      if (navIntent && navIntent.view !== 'none' && navIntent.confidence > 0.7) {
         window.dispatchEvent(new CustomEvent('voice-navigation', { detail: navIntent }));
         toast.success(isRtl ? `جاري الانتقال: ${navIntent.view}` : `Navigating to ${navIntent.view}`, {
           icon: <Zap className="text-brand-amber animate-pulse" size={16} />
         });
         soundService.play(SoundType.SUCCESS);
+        if (navigator.vibrate) navigator.vibrate([20, 50]);
         setIsOpen(false);
         return;
       }
@@ -379,10 +380,25 @@ export const SmartVoiceHub: React.FC<SmartVoiceHubProps> = ({
                        </div>
 
                        <HapticButton 
-                         onClick={toggleHub}
+                         onClick={() => {
+                           // If it's a buying/selling/discovery intent, navigate to Marketplace with search context
+                           if (result.product) {
+                              window.dispatchEvent(new CustomEvent('voice-navigation', { 
+                                detail: { 
+                                  view: 'marketplace', 
+                                  tab: 'discover', 
+                                  searchQuery: result.product 
+                                } 
+                              }));
+                              toast.success(isRtl ? 'جاري البحث عن موردين بذكاء...' : 'Searching for suppliers intelligently...', {
+                                icon: <Building2 className="text-brand-primary animate-pulse" size={16} />
+                              });
+                           }
+                           toggleHub();
+                         }}
                          className="w-full py-4 bg-brand-primary text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg"
                        >
-                         {isRtl ? 'أكد طلبي الآن' : 'Confirm My Request Now'}
+                         {isRtl ? 'أكد طلبي الآن المباشر' : 'Confirm My Direct Request'}
                        </HapticButton>
                     </motion.div>
                   )}

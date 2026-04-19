@@ -1,6 +1,6 @@
 {
-  "name": "Souq Connect",
-  "description": "Souq Connect: A professional B2B marketplace connecting customers with verified suppliers. Features AI-powered chat, smart matching, and dynamic branding.",
+  "name": "Souq Connect (S-B2B) Marketplace",
+  "description": "Souq Connect: The Neural Hub for B2B. Connect with verified suppliers, automate sourcing with Gemini AI, and optimize your global trade pulse. Features Smart Matching, Visual AI Search, and Real-time Demand Analysis.",
   "requestFramePermissions": [
     "microphone",
     "geolocation",

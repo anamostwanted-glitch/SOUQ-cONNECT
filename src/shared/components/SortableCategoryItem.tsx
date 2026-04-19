@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, ChevronRight, ChevronDown, Plus, Check, X, Trash2, Hash, Sparkles, Edit2, Tag } from 'lucide-react';
+import { GripVertical, ChevronRight, ChevronDown, Plus, Check, X, Trash2, Hash, Sparkles, Edit2, Tag, Globe } from 'lucide-react';
 import { Category } from '../../core/types';
 import { handleFirestoreError, OperationType, handleAiError } from '../../core/utils/errorHandling';
 import { CategoryList } from './CategoryList';
 import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../core/firebase';
-import { translateText } from '../../core/services/geminiService';
+import { translateText, generateCategorySEO } from '../../core/services/geminiService';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -28,6 +28,7 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+  const [isOptimizingSEO, setIsOptimizingSEO] = useState(false);
   const [newSubAr, setNewSubAr] = useState('');
   const [newSubEn, setNewSubEn] = useState('');
   const [editAr, setEditAr] = useState(category.nameAr);
@@ -104,6 +105,24 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
       handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`, false);
     } finally {
       setIsApproving(false);
+    }
+  };
+
+  const handleOptimizeSEO = async () => {
+    setIsOptimizingSEO(true);
+    try {
+      const seoData = await generateCategorySEO(category.nameAr, category.nameEn, category.tier || 'niche');
+      if (seoData) {
+        await updateDoc(doc(db, 'categories', category.id), {
+          ...seoData,
+          updatedAt: new Date().toISOString()
+        });
+        toast.success(isRtl ? 'تم تحسين محركات البحث للفئة بنجاح' : 'Category SEO optimized successfully');
+      }
+    } catch (error) {
+      handleAiError(error, 'SortableCategoryItem:handleOptimizeSEO', false);
+    } finally {
+      setIsOptimizingSEO(false);
     }
   };
 
@@ -298,6 +317,14 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
                     <Sparkles size={16} />
                   </button>
                 )}
+                <button 
+                  onClick={handleOptimizeSEO}
+                  disabled={isOptimizingSEO}
+                  className="p-3 text-brand-primary/70 hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-colors"
+                  title={isRtl ? 'تحسين SEO' : 'Optimize SEO'}
+                >
+                  {isOptimizingSEO ? <div className="w-4 h-4 border-2 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" /> : <Globe size={16} />}
+                </button>
                 <button onClick={() => setIsAddingSub(true)} className="p-3 text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-colors" title="Add Sub"><Plus size={16} /></button>
                 <button onClick={() => setIsEditing(true)} className="p-3 text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-colors" title="Edit"><Edit2 size={16} /></button>
                 <button onClick={() => setIsConfirmingDelete(true)} className="p-3 text-brand-error/70 hover:text-brand-error hover:bg-brand-error/10 rounded-xl transition-colors" title="Delete"><Trash2 size={16} /></button>

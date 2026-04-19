@@ -91,6 +91,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState<'logo' | 'cover' | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isGeneratingSEO, setIsGeneratingSEO] = useState(false);
   
   // Editable Fields
   const [editData, setEditData] = useState({
@@ -106,7 +107,14 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
     experienceYears: profile.experienceYears || 1,
     expertiseLevel: profile.expertiseLevel || 'Intermediate',
     notableClients: profile.notableClients || [],
-    industriesServed: profile.industriesServed || []
+    industriesServed: profile.industriesServed || [],
+    // SEO Fields
+    slug: profile.slug || '',
+    metaTitleAr: profile.metaTitleAr || '',
+    metaTitleEn: profile.metaTitleEn || '',
+    metaDescriptionAr: profile.metaDescriptionAr || '',
+    metaDescriptionEn: profile.metaDescriptionEn || '',
+    seoKeywords: profile.seoKeywords || []
   });
 
   const handleFieldChange = (field: string, value: any) => {
@@ -129,7 +137,13 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
         experienceYears: profile.experienceYears || 1,
         expertiseLevel: profile.expertiseLevel || 'Intermediate',
         notableClients: profile.notableClients || [],
-        industriesServed: profile.industriesServed || []
+         industriesServed: profile.industriesServed || [],
+        slug: profile.slug || '',
+        metaTitleAr: profile.metaTitleAr || '',
+        metaTitleEn: profile.metaTitleEn || '',
+        metaDescriptionAr: profile.metaDescriptionAr || '',
+        metaDescriptionEn: profile.metaDescriptionEn || '',
+        seoKeywords: profile.seoKeywords || []
       });
     }
   }, [profile, isArchitectMode]);
@@ -323,6 +337,41 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
     }
   };
 
+  const handleGenerateSEO = async () => {
+    if (!profile.uid) return;
+    setIsGeneratingSEO(true);
+    try {
+      toast.info(isRtl ? 'جاري تحسين ظهورك في محركات البحث...' : 'Optimizing your search engine visibility...');
+      
+      const { generateSupplierSEO } = await import('../../../core/services/geminiService');
+      const seoData = await generateSupplierSEO({
+        ...profile,
+        name: editData.name,
+        bio: editData.bio,
+        keywords: editData.seoKeywords,
+        companyName: editData.name
+      });
+
+      if (seoData) {
+        setEditData(prev => ({
+          ...prev,
+          slug: seoData.slug,
+          metaTitleAr: seoData.metaTitleAr,
+          metaTitleEn: seoData.metaTitleEn,
+          metaDescriptionAr: seoData.metaDescriptionAr,
+          metaDescriptionEn: seoData.metaDescriptionEn,
+          seoKeywords: seoData.seoKeywords
+        }));
+        setHasChanges(true);
+        toast.success(isRtl ? 'تم تحسين SEO بنجاح! اضغط حفظ للاعتماد' : 'SEO optimized! Press save to apply');
+      }
+    } catch (error) {
+      handleAiError(error, "Profile SEO generation");
+    } finally {
+      setIsGeneratingSEO(false);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       if (!profile?.uid) return;
@@ -492,6 +541,12 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
         expertiseLevel: editData.expertiseLevel,
         notableClients: editData.notableClients,
         industriesServed: editData.industriesServed,
+        slug: editData.slug,
+        metaTitleAr: editData.metaTitleAr,
+        metaTitleEn: editData.metaTitleEn,
+        metaDescriptionAr: editData.metaDescriptionAr,
+        metaDescriptionEn: editData.metaDescriptionEn,
+        seoKeywords: editData.seoKeywords,
         categories: editCategories,
         keywords: editKeywords,
         updatedAt: new Date().toISOString()
@@ -502,6 +557,12 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
         name: editData.name,
         logoUrl: editData.logoUrl,
         coverUrl: editData.coverUrl,
+        slug: editData.slug,
+        metaTitleAr: editData.metaTitleAr,
+        metaTitleEn: editData.metaTitleEn,
+        metaDescriptionAr: editData.metaDescriptionAr,
+        metaDescriptionEn: editData.metaDescriptionEn,
+        seoKeywords: editData.seoKeywords,
         categories: editCategories,
         updatedAt: new Date().toISOString()
       }).catch(err => {
@@ -1310,6 +1371,28 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
 
           {/* Sidebar Insights (Desktop) */}
           <div className="hidden lg:block w-80 space-y-6">
+                  <Card className="bg-gradient-to-br from-brand-primary to-brand-primary-hover rounded-[2.5rem] p-8 text-white relative overflow-hidden">
+              <div className="absolute -bottom-4 -right-4 opacity-10">
+                <Sparkles size={120} />
+              </div>
+              <div className="relative z-10 space-y-4">
+                <h4 className="text-lg font-black">{isRtl ? 'خطة أخصائي النمو لـ SEO' : 'Growth Specialist SEO Plan'}</h4>
+                <p className="text-xs text-white/80 leading-relaxed font-medium">
+                  {isRtl 
+                    ? 'هل تريد جذب عملاء خارج المنصة؟ دع أخصائي النمو لدينا ينشئ لك كلمات مفتاحية وروابط صديقة لمحركات البحث.' 
+                    : 'Want to attract clients from outside? Let our Growth Specialist create keywords and SEO-friendly links for you.'}
+                </p>
+                <HapticButton 
+                  onClick={handleGenerateSEO}
+                  disabled={isGeneratingSEO}
+                  className="w-full py-3 bg-white/20 backdrop-blur-md rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/30 flex items-center justify-center gap-2"
+                >
+                  {isGeneratingSEO ? <div className="animate-spin h-3 w-3 border-b-2 border-white rounded-full" /> : <TrendingUp size={14} />}
+                  {isRtl ? 'تفعيل خطة الـ SEO الذكية' : 'Activate Smart SEO Plan'}
+                </HapticButton>
+              </div>
+            </Card>
+
             <Card className="bg-brand-surface border-brand-border rounded-[2.5rem] p-8 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4 opacity-5">
                 <ShieldCheck size={100} />

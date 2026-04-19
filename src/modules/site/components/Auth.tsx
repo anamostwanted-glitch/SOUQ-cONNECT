@@ -394,15 +394,37 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-brand-text-main mb-1">{t('name')}</label>
-                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" required />
+                    <input 
+                      type="text" 
+                      value={name} 
+                      onChange={(e) => setName(e.target.value)} 
+                      autoComplete="name"
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
+                      required 
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-brand-text-main mb-1">{t('email')}</label>
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" required />
+                    <input 
+                      type="email" 
+                      value={email} 
+                      onChange={(e) => setEmail(e.target.value)} 
+                      autoComplete="email"
+                      inputMode="email"
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
+                      required 
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-brand-text-main mb-1">{t('password')}</label>
-                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" required />
+                    <input 
+                      type="password" 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)} 
+                      autoComplete="new-password"
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
+                      required 
+                    />
                   </div>
                 </motion.div>
               )}
@@ -438,12 +460,27 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-brand-text-main mb-1">{t('phone')}</label>
-                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" required />
+                    <input 
+                      type="tel" 
+                      value={phone} 
+                      onChange={(e) => setPhone(e.target.value)} 
+                      inputMode="tel"
+                      autoComplete="tel"
+                      className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
+                      required 
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-brand-text-main mb-1">{t('location')}</label>
                     <div className="flex gap-2">
-                        <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" required />
+                        <input 
+                          type="text" 
+                          value={location} 
+                          onChange={(e) => setLocation(e.target.value)} 
+                          autoComplete="street-address"
+                          className="flex-1 px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
+                          required 
+                        />
                         <HapticButton type="button" onClick={() => {
                             navigator.geolocation.getCurrentPosition((pos) => {
                                 setLocation(`${pos.coords.latitude}, ${pos.coords.longitude}`);
@@ -511,16 +548,38 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
               {step !== 'login' && (
                 <div>
                   <label className="block text-sm font-medium text-brand-text-main mb-1">{t('name')}</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" required />
+                  <input 
+                    type="text" 
+                    value={name} 
+                    onChange={(e) => setName(e.target.value)} 
+                    autoComplete="name"
+                    className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
+                    required 
+                  />
                 </div>
               )}
               <div>
                 <label className="block text-sm font-medium text-brand-text-main mb-1">{t('email')}</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" required />
+                <input 
+                  type="email" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  autoComplete="email"
+                  inputMode="email"
+                  className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
+                  required 
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-brand-text-main mb-1">{t('password')}</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" required />
+                <input 
+                  type="password" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  autoComplete={isLogin ? "current-password" : "new-password"}
+                  className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
+                  required 
+                />
                 {isLogin && (
                   <button 
                     type="button"
@@ -563,7 +622,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           )}
         </form>
 
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center space-y-4">
           <button onClick={() => {
             setStep(isLogin ? 'register-basic' : 'login');
             setSupplierSubStep(1);
@@ -571,6 +630,11 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
           }} className="text-sm text-slate-500 hover:text-brand-primary transition-colors">
             {isLogin ? t('noAccount') : t('hasAccount')}
           </button>
+
+          <div className="pt-4 border-t border-brand-border-light flex items-center justify-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+            <Sparkles size={12} className="text-brand-primary animate-pulse" />
+            {i18n.language === 'ar' ? 'فريق النواة - اتصال آمن مشفر' : 'Core Team - Secure Encrypted Connection'}
+          </div>
         </div>
       </motion.div>
     </div>

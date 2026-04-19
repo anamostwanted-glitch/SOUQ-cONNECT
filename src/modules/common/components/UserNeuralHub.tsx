@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Brain, Sparkles, TrendingUp, Target, Zap } from 'lucide-react';
+import { CoreTeamNeuralHeartbeat } from './CoreTeamNeutralHeartbeat';
 
 export const UserNeuralHub: React.FC<{ profile: any; isRtl: boolean }> = ({ profile, isRtl }) => {
   const insights = [
@@ -74,6 +75,11 @@ export const UserNeuralHub: React.FC<{ profile: any; isRtl: boolean }> = ({ prof
           </div>
           <Zap size={48} className="opacity-50" />
         </div>
+      </div>
+
+      {/* Core Team Heartbeat */}
+      <div className="pt-8">
+        <CoreTeamNeuralHeartbeat />
       </div>
     </div>
   );

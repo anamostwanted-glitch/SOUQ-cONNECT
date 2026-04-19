@@ -108,6 +108,7 @@ export default function App() {
   // Predictive Engine
   usePredictiveNavigation(profile, recentSearches, recentRequests, setIsMomentOfNeed);
   const [dashboardTab, setDashboardTab] = useState('overview');
+  const [voiceSearchQuery, setVoiceSearchQuery] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [initialItemId, setInitialItemId] = useState<string | null>(null);
 
@@ -115,11 +116,28 @@ export default function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const path = window.location.pathname;
+    
+    // View from query param (legacy)
     const viewParam = params.get('view');
     const uidParam = params.get('uid');
     const itemIdParam = params.get('itemId');
     const tabParam = params.get('tab');
     const actionParam = params.get('action');
+
+    // Parse path segments for clean URLs
+    const pathSegments = path.split('/').filter(Boolean);
+    
+    if (pathSegments[0] === 'marketplace' && pathSegments[1]) {
+      setView('marketplace');
+      // Potential to handle category slug here if needed by MarketInterface
+    } else if (pathSegments[0] === 'profile' && pathSegments[1]) {
+      setSelectedProfileId(pathSegments[1]);
+      setView('profile');
+    } else if (pathSegments[0] === 'product' && pathSegments[1]) {
+      setInitialItemId(pathSegments[1]);
+      setView('marketplace');
+    }
 
     if (viewParam) {
       setView(viewParam);
@@ -148,6 +166,7 @@ export default function App() {
       if (e.detail?.view) {
         setView(e.detail.view);
         if (e.detail.tab) setDashboardTab(e.detail.tab);
+        if (e.detail.searchQuery) setVoiceSearchQuery(e.detail.searchQuery);
       }
     };
     window.addEventListener('voice-navigation', handleVoiceNav);
@@ -264,6 +283,8 @@ export default function App() {
               activeTab={dashboardTab as any}
               setActiveTab={setDashboardTab as any}
               initialItemId={initialItemId}
+              initialVoiceQuery={voiceSearchQuery}
+              onClearVoiceQuery={() => setVoiceSearchQuery(null)}
             />
           </Suspense>
         );

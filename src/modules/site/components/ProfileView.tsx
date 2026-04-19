@@ -23,11 +23,12 @@ import imageCompression from 'browser-image-compression';
 import { 
   translateText, verifyDocument, optimizeSupplierProfile, 
   generateSupplierLogo, suggestSupplierCategories, getProfileInsights,
-  handleAiError
+  handleAiError, generateSupplierSEO
 } from '../../../core/services/geminiService';
 import { motion, AnimatePresence } from 'motion/react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { AICategorySelector } from './AICategorySelector';
+import { SEOHead } from '../../../shared/components/SEOHead';
 import { QRCodeCanvas } from 'qrcode.react';
 import { 
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter 
@@ -106,6 +107,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [isGeneratingSEO, setIsGeneratingSEO] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [supplierProducts, setSupplierProducts] = useState<MarketplaceItem[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
@@ -256,6 +258,42 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       handleAiError(error, 'Profile AI insights refresh');
     } finally {
       setIsRefreshingInsights(false);
+    }
+  };
+
+  const handleGenerateSEO = async () => {
+    if (!profile || !isSupplier) return;
+    setIsGeneratingSEO(true);
+    try {
+      const seoData = await generateSupplierSEO(profile);
+      if (seoData) {
+        const updatedProfile = {
+          ...profile,
+          slug: profile.slug || seoData.slug,
+          metaTitleAr: seoData.metaTitleAr,
+          metaTitleEn: seoData.metaTitleEn,
+          metaDescriptionAr: seoData.metaDescriptionAr,
+          metaDescriptionEn: seoData.metaDescriptionEn,
+          seoKeywords: seoData.seoKeywords
+        };
+        setProfile(updatedProfile);
+        
+        // Update Firestore
+        const profileRef = doc(db, 'users', profile.uid);
+        await updateDoc(profileRef, {
+          slug: updatedProfile.slug,
+          metaTitleAr: updatedProfile.metaTitleAr,
+          metaTitleEn: updatedProfile.metaTitleEn,
+          metaDescriptionAr: updatedProfile.metaDescriptionAr,
+          metaDescriptionEn: updatedProfile.metaDescriptionEn,
+          seoKeywords: updatedProfile.seoKeywords
+        });
+        toast.success(isRtl ? 'تم تحسين SEO بنجاح!' : 'SEO Optimized successfully!');
+      }
+    } catch (error) {
+      handleAiError(error, 'SEO generation');
+    } finally {
+      setIsGeneratingSEO(false);
     }
   };
 
@@ -655,14 +693,33 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       
       setLoading(true);
       try {
-        const targetUid = userId || initialProfile?.uid;
+        let targetUid = userId || initialProfile?.uid;
         if (!targetUid) return;
 
+        let profileData: UserProfile | null = null;
+        
+        // Try direct UID fetch first
         const docRef = doc(db, 'users', targetUid);
         const docSnap = await getDoc(docRef);
         
         if (docSnap.exists()) {
-          const profileData = { uid: docSnap.id, ...docSnap.data() } as UserProfile;
+          profileData = { uid: docSnap.id, ...docSnap.data() } as UserProfile;
+        } else {
+          // If not found by UID, try searching by slug in users_public
+          const q = query(collection(db, 'users_public'), where('slug', '==', targetUid));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const publicData = snap.docs[0].data();
+            const realUid = snap.docs[0].id; // The ID in users_public should match the UID in users
+            const realDocSnap = await getDoc(doc(db, 'users', realUid));
+            if (realDocSnap.exists()) {
+              profileData = { uid: realDocSnap.id, ...realDocSnap.data() } as UserProfile;
+              targetUid = realUid;
+            }
+          }
+        }
+
+        if (profileData) {
           setProfile(profileData);
 
           // Growth Hack: Track shared link visits - Core Team Implementation
@@ -671,7 +728,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             // Check if we already counted this visit in this session to prevent spam
             const sessionKey = `v_${targetUid}`;
             if (!sessionStorage.getItem(sessionKey)) {
-              updateDoc(docRef, {
+              updateDoc(doc(db, 'users', targetUid), {
                 sharedViews: increment(1)
               }).then(() => {
                 sessionStorage.setItem(sessionKey, '1');
@@ -754,6 +811,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     handleCategoryToggle, isSuggestingCategories, handleSuggestCategories,
     isVerifying, handleVerifyDocument, verificationError,
     isGeneratingInsights, handleGenerateInsights,
+    isGeneratingSEO, handleGenerateSEO,
     activeTab, setActiveTab, productFilter, setProductFilter,
     getCategoryIcon, getCategoryProductCount, getAICategoryDescription,
     handleCategoryClick,
@@ -766,6 +824,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   return (
     <TooltipProvider>
+      <SEOHead 
+        title={isRtl ? profile.metaTitleAr || profile.companyName || profile.name : profile.metaTitleEn || profile.companyName || profile.name}
+        description={isRtl ? profile.metaDescriptionAr || profile.bio : profile.metaDescriptionEn || profile.bio}
+        keywords={profile.seoKeywords}
+        image={profile.logoUrl}
+        url={`${window.location.origin}/profile/${profile.slug || profile.uid}`}
+        type="profile"
+        schema={{
+          "@type": profile.role === 'supplier' ? 'LocalBusiness' : 'Person',
+          "name": profile.companyName || profile.name,
+          "description": isRtl ? profile.bio : profile.bio,
+          "image": profile.logoUrl,
+          "url": `${window.location.origin}/profile/${profile.slug || profile.uid}`
+        }}
+      />
       {profile.role === 'customer' && <CustomerProfileLayout {...layoutProps} />}
       {profile.role === 'supplier' && <SupplierProfileLayout {...layoutProps} />}
       {profile.role === 'admin' && <AdminProfileLayout {...layoutProps} />}

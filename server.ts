@@ -28,6 +28,88 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+  // Dynamic Sitemap
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const baseUrl = process.env.APP_URL || `https://${req.get('host')}`;
+      const categoriesSnap = await admin.firestore().collection('categories').get();
+      const productsSnap = await admin.firestore().collection('marketplace').get();
+      const suppliersSnap = await admin.firestore().collection('users_public').get();
+
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${baseUrl}</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>`;
+
+      // Basic pages
+      ['/chat', '/dashboard', '/profile'].forEach(path => {
+        xml += `
+  <url>
+    <loc>${baseUrl}${path}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>`;
+      });
+
+      // Categories
+      categoriesSnap.forEach(doc => {
+        const data = doc.data();
+        if (data.slug) {
+          xml += `
+  <url>
+    <loc>${baseUrl}/marketplace/${data.slug}</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>`;
+        }
+      });
+
+      // Products
+      productsSnap.forEach(doc => {
+        xml += `
+  <url>
+    <loc>${baseUrl}/product/${doc.id}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>`;
+      });
+
+      // Suppliers (Public Hubs)
+      suppliersSnap.forEach(doc => {
+        const data = doc.data();
+        if (data.slug) {
+          xml += `
+  <url>
+    <loc>${baseUrl}/profile/${data.slug}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>`;
+        }
+      });
+
+      xml += `
+</urlset>`;
+
+      res.header('Content-Type', 'application/xml');
+      res.send(xml);
+    } catch (error) {
+      console.error('Sitemap generation error:', error);
+      res.status(500).send('Error generating sitemap');
+    }
+  });
+
+  // Robots.txt
+  app.get("/robots.txt", (req, res) => {
+    const baseUrl = process.env.APP_URL || `https://${req.get('host')}`;
+    res.type('text/plain');
+    res.send(`User-agent: *
+Allow: /
+Sitemap: ${baseUrl}/sitemap.xml`);
+  });
+
 // Generic Email API
 app.post("/api/send-email", async (req, res) => {
   const { email, name, template, data, language = 'en' } = req.body;

@@ -22,10 +22,10 @@ import { ref, uploadBytes, getDownloadURL, getBlob } from 'firebase/storage';
 import { db, storage } from '../../../core/firebase';
 import imageCompression from 'browser-image-compression';
 import { UserProfile, Message, Chat, ProductRequest, Quote, QuoteItem, Offer, AppFeatures } from '../../../core/types';
-import { translateText, generateSmartReplies, moderateContent, translateAudio, negotiateOffer, getPriceIntelligence, summarizeChat, analyzeSentiment, handleAiError } from '../../../core/services/geminiService';
+import { translateText, generateSmartReplies, moderateContent, translateAudio, negotiateOffer, getPriceIntelligence, summarizeChat, analyzeSentiment, handleAiError, refineChatMessage } from '../../../core/services/geminiService';
 import { createNotification } from '../../../core/services/notificationService';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Mic, Square, ArrowLeft, User as UserIcon, Play, Pause, MessageSquare, Image as ImageIcon, Upload, Tag, Phone, X, ZoomIn, Sparkles as SparklesIcon, Check, CheckCheck, FileText, PlusCircle, Trash2, Download, Printer, Star, Bot, MapPin, Reply, CheckCircle, Settings, Clock, SmilePlus, Search, MoreVertical, Copy, Forward, Pin, ShieldCheck, BrainCircuit, Sparkles, Info, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Package, ChevronRight } from 'lucide-react';
+import { Send, Mic, Square, ArrowLeft, User as UserIcon, Play, Pause, MessageSquare, Image as ImageIcon, Upload, Tag, Phone, X, ZoomIn, Sparkles as SparklesIcon, Check, CheckCheck, FileText, PlusCircle, Trash2, Download, Printer, Star, Bot, MapPin, Reply, CheckCircle, Settings, Clock, SmilePlus, Search, MoreVertical, Copy, Forward, Pin, ShieldCheck, BrainCircuit, Sparkles, Info, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Package, ChevronRight, Loader2 } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { soundService, SoundType } from '../../../core/utils/soundService';
 import { Virtuoso } from 'react-virtuoso';
@@ -62,6 +62,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [isProcessingRefinement, setIsProcessingRefinement] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [slideOffset, setSlideOffset] = useState(0);
   const isCancellingRef = useRef(false);
@@ -2124,6 +2125,49 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                   disabled={isRecording || isExpired}
                   minRows={1}
                 />
+
+                {!isRecording && inputText.length > 5 && (
+                  <motion.div 
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                  >
+                    <HapticButton
+                      type="button"
+                      onClick={async () => {
+                        if (!inputText || isProcessingRefinement) return;
+                        setIsProcessingRefinement(true);
+                        try {
+                          soundService.play(SoundType.NEURAL_TAP);
+                          const refined = await refineChatMessage(inputText, i18n.language);
+                          setInputText(refined);
+                          soundService.play(SoundType.SUCCESS);
+                        } catch (err) {
+                          handleAiError(err, 'Chat message refinement');
+                        } finally {
+                          setIsProcessingRefinement(false);
+                        }
+                      }}
+                      className={`p-2 rounded-xl transition-all shadow-sm ${isProcessingRefinement ? 'bg-brand-primary text-white animate-pulse' : 'bg-white text-brand-primary hover:bg-brand-primary/10 border border-brand-primary/20'}`}
+                      title={isRtl ? 'تحسين النص بالذكاء الاصطناعي' : 'Refine with AI'}
+                    >
+                      {isProcessingRefinement ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <div className="relative">
+                          <Sparkles size={16} />
+                          {!isProcessingRefinement && (
+                            <motion.span 
+                              animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                              className="absolute -inset-1 bg-brand-primary/20 rounded-full blur-sm"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </HapticButton>
+                  </motion.div>
+                )}
 
                 <AnimatePresence>
                   {isRecording && (

@@ -21,6 +21,12 @@ export interface UserProfile {
   email: string;
   name: string;
   role: UserRole;
+  slug?: string;
+  metaTitleAr?: string;
+  metaTitleEn?: string;
+  metaDescriptionAr?: string;
+  metaDescriptionEn?: string;
+  seoKeywords?: string[];
   companyName?: string;
   phone?: string;
   location?: string;
@@ -140,6 +146,10 @@ export interface Category {
   iconName?: string; // Lucide icon name
   imageUrl?: string;
   tier?: 'hub' | 'sector' | 'niche'; // 3-tier taxonomy
+  metaTitleAr?: string;
+  metaTitleEn?: string;
+  strategyAr?: string;
+  strategyEn?: string;
 }
 
 export interface ProductRequest {

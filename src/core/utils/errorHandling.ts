@@ -83,6 +83,12 @@ export function handleAiError(error: unknown, context: string, shouldThrow: bool
     return;
   }
 
+  // Ignore Auth initialization "errors" in background
+  if (errorMessage.includes('auth/network-request-failed') || errorMessage.includes('auth/internal-error')) {
+    console.warn('Suppressing background auth error:', errorMessage);
+    return;
+  }
+
   const errInfo = {
     error: errorMessage,
     context: context || 'Unknown context',

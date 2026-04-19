@@ -31,6 +31,7 @@ import {
   Sparkles,
   Camera,
   Building2,
+  Cpu,
   User,
   Heart,
   TrendingUp,
@@ -64,9 +65,10 @@ import {
 import { SellerHub } from './SellerHub';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
-import { handleAiError, recognizeFilterIntent, recognizeNavigationIntent } from '../../../core/services/geminiService';
+import { handleAiError, recognizeFilterIntent, recognizeNavigationIntent, generateCategorySEO } from '../../../core/services/geminiService';
 import { Skeleton } from '../../../shared/components/Skeleton';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { GrowthPlanModal } from './GrowthPlanModal';
 import { soundService, SoundType } from '../../../core/utils/soundService';
 import { ProductCard } from './ProductCard';
 import { ProductCardSkeleton } from './ProductCardSkeleton';
@@ -91,6 +93,8 @@ interface MarketInterfaceProps {
   activeTab?: 'discover' | 'services' | 'myshop' | 'requests';
   setActiveTab?: (tab: 'discover' | 'services' | 'myshop' | 'requests') => void;
   initialItemId?: string | null;
+  initialVoiceQuery?: string | null;
+  onClearVoiceQuery?: () => void;
 }
 
 import { useAuth } from '../../../core/providers/AuthProvider';
@@ -100,13 +104,16 @@ import { CategoryNavTray } from './CategoryNavTray';
 
 import { GlobalCurrencyToggle } from '../../../shared/components/GlobalCurrencyToggle';
 import { useGlobalMarket } from '../../../core/providers/GlobalMarketProvider';
+import { useMarketplaceFilters } from '../hooks/useMarketplaceFilters';
 
 export const MarketInterface: React.FC<MarketInterfaceProps> = ({ 
   onOpenChat, 
   onViewProfile,
   activeTab: externalActiveTab,
   setActiveTab: setExternalActiveTab,
-  initialItemId
+  initialItemId,
+  initialVoiceQuery,
+  onClearVoiceQuery
 }) => {
   const { t, i18n } = useTranslation();
   const { profile, viewMode } = useAuth();
@@ -152,6 +159,33 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     window.addEventListener('global-search', handleGlobalSearch);
     return () => window.removeEventListener('global-search', handleGlobalSearch);
   }, []);
+  // Handle voice-driven commercial intent persistence
+  useEffect(() => {
+    if (initialVoiceQuery) {
+      setSearchTerm(initialVoiceQuery);
+      setActiveTab('discover');
+      setIsFulfillingVoice(true);
+      if (onClearVoiceQuery) onClearVoiceQuery();
+      
+      const fulfillDirectRequest = async () => {
+        try {
+          const { products, suppliers } = await searchMarketplaceAndSuppliers(initialVoiceQuery);
+          // Get AI-driven reasoning for matches
+          const matches = await fetchPredictiveMatches([initialVoiceQuery], []);
+          setMatchedSuppliers(suppliers);
+          setVoiceMatches(matches);
+        } catch (err) {
+          console.error('Fulfillment error:', err);
+        }
+      };
+      fulfillDirectRequest();
+      
+      toast.success(isRtl ? `تم التوجيه نحو الموردين لـ: ${initialVoiceQuery}` : `Directing you to suppliers for: ${initialVoiceQuery}`, {
+        icon: <Building2 className="text-brand-primary animate-pulse" size={16} />
+      });
+    }
+  }, [initialVoiceQuery, onClearVoiceQuery, isRtl]);
+
   const [showAdminHub, setShowAdminHub] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [selectedRequestForOffer, setSelectedRequestForOffer] = useState<any | null>(null);
@@ -166,6 +200,9 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     sortBy?: string;
     querySuffix?: string;
   }>({});
+  const [matchedSuppliers, setMatchedSuppliers] = useState<UserProfile[]>([]);
+  const [voiceMatches, setVoiceMatches] = useState<{ supplierId: string, reason: string }[]>([]);
+  const [isFulfillingVoice, setIsFulfillingVoice] = useState(false);
   const [isRefiningVoice, setIsRefiningVoice] = useState(false);
   const recognitionRef = useRef<any>(null);
 
@@ -196,34 +233,96 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
   // Core Team: AI Search Refinement State
   const [searchRefinements, setSearchRefinements] = useState<string[]>([]);
   const [isSearchingAI, setIsSearchingAI] = useState(false);
+  const [isOptimizingCategory, setIsOptimizingCategory] = useState(false);
+  const [suggestedSEO, setSuggestedSEO] = useState<any>(null);
+  const [showGrowthPlan, setShowGrowthPlan] = useState(false);
 
   const isSearchHidden = scrollDirection === ScrollDirection.DOWN && windowWidth < 768;
+
+  const handleOptimizeCategory = async () => {
+    if (!activeCategory || profile?.role !== 'admin') return;
+    setIsOptimizingCategory(true);
+    try {
+      toast.info(isRtl ? 'جاري استدعاء أخصائي النمو لتحسين الفئة...' : 'Calling Growth Specialist to optimize category...');
+      const seoData = await generateCategorySEO(
+        activeCategory.nameAr, 
+        activeCategory.nameEn, 
+        activeCategory.tier || 'hub'
+      );
+      
+      if (seoData) {
+        setSuggestedSEO(seoData);
+        setShowGrowthPlan(true);
+      }
+    } catch (error) {
+      handleAiError(error, "Category SEO optimization");
+    } finally {
+      setIsOptimizingCategory(false);
+    }
+  };
+
+  const applyGrowthPlan = async () => {
+    if (!activeCategory || !suggestedSEO) return;
+    try {
+      await updateDoc(doc(db, 'categories', activeCategory.id), {
+        ...suggestedSEO,
+        updatedAt: new Date().toISOString()
+      });
+      toast.success(isRtl ? 'تم تطبيق خطة النمو وتصدر النتائج!' : 'Growth plan applied and rankings boosted!');
+      setShowGrowthPlan(false);
+      setSuggestedSEO(null);
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'categories');
+    }
+  };
 
   // AI-Driven Search Refinement
   useEffect(() => {
     if (searchTerm.length > 2) {
+      setIsDemandAnalyzing(true);
       const timer = setTimeout(async () => {
+        const currentSearchTerm = searchTerm;
         setIsSearchingAI(true);
         try {
-          const { suggestCategoriesFromQuery } = await import('../../../core/services/geminiService');
-          const suggestedIds = await suggestCategoriesFromQuery(searchTerm, categories, i18n.language);
-          const suggestedNames = suggestedIds
-            .map(id => {
-              const cat = categories.find(c => c.id === id);
-              return cat ? (isRtl ? cat.nameAr : cat.nameEn) : null;
-            })
-            .filter(Boolean) as string[];
+          const { suggestCategoriesFromQuery, mapIntentToSuppliers } = await import('../../../core/services/geminiService');
           
-          setSearchRefinements(suggestedNames);
+          // Execute mapping in parallel
+          const [suggestedIds, intentData] = await Promise.all([
+            suggestCategoriesFromQuery(searchTerm, categories, i18n.language),
+            mapIntentToSuppliers(searchTerm, i18n.language)
+          ]);
+
+          // Race condition check: only update if search term hasn't changed
+          if (searchTerm === currentSearchTerm) {
+            const suggestedNames = suggestedIds
+              .map(id => {
+                const cat = categories.find(c => c.id === id);
+                return cat ? (isRtl ? cat.nameAr : cat.nameEn) : null;
+              })
+              .filter(Boolean) as string[];
+            
+            // Deduplicate names to prevent key collisions
+            const uniqueNames = Array.from(new Set(suggestedNames));
+            
+            setSearchRefinements(uniqueNames);
+            setSuggestedConcepts(isRtl ? intentData.conceptsAr : intentData.conceptsEn);
+            setDemandAuditNote(isRtl ? intentData.auditNoteAr : intentData.auditNoteEn);
+            setIsDemandAnalyzing(false);
+          }
         } catch (error) {
           console.error('Search refinement failed:', error);
+          setIsDemandAnalyzing(false);
         } finally {
           setIsSearchingAI(false);
         }
-      }, 600);
+      }, 700);
       return () => clearTimeout(timer);
     } else {
+      setIsDemandAnalyzing(false);
       setSearchRefinements([]);
+      setSuggestedConcepts([]);
+      setDemandAuditNote(null);
     }
   }, [searchTerm, categories, isRtl, i18n.language]);
 
@@ -270,11 +369,16 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           toast.info(isRtl ? `جاري معالجة: "${transcript}"` : `Processing: "${transcript}"`, { icon: <Sparkles className="animate-pulse text-brand-primary" size={16} /> });
           
           try {
-            // 1. Check for Navigation Intent First
+            // 1. Check for Navigation Intent First (Teleportation)
             const navIntent = await recognizeNavigationIntent(transcript, i18n.language);
-            if (navIntent && navIntent.view && navIntent.view !== 'home' && navIntent.view !== 'marketplace') {
+            if (navIntent && navIntent.view !== 'none' && navIntent.confidence > 0.7 && navIntent.view !== 'marketplace') {
               window.dispatchEvent(new CustomEvent('voice-navigation', { detail: navIntent }));
+              toast.success(isRtl ? `جاري الانتقال: ${navIntent.view}` : `Navigating to ${navIntent.view}`, {
+                icon: <Zap className="text-brand-amber animate-pulse" size={16} />
+              });
               soundService.play(SoundType.SUCCESS);
+              if (navigator.vibrate) navigator.vibrate([20, 50]);
+              setIsRefiningVoice(false);
               return;
             }
 
@@ -329,85 +433,36 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
 
   // Adaptive Grid Calculation - Moved down below filteredItems
   const [visualSearchResults, setVisualSearchResults] = useState<MarketplaceItem[] | null>(null);
+  const [isDemandAnalyzing, setIsDemandAnalyzing] = useState(false);
+  const [demandAuditNote, setDemandAuditNote] = useState<string | null>(null);
+  const [suggestedConcepts, setSuggestedConcepts] = useState<string[]>([]);
 
   // Core Team: Integrated Intelligent Filter Logic (Text + Category + Voice)
-  const filteredItems = useMemo(() => {
-    let result = (visualSearchResults ? visualSearchResults : items).filter(item => {
-      const searchLower = searchTerm.toLowerCase();
-      
-      // 1. Hierarchical Category Filtering
-      const activeCategoryId = selectedNicheId || selectedSectorId || selectedHubId;
-      if (activeCategoryId) {
-        if (!item.categories?.includes(activeCategoryId)) {
-          const itemCategories = categories.filter(c => item.categories?.includes(c.id));
-          const isDescendant = itemCategories.some(c => {
-            let current: any = c;
-            while (current) {
-              if (current.id === activeCategoryId) return true;
-              current = current.parentId ? categories.find(cat => cat.id === current.parentId) : null;
-            }
-            return false;
-          });
-          if (!isDescendant) return false;
-        }
-      }
+  const filteredItems = useMarketplaceFilters(
+    items as MarketplaceItem[],
+    visualSearchResults,
+    searchTerm,
+    activeTab,
+    voiceFilters,
+    categories,
+    selectedNicheId,
+    selectedSectorId,
+    selectedHubId
+  );
 
-      // 2. Discover/Services Tab Isolation
-      const isServiceItem = categories.filter(c => item.categories?.includes(c.id)).some(c => {
-        let current: any = c;
-        while (current) {
-          if (current.categoryType === 'service') return true;
-          current = current.parentId ? categories.find(cat => cat.id === current.parentId) : null;
-        }
-        return false;
-      });
-      
-      if (activeTab === 'discover' && isServiceItem) return false;
-      if (activeTab === 'services' && !isServiceItem) return false;
+  // Core Team: Ensure absolute uniqueness of items by ID to prevent key collisions in grids
+  const uniqueFilteredItems = useMemo(() => {
+    return Array.from(new Map(filteredItems.map(item => [item.id, item])).values());
+  }, [filteredItems]);
 
-      // 3. Search Term Matching
-      const matchesSearch = 
-        (item.title?.toLowerCase() || '').includes(searchLower) || 
-        (item.description?.toLowerCase() || '').includes(searchLower) ||
-        (item.titleAr?.toLowerCase() || '').includes(searchLower) ||
-        (item.titleEn?.toLowerCase() || '').includes(searchLower);
-      
-      if (!matchesSearch) return false;
-
-      // 4. Voice Filter: Location
-      if (voiceFilters.location) {
-        const loc = voiceFilters.location.toLowerCase();
-        if (!item.location?.toLowerCase().includes(loc)) return false;
-      }
-
-      // 5. Voice Filter: Price Range
-      if (voiceFilters.priceRange) {
-        const { min, max } = voiceFilters.priceRange;
-        if (min !== undefined && item.price < min) return false;
-        if (max !== undefined && item.price > max) return false;
-      }
-
-      // 6. Voice Filter: Query Suffix (Advanced matching)
-      if (voiceFilters.querySuffix) {
-        const suffix = voiceFilters.querySuffix.toLowerCase();
-        const matchesSuffix = 
-          (item.title?.toLowerCase() || '').includes(suffix) || 
-          (item.description?.toLowerCase() || '').includes(suffix);
-        if (!matchesSuffix) return false;
-      }
-
-      return true;
-    });
-
-    // 7. Voice Filter: Sorting
-    if (voiceFilters.sortBy) {
-      if (voiceFilters.sortBy === 'price_asc') result.sort((a, b) => a.price - b.price);
-      if (voiceFilters.sortBy === 'price_desc') result.sort((a, b) => b.price - a.price);
-      if (voiceFilters.sortBy === 'newest') result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  // Reset voice fulfillment if user clears search manually
+  useEffect(() => {
+    if (searchTerm === '' && isFulfillingVoice) {
+      setIsFulfillingVoice(false);
+      setMatchedSuppliers([]);
+      setVoiceMatches([]);
     }
-
-    return result;
-  }, [items, visualSearchResults, searchTerm, activeTab, voiceFilters, categories, selectedNicheId, selectedSectorId, selectedHubId]);
+  }, [searchTerm, isFulfillingVoice]);
 
   const gridCols = React.useMemo(() => {
     const isMobile = windowWidth < 768;
@@ -427,23 +482,37 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     return isMobile ? defaultMobileCols : defaultWebCols;
   }, [windowWidth, settings?.gridSettings, filteredItems.length]);
   
+  const activeCategory = useMemo(() => {
+    const id = selectedNicheId || selectedSectorId || selectedHubId;
+    return id ? categories.find(c => c.id === id) : null;
+  }, [selectedNicheId, selectedSectorId, selectedHubId, categories]);
+
   return (
     <div className="min-h-screen bg-brand-background pb-32 overflow-x-hidden">
       <SEOHead 
         title={
+          activeCategory 
+            ? (isRtl ? (activeCategory.metaTitleAr || activeCategory.nameAr) : (activeCategory.metaTitleEn || activeCategory.nameEn)) :
           activeTab === 'discover' ? (isRtl ? 'سوق الجملة والمنتجات' : 'Wholesale Product Marketplace') :
           activeTab === 'requests' ? (isRtl ? 'بث طلبات المنتجات' : 'Product Request Broadcast') :
           activeTab === 'services' ? (isRtl ? 'رادار الخبراء والخدمات' : 'Expert & Service Radar') :
           (isRtl ? 'السوق الذكي' : 'Smart Marketplace')
         }
-        description={isRtl 
-          ? 'اكتشف أفضل الموردين والمنتجات والخدمات المهنية في مكان واحد. بوابتك لنمو أعمالك في الشرق الأوسط.' 
-          : 'Discover the best suppliers, products, and professional services in one place. Your gateway to business growth.'
+        description={
+          activeCategory
+            ? (isRtl ? activeCategory.descriptionAr : activeCategory.descriptionEn) :
+          isRtl 
+            ? 'اكتشف أفضل الموردين والمنتجات والخدمات المهنية في مكان واحد. بوابتك لنمو أعمالك في الشرق الأوسط.' 
+            : 'Discover the best suppliers, products, and professional services in one place. Your gateway to business growth.'
         }
-        keywords={isRtl 
-          ? ['سوق جملة', 'الشرق الأوسط', 'خدمات أعمال', 'موردين', 'تجارة إلكترونية B2B'] 
-          : ['wholesale market', 'middle east', 'business services', 'suppliers', 'B2B ecommerce']
+        keywords={
+          activeCategory?.seoKeywords?.length
+            ? activeCategory.seoKeywords :
+          isRtl 
+            ? ['سوق جملة', 'الشرق الأوسط', 'خدمات أعمال', 'موردين', 'تجارة إلكترونية B2B'] 
+            : ['wholesale market', 'middle east', 'business services', 'suppliers', 'B2B ecommerce']
         }
+        url={activeCategory?.slug ? `${window.location.origin}/marketplace/${activeCategory.slug}` : undefined}
       />
       {/* Search Section */}
       <motion.div 
@@ -462,7 +531,11 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
               <div className="absolute -inset-1 bg-gradient-to-r from-brand-primary/20 to-brand-teal/20 rounded-2xl blur opacity-25 group-focus-within/search:opacity-100 transition-opacity duration-500" />
               <div className="relative flex items-center bg-white dark:bg-slate-900 border border-brand-border rounded-2xl p-2 shadow-xl">
                 <div className="pl-4 text-brand-text-muted">
-                  <Search size={20} />
+                  {isSearchingAI || isDemandAnalyzing ? (
+                    <Loader2 size={20} className="animate-spin text-brand-primary" />
+                  ) : (
+                    <Search size={20} />
+                  )}
                 </div>
                 <input 
                   type="text"
@@ -471,6 +544,14 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                   placeholder={isRtl ? 'ابحث عن منتجات، موردين، أو فئات...' : 'Search for products, suppliers, or categories...'}
                   className="flex-1 bg-transparent border-none focus:ring-0 text-sm md:text-base font-bold text-brand-text-main placeholder-brand-text-muted/50 py-3 px-2"
                 />
+                {isDemandAnalyzing && (
+                  <div className="absolute right-12 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2 py-1 bg-brand-primary/10 rounded-lg">
+                    <Zap size={10} className="text-brand-primary animate-pulse" />
+                    <span className="text-[8px] font-black text-brand-primary uppercase tracking-wider tabular-nums">
+                      Team Audit
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center gap-1 pr-1">
                   <HapticButton
                     onClick={() => setShowVisualSearch(true)}
@@ -483,7 +564,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
 
               {/* AI Search Refinements Tray */}
               <AnimatePresence>
-                {searchRefinements.length > 0 && (
+                {(searchRefinements.length > 0 || suggestedConcepts.length > 0) && (
                   <motion.div 
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -493,23 +574,67 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                     <div className="flex items-center gap-2 mb-3">
                       <Sparkles size={14} className="text-brand-primary animate-pulse" />
                       <span className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em]">
-                        {isRtl ? 'مقترحات ذكية' : 'AI Refinements'}
+                        {isRtl ? 'تحليلات ذكية ومقترحات' : 'Neural Insights & Concepts'}
                       </span>
                       {isSearchingAI && <Loader2 size={12} className="animate-spin text-brand-primary ml-auto" />}
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {searchRefinements.map((refinement, idx) => (
-                        <button
-                          key={`${refinement}-${idx}`}
-                          onClick={() => {
-                            setSearchTerm(refinement);
-                            setSearchRefinements([]);
-                          }}
-                          className="px-3 py-1.5 bg-brand-primary/5 hover:bg-brand-primary/10 text-brand-primary text-xs font-bold rounded-lg transition-all border border-brand-primary/10"
-                        >
-                          {refinement}
-                        </button>
-                      ))}
+
+                    {demandAuditNote && (
+                      <div className="mb-4 p-3 bg-brand-primary/5 rounded-xl border border-brand-primary/10">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Cpu size={12} className="text-brand-primary" />
+                          <span className="text-[10px] font-black text-brand-primary uppercase tracking-tighter">Core Team Audit</span>
+                        </div>
+                        <p className="text-xs text-brand-text-main font-bold italic leading-relaxed">
+                          "{demandAuditNote}"
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      {searchRefinements.length > 0 && (
+                        <div>
+                          <p className="text-[8px] font-black text-brand-text-muted uppercase tracking-widest mb-2 opacity-60">
+                            {isRtl ? 'الفئات المقترحة' : 'Suggested Categories'}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {searchRefinements.map((refinement, idx) => (
+                              <button
+                                key={`refinements-${refinement}-${idx}`}
+                                onClick={() => {
+                                  setSearchTerm(refinement);
+                                  setSearchRefinements([]);
+                                }}
+                                className="px-3 py-1.5 bg-brand-primary/5 hover:bg-brand-primary/10 text-brand-primary text-xs font-bold rounded-lg transition-all border border-brand-primary/10"
+                              >
+                                {refinement}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {suggestedConcepts.length > 0 && (
+                        <div>
+                          <p className="text-[8px] font-black text-brand-text-muted uppercase tracking-widest mb-2 opacity-60">
+                            {isRtl ? 'مفاهيم الموردين' : 'Supplier Concepts'}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {suggestedConcepts.map((concept, idx) => (
+                              <button
+                                key={`concept-${concept}-${idx}`}
+                                onClick={() => {
+                                  setSearchTerm(concept);
+                                  setSuggestedConcepts([]);
+                                }}
+                                className="px-3 py-1.5 bg-brand-teal/5 hover:bg-brand-teal/10 text-brand-teal text-xs font-bold rounded-lg transition-all border border-brand-teal/10"
+                              >
+                                {concept}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 )}
@@ -543,7 +668,11 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
       <div className="md:hidden sticky top-0 z-[40] bg-brand-background/80 backdrop-blur-md border-b border-brand-border px-4 py-3 transition-transform duration-300" style={{ transform: isSearchHidden ? 'translateY(-100%)' : 'translateY(0)' }}>
          <div className="relative flex items-center bg-white dark:bg-slate-900 border border-brand-border rounded-xl p-1 shadow-sm">
             <div className="pl-3 text-brand-text-muted">
-              <Search size={16} />
+              {isSearchingAI || isDemandAnalyzing ? (
+                <Loader2 size={16} className="animate-spin text-brand-primary" />
+              ) : (
+                <Search size={16} />
+              )}
             </div>
             <input 
               type="text"
@@ -552,6 +681,9 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
               placeholder={isRtl ? 'بحث...' : 'Search...'}
               className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-bold text-brand-text-main placeholder-brand-text-muted/50 py-1.5 px-1"
             />
+            {isDemandAnalyzing && (
+              <Zap size={12} className="text-brand-primary animate-pulse mx-2" />
+            )}
             <HapticButton onClick={() => setShowVisualSearch(true)} className="p-2 text-brand-text-muted border-l border-brand-border ml-1">
                <Camera size={16} />
             </HapticButton>
@@ -722,19 +854,62 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
 
         {/* 3-Tier Professional Category Navigation */}
         {activeTab === 'discover' && (
-          <CategoryNavTray 
-            categories={filteredCategories}
-            selectedHubId={selectedHubId}
-            selectedSectorId={selectedSectorId}
-            selectedNicheId={selectedNicheId}
-            onSelectHub={setSelectedHubId}
-            onSelectSector={setSelectedSectorId}
-            onSelectNiche={setSelectedNicheId}
-            isRtl={isRtl}
-          />
+          <div className="space-y-4 mb-8">
+            <CategoryNavTray 
+              categories={filteredCategories}
+              selectedHubId={selectedHubId}
+              selectedSectorId={selectedSectorId}
+              selectedNicheId={selectedNicheId}
+              onSelectHub={setSelectedHubId}
+              onSelectSector={setSelectedSectorId}
+              onSelectNiche={setSelectedNicheId}
+              isRtl={isRtl}
+            />
+            
+            {activeCategory && profile?.role === 'admin' && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 bg-brand-primary/5 border border-brand-primary/10 rounded-2xl flex items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                    <TrendingUp size={20} className="animate-bounce" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-black text-brand-text-main">
+                      {isRtl ? 'أخصائي النمو: خطة تحسين الظهور' : 'Growth Specialist: Visibility Plan'}
+                    </h5>
+                    <p className="text-[10px] text-brand-text-muted font-bold">
+                      {isRtl 
+                        ? `تحسين "${activeCategory.nameAr}" لجذب الشركات من خارج المنصة.` 
+                        : `Optimize "${activeCategory.nameEn}" to attract external companies.`}
+                    </p>
+                  </div>
+                </div>
+                <HapticButton 
+                  onClick={handleOptimizeCategory}
+                  disabled={isOptimizingCategory}
+                  className="px-4 py-2 bg-brand-primary text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2"
+                >
+                  {isOptimizingCategory ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+                  {isRtl ? 'تطبيق الخطة' : 'Apply Plan'}
+                </HapticButton>
+              </motion.div>
+            )}
+          </div>
         )}
         
         {/* Content */}
+        {isFulfillingVoice && matchedSuppliers.length > 0 && (
+          <PredictiveMatchSection 
+            matches={voiceMatches}
+            suppliers={matchedSuppliers}
+            onViewProfile={onViewProfile}
+            isRtl={isRtl}
+          />
+        )}
+
         {activeTab === 'requests' ? (
           <div className="space-y-8">
             <div className="bg-brand-primary/5 border border-brand-primary/20 rounded-[2.5rem] p-8 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -849,7 +1024,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
             {activeTab === 'discover' && !selectedHubId && !searchTerm ? (
               // Grouped View (Demand-Driven)
               filteredCategories.filter(cat => cat.tier === 'hub' || !cat.parentId).map(hub => {
-                const hubItemsRaw = filteredItems.filter(item => {
+                const hubItems = uniqueFilteredItems.filter(item => {
                     const itemCats = categories.filter(c => item.categories?.includes(c.id));
                     return itemCats.some(c => {
                         let cur: any = c;
@@ -860,9 +1035,6 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                         return false;
                     });
                 });
-                
-                // Core Team: Deduplicate items within the hub group to prevent key collisions
-                const hubItems = Array.from(new Map(hubItemsRaw.map(item => [item.id, item])).values());
                 
                 if (hubItems.length === 0) return null;
 
@@ -913,7 +1085,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                   gap: typeof window !== 'undefined' && window.innerWidth < 768 ? '2px' : `${settings?.gridSettings?.gap || 16}px`
                 }}
               >
-                {Array.from(new Map(filteredItems.map(item => [item.id, item])).values()).map((item, idx) => (
+                {uniqueFilteredItems.map((item, idx) => (
                   <ProductCard 
                     key={item.id || `market-item-${idx}`} 
                     item={item} 
@@ -1029,6 +1201,19 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
               onHoverCategory={() => {}}
             />
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showGrowthPlan && suggestedSEO && activeCategory && (
+          <GrowthPlanModal
+            isOpen={showGrowthPlan}
+            onClose={() => setShowGrowthPlan(false)}
+            onApply={applyGrowthPlan}
+            category={activeCategory}
+            seoData={suggestedSEO}
+            isRtl={isRtl}
+          />
         )}
       </AnimatePresence>
     </div>

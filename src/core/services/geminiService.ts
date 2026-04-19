@@ -592,8 +592,33 @@ export const analyzeSmartImage = async (base64Data: string, mimeType: string): P
 /**
  * Translate voice commands into application navigation intents.
  */
+/**
+ * Refine a draft message to be more professional or clear using AI.
+ */
+export const refineChatMessage = async (text: string, language: string, context: 'professional' | 'friendly' | 'negotiation' = 'professional'): Promise<string> => {
+  return AIResilienceManager.execute(async () => {
+    const prompt = `[NEURAL-SCRIBE:CHAT_REFINE]
+      Original Message: "${text}"
+      Target Language: ${language === 'ar' ? 'Arabic (White/Jordanian Dialect, Professional)' : 'English (Modern Professional)'}
+      Style: ${context}
+      
+      Task: Rewrite the message to be world-class, professional, and clear. 
+      - Keep it concise but prestigious.
+      - If in Arabic, use professional "White" dialect (suitable for B2B).
+      - Ensure it sounds human and empathetic, not robotic.
+      
+      Return ONLY the rewritten message text.`;
+
+    const result = await callAiText(prompt);
+    
+    const tokens = (prompt.length + result.length) / 4;
+    await logUsage('Chat Message Refinement', Math.ceil(tokens));
+    return result;
+  }, text, 'Chat message refinement', isFailure);
+};
+
 export const recognizeNavigationIntent = async (transcript: string, language: string): Promise<any> => {
-  const fallback = { view: 'home' };
+  const fallback = { view: 'none', confidence: 0 };
 
   return AIResilienceManager.execute(async () => {
     const prompt = `[NAV-INTENT:NEURAL]
@@ -601,27 +626,38 @@ export const recognizeNavigationIntent = async (transcript: string, language: st
       Language: ${language === 'ar' ? 'Arabic' : 'English'}
       
       Task: Translate the user's spoken command into a structured application view.
+      CRITICAL: ONLY return a view if the user is giving a direct command to NAVIGATE or OPEN a section (e.g., "go to", "open", "show me my", "take me to").
+      If the user is asking to search for a product, buy something, or describe an item (e.g., "I want a car", "search for shoes", "how much is..."), return { "view": "none", "confidence": 0 }.
+      
       Available Views & Keywords:
       - home: "الرئيسية", "البيت", "البداية", "home", "main"
       - marketplace: "السوق", "البضائع", "أريد شراء", "marketplace", "market", "buy"
-      - dashboard: "لوحة التحكم", "إحصائياتي", "dashboard", "stats", "my ads"
-      - chat: "الرسائل", "المحادثات", "chat", "messages", "inbox"
-      - profile: "ملفي الشخصي", "حسابي", "profile", "account", "settings"
-      - smart_pulse: "نبض السوق", "أخبار السوق", "pulse", "trends"
-      - connect: "المكافآت", "نقاطي", "rewards", "points"
-      - neural_hub: "التحليل الذكي", "عصب التطبيق", "neural", "analysis"
+      - dashboard: "لوحة التحكم", "إحصائياتي", "إعلاناتي", "dashboard", "stats", "my ads", "my shop"
+      - chat: "الرسائل", "المحادثات", "البريد", "chat", "messages", "inbox", "mail"
+      - profile: "ملفي الشخصي", "حسابي", "الإعدادات", "profile", "account", "settings"
+      - smart_pulse: "نبض السوق", "أخبار السوق", "التحليل الذكي", "عصب التطبيق", "pulse", "trends", "neural", "analysis"
+      - connect: "المكافآت", "نقاطي", "الجوائز", "rewards", "points", "connect"
+      - help: "المساعدة", "الدعم", "help", "support", "tutorial"
       
-      Return ONLY a JSON object with a 'view' property and an optional 'tab' property (for dashboard).`;
+      Return ONLY a JSON object with:
+      - 'view': matches the list above OR "none"
+      - 'tab': optional (for dashboard)
+      - 'searchQuery': optional (If the user requested a specific product while navigating to marketplace, e.g., "find shoes in the market" -> searchQuery: "shoes")
+      - 'confidence': 0.0 to 1.0 (How sure are you this is a NAVIGATION command, not a GENERAL voice message)
+      
+      CRITICAL: If the user is just asking a question or recording a chat message without a clear intent to change views, return { "view": "none", "confidence": 0 }.`;
 
     const result = await callAiJson(
       prompt,
       {
         type: Type.OBJECT,
         properties: {
-          view: { type: Type.STRING, enum: ["home", "marketplace", "dashboard", "chat", "profile", "smart_pulse", "connect", "neural_hub"] },
-          tab: { type: Type.STRING }
+          view: { type: Type.STRING, enum: ["home", "marketplace", "dashboard", "chat", "profile", "smart_pulse", "connect", "help", "none"] },
+          tab: { type: Type.STRING },
+          searchQuery: { type: Type.STRING },
+          confidence: { type: Type.NUMBER }
         },
-        required: ["view"]
+        required: ["view", "confidence"]
       }
     );
     
@@ -710,6 +746,7 @@ export const processSmartVoice = async (transcript: string): Promise<any> => {
         quantity: string,
         budget: string,
         urgency: string,
+        intentType: "buying" | "selling" | "discovery",
         professionalSummary: string (A 1-sentence professional business capture of the intent in Arabic)
       }`,
       {
@@ -719,9 +756,10 @@ export const processSmartVoice = async (transcript: string): Promise<any> => {
           quantity: { type: Type.STRING },
           budget: { type: Type.STRING },
           urgency: { type: Type.STRING },
+          intentType: { type: Type.STRING, enum: ["buying", "selling", "discovery"] },
           professionalSummary: { type: Type.STRING }
         },
-        required: ["product", "quantity", "budget", "urgency", "professionalSummary"]
+        required: ["product", "quantity", "budget", "urgency", "intentType", "professionalSummary"]
       }
     );
     
@@ -936,6 +974,42 @@ export const suggestCategoriesFromQuery = async (query: string, categories: Cate
     handleAiError(e, 'AI Category suggestion');
     return [];
   }
+};
+
+export const mapIntentToSuppliers = async (query: string, language: string): Promise<{ conceptsAr: string[], conceptsEn: string[], auditNoteAr: string, auditNoteEn: string }> => {
+  const fallback = { conceptsAr: [], conceptsEn: [], auditNoteAr: '', auditNoteEn: '' };
+
+  return AIResilienceManager.execute(async () => {
+    const prompt = `[NEURAL-MAPPING:SUPPLIERS]
+      Search Intent: "${query}"
+      
+      Task: 
+      1. Extract 3 high-level "Supplier Concepts" that would fulfill this need (e.g., if searching "party food", concepts: "Catering", "Wholesale Sweet", "Custom Pizza").
+      2. Provide a "Team Audit Note" explaining how we analyzed this demand for the user.
+      
+      Return JSON: {
+        conceptsAr: string[],
+        conceptsEn: string[],
+        auditNoteAr: string,
+        auditNoteEn: string
+      }`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          conceptsAr: { type: Type.ARRAY, items: { type: Type.STRING } },
+          conceptsEn: { type: Type.ARRAY, items: { type: Type.STRING } },
+          auditNoteAr: { type: Type.STRING },
+          auditNoteEn: { type: Type.STRING }
+        },
+        required: ["conceptsAr", "conceptsEn", "auditNoteAr", "auditNoteEn"]
+      }
+    );
+    
+    return result || fallback;
+  }, fallback, 'Supplier intent mapping', isFailure);
 };
 
 export const askGemini = async (prompt: string): Promise<string> => {
@@ -2568,5 +2642,102 @@ export const analyzeChatSentiment = async (transcript: string, language: string)
   } catch (e: any) {
     handleAiError(e, 'Chat sentiment analysis');
     return { sentiment: 'neutral', score: 0, reasoningEn: 'Analysis failed', reasoningAr: 'فشل التحليل', keyEmotions: [] };
+  }
+};
+
+/**
+ * Generates SEO metadata for a marketplace category.
+ */
+export const generateCategorySEO = async (categoryNameAr: string, categoryNameEn: string, tier: string): Promise<any> => {
+  try {
+    const prompt = `Generate expert B2B SEO metadata for a marketplace category.
+      Category Name (Arabic): ${categoryNameAr}
+      Category Name (English): ${categoryNameEn}
+      Hierarchy Level: ${tier}
+
+      Provide a comprehensive search dominance plan.
+      Return a JSON object with:
+      - slug: URL-friendly string (English)
+      - metaTitleAr: SEO title in Arabic (max 60 chars)
+      - metaTitleEn: SEO title in English (max 60 chars)
+      - descriptionAr: SEO description in Arabic (max 160 chars)
+      - descriptionEn: SEO description in English (max 160 chars)
+      - seoKeywords: Array of 10 relevant SEO keywords in both languages
+      - schemaType: 'Service' or 'Product' based on category name
+      - strategyAr: A 3-point strategy in Arabic to attract external companies to this category.
+      - strategyEn: A 3-point strategy in English to attract external companies to this category.`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          slug: { type: Type.STRING },
+          metaTitleAr: { type: Type.STRING },
+          metaTitleEn: { type: Type.STRING },
+          descriptionAr: { type: Type.STRING },
+          descriptionEn: { type: Type.STRING },
+          seoKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+          schemaType: { type: Type.STRING },
+          strategyAr: { type: Type.STRING },
+          strategyEn: { type: Type.STRING }
+        },
+        required: ["slug", "metaTitleAr", "metaTitleEn", "descriptionAr", "descriptionEn", "seoKeywords", "schemaType", "strategyAr", "strategyEn"]
+      }
+    );
+    
+    const tokens = (prompt.length + JSON.stringify(result).length) / 4;
+    await logUsage('Category SEO Generation', Math.ceil(tokens));
+    return result;
+  } catch (e: any) {
+    handleAiError(e, 'Category SEO generation');
+    return null;
+  }
+};
+
+/**
+ * Generates SEO metadata for a supplier's profile hub.
+ */
+export const generateSupplierSEO = async (profile: UserProfile): Promise<any> => {
+  try {
+    const prompt = `Generate expert SEO metadata for a supplier's marketplace profile hub.
+      Supplier Name: ${profile.name}
+      Company Name: ${profile.companyName || 'N/A'}
+      Bio: ${profile.bio || 'N/A'}
+      Categories: ${profile.categories?.join(', ') || 'General'}
+      Location: ${profile.location || 'Jordan'}
+
+      Return a JSON object with:
+      - slug: URL-friendly string based on company name or user name (English)
+      - metaTitleAr: SEO title in Arabic (max 60 chars)
+      - metaTitleEn: SEO title in English (max 60 chars)
+      - descriptionAr: SEO description in Arabic (max 160 chars)
+      - descriptionEn: SEO description in English (max 160 chars)
+      - seoKeywords: Array of 10 relevant SEO keywords in both languages
+      - schemaType: 'LocalBusiness' or 'Organization'`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          slug: { type: Type.STRING },
+          metaTitleAr: { type: Type.STRING },
+          metaTitleEn: { type: Type.STRING },
+          descriptionAr: { type: Type.STRING },
+          descriptionEn: { type: Type.STRING },
+          seoKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+          schemaType: { type: Type.STRING }
+        },
+        required: ["slug", "metaTitleAr", "metaTitleEn", "descriptionAr", "descriptionEn", "seoKeywords", "schemaType"]
+      }
+    );
+    
+    const tokens = (prompt.length + JSON.stringify(result).length) / 4;
+    await logUsage('Supplier SEO Generation', Math.ceil(tokens));
+    return result;
+  } catch (e: any) {
+    handleAiError(e, 'Supplier SEO generation');
+    return null;
   }
 };
