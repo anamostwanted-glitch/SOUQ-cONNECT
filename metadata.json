@@ -1,9 +1,10 @@
 {
-  "name": "Souq Connect (S-B2B) Marketplace",
+  "name": "Souq Connect- سوق كوننكت",
   "description": "Souq Connect: The Neural Hub for B2B. Connect with verified suppliers, automate sourcing with Gemini AI, and optimize your global trade pulse. Features Smart Matching, Visual AI Search, and Real-time Demand Analysis.",
   "requestFramePermissions": [
     "microphone",
     "geolocation",
     "camera"
-  ]
+  ],
+  "majorCapabilities": []
 }
