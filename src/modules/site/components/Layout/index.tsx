@@ -362,12 +362,20 @@ export const Layout: React.FC<LayoutProps> = ({
             isRtl={isRtl}
             unreadCount={chatUnreadCount}
             scrollDirection={scrollDirection}
-            onVisualSearch={() => setIsAIHubOpen(true)}
+            onVisualSearch={() => {
+              if (features.smartAssistantEnabled) {
+                setIsAIHubOpen(true);
+              } else {
+                setView('marketplace');
+                setDashboardTab?.('requests');
+              }
+            }}
             onToggleNotifications={onOpenNotifications || (() => {})}
             onMobileMenuOpen={() => setIsMobileMenuOpen(true)}
             showNotifications={false}
             onPrefetch={onPrefetch}
             viewMode={viewMode}
+            features={features}
           />
         </div>
       )}

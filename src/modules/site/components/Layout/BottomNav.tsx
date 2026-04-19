@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Home as HomeIcon, Bot, LayoutDashboard, ShoppingBag, MessageSquare, Bell, Sparkles, Store, Compass, LayoutGrid } from 'lucide-react';
+import { Home as HomeIcon, Bot, LayoutDashboard, ShoppingBag, MessageSquare, Bell, Sparkles, Store, Compass, LayoutGrid, Plus } from 'lucide-react';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { useTranslation } from 'react-i18next';
-import { UserRole } from '../../../../core/types';
+import { UserRole, AppFeatures } from '../../../../core/types';
 import { ScrollDirection } from '../../../../shared/hooks/useScrollDirection';
 
 interface BottomNavProps {
@@ -20,6 +20,7 @@ interface BottomNavProps {
   showNotifications: boolean;
   onPrefetch?: (view: string) => void;
   viewMode: UserRole;
+  features: AppFeatures;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
@@ -35,7 +36,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onToggleNotifications,
   showNotifications,
   onPrefetch,
-  viewMode
+  viewMode,
+  features
 }) => {
   const { t } = useTranslation();
 
@@ -88,23 +90,31 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         </HapticButton>
       )}
 
-      {/* Primary Action Button (Diamond AI) */}
+      {/* Primary Action Button (Diamond AI or Add) */}
       <div className="relative -mt-10 px-2">
         <HapticButton 
           onClick={onVisualSearch}
-          className="flex flex-col items-center justify-center w-16 h-16 bg-gradient-to-br from-brand-primary via-brand-primary to-brand-teal text-white rounded-[1.75rem] shadow-2xl shadow-brand-primary/40 scale-110 border-[6px] border-white dark:border-gray-900 transition-all duration-300 active:scale-95 relative overflow-hidden group"
+          className={`flex flex-col items-center justify-center w-16 h-16 bg-gradient-to-br ${features.smartAssistantEnabled ? 'from-brand-primary via-brand-primary to-brand-teal shadow-brand-primary/40' : 'from-brand-secondary via-brand-secondary to-brand-primary shadow-brand-secondary/40'} text-white rounded-[1.75rem] shadow-2xl scale-110 border-[6px] border-white dark:border-gray-900 transition-all duration-300 active:scale-95 relative overflow-hidden group`}
         >
           {/* Animated Background Glow */}
-          <motion.div
-            animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
-            transition={{ duration: 3, repeat: Infinity }}
-            className="absolute inset-0 bg-white/30 blur-xl"
-          />
+          {features.smartAssistantEnabled && (
+            <motion.div
+              animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
+              transition={{ duration: 3, repeat: Infinity }}
+              className="absolute inset-0 bg-white/30 blur-xl"
+            />
+          )}
           
           <div className="relative z-10 flex flex-col items-center">
             <motion.div whileHover={{ rotate: 15, scale: 1.1 }}>
-              <Bot size={26} />
-              <Sparkles size={14} className="absolute -top-1.5 -right-2 text-white animate-pulse" />
+              {features.smartAssistantEnabled ? (
+                <>
+                  <Bot size={26} />
+                  <Sparkles size={14} className="absolute -top-1.5 -right-2 text-white animate-pulse" />
+                </>
+              ) : (
+                <Plus size={28} />
+              )}
             </motion.div>
           </div>
         </HapticButton>

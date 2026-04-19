@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SEO } from '../../../shared/components/SEO';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User as UserIcon, 
@@ -433,6 +434,10 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-50/30 dark:bg-slate-950/30 pb-32">
+      <SEO 
+        title={isRtl ? 'لوحة التحكم' : 'Dashboard'} 
+        description={isRtl ? 'مركز القيادة العصبي - سوق كونيكت' : 'Neural Command Center - Souq Connect'}
+      />
       <div className="max-w-6xl mx-auto px-6 pt-12">
         {/* Perspective Switcher */}
         {profile.role === 'supplier' && renderPerspectiveSwitcher()}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
+import { SEO } from '../../../shared/components/SEO';
 import { ArrowRight, CheckCircle2, Rocket, Shield, Zap, Globe, BarChart3, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SiteSettings } from '../../../core/types';
@@ -59,6 +60,11 @@ export const SupplierLandingPage: React.FC<SupplierLandingPageProps> = ({ onStar
 
   return (
     <div className="min-h-screen bg-brand-background text-brand-text-main font-sans overflow-x-hidden" dir={isAr ? 'rtl' : 'ltr'}>
+      <SEO 
+        title={isAr ? 'برنامج الموردين' : 'Supplier Program'} 
+        description={isAr ? 'انضم إلى شبكة الموردين لدينا وزد مبيعاتك بذكاء.' : 'Join our supplier network and grow your sales smartly.'}
+        keywords={isAr ? 'موردين, تجارة, بيع جملة, الشرق الأوسط' : 'suppliers, trade, wholesale, middle east'}
+      />
       {/* Hero Section - Split Layout */}
       <main className="grid grid-cols-1 lg:grid-cols-2 min-h-screen">
         {/* Left Side: Content */}

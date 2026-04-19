@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SEO } from '../../../shared/components/SEO';
 import { usePersistedState } from '../../../shared/hooks/usePersistedState';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, addDoc, getDocs, doc, onSnapshot, query, where, orderBy, getDoc, setDoc, writeBatch, updateDoc, arrayUnion, limit } from 'firebase/firestore';
@@ -123,6 +124,7 @@ const Home: React.FC<HomeProps> = ({
 
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [showConciergeTrigger, setShowConciergeTrigger] = useState(false);
+  const [hasSeenConcierge, setHasSeenConcierge] = usePersistedState('home_has_seen_concierge', false);
   const [conciergeReason, setConciergeReason] = useState('');
   const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
   const [productCopy, setProductCopy] = useState<{ title: string; description: string; highlights: string[] } | null>(null);
@@ -231,10 +233,10 @@ const Home: React.FC<HomeProps> = ({
   };
 
   useEffect(() => {
-    if (matchedSuppliers.length > 0 && !profile?.conciergeConsent && !showConciergeTrigger) {
+    if (matchedSuppliers.length > 0 && !profile?.conciergeConsent && !showConciergeTrigger && !hasSeenConcierge) {
       setShowConciergeTrigger(true);
     }
-  }, [matchedSuppliers, profile?.conciergeConsent]);
+  }, [matchedSuppliers, profile?.conciergeConsent, hasSeenConcierge]);
 
   const removeImage = () => {
     setSelectedImage(null);
@@ -812,6 +814,10 @@ const Home: React.FC<HomeProps> = ({
       '--primary-text': primaryTextColor,
       '--secondary-text': secondaryTextColor
     } as React.CSSProperties}>
+      <SEO 
+        title={isRtl ? 'الرئيسية' : 'Home'} 
+        description={isRtl ? 'المنصة العصبية للتجارة بين الشركات - سوق كونيكت' : 'Neural Hub for B2B - Souq Connect'}
+      />
       {/* Minimal UI Mode */}
       {uiStyle === 'minimal' && effectiveRole !== 'admin' ? (
         <MinimalUI 
@@ -1354,8 +1360,14 @@ const Home: React.FC<HomeProps> = ({
 
       <ConciergeConsent 
         show={showConciergeTrigger}
-        onClose={() => setShowConciergeTrigger(false)}
-        onAccept={() => setShowConciergeConfirm(true)}
+        onClose={() => {
+          setShowConciergeTrigger(false);
+          setHasSeenConcierge(true);
+        }}
+        onAccept={() => {
+          setShowConciergeConfirm(true);
+          setHasSeenConcierge(true);
+        }}
         isRtl={isRtl}
         reason={conciergeReason}
       />

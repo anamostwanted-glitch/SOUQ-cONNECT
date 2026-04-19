@@ -43,13 +43,16 @@ window.addEventListener('unhandledrejection', (event) => {
 
 import { CoreProvider } from './core/providers/CoreProvider';
 import { HelmetProvider } from 'react-helmet-async';
+import { BrowserRouter } from 'react-router-dom';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <HelmetProvider>
         <CoreProvider>
-          <App />
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
         </CoreProvider>
       </HelmetProvider>
     </ErrorBoundary>

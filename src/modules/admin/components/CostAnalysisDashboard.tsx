@@ -250,7 +250,7 @@ export const CostAnalysisDashboard: React.FC = () => {
                   dataKey="value"
                 >
                   {featureDistribution.map((entry, index) => (
-                    <Cell key={`cell-${entry.name}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip 

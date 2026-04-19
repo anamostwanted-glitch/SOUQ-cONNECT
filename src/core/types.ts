@@ -350,6 +350,7 @@ export interface AppFeatures {
   supplierVerification: boolean;
   marketTrends: boolean;
   priceIntelligence: boolean;
+  smartAssistantEnabled?: boolean;
 }
 
 export interface SiteSettings {

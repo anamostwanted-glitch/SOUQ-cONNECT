@@ -3,7 +3,8 @@ import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { MarketplaceItem, UserProfile } from '../../../core/types';
 import { BlurImage } from '../../../shared/components/BlurImage';
-import { Camera, Flag, Loader2, Play, ShieldCheck, Sparkles, TrendingUp, Zap } from 'lucide-react';
+import { Camera, Flag, Loader2, Play, ShieldCheck, Sparkles, TrendingUp, Zap, Share2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { ReportModal } from '../../../shared/components/ReportModal';
 import { auth, db } from '../../../core/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -77,6 +78,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const mainImage = item.images && item.images.length > 0 ? item.images[0] : 'https://picsum.photos/seed/product/400/500';
   const displayTitle = isRtl ? (item.titleAr || item.title) : (item.titleEn || item.title);
 
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}?view=marketplace&itemId=${item.id}`;
+    
+    if (navigator.share) {
+      navigator.share({
+        title: displayTitle,
+        text: isRtl ? `شاهد هذا المنتج على سوق كونيكت: ${displayTitle}` : `Check out this product on Souq Connect: ${displayTitle}`,
+        url: shareUrl,
+      }).catch(err => console.log('Error sharing:', err));
+    } else {
+      navigator.clipboard.writeText(shareUrl);
+      toast.success(isRtl ? 'تم نسخ الرابط!' : 'Link copied to clipboard!');
+    }
+  };
+
   return (
     <motion.div 
       layout
@@ -136,17 +153,28 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         )}
 
-        {!isOwner && auth.currentUser && (
+        {/* Action Buttons Overlay */}
+        <div className="absolute bottom-3 right-3 flex items-center gap-2 z-20">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowReportModal(true);
-            }}
-            className="absolute bottom-3 left-3 hidden md:flex p-2 bg-white/20 backdrop-blur-md text-white border border-white/20 hover:bg-brand-error transition-all opacity-0 group-hover:opacity-100 z-20"
+            onClick={handleShare}
+            className="p-2 bg-white/20 backdrop-blur-md text-white border border-white/20 hover:bg-brand-primary transition-all rounded-lg opacity-0 group-hover:opacity-100"
+            title={isRtl ? 'مشاركة' : 'Share'}
           >
-            <Flag size={14} />
+            <Share2 size={14} />
           </button>
-        )}
+          {!isOwner && auth.currentUser && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowReportModal(true);
+              }}
+              className="p-2 bg-white/20 backdrop-blur-md text-white border border-white/20 hover:bg-brand-error transition-all rounded-lg opacity-0 group-hover:opacity-100"
+              title={isRtl ? 'إبلاغ' : 'Report'}
+            >
+              <Flag size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Information Area - Desktop Only/Standard */}

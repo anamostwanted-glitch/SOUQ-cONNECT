@@ -614,7 +614,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                           <div className="flex flex-wrap gap-2">
                             {searchRefinements.map((refinement, idx) => (
                               <button
-                                key={`refinements-${refinement}-${idx}`}
+                                key={`refinement-${refinement}-${idx}`}
                                 onClick={() => {
                                   setSearchTerm(refinement);
                                   setSearchRefinements([]);
@@ -1075,7 +1075,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                     >
                       {hubItems.map((item, idx) => (
                         <ProductCard 
-                          key={item.id || `hub-item-${hub.id}-${idx}`} 
+                          key={`hub-${hub.id}-item-${item.id}-${idx}`} 
                           item={item} 
                           onOpenChat={onOpenChat}
                           onViewDetails={() => {
@@ -1104,7 +1104,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
               >
                     {uniqueFilteredItems.map((item, idx) => (
                       <ProductCard 
-                        key={item.id || `market-item-${idx}`} 
+                        key={`market-grid-item-${item.id}-${idx}`} 
                         item={item} 
                         onOpenChat={onOpenChat}
                         onViewDetails={() => {

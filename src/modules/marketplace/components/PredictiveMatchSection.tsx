@@ -35,11 +35,11 @@ export const PredictiveMatchSection: React.FC<PredictiveMatchSectionProps> = ({ 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {matches.map((match) => {
+        {matches.map((match, idx) => {
           const supplier = suppliers.find(s => s.uid === match.supplierId);
           if (!supplier) return null;
           return (
-            <div key={match.supplierId} className="p-6 rounded-3xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/30 shadow-xl flex flex-col justify-between">
+            <div key={`match-${match.supplierId}-${idx}`} className="p-6 rounded-3xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/30 shadow-xl flex flex-col justify-between">
               <div>
                 <h3 className="font-black text-slate-900 dark:text-white mb-2">{supplier.name || supplier.companyName}</h3>
                 <p className="text-slate-500 text-xs leading-relaxed mb-4">{match.reason}</p>

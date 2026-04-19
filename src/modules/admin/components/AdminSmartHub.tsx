@@ -519,7 +519,7 @@ export const AdminSmartHub: React.FC<AdminSmartHubProps> = ({ users, requests, i
                  />
                  <Bar dataKey="value" radius={[10, 10, 10, 10]} barSize={40}>
                    {categoryHeatmap.map((entry, index) => (
-                     <Cell key={`cell-${entry.name}`} fill={index === 0 ? '#1b97a7' : '#0ea5e9'} fillOpacity={0.8 - (index * 0.1)} />
+                     <Cell key={`cell-${entry.id || index}`} fill={index === 0 ? '#1b97a7' : '#0ea5e9'} fillOpacity={0.8 - (index * 0.1)} />
                    ))}
                  </Bar>
               </BarChart>

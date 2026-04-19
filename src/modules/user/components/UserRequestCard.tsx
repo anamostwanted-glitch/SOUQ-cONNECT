@@ -254,7 +254,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
               const { matchScore, shortReasonAr, shortReasonEn } = getAIMatchDetails(supp, request);
               return (
                 <div 
-                  key={`req-${request.id}-supp-${supp.uid}-${sIdx}`}
+                  key={`req-chip-${request.id}-supp-${supp.uid}-${sIdx}`}
                   onClick={() => onViewProfile(supp.uid)}
                   className="snap-start flex-shrink-0 flex items-center gap-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/40 rounded-2xl p-2 pr-4 cursor-pointer hover:bg-white hover:shadow-md transition-all min-w-[180px]"
                 >
@@ -347,7 +347,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
                       const { matchScore, longReasonAr, longReasonEn } = getAIMatchDetails(supp, request);
 
                       return (
-                        <div key={`req-${request.id}-analysis-${supp.uid}-${sIdx}`} className="bg-brand-surface/50 border border-brand-border rounded-2xl p-4 hover:border-brand-primary/30 transition-colors">
+                        <div key={`req-analysis-${request.id}-supp-${supp.uid}-${sIdx}`} className="bg-brand-surface/50 border border-brand-border rounded-2xl p-4 hover:border-brand-primary/30 transition-colors">
                           <div className="flex items-start justify-between gap-4 mb-3">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-xl overflow-hidden border border-brand-border shrink-0">

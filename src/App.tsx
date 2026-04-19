@@ -1,5 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { ProductRequest } from './core/types';
 import { Layout } from './modules/site/components/Layout';
 import { Skeleton } from './shared/components/Skeleton';
@@ -11,6 +12,7 @@ import { useSettings } from './core/providers/SettingsProvider';
 import { useCategories } from './core/providers/CategoryProvider';
 import { PageLoader } from './shared/components/PageLoader';
 import { SmartVoiceHub } from './shared/components/SmartVoiceHub';
+import { ErrorBoundary } from './shared/components/ErrorBoundary';
 import { NotificationCenter } from './modules/common/components/NotificationCenter';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from './core/firebase';
@@ -35,12 +37,63 @@ const SupplierLandingPage = lazy(() => import('./modules/site/components/Supplie
 const SupplierOnboarding = lazy(() => import('./modules/site/components/SupplierOnboarding').then(m => ({ default: m.SupplierOnboarding })));
 
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { i18n: i18nInstance } = useTranslation();
   const { profile, viewMode, setViewMode, loading: authLoading } = useAuth();
   const { settings, features, loading: settingsLoading } = useSettings();
   const { categories, loading: categoriesLoading } = useCategories();
 
-  const [currentView, setView] = useState('home');
+  // Helper for backward compatibility while migrating
+  const setView = (view: string, params?: Record<string, string>) => {
+    let path = '/';
+    switch (view) {
+      case 'home': path = '/'; break;
+      case 'marketplace': path = '/marketplace'; break;
+      case 'dashboard': path = '/dashboard'; break;
+      case 'chat': path = '/chat'; break;
+      case 'profile': path = '/profile'; break;
+      case 'auth': path = '/auth'; break;
+      case 'role-selection': path = '/role-selection'; break;
+      case 'smart_pulse': path = '/smart-pulse'; break;
+      case 'supplier_landing': path = '/join'; break;
+      case 'supplier_onboarding': path = '/onboarding'; break;
+      case 'help': path = '/help'; break;
+      case 'terms': path = '/terms'; break;
+      case 'privacy': path = '/privacy'; break;
+      case 'connect': path = '/rewards'; break;
+      default: path = `/${view}`;
+    }
+    
+    if (params) {
+      const search = new URLSearchParams(params).toString();
+      path += `?${search}`;
+    }
+    
+    navigate(path);
+  };
+
+  // Sync currentView state with location for legacy compatibility
+  const [currentView, setCurrentView] = useState('home');
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === '/') setCurrentView('home');
+    else if (path.startsWith('/marketplace')) setCurrentView('marketplace');
+    else if (path.startsWith('/dashboard')) setCurrentView('dashboard');
+    else if (path.startsWith('/chat')) setCurrentView('chat');
+    else if (path.startsWith('/profile')) setCurrentView('profile');
+    else if (path.startsWith('/auth')) setCurrentView('auth');
+    else if (path.startsWith('/role-selection')) setCurrentView('role-selection');
+    else if (path.startsWith('/smart-pulse')) setCurrentView('smart_pulse');
+    else if (path.startsWith('/join')) setCurrentView('supplier_landing');
+    else if (path.startsWith('/onboarding')) setCurrentView('supplier_onboarding');
+    else if (path.startsWith('/help')) setCurrentView('help');
+    else if (path.startsWith('/terms')) setCurrentView('terms');
+    else if (path.startsWith('/privacy')) setCurrentView('privacy');
+    else if (path.startsWith('/rewards')) setCurrentView('connect');
+    else setCurrentView('home');
+  }, [location.pathname]);
+
   const [uiStyle, setUiStyle] = useState<'classic' | 'minimal'>('classic');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
@@ -227,194 +280,6 @@ export default function App() {
     return <PageLoader previewSettings={settings} />;
   }
 
-  const renderView = () => {
-    console.log('DEBUG: Current View:', currentView);
-    switch (currentView) {
-      case 'supplier_landing':
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <SupplierLandingPage 
-              onStart={() => {
-                setViewMode('supplier');
-                setView('auth');
-              }} 
-              settings={settings}
-            />
-          </Suspense>
-        );
-      case 'supplier_onboarding':
-        if (!profile) return <Auth onAuthSuccess={() => setView('supplier_onboarding')} onNavigate={setView} />;
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <SupplierOnboarding 
-              profile={profile} 
-              categories={categories} 
-              onComplete={() => setView('home')} 
-            />
-          </Suspense>
-        );
-      case 'home':
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <Home 
-              profile={profile} 
-              onNavigate={setView} 
-              onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
-              onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
-              viewMode={viewMode as any}
-              uiStyle={uiStyle}
-            />
-          </Suspense>
-        );
-      case 'role-selection':
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <RoleSelection onSelect={(role) => { setViewMode(role); setView('auth'); }} />
-          </Suspense>
-        );
-      case 'auth':
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <Auth 
-              onAuthSuccess={() => { 
-                setView('home'); 
-              }} 
-              onNavigate={setView}
-              initialRole={viewMode} 
-            />
-          </Suspense>
-        );
-      case 'marketplace':
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <MarketInterface 
-              onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
-              onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
-              activeTab={dashboardTab as any}
-              setActiveTab={setDashboardTab as any}
-              initialItemId={initialItemId}
-              initialVoiceQuery={voiceSearchQuery}
-              onClearVoiceQuery={() => setVoiceSearchQuery(null)}
-            />
-          </Suspense>
-        );
-      case 'discovery':
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <DiscoveryCanvas />
-          </Suspense>
-        );
-      case 'chat':
-        if (activeChatId) {
-          return (
-            <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-              <ChatView 
-                chatId={activeChatId}
-                profile={profile}
-                features={features}
-                onBack={() => setActiveChatId(null)}
-                onViewProfile={(uid) => {
-                  setSelectedProfileId(uid);
-                  setView('profile');
-                }}
-              />
-            </Suspense>
-          );
-        }
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <ChatHub 
-              profile={profile} 
-              onOpenChat={(id) => setActiveChatId(id)}
-              onBack={() => setView('home')}
-            />
-          </Suspense>
-        );
-      case 'smart_pulse':
-        if (!profile) return <Auth onAuthSuccess={() => setView('smart_pulse')} onNavigate={setView} />;
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <div className="pt-24 px-4 min-h-screen bg-brand-background">
-              <UserNeuralHub profile={profile} isRtl={i18nInstance.language === 'ar'} />
-            </div>
-          </Suspense>
-        );
-      case 'dashboard':
-        if (!profile) return <Auth onAuthSuccess={() => setView('dashboard')} onNavigate={setView} />;
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <Dashboard 
-              dashboardTab={dashboardTab}
-              setDashboardTab={setDashboardTab}
-              onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
-              onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
-              uiStyle={uiStyle}
-            />
-          </Suspense>
-        );
-      case 'help':
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <SmartHelp onBack={() => setView('home')} />
-          </Suspense>
-        );
-      case 'partnerships':
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <Partnerships />
-          </Suspense>
-        );
-      case 'profile':
-        // Core Team: Allow owners to view their own profile if explicitly targeted via UID/Deep Link
-        // Otherwise, default to dashboard for own profile to allow editing
-        const isDeepLink = new URLSearchParams(window.location.search).has('uid');
-        if ((selectedProfileId === profile?.uid && !isDeepLink) || (!selectedProfileId && profile)) {
-          setView('dashboard');
-          return null;
-        }
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <ProfileView 
-              userId={selectedProfileId || profile?.uid} 
-              profile={selectedProfileId ? null : profile} 
-              currentUserProfile={profile}
-              features={features} 
-              onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
-              onBack={() => {
-                setSelectedProfileId(null);
-                setView('home');
-              }} 
-            />
-          </Suspense>
-        );
-      case 'terms':
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <Legal type="terms" onBack={() => setView('home')} />
-          </Suspense>
-        );
-      case 'privacy':
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <Legal type="privacy" onBack={() => setView('home')} />
-          </Suspense>
-        );
-      case 'connect':
-        if (!profile) return <Auth onAuthSuccess={() => setView('connect')} onNavigate={setView} />;
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <ConnectRewards profile={profile} settings={settings} onBack={() => setView('home')} />
-          </Suspense>
-        );
-      default:
-        return (
-          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-            <Home onNavigate={setView} uiStyle={uiStyle} />
-          </Suspense>
-        );
-    }
-  };
-
   const onVoiceProcessed = (data: any) => {
     // Intelligent Navigation based on Voice Intent
     if (data.product) {
@@ -472,7 +337,188 @@ export default function App() {
               onOpenNotifications={() => setIsNotificationsOpen(true)}
               notificationsUnreadCount={unreadNotificationsCount}
             >
-              {renderView()}
+              <Routes>
+                <Route path="/join" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <SupplierLandingPage 
+                        onStart={() => {
+                          setViewMode('supplier');
+                          setView('auth');
+                        }} 
+                        settings={settings}
+                      />
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/onboarding" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      {profile ? (
+                        <SupplierOnboarding 
+                          profile={profile} 
+                          categories={categories} 
+                          onComplete={() => setView('home')} 
+                        />
+                      ) : (
+                        <Auth onAuthSuccess={() => setView('supplier_onboarding')} onNavigate={setView} />
+                      )}
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <Home 
+                        profile={profile} 
+                        onNavigate={setView} 
+                        onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+                        onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
+                        viewMode={viewMode as any}
+                        uiStyle={uiStyle}
+                      />
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/role-selection" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <RoleSelection onSelect={(role) => { setViewMode(role); setView('auth'); }} />
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/auth" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <Auth 
+                        onAuthSuccess={() => { 
+                          setView('home'); 
+                        }} 
+                        onNavigate={setView}
+                        initialRole={viewMode} 
+                      />
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/marketplace/*" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <MarketInterface 
+                        onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+                        onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
+                        activeTab={dashboardTab as any}
+                        setActiveTab={setDashboardTab as any}
+                        initialItemId={initialItemId}
+                        initialVoiceQuery={voiceSearchQuery}
+                        onClearVoiceQuery={() => setVoiceSearchQuery(null)}
+                      />
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/discovery" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <DiscoveryCanvas />
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/chat/*" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      {activeChatId ? (
+                        <ChatView 
+                          chatId={activeChatId}
+                          profile={profile}
+                          features={features}
+                          onBack={() => setActiveChatId(null)}
+                          onViewProfile={(uid) => {
+                            setSelectedProfileId(uid);
+                            setView('profile');
+                          }}
+                        />
+                      ) : (
+                        <ChatHub 
+                          profile={profile} 
+                          onOpenChat={(id) => setActiveChatId(id)}
+                          onBack={() => setView('home')}
+                        />
+                      )}
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/smart-pulse" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      {profile ? (
+                        <div className="pt-24 px-4 min-h-screen bg-brand-background">
+                          <UserNeuralHub profile={profile} isRtl={i18nInstance.language === 'ar'} />
+                        </div>
+                      ) : (
+                        <Auth onAuthSuccess={() => setView('smart_pulse')} onNavigate={setView} />
+                      )}
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/dashboard/*" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      {profile ? (
+                        <Dashboard 
+                          dashboardTab={dashboardTab}
+                          setDashboardTab={setDashboardTab}
+                          onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+                          onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
+                          uiStyle={uiStyle}
+                        />
+                      ) : (
+                        <Auth onAuthSuccess={() => setView('dashboard')} onNavigate={setView} />
+                      )}
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/help" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <SmartHelp onBack={() => setView('home')} />
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/partnerships" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <Partnerships />
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/profile/*" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <ProfileView 
+                        userId={selectedProfileId || profile?.uid} 
+                        profile={selectedProfileId ? null : profile} 
+                        currentUserProfile={profile}
+                        features={features} 
+                        onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+                        onBack={() => setView('home')} 
+                      />
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/terms" element={<ErrorBoundary><Suspense fallback={<Skeleton className="h-screen w-full" />}><Legal type="terms" onBack={() => setView('home')} /></Suspense></ErrorBoundary>} />
+                <Route path="/privacy" element={<ErrorBoundary><Suspense fallback={<Skeleton className="h-screen w-full" />}><Legal type="privacy" onBack={() => setView('home')} /></Suspense></ErrorBoundary>} />
+                <Route path="/rewards" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      {profile ? (
+                        <ConnectRewards profile={profile} settings={settings} onBack={() => setView('home')} />
+                      ) : (
+                        <Auth onAuthSuccess={() => setView('connect')} onNavigate={setView} />
+                      )}
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="*" element={<ErrorBoundary><Suspense fallback={<Skeleton className="h-screen w-full" />}><Home onNavigate={setView} uiStyle={uiStyle} /></Suspense></ErrorBoundary>} />
+              </Routes>
             </Layout>
 
             <SmartVoiceHub 

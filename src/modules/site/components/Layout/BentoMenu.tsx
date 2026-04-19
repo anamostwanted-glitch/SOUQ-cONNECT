@@ -148,19 +148,25 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="mb-8 p-6 bg-gradient-to-br from-brand-primary/10 to-brand-teal/10 rounded-[24px] border border-brand-primary/20 text-center">
-                  <Bot size={32} className="mx-auto mb-3 text-brand-primary animate-bounce" />
-                  <h4 className="text-sm font-bold text-brand-text-main mb-1">
-                    {isRtl ? 'مرحباً بك في عالمنا الذكي' : 'Welcome to our Neural World'}
-                  </h4>
-                  <p className="text-[10px] text-brand-text-muted mb-4">
-                    {isRtl ? 'سجل دخولك لتجربة القوة الكاملة للذكاء الاصطناعي' : 'Login to experience the full power of AI'}
-                  </p>
+                <div className="mb-8 p-6 bg-brand-surface rounded-[24px] border border-brand-border/30">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                      <Bot size={20} />
+                    </div>
+                    <div className="text-left">
+                      <h4 className="text-sm font-black text-brand-text-main tracking-tight">
+                        {isRtl ? 'بوابة الذكاء الاصطناعي' : 'Neural Gateway'}
+                      </h4>
+                      <p className="text-[10px] text-brand-text-muted">
+                        {isRtl ? 'سجل دخولك لتجربة القوة الكاملة' : 'Sign in to unlock full potential'}
+                      </p>
+                    </div>
+                  </div>
                   <HapticButton
                     onClick={() => { setView('role-selection'); setIsOpen(false); }}
-                    className="w-full py-2.5 bg-brand-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-primary/20"
+                    className="w-full py-2.5 bg-brand-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20"
                   >
-                    {isRtl ? 'انضم إلينا الآن' : 'Join Us Now'}
+                    {isRtl ? 'انضم إلينا' : 'Join Network'}
                   </HapticButton>
                 </div>
               )}

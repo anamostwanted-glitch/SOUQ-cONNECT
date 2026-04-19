@@ -8,30 +8,33 @@ export default defineConfig({
   plugins: [
     react(), 
     tailwindcss(),
-    // VitePWA({
-    //   registerType: 'autoUpdate',
-    //   workbox: {
-    //     maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-    //   },
-    //   manifest: {
-    //     name: 'Souq Connect',
-    //     short_name: 'SouqConnect',
-    //     description: 'Professional Souq Connect trading platform',
-    //     theme_color: '#ffffff',
-    //     icons: [
-    //       {
-    //         src: '/pwa-192x192.png',
-    //         sizes: '192x192',
-    //         type: 'image/png'
-    //       },
-    //       {
-    //         src: '/pwa-512x512.png',
-    //         sizes: '512x512',
-    //         type: 'image/png'
-    //       }
-    //     ]
-    //   }
-    // })
+    VitePWA({
+      registerType: 'autoUpdate',
+      workbox: {
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+      },
+      manifest: {
+        name: 'Souq Connect - AI B2B Marketplace',
+        short_name: 'SouqConnect',
+        description: 'Professional B2B trading platform powered by Gemini AI.',
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
+        display: 'standalone',
+        icons: [
+          {
+            src: 'https://picsum.photos/seed/connect-icon-192/192/192',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'https://picsum.photos/seed/connect-icon-512/512/512',
+            sizes: '512x512',
+            type: 'image/png'
+          }
+        ]
+      }
+    })
   ],
   build: {
     outDir: 'dist',
