@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Category, UserProfile, GeminiApiKey, ProductRequest } from "../types";
 
-import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { smartCache } from '../utils/smartCache';
 import { getCachedData, setCachedData } from '../utils/cache';
@@ -10,7 +10,19 @@ import { AIResilienceManager } from '../utils/AIResilienceManager';
 
 let cachedKeys: GeminiApiKey[] = [];
 let lastFetch = 0;
+let isAiMasterEnabled = true; // Default to true
 const exhaustedKeys = new Map<string, number>(); // key -> expiry timestamp
+
+// Listen to global settings for AI toggle
+onSnapshot(doc(db, 'settings', 'site'), (snap) => {
+  if (snap.exists()) {
+    const data = snap.data();
+    if (data.smartAssistantEnabled !== undefined) {
+      isAiMasterEnabled = data.smartAssistantEnabled;
+      console.log(`AI Master Switch updated: ${isAiMasterEnabled}`);
+    }
+  }
+});
 const EXHAUST_COOLDOWN = 60 * 60 * 1000; // 1 hour cooldown for an exhausted key
 
 const markKeyAsExhaustedInFirestore = async (key: string) => {
@@ -121,6 +133,10 @@ const isFailure = (error: any) => {
 };
 
 export const callAiJson = async (contents: any, schema: any, model: string = "gemini-3-flash-preview") => {
+  if (!isAiMasterEnabled) {
+    console.warn('AI Master Switch is OFF. callAiJson aborted.');
+    return null;
+  }
   return AIResilienceManager.execute(async () => {
     const proxyCall = async () => {
       const data = await executeProxyCall({
@@ -194,6 +210,10 @@ export const callAiJson = async (contents: any, schema: any, model: string = "ge
 };
 
 export const callAiText = async (contents: any, model: string = "gemini-3-flash-preview") => {
+  if (!isAiMasterEnabled) {
+    console.warn('AI Master Switch is OFF. callAiText aborted.');
+    return '';
+  }
   return AIResilienceManager.execute(async () => {
     const proxyCall = async () => {
       const data = await executeProxyCall({

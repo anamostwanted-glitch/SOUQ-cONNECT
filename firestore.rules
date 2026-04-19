@@ -1,6 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
     // ===============================================================
     // Assumed Data Model
     // ===============================================================
@@ -46,17 +50,18 @@ service cloud.firestore {
     }
 
     function isMasterAdmin() {
+      let email = request.auth.token.get('email', '').lower();
       return isAuthenticated() && (
-        request.auth.token.email == "anamostwanted@gmail.com" ||
-        request.auth.token.get('email', '') == "anamostwanted@gmail.com" ||
+        email == "anamostwanted@gmail.com" ||
         request.auth.uid == "1mcuGQd7vVhFsuNNawk5EYRw8pB3"
       );
     }
 
     function isAdmin() {
+      let role = request.auth.token.get('role', '');
       return isAuthenticated() && (
         isMasterAdmin() ||
-        request.auth.token.get('role', '') in ['admin', 'manager', 'supervisor'] ||
+        role in ['admin', 'manager', 'supervisor'] ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') in ['admin', 'manager', 'supervisor'])
       );
@@ -72,7 +77,7 @@ service cloud.firestore {
 
     // Analytics Events
     match /analytics_events/{eventId} {
-      allow create: if isSignedIn() || request.auth == null; // Allow anonymous session tracking
+      allow create: if isAuthenticated() || request.auth == null; // Allow anonymous session tracking
       allow read, update, delete: if isAdmin();
     }
 

@@ -429,6 +429,9 @@ export interface SiteSettings {
   footerCopyrightAr?: string;
   footerCopyrightEn?: string;
   footerShowSecurityBadge?: boolean;
+
+  // Master AI Controls
+  smartAssistantEnabled?: boolean;
 }
 
 export interface SliderItem {

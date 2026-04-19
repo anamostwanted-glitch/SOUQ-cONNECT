@@ -117,6 +117,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [searchFilters, setSearchFilters] = useState<any>(null);
   const [activeCategoryTab, setActiveCategoryTab] = useState<'product' | 'service'>('product');
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [isAiEnabled, setIsAiEnabled] = useState(true);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [selectedSupplierForVerification, setSelectedSupplierForVerification] = useState<UserProfile | null>(null);
@@ -131,6 +132,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     activeUsers: 0,
     volume: 0
   });
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.smartAssistantEnabled !== undefined) {
+          setIsAiEnabled(data.smartAssistantEnabled);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const fetchRealStats = async () => {
@@ -170,6 +183,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           volume: volume
         });
       } catch (error) {
+        handleFirestoreError(error, OperationType.LIST, 'admin/stats', false);
         console.error('Error fetching admin stats:', error);
       }
     };
@@ -542,8 +556,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const tabs = [
-    { id: 'smart-hub', label: isRtl ? 'مركز النبض الذكي' : 'Neural Smart Hub', icon: Brain, isNew: true },
+  const allTabs = [
+    { id: 'smart-hub', label: isRtl ? 'مركز النبض الذكي' : 'Neural Smart Hub', icon: Brain, isNew: true, aiRequired: true },
     { id: 'overview', label: isRtl ? 'نظرة عامة' : 'Overview', icon: LayoutGrid },
     { id: 'weekly-reports', label: isRtl ? 'التقارير الأسبوعية' : 'Weekly Reports', icon: FileText, isNew: true },
     { id: 'users', label: isRtl ? 'المستخدمين' : 'Users', icon: Users },
@@ -556,12 +570,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'broadcast-center', label: isRtl ? 'إشعار جماعي' : 'Broadcast', icon: Send },
     { id: 'categories-manager', label: isRtl ? 'الأقسام' : 'Categories', icon: ListTree },
     { id: 'site-settings', label: isRtl ? 'إعدادات الواجهة' : 'Interface Settings', icon: Zap },
-    { id: 'ai-hub', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu },
+    { id: 'ai-hub', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu, aiRequired: true },
     { id: 'beta-lab', label: isRtl ? 'مختبر بيتا' : 'Beta Lab', icon: Zap, isNew: true },
     { id: 'cost-analyzer', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
     { id: 'connect-growth', label: isRtl ? 'نمو كونكت' : 'Connect Growth', icon: Zap, isNew: true },
     { id: 'gap-analyzer', label: isRtl ? 'تحليل الفجوة' : 'Gap Analysis', icon: BarChart3, isNew: true },
   ];
+
+  const tabs = allTabs.filter(tab => !tab.aiRequired || isAiEnabled);
 
   const totalSuppliers = users.filter(u => u.role === 'supplier').length;
   const totalCustomers = users.filter(u => u.role === 'customer').length;
@@ -737,6 +753,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 stats={strategicStats}
                 timeRange={timeRange}
                 setTimeRange={setTimeRange}
+                isAiEnabled={isAiEnabled}
                 onAction={(action) => {
                   if (action === 'gap-analyzer') setActiveTab('gap-analyzer');
                   else if (action === 'users') setActiveTab('users');
@@ -1244,7 +1261,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </motion.div>
         </motion.div>
       )}
-      <DashboardCopilot />
+      {isAiEnabled && <DashboardCopilot />}
     </div>
   );
 };

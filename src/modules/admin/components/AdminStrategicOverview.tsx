@@ -25,6 +25,7 @@ interface StrategicMetric {
   change: number;
   icon: any;
   color: string;
+  aiRequired?: boolean;
 }
 
 interface AdminStrategicOverviewProps {
@@ -37,6 +38,7 @@ interface AdminStrategicOverviewProps {
   };
   timeRange: 'day' | 'week' | 'year';
   setTimeRange: (range: 'day' | 'week' | 'year') => void;
+  isAiEnabled: boolean;
   onAction: (action: string) => void;
 }
 
@@ -44,6 +46,7 @@ export const AdminStrategicOverview: React.FC<AdminStrategicOverviewProps> = ({
   stats,
   timeRange,
   setTimeRange,
+  isAiEnabled,
   onAction
 }) => {
   const { i18n } = useTranslation();
@@ -69,7 +72,8 @@ export const AdminStrategicOverview: React.FC<AdminStrategicOverviewProps> = ({
       value: `${Math.floor((stats.activeUsers / (stats.visitors || 1)) * 100)}%`, 
       change: 5.2, 
       icon: BrainCircuit, 
-      color: 'text-pink-500' 
+      color: 'text-pink-500',
+      aiRequired: true
     },
     { 
       label: isRtl ? 'المستخدمين النشطين' : 'Active Users', 
@@ -111,9 +115,13 @@ export const AdminStrategicOverview: React.FC<AdminStrategicOverviewProps> = ({
       description: isRtl ? 'أداء محرك جيمناي الحالي ممتاز (استجابة 450ms).' : 'Current Gemini engine performance is excellent (450ms latency).',
       priority: 'low',
       icon: BrainCircuit,
-      action: 'ai'
+      action: 'ai',
+      aiRequired: true
     }
   ];
+
+  const filteredMetrics = metrics.filter(m => !(m as any).aiRequired || isAiEnabled);
+  const filteredDirectives = directives.filter(d => !(d as any).aiRequired || isAiEnabled);
 
   return (
     <div className="space-y-8 pb-20" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -150,7 +158,7 @@ export const AdminStrategicOverview: React.FC<AdminStrategicOverviewProps> = ({
 
       {/* 2. Strategic Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {metrics.map((metric, i) => (
+        {filteredMetrics.map((metric, i) => (
           <motion.div
             key={`strategic-metric-${metric.label}`}
             initial={{ opacity: 0, y: 20 }}
@@ -190,7 +198,7 @@ export const AdminStrategicOverview: React.FC<AdminStrategicOverviewProps> = ({
           </div>
 
           <div className="space-y-4">
-            {directives.map((directive, i) => (
+            {filteredDirectives.map((directive, i) => (
               <motion.div
                 key={directive.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -233,7 +241,7 @@ export const AdminStrategicOverview: React.FC<AdminStrategicOverviewProps> = ({
               { id: 'site', label: isRtl ? 'إعدادات الموقع' : 'Site Settings', icon: MousePointer2, color: 'bg-blue-500' },
               { id: 'categories', label: isRtl ? 'الفئات' : 'Categories', icon: Target, color: 'bg-emerald-500' },
               { id: 'broadcast', label: isRtl ? 'البث' : 'Broadcast', icon: Zap, color: 'bg-purple-500' },
-              { id: 'ai-portal', label: isRtl ? 'الذكاء الاصطناعي' : 'AI Hub', icon: BrainCircuit, color: 'bg-pink-500' },
+              ...(!isAiEnabled ? [] : [{ id: 'ai-portal', label: isRtl ? 'الذكاء الاصطناعي' : 'AI Hub', icon: BrainCircuit, color: 'bg-pink-500' }]),
             ].map((item, i) => (
               <HapticButton
                 key={`quick-access-${item.id}`}

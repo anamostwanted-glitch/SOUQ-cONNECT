@@ -7,7 +7,7 @@ import { logAction } from '../../../core/services/auditService';
 import { SiteSettings } from '../../../core/types';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { HapticButton } from '../../../shared/components/HapticButton';
-import { Save, Loader2, Palette, Layout, Search, Sparkles, LayoutGrid, ListChecks } from 'lucide-react';
+import { Save, Loader2, Palette, Layout, Search, Sparkles, LayoutGrid, ListChecks, Bot } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 
@@ -18,6 +18,7 @@ import { MarketSettings } from './settings/MarketSettings';
 import { RegistrationSettings } from './settings/RegistrationSettings';
 import { SocialProofSettings } from './settings/SocialProofSettings';
 import { FooterSettings } from './settings/FooterSettings';
+import { AISettings } from './settings/AISettings';
 import { LoadingCustomizer } from './LoadingCustomizer';
 
 export const SiteSettingsManager: React.FC = () => {
@@ -76,14 +77,15 @@ export const SiteSettingsManager: React.FC = () => {
     footerAddressEn: 'Dubai, UAE',
     footerCopyrightAr: 'جميع الحقوق محفوظة © 2026 سوق كونكت للذكاء الاصطناعي.',
     footerCopyrightEn: 'All rights reserved © 2026 Connect AI Marketplace.',
-    footerShowSecurityBadge: true
+    footerShowSecurityBadge: true,
+    smartAssistantEnabled: true
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [activeLogoTab, setActiveLogoTab] = useState<'hero' | 'header'>('hero');
-  const [currentTab, setCurrentTab] = useState<'settings-identity' | 'settings-hero' | 'settings-search' | 'settings-market' | 'settings-social' | 'settings-registration' | 'settings-footer' | 'settings-loader'>('settings-identity');
+  const [currentTab, setCurrentTab] = useState<'settings-identity' | 'settings-hero' | 'settings-search' | 'settings-market' | 'settings-social' | 'settings-registration' | 'settings-footer' | 'settings-loader' | 'settings-ai'>('settings-identity');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'watermark' | 'loaderLogo' | 'favicon' | 'footerLogo') => {
     const file = e.target.files?.[0];
@@ -207,6 +209,7 @@ export const SiteSettingsManager: React.FC = () => {
           { id: 'settings-social', label: isRtl ? 'الإحصائيات' : 'Social Proof', icon: Layout },
           { id: 'settings-registration', label: isRtl ? 'قوائم التسجيل' : 'Registration', icon: ListChecks },
           { id: 'settings-footer', label: isRtl ? 'التذييل' : 'Footer', icon: ListChecks },
+          { id: 'settings-ai', label: isRtl ? 'الذكاء الاصطناعي' : 'AI Assistant', icon: Bot },
           { id: 'settings-loader', label: isRtl ? 'شاشة التحميل' : 'Loading Screen', icon: Sparkles },
         ].map(tab => (
           <button
@@ -238,6 +241,7 @@ export const SiteSettingsManager: React.FC = () => {
         {currentTab === 'settings-social' && <SocialProofSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'settings-registration' && <RegistrationSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'settings-footer' && <FooterSettings settings={settings} setSettings={setSettings} isRtl={isRtl} handleFileUpload={handleFileUpload} />}
+        {currentTab === 'settings-ai' && <AISettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'settings-loader' && <LoadingCustomizer />}
       </motion.div>
     </div>
