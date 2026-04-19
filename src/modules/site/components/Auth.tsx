@@ -26,6 +26,7 @@ import { SocialAuthButtons } from './SocialAuthButtons';
 import { toast } from 'sonner';
 import { logActivity } from '../../../core/utils/activityLogger';
 import { analytics } from '../../../core/services/AnalyticsService';
+import { soundService, SoundType } from '../../../core/utils/soundService';
 
 interface AuthProps {
   onAuthSuccess: (role: UserRole) => void;
@@ -164,6 +165,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
         analytics.trackEvent('login', { method: 'email' });
+        soundService.play(SoundType.SUCCESS);
         const docSnap = await getDoc(doc(db, 'users', auth.currentUser!.uid));
         if (docSnap.exists()) {
           const userData = docSnap.data() as UserProfile;
@@ -188,6 +190,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         analytics.trackEvent('registration_complete', { role, method: 'email' });
+        soundService.play(SoundType.SUCCESS);
         
         // Send verification email (non-blocking and resilient)
         sendEmailVerification(user).then(() => {
@@ -280,6 +283,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
       const friendlyMessage = getFriendlyErrorMessage(err.code);
       setError(friendlyMessage);
       toast.error(friendlyMessage);
+      soundService.play(SoundType.ERROR);
     } finally {
       setUploading(false);
     }

@@ -15,6 +15,7 @@ import { NotificationCenter } from './modules/common/components/NotificationCent
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from './core/firebase';
 import { analytics } from './core/services/AnalyticsService';
+import { soundService } from './core/utils/soundService';
 
 const Home = lazy(() => import('./modules/site/components/Home'));
 const Auth = lazy(() => import('./modules/site/components/Auth'));
@@ -49,6 +50,7 @@ export default function App() {
   // Track Session Start
   useEffect(() => {
     analytics.trackEvent('session_start');
+    soundService.preload();
   }, []);
 
   // Global Notifications Listener for Badge Count

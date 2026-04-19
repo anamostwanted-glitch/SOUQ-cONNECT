@@ -40,6 +40,12 @@ export const InviteSupplierModal: React.FC<InviteSupplierModalProps> = ({ isOpen
 
   const templates = INVITE_TEMPLATES[selectedLang];
 
+  React.useEffect(() => {
+    if (isOpen) {
+      soundService.play(SoundType.MODAL_OPEN, 0.4);
+    }
+  }, [isOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (
