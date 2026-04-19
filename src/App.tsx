@@ -30,6 +30,7 @@ const ConnectRewards = lazy(() => import('./modules/user/components/ConnectRewar
 const UserNeuralHub = lazy(() => import('./modules/common/components/UserNeuralHub').then(m => ({ default: m.UserNeuralHub })));
 const Partnerships = lazy(() => import('./modules/site/components/Partnerships').then(m => ({ default: m.Partnerships })));
 const SmartHelp = lazy(() => import('./modules/common/components/SmartHelp').then(m => ({ default: m.SmartHelp })));
+const Legal = lazy(() => import('./modules/site/components/Legal'));
 const SupplierLandingPage = lazy(() => import('./modules/site/components/SupplierLandingPage'));
 const SupplierOnboarding = lazy(() => import('./modules/site/components/SupplierOnboarding').then(m => ({ default: m.SupplierOnboarding })));
 
@@ -242,7 +243,7 @@ export default function App() {
           </Suspense>
         );
       case 'supplier_onboarding':
-        if (!profile) return <Auth onAuthSuccess={() => setView('supplier_onboarding')} />;
+        if (!profile) return <Auth onAuthSuccess={() => setView('supplier_onboarding')} onNavigate={setView} />;
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>
             <SupplierOnboarding 
@@ -278,6 +279,7 @@ export default function App() {
               onAuthSuccess={() => { 
                 setView('home'); 
               }} 
+              onNavigate={setView}
               initialRole={viewMode} 
             />
           </Suspense>
@@ -329,7 +331,7 @@ export default function App() {
           </Suspense>
         );
       case 'smart_pulse':
-        if (!profile) return <Auth onAuthSuccess={() => setView('smart_pulse')} />;
+        if (!profile) return <Auth onAuthSuccess={() => setView('smart_pulse')} onNavigate={setView} />;
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>
             <div className="pt-24 px-4 min-h-screen bg-brand-background">
@@ -338,7 +340,7 @@ export default function App() {
           </Suspense>
         );
       case 'dashboard':
-        if (!profile) return <Auth onAuthSuccess={() => setView('dashboard')} />;
+        if (!profile) return <Auth onAuthSuccess={() => setView('dashboard')} onNavigate={setView} />;
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>
             <Dashboard 
@@ -385,8 +387,20 @@ export default function App() {
             />
           </Suspense>
         );
+      case 'terms':
+        return (
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <Legal type="terms" onBack={() => setView('home')} />
+          </Suspense>
+        );
+      case 'privacy':
+        return (
+          <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+            <Legal type="privacy" onBack={() => setView('home')} />
+          </Suspense>
+        );
       case 'connect':
-        if (!profile) return <Auth onAuthSuccess={() => setView('connect')} />;
+        if (!profile) return <Auth onAuthSuccess={() => setView('connect')} onNavigate={setView} />;
         return (
           <Suspense fallback={<Skeleton className="h-screen w-full" />}>
             <ConnectRewards profile={profile} settings={settings} onBack={() => setView('home')} />

@@ -20,6 +20,7 @@ import { callAiJson, handleAiError } from '../../../core/services/geminiService'
 import { Type } from '@google/genai';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { notifyMatchingSuppliers } from '../../../core/services/notificationService';
+import { analytics } from '../../../core/services/AnalyticsService';
 
 interface SmartRequestFormProps {
   profile: UserProfile;
@@ -126,6 +127,12 @@ export const SmartRequestForm: React.FC<SmartRequestFormProps> = ({
         status: 'open',
         createdAt: new Date().toISOString(),
         offerCount: 0
+      });
+
+      analytics.trackEvent('request_created', { 
+        productName: formData.productName,
+        categoryId: formData.categoryId,
+        urgency: formData.urgency
       });
 
       // Growth Hack: Instant Push Notifications to matching suppliers

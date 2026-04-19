@@ -28,6 +28,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { MiniSparkline } from '../../../shared/components/MiniSparkline';
 
 export const MyProductsDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -143,25 +144,33 @@ export const MyProductsDashboard: React.FC = () => {
         </div>
 
         <div className="md:col-span-2 grid grid-cols-3 gap-4">
-          <div className="bg-brand-background/50 p-4 rounded-2xl border border-brand-border/50 text-center">
-            <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'إجمالي المشاهدات' : 'Total Views'}</p>
-            <p className="text-2xl font-black text-brand-text-main">{totalViews.toLocaleString()}</p>
-            <div className="flex items-center justify-center gap-1 text-emerald-500 text-[10px] font-bold mt-1">
-              <TrendingUp size={10} /> +12%
+          <div className="bg-brand-background/50 p-4 rounded-3xl border border-brand-border/50 text-center flex flex-col justify-between">
+            <div>
+              <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'إجمالي المشاهدات' : 'Total Views'}</p>
+              <p className="text-2xl font-black text-brand-text-main">{totalViews.toLocaleString()}</p>
+            </div>
+            <div className="mt-2">
+              <MiniSparkline color="#6366f1" />
             </div>
           </div>
-          <div className="bg-brand-background/50 p-4 rounded-2xl border border-brand-border/50 text-center">
-            <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'معدل التحويل' : 'Conversion'}</p>
-            <p className="text-2xl font-black text-brand-teal">{avgCtr}%</p>
-            <div className="flex items-center justify-center gap-1 text-brand-teal text-[10px] font-bold mt-1">
-              <Zap size={10} /> {isRtl ? 'مثالي' : 'Optimal'}
+          <div className="bg-brand-background/50 p-4 rounded-3xl border border-brand-border/50 text-center flex flex-col justify-between">
+            <div>
+              <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'معدل التحويل' : 'Conversion'}</p>
+              <p className="text-2xl font-black text-brand-teal">{avgCtr}%</p>
+            </div>
+            <div className="mt-2">
+              <MiniSparkline color="#14b8a6" />
             </div>
           </div>
-          <div className="bg-brand-background/50 p-4 rounded-2xl border border-brand-border/50 text-center">
-            <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'المنتجات النشطة' : 'Active Items'}</p>
-            <p className="text-2xl font-black text-brand-primary">{items.filter(i => i.status === 'active').length}</p>
-            <div className="flex items-center justify-center gap-1 text-brand-primary text-[10px] font-bold mt-1">
-              <Sparkles size={10} /> {isRtl ? 'نمو مستمر' : 'Growing'}
+          <div className="bg-brand-background/50 p-4 rounded-3xl border border-brand-border/50 text-center flex flex-col justify-between">
+            <div>
+              <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'المنتجات النشطة' : 'Active Items'}</p>
+              <p className="text-2xl font-black text-brand-primary">{items.filter(i => i.status === 'active').length}</p>
+            </div>
+            <div className="mt-2 h-8 flex items-center justify-center">
+              <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-[10px] font-black uppercase tracking-widest">
+                {isRtl ? 'نمو مستمر' : 'Growing'}
+              </span>
             </div>
           </div>
         </div>

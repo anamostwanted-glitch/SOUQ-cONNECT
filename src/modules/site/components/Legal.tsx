@@ -14,62 +14,74 @@ const Legal: React.FC<LegalProps> = ({ type, onBack }) => {
 
   const content = {
     privacy: {
-      title: isRtl ? 'سياسة الخصوصية والأمان' : 'Privacy & Security Policy',
+      title: isRtl ? 'سياسة الخصوصية وحماية البيانات العصبية' : 'Privacy & Neural Data Protection Policy',
       lastUpdated: isRtl ? 'آخر تحديث: 19 أبريل 2026' : 'Last Updated: April 19, 2026',
       sections: [
         {
-          title: isRtl ? '1. المعلومات التي نجمعها' : '1. Information We Collect',
+          title: isRtl ? '1. بروتوكول جمع البيانات والشفافية' : '1. Data Collection & Transparency Protocol',
           body: isRtl 
-            ? 'نجمع المعلومات اللازمة لضمان سلامة العمليات التجارية، بما في ذلك: الهوية الشخصية، السجل التجاري، بيانات الموقع الجغرافي الدقيقة عبر GPS، ومعلومات الاتصال. كما نستخدم ملفات تعريف الارتباط لتحسين تجربة المستخدم وتحليل نبض السوق.'
-            : 'We collect information necessary for secure business operations, including: personal identity, commercial registration, precise GPS location data, and contact information. We also use cookies to enhance user experience and analyze market pulse.'
+            ? 'نجمع البيانات الضرورية فقط لتشغيل النظام، بما في ذلك بيانات الهوية الرقمية، السجلات التجارية الموثقة، والمواقع الجغرافية الدقيقة عبر GPS لضمان دقة المطابقة المحلية. نلتزم بمبدأ "الحد الأدنى من البيانات" حيث لا يتم جمع أي معلومة لا تخدم عملية الربط التجاري أو تحسين أداء الذكاء الاصطناعي.'
+            : 'We collect only the essential data required for system operation, including digital identity data, verified commercial registrations, and precise GPS locations to ensure accurate local matching. We adhere to the "Data Minimization" principle, where no information is gathered unless it serves the commercial connection process or AI performance enhancement.'
         },
         {
-          title: isRtl ? '2. كيفية استخدام البيانات والذكاء الاصطناعي' : '2. Data Usage & AI Processing',
+          title: isRtl ? '2. المعالجة العصبية والذكاء الاصطناعي (Gemini)' : '2. Neural Processing & AI (Gemini)',
           body: isRtl
-            ? 'نستخدم بياناتك لتشغيل محرك المطابقة الذكي (Smart Matching) المدعوم بـ Gemini AI. يتم تحليل طلباتك لتقديم أفضل الموردين لك، وتحليل أداء الموردين لرفع مستوى الموثوقية في الشبكة. نحن لا نشارك بياناتك الحساسة مع أي طرف خارجي لأغراض تسويقية.'
-            : 'We use your data to power the Smart Matching engine driven by Gemini AI. Your requests are analyzed to present the best suppliers, and supplier performance is analyzed to raise network reliability. We do not share your sensitive data with external parties for marketing purposes.'
+            ? 'تتم معالجة بياناتك عبر محركنا العصبي المدعوم بـ Gemini AI لتحليل الأنماط التجارية والمطابقة الذكية. يتم تشفير البيانات قبل معالجتها لضمان عدم وصول الخوارزميات إلى معلوماتك الشخصية الحساسة بشكل مباشر. نستخدم هذه البيانات للتنبؤ باحتياجات السوق وتقديم توصيات استباقية ترفع كفاءة عملياتك.'
+            : 'Your data is processed via our neural engine powered by Gemini AI to analyze business patterns and smart matching. Data is encrypted prior to processing to ensure algorithms do not directly access your sensitive personal information. We utilize this data to predict market needs and provide proactive recommendations that boost your operational efficiency.'
         },
         {
-          title: isRtl ? '3. معايير أمان فريق النواة' : '3. Core Team Security Standards',
+          title: isRtl ? '3. سياسة التتبع والتحليلات المتقدمة' : '3. Advanced Tracking & Analytics Policy',
           body: isRtl
-            ? 'يتم تشفير جميع البيانات الحساسة ونقلها عبر بروتوكولات آمنة. يطبق فريق النواة (Core Team) معايير وصول صارمة (ABAC) لضمان أن بياناتك متاحة فقط للأطراف المخولة قانوناً وتجارياً بمشاهدتها.'
-            : 'All sensitive data is encrypted and transmitted via secure protocols. The Core Team implements strict Attribute-Based Access Control (ABAC) to ensure your data is accessible only to parties legally and commercially authorized to view it.'
+            ? 'لتطوير المنصة، نستخدم أدوات تتبع متطورة لمراقبة "رحلة المستخدم" من الدخول حتى إتمام الطلب (Conversion Rate). يساعدنا ذلك في تحديد العقبات التقنية وتحسين واجهة المستخدم. جميع هذه البيانات مجهولة المصدر (Anonymized) وتستخدم لأغراض تطوير الأداء الكلي للنظام فقط.'
+            : 'To develop the platform, we use advanced tracking tools to monitor the "User Journey" from entry to order completion (Conversion Rate). This helps us identify technical bottlenecks and optimize the UI. All such data is anonymized and used exclusively for overall system performance development purposes.'
         },
         {
-          title: isRtl ? '4. حقوق المستخدم' : '4. User Rights',
+          title: isRtl ? '4. حماية فريق النواة والوصول المدروس (ABAC)' : '4. Core Team Security & Attribute-Based Access (ABAC)',
           body: isRtl
-            ? 'لك الحق في الوصول إلى بياناتك، تصحيحها، أو طلب حذف حسابك (بناءً على سياسة الحذف الناعم الخاصة بنا). يمكنك إدارة تفضيلات الخصوصية وتنبيهات الذكاء الاصطناعي من خلال لوحة التحكم الخاصة بك.'
-            : 'You have the right to access, correct, or request deletion of your account (subject to our Soft Delete policy). You can manage privacy preferences and AI alerts through your dashboard.'
+            ? 'بياناتك ليست مجرد أرقام، بل هي أصول تجارية محمية. يطبق فريق النواة نظام وصول صارم يعتمد على السمات (ABAC)، حيث لا يمكن لأي موظف أو طرف ثالث الوصول لبياناتك إلا إذا توفرت فيه سمات الصلاحية المطلوبة والضرورة الفنية. يتم تسجيل جميع عمليات الوصول في سجل تجريبي غير قابل للتلاعب.'
+            : 'Your data is not just numbers; it is a protected commercial asset. The Core Team implements a strict Attribute-Based Access Control (ABAC) system, where no employee or third party can access your data unless they possess the required authorization attributes and technical necessity. All access operations are logged in an immutable audit trail.'
+        },
+        {
+          title: isRtl ? '5. سياسة "الحذف الناعم" والاحتفاظ القانوني' : '5. "Soft Delete" & Legal Retention Policy',
+          body: isRtl
+            ? 'عند طلب حذف الحساب، نطبق مبدأ "الحذف الناعم". يتم إخفاء بياناتك من الواجهات العامة فوراً، ولكن يتم الاحتفاظ بنسخة مشفرة في الأرشيف القانوني لمدة محددة للامتثال للمتطلبات الضريبية والتجارية ومنع الاحتيال. بعد هذه المدة، يتم إتلاف البيانات تماماً.'
+            : 'Upon account deletion request, we apply the "Soft Delete" principle. Your data is immediately hidden from public interfaces, but an encrypted copy is retained in a legal archive for a specific duration to comply with tax and commercial requirements and prevent fraud. After this period, the data is completely destroyed.'
         }
       ]
     },
     terms: {
-      title: isRtl ? 'شروط الخدمة التجارية' : 'Commercial Terms of Service',
+      title: isRtl ? 'اتفاقية مستوى الخدمة والشروط التجارية' : 'Service Level Agreement & Commercial Terms',
       lastUpdated: isRtl ? 'آخر تحديث: 19 أبريل 2026' : 'Last Updated: April 19, 2026',
       sections: [
         {
-          title: isRtl ? '1. الأهلية والتحقق' : '1. Eligibility & Verification',
+          title: isRtl ? '1. ميثاق النزاهة والتحقق الرقمي' : '1. Integrity Charter & Digital Verification',
           body: isRtl
-            ? 'لاستخدام سوق كونيكت كمورد، يجب أن تمتلك سجلاً تجارياً سارياً وهصية قانونية معتبرة. نحن نحتفظ بالحق في تعليق أي حساب لا يستوفي معايير التحقق الخاصة بنا (Verified Status).'
-            : 'To use Souq Connect as a supplier, you must possess a valid commercial registration and legal identity. We reserve the right to suspend any account that does not meet our Verification Status standards.'
+            ? 'منصة كونيكت هي مجتمع للأعمال الموثوقة. يجب على جميع الموردين اجتياز مراحل التحقق (Verification) التي تشمل فحص السجل التجاري واختبار الاستجابة. تقديم معلومات مضللة يؤدي إلى حظر الحساب فوراً دون إشعار مسبق، مع الاحتفاظ بالحق في إبلاغ الجهات المعنية في حالات الاحتيال.'
+            : 'Connect platform is a community of trusted businesses. All suppliers must pass verification stages, including commercial registration checks and response tests. Providing misleading information results in immediate account suspension without prior notice, reserving the right to inform relevant authorities in cases of fraud.'
         },
         {
-          title: isRtl ? '2. النزاعات التجارية' : '2. Business Disputes',
+          title: isRtl ? '2. مسؤولية الوساطة الذكية' : '2. Smart Intermediation Responsibility',
           body: isRtl
-            ? 'سوق كونيكت هو وسيط ذكي يسهل الربط بين المؤسسات. نحن لا نتحمل المسؤولية القانونية عن جودة البضائع أو الخدمات أو شروط الدفع خارج المنصة. ننصح باستخدام العقود الموثقة والتوثيق عبر المحادثات الرسمية داخل المنصة.'
-            : 'Souq Connect is a smart intermediary facilitating institutional connections. We assume no legal liability for goods quality, services, or off-platform payment terms. We recommend using documented contracts and official platform chat for all business logs.'
+            ? 'نحن نوفر البنية التحتية والذكاء الاصطناعي للربط بين الأطراف. المنصة غير مسؤولة عن جودة الخدمات أو البضائع الفعلية، ولكنها توفر نظام تقييم عصبي يعكس موثوقية كل طرف. النزاعات المالية يجب أن تحل وفقاً للعقود المبرمة بين الأطراف، ونحن نشجع بقوة على توثيق جميع الاتفاقات داخل نظام الرسائل الموثق بالمنصة.'
+            : 'We provide the infrastructure and AI for connecting parties. The platform is not liable for the quality of services or actual goods but provides a neural rating system reflecting each party\'s reliability. Financial disputes must be resolved according to contracts between parties; we strongly encourage documenting all agreements within the platform\'s verified messaging system.'
         },
         {
-          title: isRtl ? '3. الملكية الفكرية والذكاء الاصطناعي' : '3. Intellectual Property & AI Models',
+          title: isRtl ? '3. الاستغلال العادل وحظر "التنقيب"' : '3. Fair Usage & Scraping Prohibition',
           body: isRtl
-            ? 'جميع خوارزميات المطابقة والتصاميم ونظام "نبض السوق" هي ملكية فكرية مملوكة للمنصة. يمنع استخدام الأنظمة لاستخراج البيانات (Scraping) أو محاولة عكس هندسة نماذج الذكاء الاصطناعي الخاصة بنا.'
-            : 'All matching algorithms, designs, and the "Market Pulse" system are intellectual property owned by the platform. Scraping or attempting to reverse engineer our AI models is strictly prohibited.'
+            ? 'يمنع استخدام أي أدوات آلية أو خوارزميات لاستخراج البيانات (Data Scraping) من المنصة. كما يمنع محاولة التلاعب بنتائج المطابقة (Algorithm Gaming) أو استهلاك موارد النظام بشكل غير عادل. نطبق أنظمة حماية (Stress Shields) تكتشف هذه الأنماط آلياً.'
+            : 'Using automated tools or algorithms for data scraping from the platform is prohibited. Attempting to manipulate matching results (Algorithm Gaming) or unfair system resource consumption is also forbidden. We implement "Stress Shields" to detect these patterns automatically.'
         },
         {
-          title: isRtl ? '4. الإنهاء والحذف الناعم' : '4. Termination & Soft Delete',
+          title: isRtl ? '4. نظام الرسوم والاشتراكات النخبوية' : '4. Fee System & Elite Subscriptions',
           body: isRtl
-            ? 'نحتفظ بالحق في إنهاء الخدمة لأي مستخدم يتلاعب بالأسعار أو ينتهك معايير النزاهة التجارية. تخضع جميع عمليات الحذف لسياسة "الحذف الناعم" (Soft Delete) حيث يتم الاحتفاظ بالبيانات لأغراض تدقيق النظام والامتثال القانوني.'
-            : 'We reserve the right to terminate service for any user manipulating prices or violating business integrity standards. All deletions follow our Soft Delete policy where data is retained for system audit and legal compliance purposes.'
+            ? 'قد تفرض المنصة رسوماً على خدمات معينة أو اشتراكات شهرية للميزات المتقدمة. يتم توضيح الرسوم قبل إتمام أي عملية دفع. جميع المدفوعات تتم عبر بوابات دفع آمنة ومعتمدة، وتخضع لسياسة الاسترداد المحددة في لوحة الفواتير.'
+            : 'The platform may charge fees for certain services or monthly subscriptions for advanced features. Fees are clarified before any payment. All payments occur via secure, certified gateways and are subject to the refund policy specified in the billing dashboard.'
+        },
+        {
+          title: isRtl ? '5. النسخة التجريبية (Beta) وضمان الاعتمادية' : '5. Beta Version & Reliability Assurance',
+          body: isRtl
+            ? 'المشاركون في النسخة التجريبية يدركون أن النظام في مرحلة "التطوير الحي". فريق النواة يعمل على مدار الساعة لضمان استقرار النظام (uptime)، ولكن قد تحدث فترات توقف قصيرة للصيانة أو اختبار الضغط. ملاحظات مستخدمي Beta هي العمود الفقري لتطوير النسخة الرسمية.'
+            : 'Participants in the Beta version acknowledge the system is in "Live Development." The Core Team works around the clock to ensure system stability (uptime), but brief downtimes for maintenance or stress testing may occur. Beta user feedback is the backbone for developing the official version.'
         }
       ]
     }

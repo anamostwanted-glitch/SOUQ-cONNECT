@@ -23,16 +23,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubscribeUser: any = null;
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (user) {
+        setLoading(true);
         unsubscribeUser = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
           if (docSnap.exists()) {
             const userData = docSnap.data() as UserProfile;
             setProfile(userData);
             // Sync viewMode with actual role if it's not customer
             setViewMode(prev => prev === 'customer' && userData.role !== 'customer' ? userData.role : prev);
+            setLoading(false);
           } else {
-            setProfile(null);
+            // Core Team: Grace period for document creation (e.g., social sign-up)
+            // We don't set loading to false yet, allowing the app-level loader to stay active
+            // whereas future snapshots (when setDoc happens) will trigger the true case above.
+            const fallbackTimeout = setTimeout(() => {
+              // Only trigger fallback if we are still without a profile after the delay
+              setProfile(p => {
+                if (!p) {
+                  setLoading(false);
+                }
+                return p;
+              });
+            }, 5000);
+            
+            return () => clearTimeout(fallbackTimeout);
           }
-          setLoading(false);
         }, (error) => {
           handleFirestoreError(error, OperationType.GET, `users/${user.uid}`, false);
           setLoading(false);

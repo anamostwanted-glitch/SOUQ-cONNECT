@@ -51,6 +51,7 @@ import { LoadingCustomizer } from './LoadingCustomizer';
 import * as Sentry from "@sentry/react";
 
 const AdminNeuralHub = lazy(() => import('./AdminNeuralHub').then(m => ({ default: Sentry.withProfiler(m.AdminNeuralHub) })));
+const BetaLab = lazy(() => import('./BetaLab').then(m => ({ default: m.BetaLab })));
 const CostAnalysisDashboard = lazy(() => import('./CostAnalysisDashboard').then(m => ({ default: Sentry.withProfiler(m.CostAnalysisDashboard) })));
 import { SliderSettingsAdmin } from './SliderSettings';
 import { MarketingManager } from './MarketingManager';
@@ -556,6 +557,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'categories-manager', label: isRtl ? 'الأقسام' : 'Categories', icon: ListTree },
     { id: 'site-settings', label: isRtl ? 'إعدادات الواجهة' : 'Interface Settings', icon: Zap },
     { id: 'ai-hub', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu },
+    { id: 'beta-lab', label: isRtl ? 'مختبر بيتا' : 'Beta Lab', icon: Zap, isNew: true },
     { id: 'cost-analyzer', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
     { id: 'connect-growth', label: isRtl ? 'نمو كونكت' : 'Connect Growth', icon: Zap, isNew: true },
     { id: 'gap-analyzer', label: isRtl ? 'تحليل الفجوة' : 'Gap Analysis', icon: BarChart3, isNew: true },
@@ -1075,6 +1077,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             >
               <Suspense fallback={<div className="p-8 text-center">{isRtl ? 'جاري التحميل...' : 'Loading...'}</div>}>
                 <AdminNeuralHub />
+              </Suspense>
+            </motion.div>
+          )}
+
+          {activeTab === 'beta-lab' && (
+            <motion.div
+              key="beta-lab"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-7xl mx-auto"
+            >
+              <Suspense fallback={<div className="p-8 text-center">{isRtl ? 'جاري التحميل...' : 'Loading...'}</div>}>
+                <BetaLab isRtl={isRtl} />
               </Suspense>
             </motion.div>
           )}

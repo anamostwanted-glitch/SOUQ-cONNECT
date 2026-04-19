@@ -30,10 +30,11 @@ import { soundService, SoundType } from '../../../core/utils/soundService';
 
 interface AuthProps {
   onAuthSuccess: (role: UserRole) => void;
+  onNavigate?: (view: string) => void;
   initialRole?: UserRole;
 }
 
-const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
+const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigate, initialRole }) => {
   const { t, i18n } = useTranslation();
   const [step, setStep] = useState<'login' | 'register-basic' | 'register-supplier'>('login');
   const [supplierSubStep, setSupplierSubStep] = useState(1);
@@ -542,11 +543,11 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                     <label htmlFor="terms-supplier" className="text-sm text-slate-600 leading-relaxed cursor-pointer">
                       {i18n.language === 'ar' ? (
                         <>
-                          أوافق على <a href="#" className="text-brand-primary font-bold hover:underline">شروط الاستخدام</a> و <a href="#" className="text-brand-primary font-bold hover:underline">سياسة الخصوصية</a> الخاصة بالموردين.
+                          أوافق على <button type="button" onClick={() => onNavigate?.('terms')} className="text-brand-primary font-bold hover:underline">شروط الاستخدام</button> و <button type="button" onClick={() => onNavigate?.('privacy')} className="text-brand-primary font-bold hover:underline">سياسة الخصوصية</button> الخاصة بالموردين.
                         </>
                       ) : (
                         <>
-                          I agree to the <a href="#" className="text-brand-primary font-bold hover:underline">Terms of Use</a> and <a href="#" className="text-brand-primary font-bold hover:underline">Privacy Policy</a> for suppliers.
+                          I agree to the <button type="button" onClick={() => onNavigate?.('terms')} className="text-brand-primary font-bold hover:underline">Terms of Use</button> and <button type="button" onClick={() => onNavigate?.('privacy')} className="text-brand-primary font-bold hover:underline">Privacy Policy</button> for suppliers.
                         </>
                       )}
                     </label>
@@ -625,11 +626,11 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, initialRole }) => {
                   <label htmlFor="terms-basic" className="text-sm text-slate-600 cursor-pointer">
                     {i18n.language === 'ar' ? (
                       <>
-                        أوافق على <a href="#" className="text-brand-primary font-bold hover:underline">شروط الاستخدام</a> و <a href="#" className="text-brand-primary font-bold hover:underline">سياسة الخصوصية</a>.
+                        أوافق على <button type="button" onClick={() => onNavigate?.('terms')} className="text-brand-primary font-bold hover:underline">شروط الاستخدام</button> و <button type="button" onClick={() => onNavigate?.('privacy')} className="text-brand-primary font-bold hover:underline">سياسة الخصوصية</button>.
                       </>
                     ) : (
                       <>
-                        I agree to the <a href="#" className="text-brand-primary font-bold hover:underline">Terms of Use</a> and <a href="#" className="text-brand-primary font-bold hover:underline">Privacy Policy</a>.
+                        I agree to the <button type="button" onClick={() => onNavigate?.('terms')} className="text-brand-primary font-bold hover:underline">Terms of Use</button> and <button type="button" onClick={() => onNavigate?.('privacy')} className="text-brand-primary font-bold hover:underline">Privacy Policy</button>.
                       </>
                     )}
                   </label>

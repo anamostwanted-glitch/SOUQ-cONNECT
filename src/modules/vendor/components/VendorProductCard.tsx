@@ -53,10 +53,10 @@ export const VendorProductCard: React.FC<VendorProductCardProps> = ({
     return (
       <motion.div 
         layout
-        className={`${glassClass} p-4 rounded-none flex items-center gap-4 group hover:border-brand-primary/30 transition-all`}
+        className={`${glassClass} p-4 rounded-3xl flex items-center gap-4 group hover:border-brand-primary/30 transition-all shadow-md hover:shadow-xl`}
       >
-        <div className="relative w-20 h-24 shrink-0">
-          <BlurImage src={mainImage} alt={item.title} className="w-full h-full rounded-none object-cover" />
+        <div className="relative w-20 h-24 shrink-0 overflow-hidden rounded-2xl">
+          <BlurImage src={mainImage} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
           {item.status !== 'active' && (
             <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center">
               <span className="text-[8px] font-black text-white uppercase tracking-tighter">{isRtl ? 'غير نشط' : 'Inactive'}</span>
@@ -98,7 +98,7 @@ export const VendorProductCard: React.FC<VendorProductCardProps> = ({
     <motion.div 
       layout
       whileHover={{ y: -5 }}
-      className={`relative group ${glassClass} rounded-none overflow-hidden transition-all duration-500 hover:shadow-2xl hover:border-brand-primary/20`}
+      className={`relative group ${glassClass} rounded-[2.5rem] overflow-hidden transition-all duration-500 hover:shadow-2xl hover:border-brand-primary/20 border-2`}
     >
       {/* Neural Aura Glow */}
       <div className={`absolute -inset-1 bg-gradient-to-tr ${item.status === 'active' ? 'from-brand-primary/20 via-brand-teal/20 to-brand-primary/20' : 'from-rose-500/10 to-rose-500/5'} blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700`} />
@@ -109,11 +109,11 @@ export const VendorProductCard: React.FC<VendorProductCardProps> = ({
           <BlurImage src={mainImage} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
           
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-10">
-            <Badge className={`${item.status === 'active' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'} border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-none shadow-lg`}>
+            <Badge className={`${item.status === 'active' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'} border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-xl shadow-lg`}>
               {item.status === 'active' ? (isRtl ? 'نشط' : 'Active') : (isRtl ? 'غير نشط' : 'Inactive')}
             </Badge>
             {isTrending && (
-              <Badge className="bg-amber-500 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-none shadow-lg flex items-center gap-1">
+              <Badge className="bg-amber-500 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-xl shadow-lg flex items-center gap-1">
                 <TrendingUp size={10} /> {isRtl ? 'رائج' : 'Trending'}
               </Badge>
             )}

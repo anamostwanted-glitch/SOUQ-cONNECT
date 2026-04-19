@@ -416,6 +416,19 @@ export interface SiteSettings {
   seoDescriptionAr?: string;
   seoDescriptionEn?: string;
   faviconUrl?: string;
+
+  // Footer Settings
+  footerAboutAr?: string;
+  footerAboutEn?: string;
+  footerLogoUrl?: string;
+  footerEmail?: string;
+  footerPhone?: string;
+  footerWebsite?: string;
+  footerAddressAr?: string;
+  footerAddressEn?: string;
+  footerCopyrightAr?: string;
+  footerCopyrightEn?: string;
+  footerShowSecurityBadge?: boolean;
 }
 
 export interface SliderItem {

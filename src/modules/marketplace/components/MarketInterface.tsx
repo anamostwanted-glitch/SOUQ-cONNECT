@@ -146,6 +146,16 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Track search with debounce
+  useEffect(() => {
+    if (searchTerm.trim().length > 2) {
+      const timer = setTimeout(() => {
+        analytics.trackEvent('search_performed', { query: searchTerm, activeTab });
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchTerm, activeTab]);
+
   // Basic state for now
   // handleGlobalSearch will use the moved state
 
@@ -1068,7 +1078,10 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                           key={item.id || `hub-item-${hub.id}-${idx}`} 
                           item={item} 
                           onOpenChat={onOpenChat}
-                          onViewDetails={() => setSelectedItem(item)}
+                          onViewDetails={() => {
+                            setSelectedItem(item);
+                            analytics.trackEvent('product_view', { productId: item.id, name: item.titleAr || item.titleEn || item.title, tab: activeTab });
+                          }}
                           onViewProfile={onViewProfile}
                           isOwner={profile?.uid === item.sellerId}
                           isAdmin={profile?.role === 'admin'}
@@ -1089,13 +1102,16 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                   gap: typeof window !== 'undefined' && window.innerWidth < 768 ? '2px' : `${settings?.gridSettings?.gap || 16}px`
                 }}
               >
-                {uniqueFilteredItems.map((item, idx) => (
-                  <ProductCard 
-                    key={item.id || `market-item-${idx}`} 
-                    item={item} 
-                    onOpenChat={onOpenChat}
-                    onViewDetails={() => setSelectedItem(item)}
-                    onViewProfile={onViewProfile}
+                    {uniqueFilteredItems.map((item, idx) => (
+                      <ProductCard 
+                        key={item.id || `market-item-${idx}`} 
+                        item={item} 
+                        onOpenChat={onOpenChat}
+                        onViewDetails={() => {
+                          setSelectedItem(item);
+                          analytics.trackEvent('product_view', { productId: item.id, name: item.titleAr || item.titleEn || item.title, tab: activeTab });
+                        }}
+                        onViewProfile={onViewProfile}
                     isOwner={profile?.uid === item.sellerId}
                     isAdmin={profile?.role === 'admin'}
                     onDelete={() => {}}

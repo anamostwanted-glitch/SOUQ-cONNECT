@@ -22,6 +22,7 @@ import { AIActionHub } from './AIActionHub';
 import { Header } from './Header';
 import { MobileMenu } from './MobileMenu';
 import { BottomNav } from './BottomNav';
+import { Footer } from './Footer';
 import HelpCenter from '../HelpCenter';
 
 interface LayoutProps {
@@ -325,6 +326,7 @@ export const Layout: React.FC<LayoutProps> = ({
         <div className="max-w-[2000px] mx-auto px-4 md:px-8">
           {children}
         </div>
+        <Footer onNavigate={setView} isRtl={isRtl} />
       </main>
 
       <MobileMenu 

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { useTranslation } from 'react-i18next';
 import { soundService, SoundType } from '../../../core/utils/soundService';
+import { analytics } from '../../../core/services/AnalyticsService';
 
 interface SocialAuthButtonsProps {
   onSuccess: (role: string) => void;
@@ -20,6 +21,7 @@ export const SocialAuthButtons: React.FC<SocialAuthButtonsProps> = ({ onSuccess,
   const handleSocialSignIn = async (provider: any, providerId: string) => {
     setLoadingProvider(providerId);
     try {
+      analytics.trackEvent('login', { provider: providerId, method: 'social_popup', role });
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
@@ -28,8 +30,8 @@ export const SocialAuthButtons: React.FC<SocialAuthButtonsProps> = ({ onSuccess,
       const userDoc = await getDoc(userDocRef);
 
       if (!userDoc.exists()) {
+        analytics.trackEvent('registration_start', { provider: providerId, role });
         // Create initial profile if it doesn't exist
-        const nameParts = user.displayName?.split(' ') || [];
         const profileData = {
           uid: user.uid,
           email: user.email,
@@ -58,8 +60,10 @@ export const SocialAuthButtons: React.FC<SocialAuthButtonsProps> = ({ onSuccess,
           status: 'active'
         });
 
+        analytics.trackEvent('registration_complete', { provider: providerId, role });
         toast.success(i18n.language === 'ar' ? 'تم إنشاء حسابك بنجاح!' : 'Account created successfully!');
       } else {
+        analytics.trackEvent('login', { provider: providerId, status: 'success', role: userDoc.data()?.role });
         toast.success(i18n.language === 'ar' ? 'تم تسجيل الدخول بنجاح!' : 'Logged in successfully!');
       }
 

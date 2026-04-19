@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { notifyNewOffer } from '../../../core/services/notificationService';
+import { analytics } from '../../../core/services/AnalyticsService';
 
 interface MakeOfferModalProps {
   isOpen: boolean;
@@ -68,6 +69,12 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       // 2. Update request offer count
       await updateDoc(doc(db, 'requests', request.id), {
         offerCount: increment(1)
+      });
+
+      analytics.trackEvent('offer_created', {
+        requestId: request.id,
+        price: Number(formData.price),
+        autoNegotiate: formData.autoNegotiate
       });
 
       // 3. Growth: Smart Notifications (In-App & Email)
