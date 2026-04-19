@@ -36,10 +36,10 @@ export const SocialAuthButtons: React.FC<SocialAuthButtonsProps> = ({ onSuccess,
           name: user.displayName || 'User',
           role: role, // Use selected role from parent
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(), // Use string to match current rules
           isVerified: user.emailVerified,
           status: 'active',
-          updatedAt: serverTimestamp(),
-          photoUrl: user.photoURL || null,
+          photoURL: user.photoURL || null,
           providerId: user.providerData[0]?.providerId || providerId
         };
         
@@ -50,7 +50,7 @@ export const SocialAuthButtons: React.FC<SocialAuthButtonsProps> = ({ onSuccess,
           uid: user.uid,
           name: profileData.name,
           role: role,
-          photoUrl: profileData.photoUrl,
+          photoURL: profileData.photoURL,
           isVerified: profileData.isVerified,
           rating: 0,
           reviewCount: 0,

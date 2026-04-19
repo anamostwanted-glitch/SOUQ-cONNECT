@@ -71,7 +71,7 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      let allowedFields = ['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'coordinates', 'website', 'logoUrl', 'coverUrl', 'photoURL', 'categories', 'keywords', 'language', 'createdAt', 'updatedAt', 'lastActive', 'bio', 'businessDescription', 'supplierType', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'verificationExpiryDate', 'trustScore', 'followersCount', 'followingCount', 'followers', 'following', 'logoGenerationUsage', 'isOnline', 'isDeleted', 'lastLoginAt', 'averageResponseTime', 'notificationPreferences', 'conciergeConsent', 'branding', 'referralPoints', 'loyaltyPoints', 'commercialRegistration', 'subscriptionPlan', 'subscriptionExpiry', 'referralCode', 'referredBy', 'onboardingCompleted', 'favoriteProducts', 'aiInsights', 'aiBio', 'socialLinks', 'status', 'deletedAt', 'deletedBy'];
+      let allowedFields = ['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'coordinates', 'website', 'logoUrl', 'coverUrl', 'photoURL', 'photoUrl', 'providerId', 'categories', 'keywords', 'language', 'createdAt', 'updatedAt', 'lastActive', 'bio', 'businessDescription', 'supplierType', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'verificationExpiryDate', 'trustScore', 'followersCount', 'followingCount', 'followers', 'following', 'logoGenerationUsage', 'isOnline', 'isDeleted', 'lastLoginAt', 'averageResponseTime', 'notificationPreferences', 'conciergeConsent', 'branding', 'referralPoints', 'loyaltyPoints', 'commercialRegistration', 'subscriptionPlan', 'subscriptionExpiry', 'referralCode', 'referredBy', 'onboardingCompleted', 'favoriteProducts', 'aiInsights', 'aiBio', 'socialLinks', 'status', 'deletedAt', 'deletedBy'];
       return data.get('uid', '') is string &&
              data.get('email', '') is string &&
              data.get('role', '') in ['admin', 'supplier', 'customer', 'manager', 'supervisor'] &&
@@ -85,11 +85,13 @@ service cloud.firestore {
              (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() < 1024)) &&
              (!('coverUrl' in data) || (data.coverUrl is string && data.coverUrl.size() < 1024)) &&
              (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 1024)) &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() < 1024)) &&
+             (!('providerId' in data) || (data.providerId is string && data.providerId.size() < 128)) &&
              (!('categories' in data) || (data.categories is list && data.categories.size() < 50)) &&
              (!('keywords' in data) || (data.keywords is list && data.keywords.size() < 100)) &&
              (!('language' in data) || data.language in ['ar', 'en']) &&
-             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() < 64)) &&
-             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() < 64)) &&
+             (!('createdAt' in data) || (data.createdAt is string || data.createdAt is timestamp)) &&
+             (!('updatedAt' in data) || (data.updatedAt is string || data.updatedAt is timestamp)) &&
              (!('lastActive' in data) || (data.lastActive is string && data.lastActive.size() < 64)) &&
              (!('bio' in data) || (data.bio is string && data.bio.size() < 2000)) &&
              (!('businessDescription' in data) || (data.businessDescription is string && data.businessDescription.size() < 5000)) &&
