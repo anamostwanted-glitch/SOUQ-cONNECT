@@ -655,6 +655,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       case 'ai_optimize':
         handleSystemScan();
         break;
+      case 'export_data':
+        toast.info(isRtl ? 'جاري تحضير تصدير البيانات...' : 'Preparing data export...');
+        // Basic CSV Export implementation
+        try {
+          const headers = ['UID', 'Name', 'Email', 'Role', 'Status'];
+          const rows = users.map(u => [u.uid, u.name || '', u.email || '', u.role || '', u.isDeleted ? 'deleted' : 'active']);
+          const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.setAttribute("href", url);
+          link.setAttribute("download", `users_export_${new Date().toISOString().split('T')[0]}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          toast.success(isRtl ? 'تم تصدير البيانات بنجاح' : 'Data exported successfully');
+        } catch (err) {
+          toast.error(isRtl ? 'فشل تصدير البيانات' : 'Failed to export data');
+        }
+        break;
+      case 'system_report':
+        setActiveTab('reports-archive');
+        toast.info(isRtl ? 'تم فتح أرشيف التقارير' : 'Reports archive opened');
+        break;
       default:
         toast.info(isRtl ? 'هذه الميزة ستكون متاحة قريباً' : 'This feature will be available soon');
     }
@@ -810,7 +834,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <NeuralSearch 
               onNavigate={handleNeuralSearchNavigate}
               onFilter={handleNeuralSearchFilter}
-              availableTabs={tabs.map(t => t.id)}
+              availableTabs={tabs.map((t, idx) => `${t.id}-${idx}`)}
             />
           </div>
           
@@ -860,14 +884,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 setTimeRange={setTimeRange}
                 isAiEnabled={isAiEnabled}
                 onAction={(action) => {
-                  if (action === 'gap-analyzer' || action === 'gap-analysis') setActiveTab('gap-analyzer');
-                  else if (action === 'users') setActiveTab('users');
-                  else if (action === 'ai-hub') setActiveTab('ai-hub');
-                  else if (action === 'site-settings' || action === 'site' || action === 'settings') setActiveTab('site-settings');
-                  else if (action === 'categories-manager' || action === 'categories') setActiveTab('categories-manager');
-                  else if (action === 'broadcast-center' || action === 'broadcast') setActiveTab('broadcast-center');
-                  else if (action === 'ai-hub' || action === 'ai' || action === 'ai-portal') setActiveTab('ai-hub');
-                  else if (action === 'weekly-reports') setActiveTab('weekly-reports');
+                  // Direct mapping to tabs or handling via handleQuickAction
+                  const actionMap: Record<string, string> = {
+                    'gap-analysis': 'gap-analyzer',
+                    'gap-analyzer': 'gap-analyzer',
+                    'users': 'users',
+                    'ai': 'ai-hub',
+                    'ai-portal': 'ai-hub',
+                    'site': 'site-settings',
+                    'site-settings': 'site-settings',
+                    'settings': 'site-settings',
+                    'categories': 'categories-manager',
+                    'categories-manager': 'categories-manager',
+                    'broadcast': 'broadcast-center',
+                    'broadcast-center': 'broadcast-center',
+                    'weekly-reports': 'weekly-reports',
+                    'reports': 'reports-archive',
+                    'alerts': 'reports-archive'
+                  };
+
+                  if (actionMap[action]) {
+                    setActiveTab(actionMap[action]);
+                  } else {
+                    handleQuickAction(action);
+                  }
                 }}
               />
 

@@ -188,7 +188,7 @@ export const BentoMatrix: React.FC<BentoMatrixProps> = ({
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-max">
       {items.map((card, i) => (
         <motion.button
-          key={`bento-card-${perspective}-${card.id}-${i}`}
+          key={`bento-${perspective}-${card.id}-${i}-${card.title}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.05 }}

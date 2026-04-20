@@ -221,6 +221,65 @@ app.post("/api/send-email", async (req, res) => {
         </div>
       `);
       break;
+    case 'new_request_match':
+      subject = isAr ? "تحذير اليقظة: وجدنا طلباً يطابق تخصصك!" : "Vigilance Alert: Found a Match for Your Specialty!";
+      html = getLayout(`
+        <h2 style="color: #1e293b;">${isAr ? 'فرصة ذهبية!' : 'Golden Opportunity!'}</h2>
+        <p style="color: #475569; line-height: 1.6;">
+          ${isAr 
+            ? `لقد وجدنا طلباً لـ "${data?.productName}" بنسبة مطابقة ${data?.score || 0}%.` 
+            : `We found a request for "${data?.productName}" with a ${data?.score || 0}% match score.`}
+        </p>
+        <div style="margin-top: 32px;">
+          <a href="${process.env.APP_URL}/marketplace" style="background-color: ${brandColor}; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            ${isAr ? 'اقتنص الفرصة الآن' : 'Capture Opportunity Now'}
+          </a>
+        </div>
+      `);
+      break;
+    case 'supplier_approved':
+      subject = isAr ? "تم توثيق حسابك بنجاح ✨" : "Account Verified Successfully ✨";
+      html = getLayout(`
+        <h2 style="color: #1e293b;">${isAr ? 'مبارك! أنت الآن مورد موثوق' : 'Congrats! You are now a Verified Supplier'}</h2>
+        <p style="color: #475569; line-height: 1.6;">
+          ${isAr 
+            ? 'تمت مراجعة حسابك وتفعيله رسمياً. يمكنك الآن التفاعل مع كافة الطلبات في السوق.' 
+            : 'Your account has been reviewed and officially activated. You can now engage with all marketplace requests.'}
+        </p>
+        <div style="margin-top: 32px;">
+          <a href="${process.env.APP_URL}/vendor/dashboard" style="background-color: ${brandColor}; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            ${isAr ? 'ابدأ كسب الأرباح' : 'Start Earning Profits'}
+          </a>
+        </div>
+      `);
+      break;
+    case 'supplier_rejected':
+      subject = isAr ? "تحديث بخصوص طلب التوثيق" : "Update on Your Verification Request";
+      html = getLayout(`
+        <h2 style="color: #1e293b;">${isAr ? 'نعتذر، لم يتم توثيق الحساب' : 'Sorry, Verification Not Approved'}</h2>
+        <p style="color: #475569; line-height: 1.6;">
+          ${isAr 
+            ? 'يرجى مراجعة بياناتك والتأكد من صحة المستندات المرفقة ثم المحاولة مرة أخرى.' 
+            : 'Please review your data and ensure documents are correct before trying again.'}
+        </p>
+      `);
+      break;
+    case 'chat_notification':
+      subject = isAr ? `رسالة جديدة من ${data?.senderName}` : `New message from ${data?.senderName}`;
+      html = getLayout(`
+        <h2 style="color: #1e293b;">${isAr ? 'لديك رسالة غير مقروءة' : 'You have an unread message'}</h2>
+        <p style="color: #475569; line-height: 1.6;">
+          ${isAr 
+            ? `لقد أرسل لك ${data?.senderName} رسالة جديدة وأنت غير متصل.` 
+            : `${data?.senderName} sent you a new message while you were offline.`}
+        </p>
+        <div style="margin-top: 32px;">
+          <a href="${process.env.APP_URL}/chat" style="background-color: ${brandColor}; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            ${isAr ? 'قراءة الرسالة' : 'Read Message'}
+          </a>
+        </div>
+      `);
+      break;
     case 'weekly_report':
       subject = isAr ? "تقرير الأداء الأسبوعي - Connect AI" : "Weekly Performance Report - Connect AI";
       html = getLayout(`
@@ -283,8 +342,54 @@ app.post("/api/send-email", async (req, res) => {
   }
 });
 
-  // WhatsApp API
-  app.post("/api/send-whatsapp", async (req, res) => {
+  // Test Email Diagnostic
+  app.post("/api/test-email", async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+    
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      return res.status(500).json({ error: "SMTP credentials missing in environment" });
+    }
+
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT) || 587,
+        secure: Number(process.env.SMTP_PORT) === 465,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      await transporter.sendMail({
+        from: `Connect AI Diagnostics <${process.env.FROM_EMAIL || "diagnostics@souq-connect.com"}>`,
+        to: email,
+        subject: "Connectivity Test: Success! ✅",
+        text: "Your SMTP configuration is correctly set and the server was able to send this test email.",
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h2 style="color: #059669;">Connection Success!</h2>
+            <p>This is a diagnostic test from your Connect AI Marketplace server.</p>
+            <p><strong>SMTP Host:</strong> ${process.env.SMTP_HOST}</p>
+            <p><strong>Auth verified:</strong> Yes</p>
+            <p style="margin-top: 20px; color: #64748b; font-size: 12px;">Sent at: ${new Date().toISOString()}</p>
+          </div>
+        `
+      });
+      res.json({ success: true, message: "Test email sent successfully" });
+    } catch (error: any) {
+      console.error("Diagnostic SMTP error:", error);
+      res.status(500).json({ 
+        error: "SMTP Error", 
+        details: error.message,
+        code: error.code
+      });
+    }
+  });
+
+  // WhatsApp API & Concierge Alert Proxy
+  app.post(["/api/send-whatsapp", "/api/send-concierge-alert"], async (req, res) => {
     const { phoneNumber, message } = req.body;
     
     if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
@@ -301,7 +406,7 @@ app.post("/api/send-email", async (req, res) => {
       res.json({ success: true });
     } catch (error) {
       console.error("WhatsApp error:", error);
-      res.status(500).json({ error: "Failed to send WhatsApp" });
+      res.status(500).json({ error: "Failed to send WhatsApp message" });
     }
   });
 
