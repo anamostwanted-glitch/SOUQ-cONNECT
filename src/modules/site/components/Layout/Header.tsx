@@ -188,7 +188,7 @@ export const Header: React.FC<HeaderProps> = ({
           <HapticButton 
             onClick={toggleDarkMode}
             className="hidden md:flex w-10 h-10 items-center justify-center hover:bg-brand-surface rounded-full transition-all text-brand-text-muted hover:text-brand-primary border border-brand-border"
-            title={isRtl ? 'تبديل الوضع' : 'Toggle Theme'}
+            title={isRtl ? 'تبديل المظهر' : 'Toggle Theme'}
           >
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
           </HapticButton>

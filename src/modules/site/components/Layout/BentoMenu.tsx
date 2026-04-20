@@ -242,8 +242,8 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
                 ))}
               </div>
 
-              {/* Role Switcher Section */}
-              {profile && (
+              {/* Role Switcher Section - Only for Admin and Suppliers */}
+              {profile && (profile.role === 'admin' || profile.role === 'supplier') && (
                 <div className="mt-8 pt-6 border-t border-brand-border/50">
                   <h3 className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em] mb-4 px-2">
                     {isRtl ? 'تبديل وضع العرض' : 'Switch View Mode'}
