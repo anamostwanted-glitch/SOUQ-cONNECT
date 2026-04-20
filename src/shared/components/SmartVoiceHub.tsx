@@ -198,7 +198,19 @@ export const SmartVoiceHub: React.FC<SmartVoiceHubProps> = ({
         whileTap={{ scale: 0.9 }}
       >
         <HapticButton
-          onClick={toggleHub}
+          onPointerDown={() => {
+            if (!isOpen) {
+              setIsOpen(true);
+              setTimeout(startRecording, 300);
+            }
+          }}
+          onPointerUp={() => {
+            if (isRecording) stopRecording();
+          }}
+          onPointerLeave={() => {
+            if (isRecording) stopRecording();
+          }}
+          onClick={() => !isRecording && toggleHub()}
           className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center shadow-2xl transition-all ${
             isOpen ? 'bg-brand-secondary rotate-90' : 'bg-brand-primary'
           } border-4 border-white dark:border-slate-800`}

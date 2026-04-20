@@ -33,8 +33,8 @@ export const NeuralPulseIndicator: React.FC = () => {
   }, [securityStatus]);
 
   return (
-    <div className="fixed top-4 right-20 z-[60] flex items-center gap-3">
-      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md ${statusConfig.bg}`}>
+    <div className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-center pointer-events-none p-1 md:p-4 md:justify-end md:right-20 md:left-auto">
+      <div className={`flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 backdrop-blur-md pointer-events-auto ${statusConfig.bg}`}>
         <motion.div
           animate={{ scale: [1, 1.2, 1] }}
           transition={{ duration: 100 / neuralPulse, repeat: Infinity }}

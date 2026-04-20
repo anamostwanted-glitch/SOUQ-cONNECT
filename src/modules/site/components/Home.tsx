@@ -93,6 +93,7 @@ const Home: React.FC<HomeProps> = ({
   const [showDraftArea, setShowDraftArea] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [isActionsTrayOpen, setIsActionsTrayOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -262,30 +263,40 @@ const Home: React.FC<HomeProps> = ({
     return Package;
   };
 
+  const stopVoiceRecording = React.useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsListening(false);
+  }, []);
+
   const handleVoiceInput = React.useCallback(() => {
     setVoiceError(null);
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      setVoiceError(i18n.language === 'ar' ? 'متصفحك لا يدعم التعرف على الصوت' : 'Your browser does not support speech recognition');
+      setVoiceError(isRtl ? 'متصفحك لا يدعم التعرف على الصوت' : 'Your browser does not support speech recognition');
       setTimeout(() => setVoiceError(null), 3000);
       return;
     }
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
     
-    recognition.lang = i18n.language === 'ar' ? 'ar-SA' : 'en-US';
+    recognition.lang = isRtl ? 'ar-SA' : 'en-US';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
       setIsListening(true);
-      setAiStatus(i18n.language === 'ar' ? 'جاري الاستماع...' : 'Listening...');
+      setAiStatus(isRtl ? 'جاري الاستماع... اترك الزر لتنفيذ البحث' : 'Listening... Release button to search');
+      soundService.play(SoundType.TAP_LIGHT);
+      if (navigator.vibrate) navigator.vibrate(50);
     };
 
     recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
       setSearchQuery(transcript);
-      setAiStatus(i18n.language === 'ar' ? 'جاري تحليل طلبك الصوتي...' : 'Analyzing your voice request...');
+      setAiStatus(isRtl ? 'جاري تحليل طلبك الصوتي...' : 'Analyzing your voice request...');
       
       try {
         const parsed = await processSmartVoice(transcript, i18n.language);
@@ -296,6 +307,10 @@ const Home: React.FC<HomeProps> = ({
           setDraftDescription(parsed.description);
           setShowDraftArea(true);
         }
+        // Automatically trigger search on successful voice capture if it's a hold-to-talk
+        if (transcript.length > 2) {
+           soundService.play(SoundType.SUCCESS);
+        }
       } catch (error) {
         handleAiError(error, 'Voice request parsing');
       } finally {
@@ -304,8 +319,9 @@ const Home: React.FC<HomeProps> = ({
     };
 
     recognition.onerror = (event: any) => {
+      if (event.error === 'no-speech') return;
       handleAiError(event.error, 'Speech recognition');
-      setVoiceError(i18n.language === 'ar' ? 'حدث خطأ أثناء التعرف على الصوت' : 'An error occurred during speech recognition');
+      setVoiceError(isRtl ? 'حدث خطأ أثناء التعرف على الصوت' : 'An error occurred during speech recognition');
       setTimeout(() => setVoiceError(null), 3000);
       setIsListening(false);
       setAiStatus('');
@@ -313,13 +329,11 @@ const Home: React.FC<HomeProps> = ({
 
     recognition.onend = () => {
       setIsListening(false);
-      if (aiStatus === (i18n.language === 'ar' ? 'جاري الاستماع...' : 'Listening...')) {
-        setAiStatus('');
-      }
+      setAiStatus('');
     };
 
     recognition.start();
-  }, [i18n.language, setSearchQuery, setDraftDescription, setShowDraftArea, setAiStatus, processSmartVoice]);
+  }, [isRtl, i18n.language, setSearchQuery, setDraftDescription, setShowDraftArea, setAiStatus]);
 
   const handleGenerateCopy = async () => {
     if (!searchQuery) return;
@@ -826,6 +840,7 @@ const Home: React.FC<HomeProps> = ({
           searchTerm={searchQuery}
           setSearchTerm={setSearchQuery}
           onVoiceSearch={handleVoiceInput}
+          onVoiceStop={stopVoiceRecording}
           onVisualSearch={() => setIsVisualSearchOpen(true)}
           isListening={isListening}
           onSearch={handleRequest}
@@ -1009,11 +1024,17 @@ const Home: React.FC<HomeProps> = ({
                   {/* Actions Tray */}
                   <div className="flex flex-1 md:flex-none items-center gap-1.5 md:gap-2 bg-brand-surface/50 backdrop-blur-xl p-1.5 md:p-2 rounded-xl md:rounded-2xl border border-brand-border/50">
                     <HapticButton
-                      onClick={handleVoiceInput}
-                      className="p-2.5 md:p-3 text-brand-text-muted hover:text-brand-teal hover:bg-brand-teal/10 rounded-lg md:rounded-xl transition-all"
-                      title={isRtl ? 'بحث صوتي' : 'Voice Search'}
+                      onPointerDown={handleVoiceInput}
+                      onPointerUp={stopVoiceRecording}
+                      onPointerLeave={stopVoiceRecording}
+                      className={`p-2.5 md:p-3 transition-all rounded-lg md:rounded-xl ${
+                        isListening 
+                          ? 'bg-red-500 text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]' 
+                          : 'text-brand-text-muted hover:text-brand-teal hover:bg-brand-teal/10'
+                      }`}
+                      title={isRtl ? 'اضغط مطولاً للتحدث' : 'Hold to Speak'}
                     >
-                      <Mic className="w-5 h-5 md:w-5.5 md:h-5.5" />
+                      <Mic className={`w-5 h-5 md:w-5.5 md:h-5.5 ${isListening ? 'scale-110' : ''}`} />
                     </HapticButton>
                     <div className="w-px h-5 md:h-6 bg-brand-border/50 mx-0.5 md:mx-1" />
                     <HapticButton

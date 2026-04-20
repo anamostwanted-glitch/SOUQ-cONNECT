@@ -10,6 +10,7 @@ interface MinimalUIProps {
   searchTerm: string;
   setSearchTerm: (val: string) => void;
   onVoiceSearch: () => void;
+  onVoiceStop?: () => void;
   onVisualSearch: () => void;
   isListening: boolean;
   onSearch: (e: React.FormEvent) => void;
@@ -27,6 +28,7 @@ export const MinimalUI: React.FC<MinimalUIProps> = ({
   searchTerm,
   setSearchTerm,
   onVoiceSearch,
+  onVoiceStop,
   onVisualSearch,
   isListening,
   onSearch,
@@ -92,7 +94,13 @@ export const MinimalUI: React.FC<MinimalUIProps> = ({
               dir={isRtl ? 'rtl' : 'ltr'}
             />
             <div className="flex items-center gap-2">
-              <HapticButton onClick={onVoiceSearch} className={`p-3 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-brand-text-muted hover:text-brand-primary'}`}>
+              <HapticButton 
+                onPointerDown={onVoiceSearch} 
+                onPointerUp={onVoiceStop}
+                onPointerLeave={onVoiceStop}
+                className={`p-3 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-brand-text-muted hover:text-brand-primary'}`}
+                title={isRtl ? 'اضغط مطولاً للتحدث' : 'Hold to Speak'}
+              >
                 <Mic size={24} />
               </HapticButton>
               <HapticButton onClick={onVisualSearch} className="p-3 text-brand-text-muted hover:text-brand-teal transition-colors">
