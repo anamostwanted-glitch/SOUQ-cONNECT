@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FluidSlider } from './FluidSlider';
 import { PredictiveMatchSection } from './PredictiveMatchSection';
-import { fetchMarketplaceItems, fetchMarketTrends, fetchSuppliers, searchMarketplaceAndSuppliers, fetchPredictiveMatches } from '../services/marketService';
+import { fetchMarketplaceItems, fetchMarketTrends, fetchSuppliers, searchMarketplaceAndSuppliers, fetchPredictiveMatches, trackInteraction } from '../services/marketService';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -363,6 +363,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
             const data = { id: itemSnap.id, ...itemSnap.data() } as MarketplaceItem;
             setSelectedItem(data);
             analytics.trackEvent('product_view', { productId: initialItemId, name: data.titleAr || data.titleEn || data.title });
+            if (profile?.uid) trackInteraction(profile.uid, initialItemId, 'view', { source: 'direct_link' });
           }
         } catch (error) {
           handleFirestoreError(error, OperationType.GET, `marketplace/${initialItemId}`, false);
@@ -502,12 +503,17 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     if (settings?.gridSettings) {
       if (settings.gridSettings.aiAutoPilot) {
         if (isMobile) {
+          // If full bleed is on, prefer 3 columns if enough items, else 2
+          if (settings.gridSettings.fullBleedMobile) {
+            return filteredItems.length > 3 ? 3 : 2;
+          }
           return filteredItems.length > 10 ? 2 : 1;
         } else {
           return windowWidth > 1400 ? 5 : windowWidth > 1024 ? 4 : 3;
         }
       }
-      return isMobile ? (settings.gridSettings.mobileCols || defaultMobileCols) : (settings.gridSettings.webCols || defaultWebCols);
+      const manualCols = isMobile ? (settings.gridSettings.mobileCols || defaultMobileCols) : (settings.gridSettings.webCols || defaultWebCols);
+      return manualCols;
     }
     return isMobile ? defaultMobileCols : defaultWebCols;
   }, [windowWidth, settings?.gridSettings, filteredItems.length]);
@@ -517,8 +523,16 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     return id ? categories.find(c => c.id === id) : null;
   }, [selectedNicheId, selectedSectorId, selectedHubId, categories]);
 
+  const isFullBleed = settings?.gridSettings?.fullBleedMobile && windowWidth < 768;
+  const immersionEffect = settings?.gridSettings?.immersionEffect || 'none';
+
   return (
-    <div className="min-h-screen bg-brand-background pb-32 overflow-x-hidden">
+    <div className={`min-h-screen pb-32 overflow-x-hidden ${
+      immersionEffect === 'glass' ? 'bg-brand-background/95 backdrop-blur-3xl' :
+      immersionEffect === 'depth' ? 'bg-[#0a0a0a]' :
+      immersionEffect === 'neural' ? 'bg-gradient-to-br from-brand-background via-brand-surface to-brand-background' :
+      'bg-brand-background'
+    }`}>
       <SEOHead 
         title={
           activeCategory 
@@ -720,7 +734,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
          </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4">
+      <div className={`max-w-7xl mx-auto ${isFullBleed ? 'px-0' : 'px-4'}`}>
         {/* Global Market Pulse Banner */}
         <AnimatePresence>
           {(greeting || nuance) && (
@@ -1086,7 +1100,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                       className="grid"
                       style={{ 
                         gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
-                        gap: typeof window !== 'undefined' && window.innerWidth < 768 ? '2px' : `${settings?.gridSettings?.gap || 16}px`
+                        gap: isFullBleed ? '1px' : (typeof window !== 'undefined' && window.innerWidth < 768 ? '2px' : `${settings?.gridSettings?.gap || 16}px`)
                       }}
                     >
                       {hubItems.map((item, idx) => (
@@ -1097,6 +1111,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                           onViewDetails={() => {
                             setSelectedItem(item);
                             analytics.trackEvent('product_view', { productId: item.id, name: item.titleAr || item.titleEn || item.title, tab: activeTab });
+                            if (profile?.uid) trackInteraction(profile.uid, item.id, 'view', { tab: activeTab });
                           }}
                           onViewProfile={onViewProfile}
                           isOwner={profile?.uid === item.sellerId}
@@ -1115,7 +1130,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                 className="grid"
                 style={{ 
                   gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
-                  gap: typeof window !== 'undefined' && window.innerWidth < 768 ? '2px' : `${settings?.gridSettings?.gap || 16}px`
+                  gap: isFullBleed ? '1px' : (typeof window !== 'undefined' && window.innerWidth < 768 ? '2px' : `${settings?.gridSettings?.gap || 16}px`)
                 }}
               >
                     {uniqueFilteredItems.map((item, idx) => (
@@ -1126,6 +1141,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                         onViewDetails={() => {
                           setSelectedItem(item);
                           analytics.trackEvent('product_view', { productId: item.id, name: item.titleAr || item.titleEn || item.title, tab: activeTab });
+                          if (profile?.uid) trackInteraction(profile.uid, item.id, 'view', { tab: activeTab });
                         }}
                         onViewProfile={onViewProfile}
                     isOwner={profile?.uid === item.sellerId}

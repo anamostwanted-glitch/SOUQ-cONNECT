@@ -409,6 +409,10 @@ export interface SiteSettings {
     webCols: number;
     gap: number;
     aiAutoPilot: boolean;
+    fullBleedMobile?: boolean;
+    marketplaceLayoutMode?: 'grid' | 'mosaic' | 'feed' | 'compact';
+    immersionEffect?: 'none' | 'glass' | 'depth' | 'neural';
+    performanceMode?: 'speed' | 'quality' | 'balanced';
   };
 
   // SEO & Meta Settings

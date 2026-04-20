@@ -9,6 +9,7 @@ import { ReportModal } from '../../../shared/components/ReportModal';
 import { auth, db } from '../../../core/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useGlobalMarket } from '../../../core/providers/GlobalMarketProvider';
+import { useSettings } from '../../../core/providers/SettingsProvider';
 
 interface ProductCardProps {
   item: MarketplaceItem;
@@ -63,9 +64,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const { i18n, t } = useTranslation();
   const { exchangeRate, currency } = useGlobalMarket();
+  const { settings } = useSettings();
   const isRtl = i18n.language === 'ar';
   const [showReportModal, setShowReportModal] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isFullBleed = settings?.gridSettings?.fullBleedMobile && windowWidth < 768;
+  const isSpeedMode = settings?.gridSettings?.performanceMode === 'speed';
 
   useEffect(() => {
     if (auth.currentUser) {
@@ -97,50 +109,32 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   return (
     <motion.div 
       layout
-      whileHover={{ y: -4 }}
-      className="relative flex flex-col overflow-hidden cursor-pointer group bg-brand-surface border-2 border-brand-border transition-colors hover:border-brand-primary"
+      whileHover={{ y: isFullBleed ? 0 : -4 }}
+      className={`relative flex flex-col overflow-hidden cursor-pointer group transition-all duration-300 ${
+        isFullBleed 
+          ? 'bg-black border-none' 
+          : 'bg-brand-surface border-2 border-brand-border hover:border-brand-primary'
+      }`}
       onClick={() => onViewDetails(item)}
     >
-      <div className="relative aspect-[4/5] overflow-hidden bg-brand-background">
+      <div className={`relative aspect-[4/5] overflow-hidden bg-brand-background`}>
         <BlurImage 
           src={mainImage} 
           alt={displayTitle} 
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" 
+          className={`w-full h-full object-cover transition-transform duration-1000 ${!isSpeedMode ? 'group-hover:scale-110' : ''}`} 
           referrerPolicy="no-referrer"
         />
         
-        {/* Badges Overlay - Desktop Only */}
-        <div className="absolute top-3 left-3 hidden md:flex flex-col gap-2 z-20">
+        {/* Badges Overlay - Always show certain badges in full bleed but minimal */}
+        <div className={`absolute ${isFullBleed ? 'top-2 left-2' : 'top-3 left-3'} ${isFullBleed ? 'flex' : 'hidden md:flex'} flex-col gap-1.5 z-20`}>
           {item.isVerifiedSupplier && (
             <motion.div 
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              className="bg-brand-primary text-white p-2 border border-white/20"
+              initial={isSpeedMode ? false : { scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className={`${isFullBleed ? 'bg-brand-primary p-1 rounded-sm' : 'bg-brand-primary text-white p-2 border border-white/20'}`}
               title={isRtl ? 'مورد موثق' : 'Verified Supplier'}
             >
-              <ShieldCheck size={14} />
-            </motion.div>
-          )}
-          {item.isHighQuality && (
-            <motion.div 
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="bg-amber-500 text-white p-2 border border-white/20"
-              title={isRtl ? 'جودة عالية' : 'High Quality'}
-            >
-              <Sparkles size={14} />
-            </motion.div>
-          )}
-          {item.isAuthenticPhoto && (
-            <motion.div 
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="bg-blue-600 text-white p-2 border border-white/20"
-              title={isRtl ? 'صورة حقيقية' : 'Authentic Photo'}
-            >
-              <Camera size={14} />
+              <ShieldCheck size={isFullBleed ? 12 : 14} className="text-white" />
             </motion.div>
           )}
         </div>
@@ -153,8 +147,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         )}
 
-        {/* Action Buttons Overlay */}
-        <div className="absolute bottom-3 right-3 flex items-center gap-2 z-20">
+        {/* Action Buttons Overlay - Desktop Only */}
+        <div className="absolute bottom-3 right-3 hidden md:flex items-center gap-2 z-20">
           <button
             onClick={handleShare}
             className="p-2 bg-white/20 backdrop-blur-md text-white border border-white/20 hover:bg-brand-primary transition-all rounded-lg opacity-0 group-hover:opacity-100"

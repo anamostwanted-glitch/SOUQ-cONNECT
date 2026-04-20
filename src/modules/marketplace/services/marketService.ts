@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, orderBy, limit, startAfter, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, startAfter, doc, updateDoc, arrayUnion, addDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
 import { MarketplaceItem, Category, MarketTrend, UserProfile } from '../../../core/types';
 import { callAiJson, handleAiError } from '../../../core/services/geminiService';
@@ -133,6 +133,22 @@ export const searchMarketplaceAndSuppliers = async (searchTerm: string): Promise
   return { products, suppliers };
 };
 
+export const trackInteraction = async (userId: string, targetId: string, type: 'view' | 'click' | 'search', metadata?: any) => {
+  if (!userId) return;
+  try {
+    const pulseRef = collection(db, 'neural_pulse');
+    await addDoc(pulseRef, {
+      userId,
+      targetId,
+      type,
+      metadata,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Pulse tracking failed:', error);
+  }
+};
+
 export const fetchPredictiveMatches = async (interests: string[], recentItems: string[], suppliers?: UserProfile[]): Promise<{ supplierId: string, reason: string, score: number }[]> => {
   try {
     // If suppliers aren't provided, fetch a sample
@@ -148,6 +164,7 @@ export const fetchPredictiveMatches = async (interests: string[], recentItems: s
 
     const result = await callAiJson(
       `Analyze user interests: ${JSON.stringify(interests)} and recent items: ${JSON.stringify(recentItems)}. 
+       These interests represent the "Neural Demand" of the user.
        Match them against these available suppliers: ${JSON.stringify(supplierContext)}.
        Suggest the top 3 matching suppliers.
        Return ONLY a JSON object with 'matches' array, where each match has 'supplierId', 'reason', and 'score' (0-100 indicating match strength).

@@ -8,7 +8,7 @@ import {
   updateDoc, arrayUnion, arrayRemove, increment, getDocs, documentId,
   addDoc, deleteDoc
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
 import { 
   ShoppingBag, Star, Heart, Share2, Search, 
   LayoutGrid, List, Sparkles, ShieldCheck,
@@ -17,7 +17,8 @@ import {
   Plus, Camera, Edit3, Save, X, Settings, 
   CheckCircle2, Info, ArrowLeft, MoreHorizontal,
   Mail, Link as LinkIcon, Facebook, Instagram, Twitter,
-  FileText, Bookmark, ExternalLink, Trash2, ImagePlus, Tag, Briefcase
+  FileText, Bookmark, ExternalLink, Trash2, ImagePlus, Tag, Briefcase,
+  RefreshCw
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { AICategorySelector } from '../../site/components/AICategorySelector';
@@ -90,6 +91,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
   const [isArchitectMode, setIsArchitectMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState<'logo' | 'cover' | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [hasChanges, setHasChanges] = useState(false);
   const [isGeneratingSEO, setIsGeneratingSEO] = useState(false);
   
@@ -486,38 +488,62 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
 
     try {
       setIsUploading(type);
+      setUploadProgress(0);
+      
       const compressedFile = await imageCompression(file, {
-        maxSizeMB: type === 'logo' ? 0.5 : 1,
-        maxWidthOrHeight: type === 'logo' ? 512 : 1200,
+        maxSizeMB: type === 'logo' ? 0.5 : 1.5,
+        maxWidthOrHeight: type === 'logo' ? 800 : 1920,
         useWebWorker: true
       });
 
       const storageRef = ref(storage, `users/${profile.uid}/${type}_${Date.now()}`);
-      await uploadBytes(storageRef, compressedFile);
-      const url = await getDownloadURL(storageRef);
-      
-      setEditData(prev => ({ ...prev, [`${type}Url`]: url }));
-      
-      if (!isArchitectMode) {
-        await updateDoc(doc(db, 'users', profile.uid), {
-          [`${type}Url`]: url,
-          updatedAt: new Date().toISOString()
-        });
-        
-        // Update public profile as well
-        await updateDoc(doc(db, 'users_public', profile.uid), {
-          [`${type}Url`]: url,
-          updatedAt: new Date().toISOString()
-        }).catch(err => {
-          console.error("Failed to update users_public:", err);
-        });
-        
-        toast.success(isRtl ? 'تم تحديث الصورة بنجاح' : 'Image updated successfully');
-      }
+      const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+
+      return new Promise<void>((resolve, reject) => {
+        uploadTask.on('state_changed', 
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setUploadProgress(progress);
+          }, 
+          (error) => {
+            handleFirestoreError(error, OperationType.WRITE, `users/${profile.uid}/${type}`, false);
+            toast.error(isRtl ? 'فشل رفع الصورة' : 'Failed to upload image');
+            setIsUploading(null);
+            reject(error);
+          }, 
+          async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            setEditData(prev => ({ ...prev, [`${type}Url`]: url }));
+            
+            if (!isArchitectMode) {
+              const updates: any = {
+                [`${type}Url`]: url,
+                updatedAt: new Date().toISOString()
+              };
+              
+              // Sync photoURL for Firebase Auth compatibility
+              if (type === 'logo') {
+                updates.photoURL = url;
+              }
+
+              await updateDoc(doc(db, 'users', profile.uid), updates);
+              
+              // Update public profile
+              await updateDoc(doc(db, 'users_public', profile.uid), {
+                [`${type}Url`]: url,
+                updatedAt: new Date().toISOString()
+              }).catch(err => console.error("users_public sync failed:", err));
+              
+              toast.success(isRtl ? 'تم التحديث بنجاح!' : 'Updated successfully!');
+            }
+            setIsUploading(null);
+            setUploadProgress(0);
+            resolve();
+          }
+        );
+      });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${profile.uid}/${type}`, false);
-      toast.error(isRtl ? 'فشل رفع الصورة' : 'Failed to upload image');
-    } finally {
+      console.error("Image upload error:", error);
       setIsUploading(null);
     }
   };
@@ -730,7 +756,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                 }`}
               >
                 <Zap size={12} className={isArchitectMode ? 'animate-pulse' : ''} />
-                {isArchitectMode ? (isRtl ? 'حفظ' : 'Save') : (isRtl ? 'تعديل' : 'Edit')}
+                {isArchitectMode ? (isRtl ? 'حفظ' : 'Save') : (isRtl ? 'تعديل الهوية' : 'Edit Identity')}
               </HapticButton>
             )}
             <HapticButton 
@@ -743,11 +769,28 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
           </div>
         </div>
 
-        {isArchitectMode && (
-          <label className="absolute bottom-6 right-6 p-3 bg-brand-primary text-white rounded-xl cursor-pointer shadow-lg hover:scale-110 transition-all z-20">
-            {isUploading === 'cover' ? <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full" /> : <Camera size={18} />}
-            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'cover')} />
-          </label>
+        {(isArchitectMode || isOwner || isAdmin) && (
+          <div className="absolute bottom-6 right-6 z-20 flex gap-2">
+             {isUploading === 'cover' && (
+                <div className="px-4 py-2 bg-black/50 backdrop-blur-md rounded-xl border border-white/10 flex items-center gap-3">
+                  <div className="w-24 h-1 bg-white/20 rounded-full overflow-hidden">
+                    <motion.div 
+                      className="h-full bg-brand-primary" 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-black text-white">{Math.round(uploadProgress)}%</span>
+                </div>
+              )}
+            <label className="p-3 bg-brand-primary text-white rounded-xl cursor-pointer shadow-lg hover:scale-110 transition-all group flex items-center gap-2">
+              {isUploading === 'cover' ? <RefreshCw size={18} className="animate-spin" /> : <Camera size={18} />}
+              <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                {isRtl ? 'تغيير الغلاف' : 'Change Cover'}
+              </span>
+              <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'cover')} disabled={isUploading !== null} />
+            </label>
+          </div>
         )}
       </div>
 
@@ -771,15 +814,38 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                 )}
                 
                 {isUploading === 'logo' && (
-                  <div className="absolute inset-0 bg-brand-surface/80 backdrop-blur-sm flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary" />
+                  <div className="absolute inset-0 bg-brand-surface/80 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+                    <div className="relative w-16 h-16 md:w-24 md:h-24">
+                      <svg className="w-full h-full transform -rotate-90">
+                        <circle
+                          cx="50%" cy="50%" r="45%"
+                          className="stroke-brand-border fill-none"
+                          strokeWidth="8"
+                        />
+                        <motion.circle
+                          cx="50%" cy="50%" r="45%"
+                          className="stroke-brand-primary fill-none"
+                          strokeWidth="8"
+                          strokeDasharray="100"
+                          initial={{ strokeDashoffset: 100 }}
+                          animate={{ strokeDashoffset: 100 - uploadProgress }}
+                          style={{ strokeLinecap: 'round' }}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-[10px] md:text-xs font-black text-brand-primary">{Math.round(uploadProgress)}%</span>
+                      </div>
+                    </div>
                   </div>
                 )}
                 
-                {isArchitectMode && (
-                  <label className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity backdrop-blur-sm">
+                {(isArchitectMode || isOwner || isAdmin) && (
+                  <label className={`absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white cursor-pointer transition-all backdrop-blur-sm ${isUploading === 'logo' ? 'opacity-0' : 'opacity-0 hover:opacity-100'}`}>
                     <Camera size={32} />
-                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} />
+                    <span className="text-[10px] md:text-xs font-black uppercase tracking-widest mt-2">
+                       {isRtl ? 'تغيير الشعار' : 'Change Logo'}
+                    </span>
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} disabled={isUploading !== null} />
                   </label>
                 )}
               </div>
