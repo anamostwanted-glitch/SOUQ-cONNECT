@@ -32,7 +32,7 @@ export const ConciergeConsent: React.FC<ConciergeConsentProps> = ({
             
             <button 
               onClick={onClose}
-              className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full transition-colors"
+              className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full transition-colors z-20"
             >
               <X size={18} />
             </button>

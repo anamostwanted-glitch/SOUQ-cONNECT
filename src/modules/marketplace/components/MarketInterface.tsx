@@ -318,6 +318,8 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                 duration: 2000,
                 className: "bg-brand-surface/90 backdrop-blur-xl border-brand-primary/20"
               });
+            }).catch(err => {
+              console.warn('Silent analytics fail:', err);
             });
           }
 

@@ -11,6 +11,7 @@ import { db, auth } from '../../../core/firebase';
 import { ProductRequest, UserProfile } from '../../../core/types';
 import { getUserImageUrl } from '../../../core/utils/imageUtils';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { OptimizedImage } from '../../../shared/components/OptimizedImage';
 
 interface UserRequestCardProps {
   request: ProductRequest;
@@ -215,7 +216,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
       <div className="flex gap-4">
         {request.imageUrl && (
           <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl overflow-hidden border border-brand-border shrink-0 shadow-sm">
-            <img src={request.imageUrl} alt={request.productName} className="w-full h-full object-cover" />
+            <OptimizedImage src={request.imageUrl} alt={request.productName} className="w-full h-full object-cover" />
           </div>
         )}
         <div className="flex-1 min-w-0 flex flex-col justify-center">
@@ -259,7 +260,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
                   className="snap-start flex-shrink-0 flex items-center gap-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/40 rounded-2xl p-2 pr-4 cursor-pointer hover:bg-white hover:shadow-md transition-all min-w-[180px]"
                 >
                   <div className="relative w-10 h-10 rounded-xl bg-brand-surface overflow-hidden flex-shrink-0 border border-brand-border">
-                    <img src={getUserImageUrl(supp)} alt={supp.name} className="w-full h-full object-cover" />
+                    <OptimizedImage src={getUserImageUrl(supp)} alt={supp.name} className="w-full h-full object-cover" />
                     <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white text-[8px] font-black px-1 py-0.5 rounded-tl-md">
                       {matchScore}%
                     </div>
@@ -328,7 +329,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
               
               {request.imageUrl && (
                 <div className="rounded-2xl overflow-hidden border border-brand-border bg-brand-surface">
-                  <img src={request.imageUrl} alt={request.productName} className="w-full h-48 object-cover" />
+                  <OptimizedImage src={request.imageUrl} alt={request.productName} className="w-full h-48 object-cover" />
                 </div>
               )}
 
@@ -351,11 +352,10 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
                           <div className="flex items-start justify-between gap-4 mb-3">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-xl overflow-hidden border border-brand-border shrink-0">
-                                <img 
+                                <OptimizedImage 
                                   src={getUserImageUrl(supp)} 
                                   alt={supp.name} 
                                   className="w-full h-full object-cover" 
-                                  referrerPolicy="no-referrer"
                                 />
                               </div>
                               <div className="min-w-0">

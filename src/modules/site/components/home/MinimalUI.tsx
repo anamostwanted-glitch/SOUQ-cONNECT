@@ -3,6 +3,10 @@ import { motion } from 'motion/react';
 import { Search, Mic, Camera, Sparkles, Zap, Package, ShoppingBag } from 'lucide-react';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { SiteSettings } from '../../../../core/types';
+import { AudioReactiveHalo } from './AudioReactiveHalo';
+import { FlubberBackground } from './FlubberBackground';
+import { MagneticWrapper } from '../../../../shared/components/MagneticWrapper';
+import { DataStreamBackground } from '../../../../shared/components/DataStreamBackground';
 
 interface MinimalUIProps {
   settings: SiteSettings | null;
@@ -19,6 +23,8 @@ interface MinimalUIProps {
   logoScale: number;
   nextAction?: any;
   onNavigate: (view: any) => void;
+  isThinking?: boolean;
+  isSuccess?: boolean;
   t: any;
 }
 
@@ -37,6 +43,8 @@ export const MinimalUI: React.FC<MinimalUIProps> = ({
   logoScale,
   nextAction,
   onNavigate,
+  isThinking = false,
+  isSuccess = false,
   t
 }) => {
   return (
@@ -45,13 +53,15 @@ export const MinimalUI: React.FC<MinimalUIProps> = ({
       animate={{ opacity: 1 }}
       className="relative z-10 max-w-4xl mx-auto px-4 min-h-[calc(100dvh-200px)] md:min-h-[calc(100vh-80px)] flex flex-col items-center justify-center py-12"
     >
+      <DataStreamBackground />
+
       {/* Background Gradients (Google-like) */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden -z-10">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-primary/5 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand-teal/5 rounded-full blur-[120px]" />
       </div>
 
-      {/* Logo Section */}
+          {/* Logo Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -61,16 +71,22 @@ export const MinimalUI: React.FC<MinimalUIProps> = ({
         >
           {/* Logo Image/Text */}
           <div 
-            className="relative z-10 transition-transform duration-300 group-hover:scale-105"
+            className="relative z-10 transition-transform duration-300 group-hover:scale-105 p-4 rounded-3xl bg-transparent scale-110"
             style={{ transform: `scale(${logoScale})` }}
           >
-            {/* Shimmer Sweep Effect over the logo itself */}
-            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 dark:via-white/20 to-transparent group-hover:animate-[shimmer_1.5s_infinite] skew-x-12 z-20 mix-blend-overlay pointer-events-none" />
+            {/* Flubber AI Liquid Background */}
+            <FlubberBackground settings={settings?.flubberSettings} isThinking={isThinking} />
+
+            {/* Audio Reactive Neural Halo */}
+            <AudioReactiveHalo settings={settings?.haloSettings} isThinking={isThinking} isSuccess={isSuccess} />
+
+            {/* Shimmer Sweep Effect over the logo itself - Made more subtle and transparent-safe */}
+            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 dark:via-white/5 to-transparent group-hover:animate-[shimmer_2s_infinite] skew-x-12 z-20 mix-blend-overlay pointer-events-none rounded-3xl" />
 
             {logoUrl ? (
-              <img src={logoUrl} alt="Logo" className="h-16 md:h-24 w-auto object-contain drop-shadow-2xl" referrerPolicy="no-referrer" />
+              <img src={logoUrl} alt="Logo" className="h-16 md:h-24 w-auto object-contain drop-shadow-2xl mix-blend-normal bg-transparent" referrerPolicy="no-referrer" />
             ) : (
-              <div className="flex items-center gap-3 text-brand-primary drop-shadow-2xl">
+              <div className="flex items-center gap-3 text-brand-primary drop-shadow-2xl bg-transparent">
                 <Sparkles size={48} strokeWidth={1.5} />
                 <span className="text-3xl font-black tracking-tighter">{siteName || 'Souq Connect'}</span>
               </div>
@@ -94,18 +110,23 @@ export const MinimalUI: React.FC<MinimalUIProps> = ({
               dir={isRtl ? 'rtl' : 'ltr'}
             />
             <div className="flex items-center gap-2">
-              <HapticButton 
-                onPointerDown={onVoiceSearch} 
-                onPointerUp={onVoiceStop}
-                onPointerLeave={onVoiceStop}
-                className={`p-3 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-brand-text-muted hover:text-brand-primary'}`}
-                title={isRtl ? 'اضغط مطولاً للتحدث' : 'Hold to Speak'}
-              >
-                <Mic size={24} />
-              </HapticButton>
-              <HapticButton onClick={onVisualSearch} className="p-3 text-brand-text-muted hover:text-brand-teal transition-colors">
-                <Camera size={24} />
-              </HapticButton>
+              <MagneticWrapper strength={10}>
+                <HapticButton 
+                  onPointerDown={onVoiceSearch} 
+                  onPointerUp={onVoiceStop}
+                  onPointerLeave={onVoiceStop}
+                  className={`p-3 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-brand-text-muted hover:text-brand-primary'}`}
+                  title={isRtl ? 'اضغط مطولاً للتحدث' : 'Hold to Speak'}
+                >
+                  <Mic size={24} />
+                </HapticButton>
+              </MagneticWrapper>
+              
+              <MagneticWrapper strength={10}>
+                <HapticButton onClick={onVisualSearch} className="p-3 text-brand-text-muted hover:text-brand-teal transition-colors">
+                  <Camera size={24} />
+                </HapticButton>
+              </MagneticWrapper>
             </div>
           </div>
         </div>
@@ -118,17 +139,19 @@ export const MinimalUI: React.FC<MinimalUIProps> = ({
           animate={{ opacity: 1, y: 0 }}
           className="flex justify-center"
         >
-          <HapticButton
-            onClick={() => {
-              if (nextAction.action === 'upload_product') onNavigate('dashboard');
-              if (nextAction.action === 'search_market') onNavigate('marketplace');
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-full text-sm font-medium hover:bg-brand-primary/20 transition-colors"
-          >
-            {nextAction.icon === 'Package' && <Package size={16} />}
-            {nextAction.icon === 'ShoppingBag' && <ShoppingBag size={16} />}
-            {t(nextAction.label)}
-          </HapticButton>
+          <MagneticWrapper strength={20}>
+            <HapticButton
+              onClick={() => {
+                if (nextAction.action === 'upload_product') onNavigate('dashboard');
+                if (nextAction.action === 'search_market') onNavigate('marketplace');
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-full text-sm font-medium hover:bg-brand-primary/20 transition-colors"
+            >
+              {nextAction.icon === 'Package' && <Package size={16} />}
+              {nextAction.icon === 'ShoppingBag' && <ShoppingBag size={16} />}
+              {t(nextAction.label)}
+            </HapticButton>
+          </MagneticWrapper>
         </motion.div>
       )}
     </motion.div>

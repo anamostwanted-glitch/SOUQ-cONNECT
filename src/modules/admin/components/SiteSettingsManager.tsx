@@ -19,6 +19,8 @@ import { RegistrationSettings } from './settings/RegistrationSettings';
 import { SocialProofSettings } from './settings/SocialProofSettings';
 import { FooterSettings } from './settings/FooterSettings';
 import { AISettings } from './settings/AISettings';
+import { NeuralHaloSettings } from './settings/NeuralHaloSettings';
+import { FlubberSettings } from './settings/FlubberSettings';
 import { LoadingCustomizer } from './LoadingCustomizer';
 
 export const SiteSettingsManager: React.FC = () => {
@@ -67,6 +69,26 @@ export const SiteSettingsManager: React.FC = () => {
     faviconUrl: '',
     socialProof: {
       enabled: true
+    },
+    haloSettings: {
+      enabled: true,
+      size: 1.0,
+      speed: 1.0,
+      sensitivity: 1.0,
+      glowStrength: 0.5,
+      particleCount: 50,
+      particleSize: 2,
+      pointGlow: 15
+    },
+    flubberSettings: {
+      enabled: true,
+      color: '#10b981',
+      opacity: 0.4,
+      blobCount: 4,
+      speed: 1.0,
+      scale: 1.0,
+      gooeyness: 30,
+      interactive: true
     },
     footerAboutAr: 'سوق كونكت هو المنصة الأولى المدعومة بالذكاء الاصطناعي للربط بين المؤسسات والموردين في الشرق الأوسط. نحن نبني مستقبل التجارة الذكية.',
     footerAboutEn: 'Connect is the first AI-powered platform connecting institutions and suppliers in the Middle East. We are building the future of smart commerce.',
@@ -241,7 +263,13 @@ export const SiteSettingsManager: React.FC = () => {
         {currentTab === 'settings-social' && <SocialProofSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'settings-registration' && <RegistrationSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'settings-footer' && <FooterSettings settings={settings} setSettings={setSettings} isRtl={isRtl} handleFileUpload={handleFileUpload} />}
-        {currentTab === 'settings-ai' && <AISettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
+        {currentTab === 'settings-ai' && (
+          <div className="space-y-6">
+            <AISettings settings={settings} setSettings={setSettings} isRtl={isRtl} />
+            <FlubberSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />
+            <NeuralHaloSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />
+          </div>
+        )}
         {currentTab === 'settings-loader' && <LoadingCustomizer />}
       </motion.div>
     </div>

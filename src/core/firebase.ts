@@ -30,15 +30,15 @@ export const db = getFirestore(app, databaseId);
 console.log(`Firestore initialized with database ID: ${databaseId}`);
 
 // Enable offline persistence
-/*
-enableMultiTabIndexedDbPersistence(db).catch((err) => {
-  if (err.code === 'failed-precondition') {
-    console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-  } else if (err.code === 'unimplemented') {
-    console.warn('The current browser does not support all of the features required to enable persistence');
-  }
-});
-*/
+if (typeof window !== 'undefined') {
+  enableMultiTabIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+    } else if (err.code === 'unimplemented') {
+      console.warn('The current browser does not support all of the features required to enable persistence');
+    }
+  });
+}
 
 export const storage = getStorage(app);
 export { firebaseConfig };

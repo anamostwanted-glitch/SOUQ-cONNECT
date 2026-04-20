@@ -31,6 +31,7 @@ import { handleFirestoreError, OperationType } from '../../../core/utils/errorHa
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { ProductDetailsModal } from '../../../shared/components/ProductDetailsModal';
+import { OptimizedImage } from '../../../shared/components/OptimizedImage';
 
 interface MarketplaceManagerProps {
   isRtl: boolean;
@@ -186,11 +187,10 @@ export const MarketplaceManager: React.FC<MarketplaceManagerProps> = ({ isRtl })
                 {/* Image Preview */}
                 <div className="aspect-video relative overflow-hidden bg-brand-background">
                   {item.images?.[0] ? (
-                    <img 
+                    <OptimizedImage 
                       src={item.images[0]} 
                       alt={item.title} 
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      referrerPolicy="no-referrer"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-brand-text-muted/20">

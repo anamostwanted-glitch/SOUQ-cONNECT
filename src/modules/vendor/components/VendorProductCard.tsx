@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { MarketplaceItem, AdAnalytics } from '../../../core/types';
-import { BlurImage } from '../../../shared/components/BlurImage';
+import { OptimizedImage } from '../../../shared/components/OptimizedImage';
 import { Eye, MousePointer, Edit2, Trash2, RotateCcw, TrendingUp, Zap, Sparkles, MoreVertical, ExternalLink } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -56,7 +56,7 @@ export const VendorProductCard: React.FC<VendorProductCardProps> = ({
         className={`${glassClass} p-4 rounded-3xl flex items-center gap-4 group hover:border-brand-primary/30 transition-all shadow-md hover:shadow-xl`}
       >
         <div className="relative w-20 h-24 shrink-0 overflow-hidden rounded-2xl">
-          <BlurImage src={mainImage} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+          <OptimizedImage src={mainImage} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
           {item.status !== 'active' && (
             <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center">
               <span className="text-[8px] font-black text-white uppercase tracking-tighter">{isRtl ? 'غير نشط' : 'Inactive'}</span>
@@ -106,7 +106,7 @@ export const VendorProductCard: React.FC<VendorProductCardProps> = ({
       <div className="relative p-0 flex flex-col">
         {/* Image & Status Badge - 4:5 Aspect Ratio */}
         <div className="relative aspect-[4/5] overflow-hidden bg-brand-background/50">
-          <BlurImage src={mainImage} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+          <OptimizedImage src={mainImage} alt={item.title} aspectRatio="aspect-[4/5]" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
           
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-10">
             <Badge className={`${item.status === 'active' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'} border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-xl shadow-lg`}>

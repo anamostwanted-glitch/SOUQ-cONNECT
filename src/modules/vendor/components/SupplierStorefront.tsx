@@ -17,6 +17,7 @@ import { Card, CardContent } from "../../../shared/components/ui/card";
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { NeuralImmersiveFlow } from './NeuralImmersiveFlow';
+import { OptimizedImage } from '../../../shared/components/OptimizedImage';
 
 interface SupplierStorefrontProps {
   supplier: UserProfile;
@@ -139,7 +140,7 @@ export const SupplierStorefront: React.FC<SupplierStorefrontProps> = ({ supplier
             <div className="absolute inset-0 bg-brand-primary/20 blur-2xl rounded-full scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-[2.5rem] p-1 bg-gradient-to-tr from-brand-primary via-brand-warning to-brand-primary animate-gradient-xy">
               <div className="w-full h-full rounded-[2.2rem] bg-brand-surface overflow-hidden border-4 border-brand-surface">
-                <img 
+                <OptimizedImage 
                   src={supplier.logoUrl || 'https://picsum.photos/seed/logo/200/200'} 
                   alt={supplier.companyName} 
                   className="w-full h-full object-cover"
@@ -330,7 +331,7 @@ export const SupplierStorefront: React.FC<SupplierStorefrontProps> = ({ supplier
                   onClick={() => onViewProduct(product)}
                 >
                   <div className={`relative overflow-hidden ${viewMode === 'list' ? 'w-48 shrink-0' : 'aspect-square'}`}>
-                    <img 
+                    <OptimizedImage 
                       src={product.images?.[0] || 'https://picsum.photos/seed/product/400/400'} 
                       alt={product.title}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"

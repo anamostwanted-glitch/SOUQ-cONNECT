@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { Product } from "../../types";
+import { OptimizedImage } from "../../shared/components/OptimizedImage";
 
 interface ProductCardProps {
   product: Product;
@@ -15,11 +16,11 @@ export const ProductCard = ({ product, onClick }: ProductCardProps) => {
       whileHover={{ scale: 0.98 }}
       whileTap={{ scale: 0.95 }}
     >
-      <img
+      <OptimizedImage
         src={product.imageUrl}
         alt={product.name}
         className="w-full h-full object-cover"
-        referrerPolicy="no-referrer"
+        aspectRatio="3/4"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
     </motion.div>

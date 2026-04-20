@@ -117,8 +117,8 @@ export const PredictiveMatchSection: React.FC<PredictiveMatchSectionProps> = ({ 
                      {isRtl ? 'تخصصات متوافقة' : 'Matching Specializations'}
                    </p>
                    <div className="flex flex-wrap gap-2">
-                      {(supplier.keywords?.slice(0, 3) || supplier.categories?.slice(0, 3) || []).map((tag: string) => (
-                        <span key={tag} className="px-3 py-1 rounded-lg bg-brand-teal/5 text-brand-teal text-[9px] font-black uppercase tracking-tighter border border-brand-teal/10">
+                      {(supplier.keywords?.slice(0, 3) || supplier.categories?.slice(0, 3) || []).map((tag: string, tIdx: number) => (
+                        <span key={`${tag}-${tIdx}`} className="px-3 py-1 rounded-lg bg-brand-teal/5 text-brand-teal text-[9px] font-black uppercase tracking-tighter border border-brand-teal/10">
                           {tag}
                         </span>
                       ))}

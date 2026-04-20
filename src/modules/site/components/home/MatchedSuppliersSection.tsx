@@ -4,6 +4,7 @@ import { Sparkles as SparklesIcon, Building2, ArrowRight, Zap, Target, Star } fr
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { UserProfile } from '../../../../core/types';
 import { getUserImageUrl } from '../../../../core/utils/imageUtils';
+import { OptimizedImage } from '../../../../shared/components/OptimizedImage';
 
 interface MatchedSuppliersSectionProps {
   matchedSuppliers: UserProfile[];
@@ -48,13 +49,13 @@ export const MatchedSuppliersSection: React.FC<MatchedSuppliersSectionProps> = (
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {matchedSuppliers.map((supplier) => {
+        {matchedSuppliers.map((supplier, sIdx) => {
           const meta = matchMetadata[supplier.uid];
           const hasScore = meta && meta.score !== undefined;
           
           return (
             <motion.div
-              key={supplier.uid}
+              key={`match-${supplier.uid}-${sIdx}`}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -87,11 +88,11 @@ export const MatchedSuppliersSection: React.FC<MatchedSuppliersSectionProps> = (
                 <div className="relative mb-6">
                   <div className="absolute inset-0 bg-brand-primary/20 blur-xl rounded-full scale-110 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                   <div className="w-24 h-24 rounded-[2rem] bg-brand-surface border-2 border-white dark:border-slate-800 shadow-2xl relative z-10 overflow-hidden group-hover:scale-105 transition-transform duration-500 ring-4 ring-brand-primary/5">
-                    <img 
+                    <OptimizedImage 
                       src={getUserImageUrl(supplier)} 
                       alt={supplier.companyName || supplier.name} 
+                      aspectRatio="aspect-square"
                       className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
                     />
                   </div>
                 </div>
@@ -114,8 +115,8 @@ export const MatchedSuppliersSection: React.FC<MatchedSuppliersSectionProps> = (
                         { label: isRtl ? 'الثقة' : 'Trust', value: meta.vectors.consistency, color: 'from-emerald-400 to-emerald-600' },
                         { label: isRtl ? 'القدرة' : 'Capacity', value: meta.vectors.capacity, color: 'from-brand-teal to-brand-teal-dark' },
                         { label: isRtl ? 'اللوجستية' : 'Velocity', value: meta.vectors.logistics, color: 'from-amber-400 to-amber-600' },
-                      ].map((vector, idx) => (
-                        <div key={vector.label} className="space-y-1">
+                      ].map((vector, vIdx) => (
+                        <div key={`vector-${supplier.uid}-${vector.label}-${vIdx}`} className="space-y-1">
                           <div className="flex justify-between items-center px-0.5">
                             <span className="text-[7px] font-black text-brand-text-muted uppercase tracking-wider">{vector.label}</span>
                             <span className="text-[8px] font-black text-brand-text-main">{vector.value}%</span>
@@ -124,7 +125,7 @@ export const MatchedSuppliersSection: React.FC<MatchedSuppliersSectionProps> = (
                             <motion.div 
                               initial={{ width: 0 }}
                               whileInView={{ width: `${vector.value}%` }}
-                              transition={{ duration: 1, delay: idx * 0.1 }}
+                              transition={{ duration: 1, delay: vIdx * 0.1 }}
                               className={`h-full bg-gradient-to-r ${vector.color}`} 
                             />
                           </div>

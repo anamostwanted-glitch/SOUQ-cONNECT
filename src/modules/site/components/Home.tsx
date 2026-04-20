@@ -53,7 +53,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { notifyMatchingSuppliers } from '../../../core/services/notificationService';
-
+import { OptimizedImage } from '../../../shared/components/OptimizedImage';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
 
@@ -66,9 +66,13 @@ interface HomeProps {
   uiStyle?: 'classic' | 'minimal';
 }
 
+import { AudioReactiveHalo } from './home/AudioReactiveHalo';
+import { FlubberBackground } from './home/FlubberBackground';
 import { useAuth } from '../../../core/providers/AuthProvider';
 import { useSettings } from '../../../core/providers/SettingsProvider';
 import { useCategories } from '../../../core/providers/CategoryProvider';
+import { DataStreamBackground } from '../../../shared/components/DataStreamBackground';
+import { MagneticWrapper } from '../../../shared/components/MagneticWrapper';
 
 const Home: React.FC<HomeProps> = ({ 
   onNavigate, 
@@ -832,6 +836,7 @@ const Home: React.FC<HomeProps> = ({
         title={isRtl ? 'الرئيسية' : 'Home'} 
         description={isRtl ? 'المنصة العصبية للتجارة بين الشركات - سوق كونيكت' : 'Neural Hub for B2B - Souq Connect'}
       />
+      <DataStreamBackground />
       {/* Minimal UI Mode */}
       {uiStyle === 'minimal' && effectiveRole !== 'admin' ? (
         <MinimalUI 
@@ -849,6 +854,8 @@ const Home: React.FC<HomeProps> = ({
           logoScale={logoScale}
           nextAction={nextAction}
           onNavigate={onNavigate}
+          isThinking={loading || isMatching || isGeneratingCopy || isEnhancingImage}
+          isSuccess={success}
           t={t}
         />
       ) : (
@@ -891,54 +898,59 @@ const Home: React.FC<HomeProps> = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
               >
-                {/* Brand Logo Section */}
-              <div className="flex justify-center mb-12 relative group">
-                
-                {/* Logo Container with Scale */}
-                <div 
-                  className="relative z-10 transition-all duration-700 ease-[0.23,1,0.32,1] group-hover:scale-110"
-                  style={{ 
-                    transform: `scale(${logoScale})`,
-                    filter: 'drop-shadow(0 20px 50px rgba(0,0,0,0.2)) drop-shadow(0 10px 15px rgba(0,0,0,0.1))'
-                  }}
-                >
-                  {logoUrl ? (
-                    <div className="relative group/logo">
-                      {/* High-End Glass Reflection Overlay */}
-                      <div className="absolute inset-0 opacity-0 group-hover/logo:opacity-100 transition-opacity duration-1000 z-20 pointer-events-none overflow-hidden rounded-xl">
-                        <motion.div 
-                          animate={{ 
-                            left: ['-100%', '200%'],
-                            top: ['-100%', '200%']
-                          }}
-                          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", repeatDelay: 1 }}
-                          className="absolute w-full h-[200%] bg-gradient-to-br from-transparent via-white/40 to-transparent -rotate-45"
-                        />
-                      </div>
+                {/* Brand Logo Section - With Magnetic Effect */}
+              <div className="hidden md:flex justify-center mb-12 relative group">
+                <MagneticWrapper strength={25}>
+                  {/* Logo Container with Scale */}
+                  <div 
+                    className="relative z-10 transition-all duration-700 ease-[0.23,1,0.32,1] group-hover:scale-110"
+                    style={{ 
+                      transform: `scale(${logoScale})`,
+                      filter: 'drop-shadow(0 20px 50px rgba(0,0,0,0.2)) drop-shadow(0 10px 15px rgba(0,0,0,0.1))'
+                    }}
+                  >
+                    {logoUrl ? (
+                      <div className="relative group/logo p-4 rounded-3xl bg-transparent scale-110">
+                        {/* Flubber AI Liquid Background */}
+                        <FlubberBackground settings={settings?.flubberSettings} isThinking={loading || isMatching || isGeneratingCopy || isEnhancingImage} />
 
-                      <img 
-                        src={logoUrl} 
-                        alt={siteName || "Logo"} 
-                        className="h-24 md:h-32 w-auto object-contain relative z-10"
-                        style={{ 
-                          imageRendering: 'auto' as any,
-                          WebkitPrintColorAdjust: 'exact'
-                        } as any}
-                        referrerPolicy="no-referrer"
-                      />
-                      
-                      {/* Subtle Inner Glow for HD look */}
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-white/5 to-transparent opacity-0 group-hover/logo:opacity-100 transition-opacity duration-500 z-15" />
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-4 text-brand-primary drop-shadow-2xl">
-                      <SparklesIcon size={72} strokeWidth={1} className="animate-pulse" />
-                      <span className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-br from-brand-primary to-brand-teal">
-                        {siteName || 'DEIF'}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                        {/* Audio Reactive Neural Halo */}
+                        <AudioReactiveHalo 
+                          settings={settings.haloSettings} 
+                          isThinking={loading || isMatching || isGeneratingCopy || isEnhancingImage}
+                          isSuccess={success}
+                        />
+
+                        {/* Subtler Logo Glow */}
+                        <div className="absolute inset-0 bg-brand-primary/10 rounded-full blur-[40px] opacity-0 group-hover/logo:opacity-100 transition-opacity duration-700" />
+                        
+                        <OptimizedImage 
+                          src={logoUrl} 
+                          alt={siteName || "Logo"} 
+                          className="h-24 md:h-32 w-auto object-contain relative z-10 bg-transparent mix-blend-normal"
+                          aspectRatio="aspect-auto"
+                          containerClassName="!bg-transparent"
+                        />
+                        
+                        {/* Very subtle shimmer sweep - significantly lowered opacity and refined */}
+                        <div className="absolute inset-0 z-20 overflow-hidden pointer-events-none rounded-3xl opacity-0 group-hover/logo:opacity-100 transition-opacity duration-500">
+                          <motion.div 
+                            animate={{ left: ['-100%', '200%'] }}
+                            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", repeatDelay: 2 }}
+                            className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-4 text-brand-primary drop-shadow-2xl">
+                        <SparklesIcon size={72} strokeWidth={1} className="animate-pulse" />
+                        <span className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-br from-brand-primary to-brand-teal">
+                          {siteName || 'DEIF'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </MagneticWrapper>
               </div>
             
             <h1 className="text-4xl md:text-7xl lg:text-8xl font-black mb-8 tracking-tight leading-[1.1] md:leading-[1.05]" style={{ color: 'var(--primary-text)' }}>
@@ -1003,7 +1015,7 @@ const Home: React.FC<HomeProps> = ({
                   <input
                     id="search-input"
                     type="text"
-                    value={searchQuery}
+                    value={searchQuery || ''}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleRequest(e as any)}
                     placeholder={isRtl ? (searchPlaceholderAr || 'ماذا تريد أن تطلب اليوم؟') : (searchPlaceholderEn || 'What do you want to request today?')}
@@ -1023,27 +1035,31 @@ const Home: React.FC<HomeProps> = ({
                 <div className="flex items-center gap-2 w-full md:w-auto px-2 md:px-0">
                   {/* Actions Tray */}
                   <div className="flex flex-1 md:flex-none items-center gap-1.5 md:gap-2 bg-brand-surface/50 backdrop-blur-xl p-1.5 md:p-2 rounded-xl md:rounded-2xl border border-brand-border/50">
-                    <HapticButton
-                      onPointerDown={handleVoiceInput}
-                      onPointerUp={stopVoiceRecording}
-                      onPointerLeave={stopVoiceRecording}
-                      className={`p-2.5 md:p-3 transition-all rounded-lg md:rounded-xl ${
-                        isListening 
-                          ? 'bg-red-500 text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]' 
-                          : 'text-brand-text-muted hover:text-brand-teal hover:bg-brand-teal/10'
-                      }`}
-                      title={isRtl ? 'اضغط مطولاً للتحدث' : 'Hold to Speak'}
-                    >
-                      <Mic className={`w-5 h-5 md:w-5.5 md:h-5.5 ${isListening ? 'scale-110' : ''}`} />
-                    </HapticButton>
+                    <MagneticWrapper strength={8}>
+                      <HapticButton
+                        onPointerDown={handleVoiceInput}
+                        onPointerUp={stopVoiceRecording}
+                        onPointerLeave={stopVoiceRecording}
+                        className={`p-2.5 md:p-3 transition-all rounded-lg md:rounded-xl ${
+                          isListening 
+                            ? 'bg-red-500 text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]' 
+                            : 'text-brand-text-muted hover:text-brand-teal hover:bg-brand-teal/10'
+                        }`}
+                        title={isRtl ? 'اضغط مطولاً للتحدث' : 'Hold to Speak'}
+                      >
+                        <Mic className={`w-5 h-5 md:w-5.5 md:h-5.5 ${isListening ? 'scale-110' : ''}`} />
+                      </HapticButton>
+                    </MagneticWrapper>
                     <div className="w-px h-5 md:h-6 bg-brand-border/50 mx-0.5 md:mx-1" />
-                    <HapticButton
-                      onClick={() => setIsVisualSearchOpen(true)}
-                      className="p-2.5 md:p-3 text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg md:rounded-xl transition-all"
-                      title={isRtl ? 'بحث بصري' : 'Visual Search'}
-                    >
-                      <Camera className="w-5 h-5 md:w-5.5 md:h-5.5" />
-                    </HapticButton>
+                    <MagneticWrapper strength={8}>
+                      <HapticButton
+                        onClick={() => setIsVisualSearchOpen(true)}
+                        className="p-2.5 md:p-3 text-brand-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg md:rounded-xl transition-all"
+                        title={isRtl ? 'بحث بصري' : 'Visual Search'}
+                      >
+                        <Camera className="w-5 h-5 md:w-5.5 md:h-5.5" />
+                      </HapticButton>
+                    </MagneticWrapper>
                     <div className="w-px h-5 md:h-6 bg-brand-border/50 mx-0.5 md:mx-1" />
                     <HapticButton
                       onClick={handleDraftRequest}
@@ -1055,14 +1071,16 @@ const Home: React.FC<HomeProps> = ({
                     </HapticButton>
                   </div>
 
-                  <HapticButton
-                    onClick={(e) => handleRequest(e as any)}
-                    disabled={!searchQuery || loading}
-                    className="flex-1 md:flex-none bg-gradient-to-r from-brand-primary to-brand-teal text-white px-5 md:px-10 py-3.5 md:py-5 rounded-xl md:rounded-[2rem] font-black text-base md:text-lg shadow-xl shadow-brand-primary/20 hover:shadow-2xl hover:shadow-brand-primary/30 transition-all hover:-translate-y-1 flex items-center justify-center gap-2 md:gap-3 disabled:opacity-70"
-                  >
-                    {loading ? <Loader2 className="w-5 h-5 md:w-6 md:h-6 animate-spin" /> : <ArrowRight className={`w-5 h-5 md:w-6 md:h-6 ${isRtl ? 'rotate-180' : ''}`} />}
-                    <span className="md:inline">{isRtl ? (ctaButtonAr || 'اطلب') : (ctaButtonEn || 'Request')}</span>
-                  </HapticButton>
+                  <MagneticWrapper strength={15}>
+                    <HapticButton
+                      onClick={(e) => handleRequest(e as any)}
+                      disabled={!searchQuery || loading}
+                      className="flex-1 md:flex-none bg-gradient-to-r from-brand-primary to-brand-teal text-white px-5 md:px-10 py-3.5 md:py-5 rounded-xl md:rounded-[2rem] font-black text-base md:text-lg shadow-xl shadow-brand-primary/20 hover:shadow-2xl hover:shadow-brand-primary/30 transition-all hover:-translate-y-1 flex items-center justify-center gap-2 md:gap-3 disabled:opacity-70"
+                    >
+                      {loading ? <Loader2 className="w-5 h-5 md:w-6 md:h-6 animate-spin" /> : <ArrowRight className={`w-5 h-5 md:w-6 md:h-6 ${isRtl ? 'rotate-180' : ''}`} />}
+                      <span className="md:inline">{isRtl ? (ctaButtonAr || 'اطلب') : (ctaButtonEn || 'Request')}</span>
+                    </HapticButton>
+                  </MagneticWrapper>
                 </div>
               </div>
             </div>
@@ -1126,9 +1144,10 @@ const Home: React.FC<HomeProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 {imagePreview && (
                   <div className="md:col-span-3 relative group">
-                    <img 
+                    <OptimizedImage 
                       src={imagePreview} 
                       alt="Preview" 
+                      aspectRatio="aspect-square"
                       className="w-full aspect-square object-cover rounded-[2rem] border-4 border-white shadow-xl" 
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-[2rem] flex flex-col items-center justify-center gap-2">
@@ -1226,7 +1245,7 @@ const Home: React.FC<HomeProps> = ({
                       )}
 
                       <textarea
-                        value={draftDescription}
+                        value={draftDescription || ''}
                         onChange={(e) => setDraftDescription(e.target.value)}
                         className="w-full bg-transparent border-none focus:ring-0 text-brand-text-muted text-lg leading-relaxed resize-none p-0 min-h-[120px]"
                         placeholder={isRtl ? 'أضف مزيداً من التفاصيل...' : 'Add more details...'}
@@ -1398,6 +1417,7 @@ const Home: React.FC<HomeProps> = ({
           setHasSeenConcierge(true);
         }}
         onAccept={() => {
+          setShowConciergeTrigger(false);
           setShowConciergeConfirm(true);
           setHasSeenConcierge(true);
         }}

@@ -309,7 +309,9 @@ export default function App() {
     <ImmuneSystemProvider>
       <div className="min-h-screen relative">
         <Toaster position="top-center" richColors />
-        <NeuralPulseIndicator />
+        <div className="hidden md:block">
+          <NeuralPulseIndicator />
+        </div>
         
         <NotificationCenter 
         isOpen={isNotificationsOpen} 

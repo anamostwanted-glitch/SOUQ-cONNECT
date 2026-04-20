@@ -13,6 +13,7 @@ import {
   Building2
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { OptimizedImage } from '../../../shared/components/OptimizedImage';
 
 interface SupplierPulseSlabProps {
   supplier: UserProfile;
@@ -45,21 +46,19 @@ export const SupplierPulseSlab: React.FC<SupplierPulseSlabProps> = ({
         {/* Left/Right Accent: Cover Image with Parallax feel */}
         <div className="relative w-full md:w-48 lg:w-64 h-32 md:h-auto overflow-hidden shrink-0">
           <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/20 to-brand-teal/20" />
-          <img 
+          <OptimizedImage 
             src={supplier.coverUrl || `https://picsum.photos/seed/${supplier.uid}_cover/400/300`}
             alt=""
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-60 group-hover:opacity-100"
-            referrerPolicy="no-referrer"
           />
           {/* Logo Overlay */}
           <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
             <div className="w-20 h-20 rounded-full bg-white dark:bg-slate-800 p-1 shadow-2xl border-2 border-white/50">
               {supplier.logoUrl && profile ? (
-                <img 
+                <OptimizedImage 
                   src={supplier.logoUrl} 
                   alt={supplier.companyName}
                   className="w-full h-full object-contain rounded-full"
-                  referrerPolicy="no-referrer"
                 />
               ) : (
                 <div className="w-full h-full rounded-full bg-brand-primary/10 flex items-center justify-center">

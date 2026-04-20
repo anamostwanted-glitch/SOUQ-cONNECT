@@ -46,7 +46,7 @@ import {
 import { db, auth } from '../../core/firebase';
 import { handleFirestoreError, OperationType, handleAiError } from '../../core/utils/errorHandling';
 import { soundService, SoundType } from '../../core/utils/soundService';
-import { BlurImage } from './BlurImage';
+import { OptimizedImage } from './OptimizedImage';
 import { HapticButton } from './HapticButton';
 import { WhatsAppButton } from './WhatsAppButton';
 import { ReportModal } from './ReportModal';
@@ -351,15 +351,18 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                     }}
                     className="w-full h-full cursor-grab active:cursor-grabbing"
                   >
-                    <motion.img 
-                      src={item.images[currentImageIndex]} 
-                      alt={displayTitle}
+                    <motion.div
                       initial={{ opacity: 0, scale: 1.1 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
-                      className="w-full h-full object-cover pointer-events-none"
-                      referrerPolicy="no-referrer"
-                    />
+                      className="w-full h-full"
+                    >
+                      <OptimizedImage 
+                        src={item.images[currentImageIndex]} 
+                        alt={displayTitle || ''}
+                        className="w-full h-full object-cover pointer-events-none"
+                      />
+                    </motion.div>
                   </motion.div>
                 </AnimatePresence>
               </div>

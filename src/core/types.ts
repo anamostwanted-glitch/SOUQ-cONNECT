@@ -437,6 +437,32 @@ export interface SiteSettings {
 
   // Master AI Controls
   smartAssistantEnabled?: boolean;
+
+  // Neural Halo Settings (Futuristic AI UI)
+  haloSettings?: {
+    enabled: boolean;
+    size: number; // 0.5 to 2.0
+    speed: number; // 0.1 to 3.0
+    sensitivity: number; // 0.1 to 5.0 (for audio reactive)
+    primaryColor?: string;
+    secondaryColor?: string;
+    glowStrength: number; // 0 to 1
+    particleCount: number; // 10 to 100
+    particleSize: number; // 1 to 10
+    pointGlow: number; // 0 to 40
+  };
+
+  // Flubber AI Liquid Settings (Futuristic Organic UI)
+  flubberSettings?: {
+    enabled: boolean;
+    color: string;
+    opacity: number; // 0 to 1
+    blobCount: number; // 2 to 10
+    speed: number; // 0.1 to 5.0
+    scale: number; // 0.5 to 3.0
+    gooeyness: number; // 10 to 50
+    interactive: boolean;
+  };
 }
 
 export interface SliderItem {

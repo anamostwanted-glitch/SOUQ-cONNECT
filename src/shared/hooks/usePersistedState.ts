@@ -5,7 +5,9 @@ export function usePersistedState<T>(key: string, initialValue: T) {
   const [state, setState] = useState<T>(() => {
     try {
       const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      if (!item) return initialValue;
+      const parsed = JSON.parse(item);
+      return (parsed === null || parsed === undefined) ? initialValue : parsed;
     } catch (error) {
       handleAiError(error, `usePersistedState:get:${key}`, false);
       return initialValue;

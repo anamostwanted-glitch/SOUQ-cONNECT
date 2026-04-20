@@ -21,7 +21,11 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const snapshot = await getDocs(collection(db, 'categories'));
       const allCats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
-      setCategories(allCats.filter(c => c.status === 'active' || !c.status));
+      
+      // Deduplicate categories by ID to prevent "Duplicate Key" errors in UI
+      const uniqueCats = Array.from(new Map(allCats.map(cat => [cat.id, cat])).values());
+      
+      setCategories(uniqueCats.filter(c => c.status === 'active' || !c.status));
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, 'categories');
     } finally {

@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { doc, updateDoc, collection, onSnapshot, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { multiFactor } from 'firebase/auth';
 import { handleFirestoreError, OperationType, handleAiError } from '../../../core/utils/errorHandling';
 import { db, auth, storage } from '../../../core/firebase';
 import { UserProfile, Category } from '../../../core/types';
@@ -46,6 +47,9 @@ import { UserBrandingSettings } from './UserBrandingSettings';
 import { Badge } from '../../../shared/components/ui/badge';
 import { AICategorySelector } from '../../site/components/AICategorySelector';
 import { AddCategoryModal } from '../../../shared/components/AddCategoryModal';
+import { OptimizedImage } from '../../../shared/components/OptimizedImage';
+import { MFAEnrollmentModal } from './MFAEnrollmentModal';
+import { MultiFactorService } from '../../../core/services/MultiFactorService';
 
 interface ProfileSettingsProps {
   profile: UserProfile;
@@ -93,6 +97,9 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [showMfaModal, setShowMfaModal] = useState(false);
+  const [isUnenrollingMfa, setIsUnenrollingMfa] = useState(false);
+  const isMfaEnabled = auth.currentUser ? multiFactor(auth.currentUser).enrolledFactors.length > 0 : false;
 
   const glassClass = "bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/40 dark:border-slate-700/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]";
   const bentoCardClass = `${glassClass} rounded-[2.5rem] p-8 md:p-10 transition-all duration-500 hover:shadow-2xl hover:scale-[1.01] border-2 border-transparent hover:border-brand-primary/20`;
@@ -228,6 +235,23 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
     }
   };
 
+  const handleUnenrollMfa = async () => {
+    if (!auth.currentUser) return;
+    setIsUnenrollingMfa(true);
+    try {
+      const factorUid = multiFactor(auth.currentUser).enrolledFactors[0]?.uid;
+      if (factorUid) {
+        await MultiFactorService.unenroll(auth.currentUser, factorUid);
+        toast.success(isRtl ? 'تم إيقاف المصادقة الثنائية بنجاح' : 'MFA disabled successfully');
+      }
+    } catch (error) {
+      console.error('MFA Unenroll error:', error);
+      toast.error(isRtl ? 'فشل إيقاف المصادقة الثنائية' : 'Failed to disable MFA');
+    } finally {
+      setIsUnenrollingMfa(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!profile.uid) return;
     try {
@@ -307,7 +331,11 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
       {/* 1. Immersive Header (Cover & Avatar) */}
       <div className="relative w-full h-80 md:h-[450px] bg-brand-surface border-b border-brand-border overflow-hidden">
         {formData.coverUrl ? (
-          <img src={formData.coverUrl} className="w-full h-full object-cover" alt="Cover" />
+          <OptimizedImage 
+            src={formData.coverUrl} 
+            alt="Cover"
+            className="w-full h-full object-cover" 
+          />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-brand-primary/20 via-brand-secondary/10 to-brand-primary/20 flex items-center justify-center">
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
@@ -333,7 +361,12 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
         <div className="relative group">
           <div className="w-40 h-40 sm:w-56 sm:h-56 rounded-[3rem] bg-brand-surface border-[6px] border-brand-background shadow-[0_20px_60px_rgba(0,0,0,0.2)] overflow-hidden relative">
             {formData.logoUrl ? (
-              <img src={formData.logoUrl} className="w-full h-full object-cover" alt="Logo" />
+              <OptimizedImage 
+                src={formData.logoUrl} 
+                alt="Logo"
+                aspectRatio="aspect-square"
+                className="w-full h-full object-cover" 
+              />
             ) : (
               <div className="w-full h-full bg-gradient-to-tr from-brand-primary/10 to-brand-primary/20 flex items-center justify-center text-brand-primary text-6xl font-black">
                 {formData.name?.charAt(0)?.toUpperCase() || '?'}
@@ -576,6 +609,44 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
         <div className={`${bentoCardClass} flex flex-col justify-between`}>
           <div>
             <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-brand-teal/10 flex items-center justify-center text-brand-teal">
+                <ShieldCheck size={24} />
+              </div>
+              <h4 className="text-xl font-black text-brand-text-main">{isRtl ? 'الأمان والحماية' : 'Security & Protection'}</h4>
+            </div>
+            <p className="text-sm font-medium text-brand-text-muted mb-8 leading-relaxed">
+              {isRtl 
+                ? 'قم بتفعيل المصادقة الثنائية (MFA) لتأمين حسابك بأقصى درجات الحماية.' 
+                : 'Enable Multi-Factor Authentication (MFA) to secure your account with the highest level of protection.'}
+            </p>
+          </div>
+          {isMfaEnabled ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
+                <CheckCircle2 size={20} className="text-emerald-500" />
+                <span className="text-sm font-bold text-emerald-500">{isRtl ? 'المصادقة الثنائية مفعلة' : 'MFA is Enabled'}</span>
+              </div>
+              <HapticButton 
+                onClick={handleUnenrollMfa}
+                disabled={isUnenrollingMfa}
+                className="w-full bg-rose-500/10 border border-rose-500/20 text-rose-500 py-4 rounded-2xl font-black hover:bg-rose-500 hover:text-white transition-all text-xs uppercase tracking-widest disabled:opacity-50"
+              >
+                {isUnenrollingMfa ? <Loader2 size={16} className="animate-spin" /> : (isRtl ? 'إيقاف المصادقة الثنائية' : 'Disable MFA')}
+              </HapticButton>
+            </div>
+          ) : (
+            <HapticButton 
+              onClick={() => setShowMfaModal(true)}
+              className="w-full bg-brand-primary text-white py-5 rounded-2xl font-black flex items-center justify-center gap-3 shadow-xl shadow-brand-primary/20 hover:-translate-y-1 transition-all"
+            >
+              <Lock size={20} /> {isRtl ? 'تفعيل المصادقة الثنائية' : 'Enable MFA'}
+            </HapticButton>
+          )}
+        </div>
+
+        <div className={`${bentoCardClass} flex flex-col justify-between`}>
+          <div>
+            <div className="flex items-center gap-4 mb-4">
               <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
                 <Cpu size={24} />
               </div>
@@ -585,24 +656,6 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
           </div>
           <HapticButton onClick={() => setIsOptimizerOpen(true)} className="w-full bg-brand-background border border-brand-border text-brand-text-main py-5 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-brand-primary/5 hover:text-brand-primary hover:border-brand-primary transition-all">
             <Zap size={20} /> {isRtl ? 'تشغيل المحسن' : 'Run Optimizer'}
-          </HapticButton>
-        </div>
-
-        <div className={`${glassClass} rounded-[2.5rem] p-8 md:p-10 border-brand-error/20 flex flex-col justify-between`}>
-          <div>
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-brand-error/10 flex items-center justify-center text-brand-error">
-                <AlertCircle size={24} />
-              </div>
-              <h4 className="text-xl font-black text-brand-error">{isRtl ? 'منطقة الخطر' : 'Danger Zone'}</h4>
-            </div>
-            <p className="text-sm font-medium text-brand-text-muted mb-8 leading-relaxed">{isRtl ? 'حذف الحساب نهائياً. هذا الإجراء سيؤدي لمسح كافة بياناتك ولا يمكن التراجع عنه.' : 'Permanently delete account. This action will erase all your data and cannot be undone.'}</p>
-          </div>
-          <HapticButton 
-            onClick={() => setShowDeleteConfirm(true)}
-            className="w-full bg-brand-error/5 border border-brand-error/20 text-brand-error py-5 rounded-2xl font-black hover:bg-brand-error hover:text-white transition-all"
-          >
-            {isRtl ? 'حذف الحساب' : 'Delete Account'}
           </HapticButton>
         </div>
       </div>
@@ -691,6 +744,15 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
         isOpen={isAddCategoryModalOpen}
         onClose={() => setIsAddCategoryModalOpen(false)}
         activeCategoryTab={formData.supplierType === 'service_provider' ? 'service' : 'product'}
+      />
+
+      <MFAEnrollmentModal 
+        show={showMfaModal}
+        onClose={() => setShowMfaModal(false)}
+        onSuccess={() => {
+          setShowMfaModal(false);
+          toast.success(isRtl ? 'تم تفعيل المصادقة الثنائية بنجاح' : 'MFA enabled successfully');
+        }}
       />
     </div>
   );
