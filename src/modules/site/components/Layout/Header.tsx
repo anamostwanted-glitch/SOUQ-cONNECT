@@ -121,10 +121,10 @@ export const Header: React.FC<HeaderProps> = ({
             <Menu size={20} />
           </HapticButton>
           
-          {/* Site Logo - Visible on mobile when menu is there */}
+          {/* Site Logo - Hidden on mobile, visible on desktop */}
           <HapticButton
             onClick={() => setView('home')}
-            className="flex items-center gap-1.5 md:gap-2 px-1 relative"
+            className="hidden md:flex items-center gap-1.5 md:gap-2 px-1 relative"
             style={{ transform: `scale(${logoScale})` }}
           >
             {siteLogo ? (

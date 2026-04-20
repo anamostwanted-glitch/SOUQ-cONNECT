@@ -1333,13 +1333,25 @@ const Home: React.FC<HomeProps> = ({
       {/* Concierge Consent Modal */}
       <AnimatePresence>
         {showConciergeConfirm && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div 
+            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => !isUpdatingConcierge && setShowConciergeConfirm(false)}
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-brand-surface w-full max-w-md rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+              className="bg-brand-surface w-full max-w-md rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden relative"
             >
+              <button 
+                onClick={() => setShowConciergeConfirm(false)}
+                className="absolute top-6 right-6 p-2 rounded-full hover:bg-brand-background transition-colors z-20"
+                title={isRtl ? 'إغلاق' : 'Close'}
+              >
+                <X size={20} className="text-brand-text-muted" />
+              </button>
+
               <div className="p-8 text-center">
                 <div className="w-20 h-20 bg-brand-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-primary">
                   <Bot size={40} />
