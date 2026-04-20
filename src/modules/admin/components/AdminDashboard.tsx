@@ -878,6 +878,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               exit={{ opacity: 0, y: -20 }}
               className="max-w-7xl mx-auto space-y-8"
             >
+              <div className="mb-8">
+                <AIPredictivePulse 
+                  systemData={{
+                    userCount: users.length,
+                    requestCount: requests.length,
+                    withdrawalCount: withdrawals.length,
+                    activeSuppliers: users.filter(u => u.role === 'supplier').length
+                  }}
+                />
+              </div>
+
               <AdminStrategicOverview 
                 stats={strategicStats}
                 timeRange={timeRange}

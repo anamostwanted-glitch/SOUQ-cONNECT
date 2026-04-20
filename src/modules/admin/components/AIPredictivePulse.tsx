@@ -144,7 +144,7 @@ export const AIPredictivePulse: React.FC<AIPredictivePulseProps> = ({ systemData
                   <div className="space-y-3">
                     {pulse?.insights?.map((insight: string, i: number) => (
                       <motion.div 
-                        key={i}
+                        key={`ai-insight-${pulse?.status || 'pulse'}-${i}`}
                         initial={{ x: -10, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: i * 0.1 }}
@@ -165,7 +165,7 @@ export const AIPredictivePulse: React.FC<AIPredictivePulseProps> = ({ systemData
                   <div className="space-y-3">
                     {pulse?.recommendations?.map((rec: string, i: number) => (
                       <motion.div 
-                        key={i}
+                        key={`ai-rec-${pulse?.status || 'pulse'}-${i}`}
                         initial={{ x: 10, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: i * 0.1 }}

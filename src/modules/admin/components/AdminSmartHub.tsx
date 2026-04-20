@@ -176,13 +176,13 @@ export const AdminSmartHub: React.FC<AdminSmartHubProps> = ({ users, requests, i
       {/* Strategic Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { icon: Users, label: isRtl ? 'إجمالي الأعضاء' : 'Total Members', value: stats.totalUsers, trend: '+5.2%', positive: true, color: 'brand-primary', id: 'total-members' },
-          { icon: Activity, label: isRtl ? 'طلبات السوق' : 'Market Requests', value: stats.totalRequests, trend: '+18.4%', positive: true, color: 'brand-teal', id: 'market-requests' },
-          { icon: ShieldCheck, label: isRtl ? 'موردون موثقون' : 'Verified Suppliers', value: stats.verifiedSuppliers, trend: '+2.1%', positive: true, color: 'brand-amber', id: 'verified-suppliers' },
-          { icon: Target, label: isRtl ? 'معدل النجاح' : 'Matching Precision', value: `${stats.liquidityScore}%`, trend: '+0.5%', positive: true, color: 'brand-error', id: 'matching-precision' },
+          {icon: Users, label: isRtl ? 'إجمالي الأعضاء' : 'Total Members', value: stats.totalUsers, trend: '+5.2%', positive: true, color: 'brand-primary', uniqueKey: 'total-members' },
+          {icon: Activity, label: isRtl ? 'طلبات السوق' : 'Market Requests', value: stats.totalRequests, trend: '+18.4%', positive: true, color: 'brand-teal', uniqueKey: 'market-requests' },
+          {icon: ShieldCheck, label: isRtl ? 'موردون موثقون' : 'Verified Suppliers', value: stats.verifiedSuppliers, trend: '+2.1%', positive: true, color: 'brand-amber', uniqueKey: 'verified-suppliers' },
+          {icon: Target, label: isRtl ? 'معدل النجاح' : 'Matching Precision', value: `${stats.liquidityScore}%`, trend: '+0.5%', positive: true, color: 'brand-error', uniqueKey: 'matching-precision' },
         ].map((item, i) => (
           <motion.div 
-            key={item.id}
+            key={item.uniqueKey}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
@@ -276,7 +276,7 @@ export const AdminSmartHub: React.FC<AdminSmartHubProps> = ({ users, requests, i
           <div className="flex-1 space-y-4 overflow-y-auto no-scrollbar pr-1">
             {isLoadingAi ? (
               Array.from({ length: 3 }).map((_, i) => (
-                <div key={`ai-insight-skeleton-${i}`} className="p-4 bg-brand-background rounded-2xl border border-brand-border space-y-3">
+                <div key={`ai-insight-hub-skeleton-${i}`} className="p-4 bg-brand-background rounded-2xl border border-brand-border space-y-3">
                   <div className="h-2 w-3/4 bg-brand-text-muted/10 rounded-full animate-pulse" />
                   <div className="h-2 w-1/2 bg-brand-text-muted/10 rounded-full animate-pulse" />
                 </div>

@@ -196,10 +196,10 @@ export const SellerHub: React.FC<SellerHubProps> = ({ profile, categories, onEdi
                       <Package size={14} /> {uniqueItems.length} {isRtl ? 'منتجات معروضة' : 'Listed Products'}
                     </p>
                     <div className="mt-4 flex flex-wrap justify-center md:justify-start gap-2">
-                       {profile.categories?.slice(0, 3).map(catId => {
+                       {profile.categories?.slice(0, 3).map((catId, idx) => {
                           const cat = categories.find(c => c.id === catId);
                           return cat ? (
-                            <span key={catId} className="px-3 py-1 bg-brand-background rounded-full text-[10px] font-black text-brand-text-muted uppercase tracking-widest border border-brand-border">
+                            <span key={`${catId}-${idx}`} className="px-3 py-1 bg-brand-background rounded-full text-[10px] font-black text-brand-text-muted uppercase tracking-widest border border-brand-border">
                                 {isRtl ? cat.nameAr : cat.nameEn}
                             </span>
                           ) : null;

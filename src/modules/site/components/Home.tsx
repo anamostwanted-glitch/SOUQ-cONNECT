@@ -899,7 +899,7 @@ const Home: React.FC<HomeProps> = ({
                 transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
               >
                 {/* Brand Logo Section - With Magnetic Effect */}
-              <div className="hidden md:flex justify-center mb-12 relative group">
+              <div className="flex justify-center mb-8 md:mb-12 relative group">
                 <MagneticWrapper strength={25}>
                   {/* Logo Container with Scale */}
                   <div 
@@ -1184,7 +1184,7 @@ const Home: React.FC<HomeProps> = ({
                     </div>
                     <ul className="space-y-2 mb-4">
                       {imageEnhancements.suggestions.map((s, i) => (
-                        <li key={`suggestion-${i}`} className="text-xs text-brand-text-main flex items-start gap-2">
+                        <li key={`home-img-suggestion-${s.substring(0, 10).replace(/\s+/g, '-')}-${i}`} className="text-xs text-brand-text-main flex items-start gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-brand-teal mt-1.5 shrink-0" />
                           {s}
                         </li>
@@ -1236,7 +1236,7 @@ const Home: React.FC<HomeProps> = ({
                           <h5 className="text-sm font-black text-brand-primary mb-1">{productCopy.title}</h5>
                           <div className="flex flex-wrap gap-2 mt-2">
                             {productCopy.highlights.map((h, i) => (
-                              <span key={`highlight-${i}`} className="px-2 py-1 bg-white border border-brand-primary/20 text-[10px] font-bold text-brand-primary rounded-lg">
+                              <span key={`home-copy-highlight-${h.substring(0, 10).replace(/\s+/g, '-')}-${i}`} className="px-2 py-1 bg-white border border-brand-primary/20 text-[10px] font-bold text-brand-primary rounded-lg">
                                 {h}
                               </span>
                             ))}

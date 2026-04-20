@@ -75,7 +75,13 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({
 
   // Process real categories into DisplayCategory format
   const displayCategories = useMemo(() => {
-    let rawCategories = [...categories];
+    // Deduplicate categories by ID
+    const uniqueCategoriesMap = new Map();
+    categories.forEach(c => {
+      if (c && c.id) uniqueCategoriesMap.set(c.id, c);
+    });
+    
+    let rawCategories = Array.from(uniqueCategoriesMap.values());
     
     // Core Team Filter: Isolate Product vs Service
     if (filterType) {

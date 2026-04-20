@@ -37,8 +37,12 @@ export const SmartCategorySelector: React.FC<SmartCategorySelectorProps> = ({
         items: { type: Type.STRING }
       });
 
-      const matched = categories.filter(c => (result as string[]).includes(c.id));
-      setSuggestions(matched);
+      if (result && Array.isArray(result)) {
+        const matched = categories.filter(c => (result as string[]).includes(c.id));
+        setSuggestions(matched);
+      } else {
+        setSuggestions([]);
+      }
     } catch (error) {
       handleAiError(error, "Category analysis");
     } finally {
