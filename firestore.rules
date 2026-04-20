@@ -31,11 +31,23 @@ service cloud.firestore {
 
     // Helper Functions
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token.email_verified == true;
     }
 
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     function getUserData() {
@@ -182,6 +194,22 @@ service cloud.firestore {
                   );
       // Allow admins to hard delete users
       allow delete: if isAdmin();
+
+      match /passkeys/{keyId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidPasskey(incoming());
+        allow update: if isOwner(userId) && 
+                         isValidPasskey(incoming()) && 
+                         incoming().diff(existing()).affectedKeys().hasOnly(['lastUsedAt', 'name']);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    function isValidPasskey(data) {
+       return data.userId == request.auth.uid &&
+              data.get('credentialId', '') is string &&
+              data.get('publicKey', '') is string &&
+              data.get('name', '') is string && data.name.size() < 128;
     }
 
     match /users_public/{userId} {
@@ -286,10 +314,14 @@ service cloud.firestore {
           ))
         )
       );
-      allow create: if isAuthenticated() && (request.resource.data.customerId == request.auth.uid || isAdmin()) && isValidRequest(request.resource.data);
+      allow create: if isAuthenticated() && (incoming().customerId == request.auth.uid || isAdmin()) && isValidRequest(incoming());
       allow update: if isAuthenticated() && (
-        (resource.data.customerId == request.auth.uid && isValidRequest(request.resource.data)) || 
-        isAdmin()
+        (isAdmin() && isValidRequest(incoming())) ||
+        (resource.data.customerId == request.auth.uid && 
+         isValidRequest(incoming()) && 
+         existing().status == 'open' && // Terminal State Locking
+         incoming().customerId == existing().customerId // Immutability
+        )
       );
       allow delete: if false; // Soft delete only
     }
@@ -319,11 +351,18 @@ service cloud.firestore {
         isAdmin() ||
         (resource != null && (resource.data.supplierId == request.auth.uid || resource.data.customerId == request.auth.uid))
       );
-      allow create: if (isSupplier() || isAdmin()) && request.resource.data.supplierId == request.auth.uid && isValidOffer(request.resource.data);
+      allow create: if (isSupplier() || isAdmin()) && incoming().supplierId == request.auth.uid && isValidOffer(incoming());
       allow update: if isAuthenticated() && (
-        (resource.data.supplierId == request.auth.uid && isValidOffer(request.resource.data)) || 
-        (resource.data.customerId == request.auth.uid && isValidOffer(request.resource.data)) ||
-        isAdmin()
+        (isAdmin() && isValidOffer(incoming())) ||
+        (resource.data.supplierId == request.auth.uid && 
+         isValidOffer(incoming()) && 
+         existing().status == 'pending' && // Locking if already accepted/rejected
+         incoming().supplierId == existing().supplierId // Immutability
+        ) ||
+        (resource.data.customerId == request.auth.uid && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['status']) &&
+         incoming().status in ['accepted', 'rejected']
+        )
       );
       allow delete: if false; // Soft delete only
     }
@@ -608,14 +647,14 @@ service cloud.firestore {
 
     match /marketplace/{itemId} {
       allow read: if true;
-      allow create: if isAuthenticated() && request.resource.data.sellerId == request.auth.uid && isValidMarketplaceItem(request.resource.data);
+      allow create: if isAuthenticated() && incoming().sellerId == request.auth.uid && isValidMarketplaceItem(incoming());
       allow update: if isAuthenticated() && (
+        (isAdmin() && isValidMarketplaceItem(incoming())) ||
         (resource.data.sellerId == request.auth.uid && 
-         isValidMarketplaceItem(request.resource.data) &&
-         request.resource.data.sellerId == resource.data.sellerId && 
-         request.resource.data.createdAt == resource.data.createdAt
-        ) || 
-        isAdmin()
+         isValidMarketplaceItem(incoming()) &&
+         incoming().sellerId == existing().sellerId && // Immutability
+         incoming().createdAt == existing().createdAt    // Immutability
+        ) 
       );
       allow delete: if false; // Soft delete only
     }
@@ -818,6 +857,32 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidReport(request.resource.data);
       allow update: if isAdmin();
       allow delete: if false;
+    }
+
+    // Performance and Demand Insights rules
+    function isValidSupplierPerformance(data) {
+      return data.keys().hasAll(['supplierId', 'avgResponseTime', 'matchRate', 'calculatedAt']) &&
+             data.supplierId is string &&
+             data.avgResponseTime is number &&
+             data.matchRate is number &&
+             data.calculatedAt is string;
+    }
+
+    match /supplier_performance/{supplierId} {
+      allow read: if isAuthenticated() && (request.auth.uid == supplierId || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    function isValidDemandInsight(data) {
+      return data.keys().hasAll(['categoryId', 'missedOpportunityCount', 'lastUpdated']) &&
+             data.categoryId is string &&
+             data.missedOpportunityCount is number &&
+             data.lastUpdated is string;
+    }
+
+    match /demand_insights/{insightId} {
+      allow read: if isAuthenticated() && (isSupplier() || isAdmin());
+      allow write: if isAdmin();
     }
 
     // Connection Test Rule

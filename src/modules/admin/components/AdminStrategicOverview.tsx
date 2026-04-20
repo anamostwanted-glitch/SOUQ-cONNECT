@@ -95,9 +95,11 @@ export const AdminStrategicOverview: React.FC<AdminStrategicOverviewProps> = ({
     },
     {
       id: 'gap',
-      title: isRtl ? 'فجوة العرض والطلب' : 'Supply-Demand Gap',
-      description: isRtl ? 'زيادة في الطلب على "الإلكترونيات" بنسبة 20%. اقترح إضافة موردين جدد.' : '20% surge in "Electronics" requests. Suggest recruiting new suppliers.',
-      priority: 'medium',
+      title: isRtl ? 'تحليل الكلمات والفجوات' : 'Lexicon & Gap Hub',
+      description: isRtl 
+        ? 'تم استيعاب كلمات مفتاحية جديدة من بحث المستخدمين. راجع "معجم الطلب" الآن.' 
+        : 'New keywords absorbed from user searches. Review the "Demand Lexicon" now.',
+      priority: 'high',
       icon: Target,
       action: 'gap-analysis'
     },

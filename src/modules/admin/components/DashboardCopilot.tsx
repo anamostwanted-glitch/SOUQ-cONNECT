@@ -5,7 +5,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { askGemini, handleAiError } from '../../../core/services/geminiService';
 
-export const DashboardCopilot: React.FC = () => {
+interface DashboardCopilotProps {
+  activeHub?: string;
+  activeTab?: string;
+}
+
+export const DashboardCopilot: React.FC<DashboardCopilotProps> = ({ activeHub, activeTab }) => {
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const [isOpen, setIsOpen] = useState(false);
@@ -28,7 +33,8 @@ export const DashboardCopilot: React.FC = () => {
     if (!query.trim()) return;
     setLoading(true);
     try {
-      const answer = await askGemini(query);
+      const context = `The admin is currently viewing the ${activeHub} hub, specifically the ${activeTab} section. Provide strategic advice based on this context.`;
+      const answer = await askGemini(`${context}\n\nUser Question: ${query}`);
       setResponse(answer);
     } catch (error) {
       handleAiError(error, 'Dashboard Copilot');

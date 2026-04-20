@@ -24,6 +24,8 @@ import { useTranslation } from 'react-i18next';
 import { UserProfile } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { BulkActionToolbar } from './BulkActionToolbar';
+import { PasskeyService } from '../../../core/services/PasskeyService';
+import { toast } from 'sonner';
 
 interface AdminUserManagementProps {
   users: UserProfile[];
@@ -60,9 +62,29 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [usersToBulkDelete, setUsersToBulkDelete] = useState<string[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isVerifyingBio, setIsVerifyingBio] = useState(false);
+
+  const requireBioVerification = async (actionLabel: string): Promise<boolean> => {
+    try {
+      setIsVerifyingBio(true);
+      const isVerified = await PasskeyService.verifyIdentity(actionLabel);
+      return isVerified;
+    } catch (error) {
+      console.error('Bio-verification failed:', error);
+      toast.error(isRtl ? 'فشل التحقق الحيوي' : 'Bio-verification failed');
+      return false;
+    } finally {
+      setIsVerifyingBio(false);
+    }
+  };
 
   const handleDeleteConfirm = async () => {
     if (!userToDelete) return;
+    
+    // Require Bio-verification for permanent deletion
+    const verified = await requireBioVerification(isRtl ? 'حذف مستخدم نهائياً' : 'Permanently Delete User');
+    if (!verified) return;
+
     setIsDeleting(true);
     try {
       await onDeleteUser(userToDelete);
@@ -108,6 +130,11 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
 
   const handleBulkDeleteConfirm = async () => {
     if (!usersToBulkDelete) return;
+
+    // Require Bio-verification for bulk deletion
+    const verified = await requireBioVerification(isRtl ? 'حذف مجموعة مستخدمين' : 'Bulk Delete Users');
+    if (!verified) return;
+
     setIsDeleting(true);
     try {
       await onBulkDelete(usersToBulkDelete);
@@ -480,15 +507,17 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                   </button>
                   <button
                     onClick={handleDeleteConfirm}
-                    disabled={isDeleting}
+                    disabled={isDeleting || isVerifyingBio}
                     className="flex-1 px-6 py-4 bg-brand-error text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-error/90 transition-all shadow-lg shadow-brand-error/20 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    {isDeleting ? (
+                    {isDeleting || isVerifyingBio ? (
                       <Clock size={16} className="animate-spin" />
                     ) : (
-                      <UserX size={16} />
+                      <>
+                        <ShieldCheck size={16} />
+                        {isRtl ? 'تحقق وحذف' : 'Verify & Delete'}
+                      </>
                     )}
-                    {isRtl ? 'حذف نهائي' : 'Delete Permanently'}
                   </button>
                 </div>
               </div>
@@ -528,15 +557,17 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                   </button>
                   <button
                     onClick={handleBulkDeleteConfirm}
-                    disabled={isDeleting}
+                    disabled={isDeleting || isVerifyingBio}
                     className="flex-1 px-6 py-4 bg-brand-error text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-error/90 transition-all shadow-lg shadow-brand-error/20 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    {isDeleting ? (
+                    {isDeleting || isVerifyingBio ? (
                       <Clock size={16} className="animate-spin" />
                     ) : (
-                      <UserX size={16} />
+                      <>
+                        <ShieldCheck size={16} />
+                        {isRtl ? 'تأكيد بالبصمة' : 'Verify & Delete'}
+                      </>
                     )}
-                    {isRtl ? 'تأكيد الحذف' : 'Confirm Delete'}
                   </button>
                 </div>
               </div>

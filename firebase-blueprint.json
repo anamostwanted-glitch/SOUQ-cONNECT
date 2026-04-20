@@ -378,10 +378,65 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "type", "descriptionAr", "descriptionEn", "createdAt"]
+    },
+    "PasskeyCredential": {
+      "title": "PasskeyCredential",
+      "description": "Biometric/Hardware keys for passwordless authentication",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "credentialId": { "type": "string" },
+        "publicKey": { "type": "string" },
+        "name": { "type": "string" },
+        "deviceType": { "type": "string" },
+        "lastUsedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "credentialId", "publicKey", "name", "createdAt"]
+    },
+    "PasskeyIdentity": {
+      "title": "PasskeyIdentity",
+      "description": "Mapping for finding user by credential ID without being logged in",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "credentialId": { "type": "string" },
+        "publicKey": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "credentialId", "publicKey", "createdAt"]
+    },
+    "SupplierPerformance": {
+      "title": "SupplierPerformance",
+      "description": "Calculated metrics for supplier responsiveness and matching accuracy",
+      "type": "object",
+      "properties": {
+        "supplierId": { "type": "string" },
+        "avgResponseTime": { "type": "number" },
+        "matchRate": { "type": "number" },
+        "unmetDemandHits": { "type": "number", "description": "How many unfulfilled requests this supplier could have served" },
+        "suggestions": { "type": "array", "items": { "type": "string" } },
+        "calculatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["supplierId", "avgResponseTime", "matchRate", "calculatedAt"]
+    },
+    "DemandInsight": {
+      "title": "DemandInsight",
+      "description": "Aggregated data on what users are looking for but can't find",
+      "type": "object",
+      "properties": {
+        "categoryId": { "type": "string" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "missedOpportunityCount": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["categoryId", "missedOpportunityCount", "lastUpdated"]
     }
   },
   "firestore": {
     "/users/{userId}": { "schema": "User", "description": "User profiles - Private Data" },
+    "/users/{userId}/passkeys/{keyId}": { "schema": "PasskeyCredential", "description": "User biometrics keys" },
+    "/passkey_identities/{credentialId}": { "schema": "PasskeyIdentity", "description": "Global Passkey to User mapping" },
     "/users_public/{userId}": { "schema": "UserPublic", "description": "Public user profiles" },
     "/categories/{categoryId}": { "schema": "Category", "description": "Product categories" },
     "/requests/{requestId}": { "schema": "Request", "description": "Customer requests" },
@@ -401,6 +456,8 @@
     "/campaigns/{campaignId}": { "schema": "Campaign", "description": "Marketing campaigns" },
     "/campaigns/{campaignId}/ads/{adId}": { "schema": "CampaignAd", "description": "Campaign ads" },
     "/reports/{reportId}": { "schema": "Report", "description": "User reports" },
-    "/activities/{activityId}": { "schema": "Activity", "description": "User daily movement logs" }
+    "/activities/{activityId}": { "schema": "Activity", "description": "User daily movement logs" },
+    "/supplier_performance/{supplierId}": { "schema": "SupplierPerformance", "description": "Supplier performance metrics" },
+    "/demand_insights/{insightId}": { "schema": "DemandInsight", "description": "Market demand analysis" }
   }
 }

@@ -12,6 +12,7 @@ import {
   Star, 
   Zap, 
   Sparkles, 
+  Search,
   TrendingUp, 
   ShoppingBag, 
   MessageSquare, 
@@ -320,6 +321,93 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
                   profile={profile} 
                   forceShowSupplierSettings={activeSubView === 'store_settings'} 
                 />
+              </div>
+            )}
+            {activeSubView === 'neural_lexicon' && (
+              <div className="space-y-8">
+                <div className="bg-brand-primary/10 p-8 rounded-[2.5rem] border border-brand-primary/20 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-brand-primary/10 rounded-full blur-[100px] pointer-events-none" />
+                  <div className="relative z-10">
+                    <h3 className="text-2xl font-black text-brand-primary mb-2">
+                      {isRtl ? 'معجم التوجهات الذكي' : 'Demand Lexicon Insights'}
+                    </h3>
+                    <p className="text-brand-text-muted font-bold text-sm max-w-lg leading-relaxed">
+                      {isRtl 
+                        ? 'يحلل نظام الذكاء الاصطناعي لدينا مئات عمليات البحث يومياً ليكشف لك عما يبحث عنه العملاء فعلياً في مجالك.' 
+                        : 'Our AI analyzes hundreds of searches daily to reveal what customers are actually looking for in your industry.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {categories
+                    .filter(c => profile.categories?.includes(c.id))
+                    .map(cat => (
+                      <div key={`supp-lex-${cat.id}`} className={`${cardClass} space-y-4`}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                            <Search size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-brand-text-main">
+                              {isRtl ? cat.nameAr : cat.nameEn}
+                            </h4>
+                            <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider">
+                              {isRtl ? 'توجهات البحث' : 'Search Trends'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {cat.suggestedKeywords && cat.suggestedKeywords.length > 0 ? (
+                            cat.suggestedKeywords.map((kw, i) => (
+                              <span 
+                                key={`${cat.id}-kw-${i}`}
+                                className="px-4 py-1.5 bg-brand-background border border-brand-border rounded-full text-[11px] font-bold text-brand-text-main shadow-sm"
+                              >
+                                {kw}
+                              </span>
+                            ))
+                          ) : (
+                            <p className="text-xs italic text-brand-text-muted">
+                              {isRtl ? 'لا توجد بيانات كافية حالياً لهذه الفئة' : 'No sufficient data yet for this category'}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="pt-4 border-t border-brand-border/50">
+                          <p className="text-[10px] font-medium text-brand-text-muted mb-3 flex items-center gap-2">
+                            <Sparkles size={12} className="text-brand-primary" />
+                            {isRtl ? 'خطوة مقترحة:' : 'Suggested Step:'}
+                          </p>
+                          <div className="p-3 bg-brand-primary/5 rounded-xl border border-brand-primary/10">
+                            <p className="text-[11px] font-bold text-brand-primary leading-tight">
+                              {isRtl 
+                                ? 'أضف هذه الكلمات إلى "الكلمات المفتاحية" في ملفك الشخصي لتظهر للعملاء بشكل أسرع.' 
+                                : 'Add these terms to your profile "Keywords" to appear faster in customer searches.'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+
+                {(!profile.categories || profile.categories.length === 0) && (
+                   <div className={`${cardClass} text-center py-12 space-y-4`}>
+                      <div className="w-16 h-16 bg-brand-primary/10 rounded-full flex items-center justify-center text-brand-primary mx-auto">
+                        <AlertCircle size={32} />
+                      </div>
+                      <p className="text-brand-text-muted font-bold">
+                        {isRtl ? 'يرجى تحديد تخصصاتك في الإعدادات لرؤية الكلمات التوجيهية المناسبة لك.' : 'Please select your specialties in settings to see relevant demand keywords.'}
+                      </p>
+                      <HapticButton 
+                        onClick={() => setActiveSubView('settings')}
+                        className="px-6 py-2 bg-brand-primary text-white rounded-xl font-bold transition-all"
+                      >
+                        {isRtl ? 'الذهاب للإعدادات' : 'Go to Settings'}
+                      </HapticButton>
+                   </div>
+                )}
               </div>
             )}
             {activeSubView === 'branding_settings' && (

@@ -77,6 +77,7 @@ import { AdminStrategicOverview } from './AdminStrategicOverview';
 import { AdminSmartHub } from './AdminSmartHub';
 import { InviteSupplierModal } from './InviteSupplierModal';
 import { DashboardCopilot } from './DashboardCopilot';
+import { PasskeyManager } from '../../user/components/PasskeyManager';
 import { toast } from 'sonner';
 import { deleteDoc, writeBatch, where } from 'firebase/firestore';
 
@@ -101,6 +102,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const isRtl = i18n.language === 'ar';
 
   const [internalActiveTab, setInternalActiveTab] = useState('overview');
+  const [activeHub, setActiveHub] = useState('strategic');
+
+  const strategicHubs = [
+    { id: 'strategic', label: isRtl ? 'القيادة الاستراتيجية' : 'Strategic Command', icon: Shield, color: 'text-brand-primary' },
+    { id: 'operations', label: isRtl ? 'مركز العمليات' : 'Operations HQ', icon: ShoppingBag, color: 'text-emerald-500' },
+    { id: 'growth', label: isRtl ? 'محرك النمو والذكاء' : 'Growth & Intelligence', icon: TrendingUp, color: 'text-amber-500' },
+    { id: 'blueprint', label: isRtl ? 'مخطط النظام' : 'Ecosystem Blueprint', icon: LayoutGrid, color: 'text-indigo-500' },
+    { id: 'lab', label: isRtl ? 'مختبر الضبط والأداء' : 'Lab & Performance', icon: Cpu, color: 'text-brand-secondary' },
+  ];
+
+  const handleHubChange = (hubId: string) => {
+    setActiveHub(hubId);
+    if (hubId === 'strategic') (setExternalActiveTab || setInternalActiveTab)('overview');
+    if (hubId === 'operations') (setExternalActiveTab || setInternalActiveTab)('users');
+    if (hubId === 'growth') (setExternalActiveTab || setInternalActiveTab)('ai-hub');
+    if (hubId === 'blueprint') (setExternalActiveTab || setInternalActiveTab)('categories-manager');
+    if (hubId === 'lab') (setExternalActiveTab || setInternalActiveTab)('site-settings');
+  };
   
   const activeTab = externalActiveTab || internalActiveTab;
   const setActiveTab = setExternalActiveTab || setInternalActiveTab;
@@ -556,28 +575,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const allTabs = [
-    { id: 'smart-hub', label: isRtl ? 'مركز النبض الذكي' : 'Neural Smart Hub', icon: Brain, isNew: true, aiRequired: true },
-    { id: 'overview', label: isRtl ? 'نظرة عامة' : 'Overview', icon: LayoutGrid },
-    { id: 'weekly-reports', label: isRtl ? 'التقارير الأسبوعية' : 'Weekly Reports', icon: FileText, isNew: true },
-    { id: 'users', label: isRtl ? 'المستخدمين' : 'Users', icon: Users },
-    { id: 'chats', label: isRtl ? 'أرشيف المحادثات' : 'Chat Archive', icon: Archive, isNew: true },
-    { id: 'marketplace', label: isRtl ? 'إدارة السوق' : 'Marketplace', icon: ShoppingBag, isNew: true },
-    { id: 'reports-archive', label: isRtl ? 'الإبلاغات' : 'Reports', icon: Flag },
-    { id: 'slider', label: isRtl ? 'إعدادات السلايدر' : 'Slider Settings', icon: Wind, isNew: true },
-    { id: 'data-directory', label: isRtl ? 'دليل البيانات' : 'Data Directory', icon: BookOpen },
-    { id: 'marketing-portal', label: isRtl ? 'التسويق' : 'Marketing', icon: Megaphone },
-    { id: 'broadcast-center', label: isRtl ? 'إشعار جماعي' : 'Broadcast', icon: Send },
-    { id: 'categories-manager', label: isRtl ? 'الأقسام' : 'Categories', icon: ListTree },
-    { id: 'site-settings', label: isRtl ? 'إعدادات الواجهة' : 'Interface Settings', icon: Zap },
-    { id: 'ai-hub', label: isRtl ? 'مركز الذكاء الاصطناعي' : 'AI Neural Hub', icon: Cpu, aiRequired: true },
-    { id: 'beta-lab', label: isRtl ? 'مختبر بيتا' : 'Beta Lab', icon: Zap, isNew: true },
-    { id: 'cost-analyzer', label: isRtl ? 'تحليل التكاليف' : 'Cost Analysis', icon: TrendingUp },
-    { id: 'connect-growth', label: isRtl ? 'نمو كونكت' : 'Connect Growth', icon: Zap, isNew: true },
-    { id: 'gap-analyzer', label: isRtl ? 'تحليل الفجوة' : 'Gap Analysis', icon: BarChart3, isNew: true },
-  ];
-
-  const tabs = allTabs.filter(tab => !tab.aiRequired || isAiEnabled);
+  const allTabs = strategicHubs;
+  const tabs = allTabs;
 
   const totalSuppliers = users.filter(u => u.role === 'supplier').length;
   const totalCustomers = users.filter(u => u.role === 'customer').length;
@@ -680,9 +679,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       <div className={`md:block ${isSidebarOpen ? 'block' : 'hidden'}`}>
         <AdminSidebar 
-          activeTab={activeTab} 
-          setActiveTab={(tab) => {
-            setActiveTab(tab);
+          activeTab={activeHub} 
+          setActiveTab={(hub) => {
+            handleHubChange(hub);
             setIsSidebarOpen(false);
           }} 
           tabs={tabs} 
@@ -693,6 +692,112 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-brand-background p-4 md:p-8">
+        <AnimatePresence>
+          {selectedCategoryForKeywords && (
+            <KeywordManagerModal 
+              category={selectedCategoryForKeywords}
+              onClose={() => setSelectedCategoryForKeywords(null)}
+              onUpdate={(updatedCategory) => {
+                setCategories(categories.map(c => c.id === updatedCategory.id ? updatedCategory : c));
+              }}
+              t={t}
+              i18n={i18n}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Global Hub Navigation Secondary bar for Sub-tabs */}
+        <div className="max-w-7xl mx-auto mb-6 flex flex-wrap gap-2">
+            {activeHub === 'strategic' && (
+                <div className="flex bg-brand-surface p-1 rounded-2xl border border-brand-border h-fit shadow-sm">
+                    {[
+                      { id: 'overview', label: isRtl ? 'لوحة القيادة' : 'Dashboard' },
+                      { id: 'smart-hub', label: isRtl ? 'النبض العصبي' : 'Neural Pulse' }
+                    ].map(v => (
+                        <button 
+                            key={v.id}
+                            onClick={() => setActiveTab(v.id)}
+                            className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === v.id ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+                        >
+                            {v.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+            {activeHub === 'operations' && (
+                <div className="flex bg-brand-surface p-1 rounded-2xl border border-brand-border h-fit shadow-sm">
+                    {[
+                      { id: 'users', label: isRtl ? 'المستخدمين' : 'Users' },
+                      { id: 'marketplace', label: isRtl ? 'السوق' : 'Marketplace' },
+                      { id: 'chats', label: isRtl ? 'الدردشات' : 'Chats' },
+                      { id: 'data-directory', label: isRtl ? 'الأدلة' : 'Directories' }
+                    ].map(v => (
+                        <button 
+                            key={v.id}
+                            onClick={() => setActiveTab(v.id)}
+                            className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === v.id ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+                        >
+                            {v.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+            {activeHub === 'growth' && (
+                <div className="flex bg-brand-surface p-1 rounded-2xl border border-brand-border h-fit shadow-sm">
+                    {[
+                      { id: 'ai-hub', label: isRtl ? 'مركز الرؤى' : 'Intelligence Hub' },
+                      { id: 'gap-analyzer', label: isRtl ? 'تحليل الفجوات' : 'Gap Analyzer' },
+                      { id: 'marketing-portal', label: isRtl ? 'التسويق' : 'Marketing' },
+                      { id: 'broadcast-center', label: isRtl ? 'إشعار جماعي' : 'Broadcast' }
+                    ].map(v => (
+                        <button 
+                            key={v.id}
+                            onClick={() => setActiveTab(v.id)}
+                            className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === v.id ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+                        >
+                            {v.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+            {activeHub === 'blueprint' && (
+                <div className="flex bg-brand-surface p-1 rounded-2xl border border-brand-border h-fit shadow-sm">
+                    {[
+                      { id: 'categories-manager', label: isRtl ? 'الفئات' : 'Categories' },
+                      { id: 'weekly-reports', label: isRtl ? 'التقارير' : 'Reports' },
+                      { id: 'slider', label: isRtl ? 'السلايدر' : 'Slider' }
+                    ].map(v => (
+                        <button 
+                            key={v.id}
+                            onClick={() => setActiveTab(v.id)}
+                            className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === v.id ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+                        >
+                            {v.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+             {activeHub === 'lab' && (
+                <div className="flex bg-brand-surface p-1 rounded-2xl border border-brand-border h-fit shadow-sm">
+                    {[
+                      { id: 'site-settings', label: isRtl ? 'الإعدادات' : 'Site Settings' },
+                      { id: 'cost-analyzer', label: isRtl ? 'التكاليف' : 'Costs' },
+                      { id: 'beta-lab', label: isRtl ? 'بيتا' : 'Beta' },
+                      { id: 'sovereign-keys', label: isRtl ? 'الهوية السيادية' : 'Sovereign Keys' },
+                      { id: 'reports-archive', label: isRtl ? 'البلاغات' : 'Alerts' }
+                    ].map(v => (
+                        <button 
+                            key={v.id}
+                            onClick={() => setActiveTab(v.id)}
+                            className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === v.id ? 'bg-brand-secondary text-white shadow-lg shadow-brand-secondary/20' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+                        >
+                            {v.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+
         {/* Top Neural Bar */}
         <div className="max-w-6xl mx-auto mb-8 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 flex-1">
@@ -755,7 +860,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 setTimeRange={setTimeRange}
                 isAiEnabled={isAiEnabled}
                 onAction={(action) => {
-                  if (action === 'gap-analyzer') setActiveTab('gap-analyzer');
+                  if (action === 'gap-analyzer' || action === 'gap-analysis') setActiveTab('gap-analyzer');
                   else if (action === 'users') setActiveTab('users');
                   else if (action === 'ai-hub') setActiveTab('ai-hub');
                   else if (action === 'site-settings' || action === 'site' || action === 'settings') setActiveTab('site-settings');
@@ -1068,7 +1173,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               exit={{ opacity: 0, y: -20 }}
               className="max-w-6xl mx-auto"
             >
-              <SupplyDemandAnalyzer categories={categories} allUsers={users} />
+              <SupplyDemandAnalyzer 
+                categories={categories} 
+                allUsers={users} 
+                onManageKeywords={setSelectedCategoryForKeywords}
+              />
             </motion.div>
           )}
 
@@ -1120,17 +1229,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               className="max-w-6xl mx-auto"
             >
               <AnimatePresence>
-                {selectedCategoryForKeywords && (
-                  <KeywordManagerModal 
-                    category={selectedCategoryForKeywords}
-                    onClose={() => setSelectedCategoryForKeywords(null)}
-                    onUpdate={(updatedCategory) => {
-                      setCategories(categories.map(c => c.id === updatedCategory.id ? updatedCategory : c));
-                    }}
-                    t={t}
-                    i18n={i18n}
-                  />
-                )}
                 {isMergeModalOpen && (
                   <MergeCategoryModal
                     isOpen={isMergeModalOpen}
@@ -1160,6 +1258,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 t={t}
                 i18n={i18n}
               />
+            </motion.div>
+          )}
+
+          {activeTab === 'sovereign-keys' && (
+            <motion.div
+              key="sovereign-keys"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-4xl mx-auto"
+            >
+              <div className="bg-brand-surface border border-brand-border rounded-[2rem] p-8 shadow-xl">
+                <PasskeyManager userId={profile.uid} />
+              </div>
             </motion.div>
           )}
 
@@ -1261,7 +1373,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </motion.div>
         </motion.div>
       )}
-      {isAiEnabled && <DashboardCopilot />}
+      {isAiEnabled && <DashboardCopilot activeHub={activeHub} activeTab={activeTab} />}
     </div>
   );
 };

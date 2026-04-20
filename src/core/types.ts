@@ -476,3 +476,23 @@ export interface GeminiApiKey {
   usageCount?: number;
   createdAt: string;
 }
+
+export interface PasskeyCredential {
+  id: string;
+  userId: string;
+  credentialId: string;
+  publicKey: string;
+  name: string;
+  deviceType: string;
+  lastUsedAt?: string;
+  createdAt: string;
+}
+
+export interface SupplierPerformance {
+  supplierId: string;
+  avgResponseTime: number;
+  matchRate: number;
+  unmetDemandHits: number;
+  suggestions: string[];
+  calculatedAt: string;
+}

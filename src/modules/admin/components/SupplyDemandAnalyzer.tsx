@@ -13,7 +13,9 @@ import {
   Users,
   ShoppingBag,
   Target,
-  Zap
+  Zap,
+  BookOpen,
+  Search
 } from 'lucide-react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
@@ -26,9 +28,10 @@ import { handleFirestoreError, OperationType } from '../../../core/utils/errorHa
 interface SupplyDemandAnalyzerProps {
   categories: Category[];
   allUsers: UserProfile[];
+  onManageKeywords?: (category: Category) => void;
 }
 
-export const SupplyDemandAnalyzer: React.FC<SupplyDemandAnalyzerProps> = ({ categories, allUsers }) => {
+export const SupplyDemandAnalyzer: React.FC<SupplyDemandAnalyzerProps> = ({ categories, allUsers, onManageKeywords }) => {
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   
@@ -223,6 +226,78 @@ export const SupplyDemandAnalyzer: React.FC<SupplyDemandAnalyzerProps> = ({ cate
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Neural Lexicon: Learned Keywords Section */}
+            <div className="bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border shadow-sm space-y-8">
+               <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-black text-brand-text-main flex items-center gap-3">
+                        <BookOpen className="text-brand-primary" />
+                        {isRtl ? 'معجم الكلمات الذكي (Lexicon)' : 'Neural Lexicon'}
+                    </h3>
+                    <p className="text-brand-text-muted text-xs font-bold uppercase tracking-wider">
+                        {isRtl ? 'الكلمات المفتاحية التي تم تعلمها من بحث المستخدمين' : 'Keywords learned from user search behavior'}
+                    </p>
+                  </div>
+                  <div className="px-4 py-2 bg-brand-primary/5 rounded-xl border border-brand-primary/10">
+                    <div className="text-[10px] font-black text-brand-primary uppercase tracking-widest leading-none mb-1">
+                        {isRtl ? 'إجمالي الكلمات المتعلمة' : 'Total Learned'}
+                    </div>
+                    <div className="text-lg font-black text-brand-primary leading-none">
+                        {categories.reduce((acc, cat) => acc + (cat.suggestedKeywords?.length || 0), 0)}
+                    </div>
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {categories.filter(c => c.suggestedKeywords && c.suggestedKeywords.length > 0).map(cat => (
+                    <div key={`lex-${cat.id}`} className="group p-6 bg-brand-background rounded-[2rem] border border-brand-border hover:border-brand-primary/30 transition-all duration-300">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 rounded-lg bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                          <Search size={16} />
+                        </div>
+                        <p className="font-black text-brand-text-main text-sm truncate">
+                          {isRtl ? cat.nameAr : cat.nameEn}
+                        </p>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        {cat.suggestedKeywords?.map((kw, i) => (
+                          <span 
+                            key={`${cat.id}-kw-${i}`}
+                            className="px-3 py-1 bg-brand-surface border border-brand-border rounded-full text-[10px] font-bold text-brand-text-muted group-hover:border-brand-primary/20 transition-colors"
+                          >
+                            {kw}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="mt-6 pt-4 border-t border-brand-border/50 flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-brand-text-muted">
+                           {isRtl ? 'تحسين SEO للفئة؟' : 'Optimize SEO for Category?'}
+                        </p>
+                        <button 
+                          onClick={() => onManageKeywords?.(cat)}
+                          className="w-8 h-8 rounded-lg bg-brand-primary/10 flex items-center justify-center text-brand-primary hover:bg-brand-primary hover:text-white transition-all shadow-sm group-hover:scale-110"
+                        >
+                          <Zap size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+               </div>
+
+               {categories.every(cat => !cat.suggestedKeywords || cat.suggestedKeywords.length === 0) && (
+                 <div className="py-12 text-center space-y-4">
+                    <div className="w-16 h-16 bg-brand-background rounded-2xl flex items-center justify-center mx-auto text-brand-text-muted/30">
+                        <BookOpen size={32} />
+                    </div>
+                    <p className="text-sm font-bold text-brand-text-muted">
+                        {isRtl ? 'لا توجد كلمات مفتاحية متعلمة بعد. ابدأ بالبحث في الموقع لتغذية الحصيلة المعرفية.' : 'No learned keywords yet. Start searching to feed the knowledge base.'}
+                    </p>
+                 </div>
+               )}
             </div>
           </motion.div>
         ) : (

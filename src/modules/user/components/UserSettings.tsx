@@ -6,6 +6,7 @@ import { db } from '../../../core/firebase';
 import { UserProfile, BrandingPreferences } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { PasskeyManager } from './PasskeyManager';
 
 interface UserSettingsProps {
   profile: UserProfile;
@@ -103,6 +104,10 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ profile }) => {
           </>
         )}
       </HapticButton>
+
+      <div className="pt-6 border-t border-brand-border">
+        <PasskeyManager userId={profile.uid} />
+      </div>
     </div>
   );
 };

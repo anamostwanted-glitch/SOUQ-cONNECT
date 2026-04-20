@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { Shield } from 'lucide-react';
 import { UserProfile } from '../../../core/types';
 
@@ -33,19 +34,33 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActive
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-black transition-all duration-300 whitespace-nowrap md:whitespace-normal shrink-0 md:shrink ${
+            className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl text-sm font-black transition-all duration-300 relative group overflow-hidden ${
               activeTab === tab.id 
-                ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20 md:translate-x-1' 
-                : 'text-brand-text-muted hover:bg-brand-background hover:text-brand-text-main md:hover:translate-x-1'
+                ? 'bg-brand-surface text-brand-text-main shadow-[0_8px_32px_rgba(0,0,0,0.04)] border border-brand-border' 
+                : 'text-brand-text-muted hover:bg-brand-background'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <tab.icon size={18} className={activeTab === tab.id ? 'text-white' : 'text-brand-text-muted'} />
-              <span>{tab.label}</span>
+            {activeTab === tab.id && (
+              <motion.div 
+                layoutId="activeTabGlow"
+                className={`absolute left-0 top-0 bottom-0 w-1 ${tab.color || 'bg-brand-primary'}`}
+                initial={{ height: 0 }}
+                animate={{ height: '100%' }}
+              />
+            )}
+            <div className="flex items-center gap-4">
+              <div className={`p-2 rounded-xl transition-all duration-300 ${
+                activeTab === tab.id 
+                  ? `${tab.color || 'text-brand-primary'} bg-brand-background shadow-inner` 
+                  : 'text-brand-text-muted group-hover:text-brand-text-main'
+              }`}>
+                <tab.icon size={20} />
+              </div>
+              <span className={activeTab === tab.id ? 'font-black' : 'font-bold'}>{tab.label}</span>
             </div>
             {tab.isNew && (
-              <span className="ml-2 px-1.5 py-0.5 rounded-md bg-brand-primary text-[8px] font-black text-white animate-pulse">
-                NEW
+              <span className="ml-2 px-2 py-0.5 rounded-lg bg-red-500 text-[8px] font-black text-white animate-pulse shadow-lg shadow-red-500/20">
+                AI
               </span>
             )}
           </button>

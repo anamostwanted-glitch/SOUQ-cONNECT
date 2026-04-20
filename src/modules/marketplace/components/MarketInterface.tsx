@@ -181,8 +181,8 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
       const fulfillDirectRequest = async () => {
         try {
           const { products, suppliers } = await searchMarketplaceAndSuppliers(initialVoiceQuery);
-          // Get AI-driven reasoning for matches
-          const matches = await fetchPredictiveMatches([initialVoiceQuery], []);
+          // Get AI-driven reasoning for matches using searched suppliers as context
+          const matches = await fetchPredictiveMatches([initialVoiceQuery], [], suppliers);
           setMatchedSuppliers(suppliers);
           setVoiceMatches(matches);
         } catch (err) {
@@ -304,6 +304,22 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
             suggestCategoriesFromQuery(searchTerm, categories, i18n.language),
             mapIntentToSuppliers(searchTerm, i18n.language)
           ]);
+
+          // Record category demand for system learning
+          if (suggestedIds.length > 0) {
+            const { recordCategoryDemand } = await import('../services/marketService');
+            recordCategoryDemand(searchTerm, suggestedIds).then(() => {
+              // Subtle UI feedback that AI has learned something
+              const notificationContent = isRtl 
+                ? 'تم استيعاب مصطلح بحثك في خريطة الطلب العصبية' 
+                : 'Your search term has been absorbed into the neural demand map';
+              toast.info(notificationContent, {
+                icon: <Sparkles className="text-brand-primary h-4 w-4" />,
+                duration: 2000,
+                className: "bg-brand-surface/90 backdrop-blur-xl border-brand-primary/20"
+              });
+            });
+          }
 
           // Race condition check: only update if search term hasn't changed
           if (searchTerm === currentSearchTerm) {

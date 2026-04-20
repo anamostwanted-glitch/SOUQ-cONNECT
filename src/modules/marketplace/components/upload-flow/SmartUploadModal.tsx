@@ -19,6 +19,7 @@ import { useNetworkAwareness } from '../../hooks/useNetworkAwareness';
 import { useSmartCompression } from '../../hooks/useSmartCompression';
 import { analyzeProductImage, AIProductSuggestion, generateAlternativeProductImage } from '../../services/aiProductAnalyzer';
 import { suggestPrice, translateText, semanticSearch } from '../../../../core/services/geminiService';
+import { ReconciliationService } from '../../../../core/services/reconciliationService';
 
 interface SmartUploadModalProps {
   onClose: () => void;
@@ -725,6 +726,13 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
       // 3. Update document with image URLs
       await updateDoc(doc(db, 'marketplace', docRef.id), {
         images: uploadedUrls
+      });
+
+      // 4. Trigger Supply-Demand Reconciliation (Growth Loop)
+      ReconciliationService.reconcileSupplyWithDemand(docRef.id).then(matchCount => {
+        if (matchCount > 0) {
+          console.log(`[Growth Hacker] Successfully matched new supply with ${matchCount} unfulfilled requests.`);
+        }
       });
 
       onAdd();

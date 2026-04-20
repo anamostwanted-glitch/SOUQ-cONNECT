@@ -23,10 +23,12 @@ import { AICategorySelector } from './AICategorySelector';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { SocialAuthButtons } from './SocialAuthButtons';
+import { PasskeyService } from '../../../core/services/PasskeyService';
 import { toast } from 'sonner';
 import { logActivity } from '../../../core/utils/activityLogger';
 import { analytics } from '../../../core/services/AnalyticsService';
 import { soundService, SoundType } from '../../../core/utils/soundService';
+import { Fingerprint } from 'lucide-react';
 
 interface AuthProps {
   onAuthSuccess: (role: UserRole) => void;
@@ -67,6 +69,44 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigate, initialRole }) =
   }, []);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
+
+  const handlePasskeyLogin = async () => {
+    setIsPasskeyLoading(true);
+    try {
+      const result = await PasskeyService.loginWithPasskey();
+      if (!result) {
+        toast.info(i18n.language === 'ar' ? 'لم يتم العثور على هوية سيادية مرتبطة بهذا الجهاز.' : 'No Sovereign Identity found on this device.');
+        return;
+      }
+
+      // In a real world scenario, we'd exchange the signature for a Firebase Custom Token.
+      // Here, we'll try to find if the user is already remembered by Firebase, 
+      // or we'll fetch their email and ask for PIN/Password (Simulated fast lane).
+      
+      const userSnap = await getDoc(doc(db, 'users', result.userId));
+      if (!userSnap.exists()) {
+        toast.error(i18n.language === 'ar' ? 'فشل التحقق من الحساب.' : 'Account verification failed.');
+        return;
+      }
+
+      const userData = userSnap.data() as UserProfile;
+      setEmail(userData.email || '');
+      
+      toast.success(i18n.language === 'ar' ? `مرحباً ${userData.name}! اكتمل التحقق الحيوي.` : `Welcome ${userData.name}! Bio-verification complete.`);
+      
+      // Note: We can't actually sign into Firebase Auth without the password here, 
+      // unless we had a server-side custom token generator.
+      // We simulate the 'Fast Lane' by auto-filling the email.
+      soundService.play(SoundType.SUCCESS);
+      
+    } catch (err) {
+      console.error('Passkey login error:', err);
+      toast.error(i18n.language === 'ar' ? 'فشل تسجيل الدخول الحيوي.' : 'Bio-login failed.');
+    } finally {
+      setIsPasskeyLoading(false);
+    }
+  };
   
   const getFriendlyErrorMessage = (errorCode: string) => {
     const isAr = i18n.language === 'ar';
@@ -403,6 +443,19 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigate, initialRole }) =
         )}
 
         <SocialAuthButtons onSuccess={onAuthSuccess} role={role} />
+
+        {isLogin && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4">
+            <HapticButton 
+              onClick={handlePasskeyLogin}
+              disabled={isPasskeyLoading}
+              className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-brand-primary/30 bg-brand-primary/5 text-brand-primary font-bold hover:bg-brand-primary/10 transition-all"
+            >
+              <Fingerprint size={20} className={isPasskeyLoading ? 'animate-pulse' : ''} />
+              {isPasskeyLoading ? t('processing') : (i18n.language === 'ar' ? 'تسجيل الدخول بالهوية السيادية' : 'Login with Sovereign Identity')}
+            </HapticButton>
+          </motion.div>
+        )}
         
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-300"></div></div>

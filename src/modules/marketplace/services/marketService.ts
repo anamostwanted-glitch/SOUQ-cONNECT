@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, orderBy, limit, startAfter, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, startAfter, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
 import { MarketplaceItem, Category, MarketTrend, UserProfile } from '../../../core/types';
 import { callAiJson, handleAiError } from '../../../core/services/geminiService';
@@ -75,6 +75,29 @@ export const fetchSuppliers = async (): Promise<UserProfile[]> => {
   return snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as object) } as UserProfile));
 };
 
+export const recordCategoryDemand = async (queryTerm: string, categoryIds: string[]) => {
+  if (!queryTerm || categoryIds.length === 0) return;
+  
+  try {
+    const term = queryTerm.toLowerCase().trim();
+    const batch = categoryIds.map(async (id) => {
+      const catRef = doc(db, 'categories', id);
+      try {
+        await updateDoc(catRef, {
+          suggestedKeywords: arrayUnion(term),
+          updatedAt: new Date().toISOString()
+        });
+      } catch (e) {
+        // Doc might not exist or ID is internal slug
+      }
+    });
+    
+    await Promise.all(batch);
+  } catch (error) {
+    // Silent fail for background analytics
+  }
+};
+
 export const searchMarketplaceAndSuppliers = async (searchTerm: string): Promise<{ products: MarketplaceItem[], suppliers: UserProfile[] }> => {
   if (!searchTerm) return { products: [], suppliers: [] };
   
@@ -102,16 +125,33 @@ export const searchMarketplaceAndSuppliers = async (searchTerm: string): Promise
     .filter(user => 
       user.name?.toLowerCase().includes(term) || 
       user.companyName?.toLowerCase().includes(term) ||
-      user.bio?.toLowerCase().includes(term)
+      user.bio?.toLowerCase().includes(term) ||
+      user.keywords?.some(k => k.toLowerCase().includes(term)) ||
+      user.categories?.some(c => c.toLowerCase().includes(term))
     );
     
   return { products, suppliers };
 };
 
-export const fetchPredictiveMatches = async (interests: string[], recentItems: string[]): Promise<{ supplierId: string, reason: string }[]> => {
+export const fetchPredictiveMatches = async (interests: string[], recentItems: string[], suppliers?: UserProfile[]): Promise<{ supplierId: string, reason: string, score: number }[]> => {
   try {
+    // If suppliers aren't provided, fetch a sample
+    const candidates = suppliers || await fetchSuppliers();
+    
+    // Create a compact representation of suppliers for the AI
+    const supplierContext = candidates.slice(0, 20).map(s => ({
+      uid: s.uid,
+      company: s.companyName || s.name,
+      categories: s.categories || [],
+      keywords: s.keywords || []
+    }));
+
     const result = await callAiJson(
-      `Analyze user interests: ${JSON.stringify(interests)} and recent items: ${JSON.stringify(recentItems)}. Suggest 3 matching suppliers from the marketplace. Return ONLY a JSON object with 'matches' array, where each match has 'supplierId' and 'reason'.`,
+      `Analyze user interests: ${JSON.stringify(interests)} and recent items: ${JSON.stringify(recentItems)}. 
+       Match them against these available suppliers: ${JSON.stringify(supplierContext)}.
+       Suggest the top 3 matching suppliers.
+       Return ONLY a JSON object with 'matches' array, where each match has 'supplierId', 'reason', and 'score' (0-100 indicating match strength).
+       The 'reason' should explain why the supplier's categories or keywords match the user's intent.`,
       {
         type: Type.OBJECT,
         properties: {
@@ -121,9 +161,10 @@ export const fetchPredictiveMatches = async (interests: string[], recentItems: s
               type: Type.OBJECT,
               properties: {
                 supplierId: { type: Type.STRING },
-                reason: { type: Type.STRING }
+                reason: { type: Type.STRING },
+                score: { type: Type.NUMBER }
               },
-              required: ["supplierId", "reason"]
+              required: ["supplierId", "reason", "score"]
             }
           }
         },

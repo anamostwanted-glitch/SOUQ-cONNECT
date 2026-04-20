@@ -14,6 +14,8 @@ import { PageLoader } from './shared/components/PageLoader';
 import { SmartVoiceHub } from './shared/components/SmartVoiceHub';
 import { ErrorBoundary } from './shared/components/ErrorBoundary';
 import { NotificationCenter } from './modules/common/components/NotificationCenter';
+import { ImmuneSystemProvider } from './core/providers/ImmuneSystemProvider';
+import { NeuralPulseIndicator } from './core/components/NeuralPulseIndicator';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from './core/firebase';
 import { analytics } from './core/services/AnalyticsService';
@@ -304,10 +306,12 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen relative">
-      <Toaster position="top-center" richColors />
-      
-      <NotificationCenter 
+    <ImmuneSystemProvider>
+      <div className="min-h-screen relative">
+        <Toaster position="top-center" richColors />
+        <NeuralPulseIndicator />
+        
+        <NotificationCenter 
         isOpen={isNotificationsOpen} 
         onClose={() => setIsNotificationsOpen(false)}
         onNavigate={handleDeepNavigate}
@@ -529,5 +533,6 @@ export default function App() {
           </motion.div>
       </AnimatePresence>
     </div>
+    </ImmuneSystemProvider>
   );
 }

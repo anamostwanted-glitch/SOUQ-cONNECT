@@ -22,7 +22,23 @@
 - Never hardcode API keys or secrets.
 - Always validate user roles (`isAdmin()`, `isSupplier()`) before rendering sensitive UI components or performing privileged actions.
 
-## 5. Project Context Summary (Backup)
+## 5. Technological Sanctity (Anti-Regression)
+- **CORE FEATURES PROTECTION**: The following modules are CRITICAL and must NEVER be removed, simplified, or reverted during updates:
+  - **Neural Lexicon / Demand Lexicon**: The keyword learning mechanism (`recordCategoryDemand`) and its visualization in Admin/Supplier dashboards.
+  - **Neural Pulse**: AI behavior analysis and metrics.
+  - **Bento Matrix**: The dynamic role-based navigation grid.
+  - **Predictive Matching**: AI intent mapping to suppliers.
+- **Audit Requirement**: Before any major code refactor, the agent MUST verify that the interaction between `marketService.ts` (learning engine) and Dashboards (visualization) remains intact.
+
+## 6. Team Role Distribution (Core Team Persona)
+- **Product Manager**: Focuses on business logic, growth plans, and SEO strings.
+- **Solution Architect**: Focuses on Firebase structure, Security Rules, and service scalability.
+- **UX Designer**: Focuses on motion, glassmorphism, and i18n RTL/LTR consistency.
+- **Full-Stack Developer**: Focuses on error handling, soft-delete patterns, and platform core.
+- **DevOps Engineer**: Focuses on env safety, build reliability, and deployment monitoring.
+- **Growth Hacker**: Focuses on "Neural Lexicon" conversion loops and supplier engagement.
+
+## 7. Project Context Summary (Backup)
 - **Project Name:** Connect AI Marketplace (Multi-User Platform)
 - **Core Stack:** React 18, Vite, Tailwind CSS, Firebase (Auth, Firestore, Storage).
 - **Architecture:** Modular structure (modules/marketplace, modules/site, modules/user, modules/admin).

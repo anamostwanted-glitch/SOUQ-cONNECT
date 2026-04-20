@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { HapticButton } from '../../../shared/components/HapticButton';
+import { PasskeyService } from '../../../core/services/PasskeyService';
 import { toast } from 'sonner';
 
 export const AdminDeepControl: React.FC = () => {
@@ -22,6 +23,48 @@ export const AdminDeepControl: React.FC = () => {
   const isRtl = i18n.language === 'ar';
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [aiOptimization, setAiOptimization] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const handleToggleControl = async (id: string) => {
+    if (id === 'maintenance') {
+      try {
+        setIsVerifying(true);
+        const verified = await PasskeyService.verifyIdentity(isRtl ? 'تغيير وضع الصيانة' : 'Toggle Maintenance Mode');
+        if (verified) {
+          setMaintenanceMode(!maintenanceMode);
+          toast.warning(maintenanceMode ? (isRtl ? 'تم إيقاف وضع الصيانة' : 'Maintenance mode disabled') : (isRtl ? 'تم تفعيل وضع الصيانة' : 'Maintenance mode enabled'));
+        }
+      } catch (error) {
+        toast.error(isRtl ? 'فشل التحقق الحيوي' : 'Bio-verification failed');
+      } finally {
+        setIsVerifying(false);
+      }
+      return;
+    }
+
+    if (id === 'ai_opt') {
+      setAiOptimization(!aiOptimization);
+      toast.info(aiOptimization ? (isRtl ? 'تم إيقاف تحسين الذكاء الاصطناعي' : 'AI optimization disabled') : (isRtl ? 'تم تفعيل تحسين الذكاء الاصطناعي' : 'AI optimization enabled'));
+    }
+  };
+
+  const handleAction = async (action: { id: string, label: string }) => {
+    if (action.id === 'flush_cache' || action.id === 'db_backup') {
+      try {
+        setIsVerifying(true);
+        const verified = await PasskeyService.verifyIdentity(action.label);
+        if (verified) {
+          toast.success(`${action.label} initiated`);
+        }
+      } catch (error) {
+        toast.error(isRtl ? 'فشل التحقق الحيوي' : 'Bio-verification failed');
+      } finally {
+        setIsVerifying(false);
+      }
+    } else {
+      toast.success(`${action.label} initiated`);
+    }
+  };
 
   const controls = [
     { 
@@ -29,20 +72,14 @@ export const AdminDeepControl: React.FC = () => {
       label: isRtl ? 'وضع الصيانة' : 'Maintenance Mode', 
       icon: Lock, 
       active: maintenanceMode,
-      onToggle: () => {
-        setMaintenanceMode(!maintenanceMode);
-        toast.warning(maintenanceMode ? (isRtl ? 'تم إيقاف وضع الصيانة' : 'Maintenance mode disabled') : (isRtl ? 'تم تفعيل وضع الصيانة' : 'Maintenance mode enabled'));
-      }
+      onToggle: () => handleToggleControl('maintenance')
     },
     { 
       id: 'ai_opt', 
       label: isRtl ? 'تحسين الذكاء الاصطناعي' : 'AI Optimization', 
       icon: Cpu, 
       active: aiOptimization,
-      onToggle: () => {
-        setAiOptimization(!aiOptimization);
-        toast.info(aiOptimization ? (isRtl ? 'تم إيقاف تحسين الذكاء الاصطناعي' : 'AI optimization disabled') : (isRtl ? 'تم تفعيل تحسين الذكاء الاصطناعي' : 'AI optimization enabled'));
-      }
+      onToggle: () => handleToggleControl('ai_opt')
     },
   ];
 
@@ -97,8 +134,9 @@ export const AdminDeepControl: React.FC = () => {
           {actions.map((action) => (
             <HapticButton
               key={action.id}
-              onClick={() => toast.success(`${action.label} initiated`)}
-              className="flex items-center gap-3 p-3 rounded-xl bg-brand-background border border-brand-border/30 hover:border-brand-primary/20 hover:bg-brand-primary/5 transition-all group"
+              onClick={() => handleAction(action)}
+              disabled={isVerifying}
+              className="flex items-center gap-3 p-3 rounded-xl bg-brand-background border border-brand-border/30 hover:border-brand-primary/20 hover:bg-brand-primary/5 transition-all group disabled:opacity-50"
             >
               <action.icon size={14} className="text-brand-text-muted group-hover:text-brand-primary" />
               <span className="text-[10px] font-bold text-brand-text-main">{action.label}</span>

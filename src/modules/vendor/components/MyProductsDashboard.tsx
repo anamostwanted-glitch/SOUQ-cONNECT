@@ -7,6 +7,8 @@ import { MarketplaceItem, AdAnalytics } from '../../../core/types';
 import { VendorProductCard } from './VendorProductCard';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
+import { PerformanceService } from '../../../core/services/PerformanceService';
+import { SupplierPerformance } from '../../../core/types';
 
 import { SmartUploadModal } from '../../marketplace/components/upload-flow/SmartUploadModal';
 import { UserProfile, Category } from '../../../core/types';
@@ -45,6 +47,8 @@ export const MyProductsDashboard: React.FC = () => {
   const [editingItem, setEditingItem] = useState<MarketplaceItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<MarketplaceItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [performanceReport, setPerformanceReport] = useState<SupplierPerformance | null>(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -81,6 +85,15 @@ export const MyProductsDashboard: React.FC = () => {
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'ad_analytics', false);
     });
+
+    // Fetch Performance Report
+    const fetchPerformance = async () => {
+      setIsGeneratingReport(true);
+      const report = await PerformanceService.generateSupplierReport(auth.currentUser!.uid);
+      setPerformanceReport(report);
+      setIsGeneratingReport(false);
+    };
+    fetchPerformance();
 
     return () => {
       unsubCats();
@@ -176,7 +189,97 @@ export const MyProductsDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Smart Command Bar */}
+      {/* 2. Performance & Vigilance Insights */}
+      <AnimatePresence mode="wait">
+        {performanceReport && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className={`p-8 rounded-[2.5rem] ${glassClass} border-brand-primary/20 bg-gradient-to-br from-brand-primary/5 to-transparent`}
+          >
+            <div className="flex flex-col md:flex-row gap-8">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-3 bg-brand-primary/10 rounded-2xl text-brand-primary">
+                    <TrendingUp size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-brand-text-main">{isRtl ? 'تقرير اليقظة الشرائية' : 'Purchasing Vigilance Report'}</h3>
+                    <p className="text-xs text-brand-text-muted font-bold uppercase tracking-widest">{isRtl ? 'الرؤى المدعومة بالذكاء الاصطناعي' : 'AI-Powered Insights'}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-brand-background/40 p-4 rounded-3xl border border-brand-border/30">
+                    <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'فرص ضائعة' : 'Missed Opportunities'}</p>
+                    <div className="flex items-end gap-2">
+                      <p className="text-3xl font-black text-brand-error">{performanceReport.unmetDemandHits}</p>
+                      <p className="text-[10px] font-bold text-brand-text-muted mb-2">{isRtl ? 'طلب غير ملبى' : 'unmet demands'}</p>
+                    </div>
+                  </div>
+                  <div className="bg-brand-background/40 p-4 rounded-3xl border border-brand-border/30">
+                    <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'دقة المطابقة' : 'Match Accuracy'}</p>
+                    <div className="flex items-end gap-2">
+                      <p className="text-3xl font-black text-brand-teal">{performanceReport.matchRate}%</p>
+                      <p className="text-[10px] font-bold text-brand-text-muted mb-2">{isRtl ? 'نسبة الاستجابة' : 'resp. rate'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-xs font-black text-brand-text-muted uppercase tracking-widest px-1">{isRtl ? 'توصيات النمو العصبية' : 'Neural Growth Recommendations'}</p>
+                  {performanceReport.suggestions.map((suggestion, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 bg-white/40 dark:bg-slate-800/40 rounded-2xl text-sm font-medium border border-white/20 dark:border-slate-700/20">
+                      <div className="w-1.5 h-1.5 rounded-full bg-brand-primary mt-2 shrink-0" />
+                      <p className="text-brand-text-main leading-relaxed">{suggestion}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="w-full md:w-72 flex flex-col gap-4">
+                <div className="bg-brand-primary text-white p-6 rounded-[2rem] shadow-xl shadow-brand-primary/20 relative overflow-hidden group">
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+                  <Sparkles size={32} className="mb-4 opacity-50" />
+                  <h4 className="font-black text-lg mb-2 leading-tight">{isRtl ? 'ضاعف مبيعاتك' : 'Double Your Sales'}</h4>
+                  <p className="text-xs font-medium text-white/80 mb-6 leading-relaxed">
+                    {isRtl 
+                      ? 'يوضح تقرير اليقظة أن هناك طلباً مرتفعاً على أصنافك. إضافة منتجات جديدة الآن ستصل فوراً لهؤلاء الباحثين.' 
+                      : 'The Vigilance report shows high demand in your categories. Adding new products now will instantly alert pending buyers.'}
+                  </p>
+                  <HapticButton 
+                    onClick={() => setShowUploadModal(true)}
+                    className="w-full py-3 bg-white text-brand-primary rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-colors"
+                  >
+                    {isRtl ? 'استغلال الفرص الآن' : 'Capture Demand Now'}
+                  </HapticButton>
+                </div>
+
+                <div className="bg-brand-surface p-6 rounded-[2rem] border border-brand-border">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Activity size={16} className="text-brand-teal" />
+                    <span className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'نبض الأداء' : 'Performance Pulse'}</span>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-end">
+                      <span className="text-xs font-bold text-brand-text-muted">{isRtl ? 'وقت الاستجابة' : 'Response Time'}</span>
+                      <span className="text-sm font-black text-brand-text-main">{performanceReport.avgResponseTime}m</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-brand-border/30 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-brand-teal rounded-full" 
+                        style={{ width: `${Math.max(10, 100 - (performanceReport.avgResponseTime / 2))}%` }} 
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 3. Smart Command Bar */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:w-96 group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-primary/50 group-focus-within:text-brand-primary transition-colors" size={20} />

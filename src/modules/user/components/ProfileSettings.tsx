@@ -29,11 +29,12 @@ import {
   Search,
   Trash2
 } from 'lucide-react';
-import { doc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, collection, onSnapshot, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { handleFirestoreError, OperationType, handleAiError } from '../../../core/utils/errorHandling';
 import { db, auth, storage } from '../../../core/firebase';
 import { UserProfile, Category } from '../../../core/types';
+import { updateUserProfile } from '../../../core/services/userService';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { CacheOptimizer } from '../../../shared/components/CacheOptimizer';
 import HelpCenter from '../../site/components/HelpCenter';
@@ -134,8 +135,8 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
         
         handleChange(type === 'logo' ? 'logoUrl' : 'coverUrl', url);
         
-        // Auto-save image to profile
-        await updateDoc(doc(db, 'users', profile.uid), {
+        // Use synchronized update for images too
+        await updateUserProfile(profile.uid, {
           [type === 'logo' ? 'logoUrl' : 'coverUrl']: url,
           ...(type === 'logo' ? { photoURL: url } : {}) // Sync photoURL with logoUrl
         });
@@ -231,7 +232,9 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
     if (!profile.uid) return;
     try {
       setIsSaving(true);
-      const updateData: any = {
+      
+      // Atomic Update Data
+      const updateData: Partial<UserProfile> = {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
@@ -239,20 +242,38 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
         website: formData.website,
         bio: formData.bio,
         companyName: formData.companyName,
-        updatedAt: new Date().toISOString()
+        logoUrl: formData.logoUrl,
+        photoURL: formData.logoUrl,
+        coverUrl: formData.coverUrl,
+        supplierType: formData.supplierType as any,
+        lastActive: new Date().toISOString()
       };
       
       if (isSupplierView) {
         updateData.categories = formData.categories;
         updateData.keywords = formData.keywords;
-        updateData.businessDescription = formData.bio; // Keep in sync
+        updateData.businessDescription = formData.bio;
+        
+        // Auto-generate some basic SEO fields if not present
+        if (!profile.metaTitleEn) {
+          updateData.metaTitleEn = `${formData.name} - ${formData.companyName || 'Supplier'}`;
+          updateData.metaTitleAr = `${formData.name} - ${formData.companyName || 'مورد موثوق'}`;
+        }
       }
 
-      await updateDoc(doc(db, 'users', profile.uid), updateData);
+      // UX: Show optimistic local toast
+      const savingToast = toast.loading(isRtl ? 'جاري مزامنة البيانات...' : 'Syncing data...');
+
+      await updateUserProfile(profile.uid, updateData);
+      
       setHasChanges(false);
-      toast.success(isRtl ? 'تم حفظ التحديثات بنجاح' : 'Updates saved successfully');
+      toast.dismiss(savingToast);
+      toast.success(isRtl ? 'تم تحديث ملفك الشخصي ومزامنته عالمياً' : 'Profile updated and synced globally');
+      
+      // Refresh local page if needed or let parent update via onSnapshot
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${profile.uid}`, false);
+      toast.error(isRtl ? 'فشلت المزامنة. يرجى المحاولة لاحقاً.' : 'Sync failed. Please try again.');
     } finally {
       setIsSaving(false);
     }

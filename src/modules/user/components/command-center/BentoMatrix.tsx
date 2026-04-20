@@ -16,6 +16,7 @@ import {
   BarChart3,
   Zap,
   Users,
+  Search,
   History,
   Bell,
   Accessibility,
@@ -157,6 +158,17 @@ export const BentoMatrix: React.FC<BentoMatrixProps> = ({
       bg: 'bg-amber-500/10', 
       stat: 'Pro',
       span: 'col-span-1'
+    },
+    { 
+      id: 'neural_lexicon', 
+      title: isRtl ? 'معجم الطلب' : 'Demand Lexicon', 
+      desc: isRtl ? 'الكلمات الأكثر بحثاً' : 'Most searched terms',
+      icon: Search, 
+      color: 'text-brand-primary', 
+      bg: 'bg-brand-primary/10', 
+      stat: 'AI Pulse',
+      span: 'col-span-1',
+      sparkle: true
     },
     { 
       id: 'store_settings', 
