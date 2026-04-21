@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Clock, MapPin, ChevronRight, ChevronDown, MessageSquare, 
-  Star, Building2, Sparkles, Package, Trash2, ArrowRight
+  Star, Building2, Sparkles, Package, Trash2, ArrowRight, CheckCircle2
 } from 'lucide-react';
 import { doc, updateDoc, collection, query, where, getDocs, addDoc, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
@@ -19,6 +19,7 @@ interface UserRequestCardProps {
   onOpenChat: (chatId: string) => void;
   onViewProfile: (uid: string) => void;
   onDelete?: (requestId: string, imageUrl?: string) => void;
+  onClose?: (requestId: string) => void;
   variant?: 'home' | 'dashboard';
 }
 
@@ -28,6 +29,7 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
   onOpenChat,
   onViewProfile,
   onDelete,
+  onClose,
   variant = 'dashboard'
 }) => {
   const { t, i18n } = useTranslation();
@@ -182,7 +184,9 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
       {/* Status Bar - High Fidelity */}
       <div className="flex items-center justify-between">
         <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${
-          request.status === 'open' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+          request.status === 'open' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 
+          request.status === 'closed' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' :
+          'bg-slate-500/10 text-slate-600 border-slate-500/20'
         }`}>
           {request.status === 'open' && (
             <span className="relative flex h-1.5 w-1.5">
@@ -190,7 +194,9 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
             </span>
           )}
-          {request.status === 'open' ? (isRtl ? 'نشط' : 'Active Mission') : (isRtl ? 'مكتمل' : 'Completed')}
+          {request.status === 'open' ? (isRtl ? 'نشط' : 'Active Mission') : 
+           request.status === 'closed' ? (isRtl ? 'مغلق / مكتمل' : 'Closed / Completed') :
+           (isRtl ? 'ملغي' : 'Cancelled')}
         </div>
         
         <div className="flex items-center gap-2">
@@ -287,6 +293,16 @@ export const UserRequestCard: React.FC<UserRequestCardProps> = ({
           {isExpanded ? (isRtl ? 'أقل' : 'Less') : (isRtl ? 'التفاصيل' : 'Details')}
           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} className={isRtl ? 'rotate-180' : ''} />}
         </HapticButton>
+
+        {onClose && request.status === 'open' && (profile?.uid === request.customerId || profile?.role === 'admin') && (
+          <HapticButton 
+            onClick={() => onClose(request.id)}
+            className="px-6 py-3.5 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:bg-emerald-600 transition-colors"
+          >
+            <CheckCircle2 size={14} />
+            {isRtl ? 'إغلاق المهمة' : 'Close Mission'}
+          </HapticButton>
+        )}
 
         {isHome && (
           <HapticButton 

@@ -43,6 +43,29 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
     autoNegotiate: false
   });
 
+  // Neural Logic: Competitive Intelligence Indicator
+  const calculateCompetitiveness = () => {
+    if (!formData.price) return 0;
+    const price = Number(formData.price);
+    // Simulated market logic: Imagine average is 1000 for context or fetch from request.budget if exists
+    const budget = request.budget || 1000;
+    const ratio = price / budget;
+    
+    if (ratio < 0.8) return 95; // Very competitive
+    if (ratio < 1.0) return 80; // Competitive
+    if (ratio < 1.2) return 50; // Average
+    if (ratio < 1.5) return 25; // Low
+    return 10; // Unlikely to be picked
+  };
+
+  const competitiveness = calculateCompetitiveness();
+
+  const getCompetitivenessColor = (score: number) => {
+    if (score >= 80) return 'text-emerald-500 bg-emerald-500/10';
+    if (score >= 50) return 'text-brand-primary bg-brand-primary/10';
+    return 'text-rose-500 bg-rose-500/10';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.price) {
@@ -134,9 +157,16 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest flex items-center gap-2">
-                      <DollarSign size={14} />
-                      {isRtl ? 'السعر المقترح' : 'Proposed Price'}
+                    <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <DollarSign size={14} />
+                        {isRtl ? 'السعر المقترح' : 'Proposed Price'}
+                      </div>
+                      {competitiveness > 0 && (
+                        <div className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase transition-all ${getCompetitivenessColor(competitiveness)}`}>
+                          {isRtl ? 'ذكاء تنافسي' : 'Competitive Score'}: {competitiveness}%
+                        </div>
+                      )}
                     </label>
                     <input
                       type="number"
@@ -146,6 +176,27 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                       className="w-full bg-brand-background border border-brand-border rounded-2xl p-4 text-brand-text-main font-black focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all"
                       placeholder="0.00"
                     />
+                    
+                    {/* Visual Progress Bar */}
+                    <AnimatePresence>
+                      {competitiveness > 0 && (
+                        <motion.div 
+                          initial={{ scaleX: 0 }}
+                          animate={{ scaleX: 1 }}
+                          className="h-1 bg-brand-border rounded-full overflow-hidden"
+                        >
+                          <motion.div 
+                            className={`h-full transition-all duration-500 ${
+                              competitiveness >= 80 ? 'bg-emerald-500' : 
+                              competitiveness >= 50 ? 'bg-brand-primary' : 
+                              'bg-rose-500'
+                            }`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${competitiveness}%` }}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   <div className="space-y-2">

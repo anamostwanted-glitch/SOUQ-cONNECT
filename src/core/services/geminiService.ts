@@ -22,6 +22,8 @@ onSnapshot(doc(db, 'settings', 'site'), (snap) => {
       console.log(`AI Master Switch updated: ${isAiMasterEnabled}`);
     }
   }
+}, (err) => {
+  console.warn('AI Master Switch snapshot failed (likely permission restriction):', err.message);
 });
 const EXHAUST_COOLDOWN = 60 * 60 * 1000; // 1 hour cooldown for an exhausted key
 

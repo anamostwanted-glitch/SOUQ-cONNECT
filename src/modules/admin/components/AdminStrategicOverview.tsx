@@ -246,7 +246,7 @@ export const AdminStrategicOverview: React.FC<AdminStrategicOverviewProps> = ({
               ...(!isAiEnabled ? [] : [{ id: 'ai-portal', label: isRtl ? 'الذكاء الاصطناعي' : 'AI Hub', icon: BrainCircuit, color: 'bg-pink-500' }]),
             ].map((item, i) => (
               <HapticButton
-                key={`quick-access-${item.id}`}
+                key={`quick-access-${item.id}-${i}`}
                 onClick={() => onAction(item.id)}
                 className="aspect-square bg-brand-surface rounded-[2rem] border border-brand-border p-6 flex flex-col items-center justify-center gap-3 hover:shadow-xl hover:-translate-y-1 transition-all group"
               >

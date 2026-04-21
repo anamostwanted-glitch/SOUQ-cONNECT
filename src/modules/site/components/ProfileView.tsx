@@ -70,6 +70,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const isRtl = i18n.language === 'ar';
 
+  // Core Team: Storefront Mode & Attribution Logic
+  const searchParams = new URL(window.location.href).searchParams;
+  const isStorefrontMode = searchParams.get('mode') === 'storefront' || searchParams.get('source') === 'share' || searchParams.get('source') === 'social';
+  const attributionSource = searchParams.get('source') || 'direct';
+
+  useEffect(() => {
+    if (profile?.uid && attributionSource !== 'direct') {
+      import('../../marketplace/services/marketService').then(m => {
+        m.trackInteraction(profile.uid, profile.uid, 'view', { 
+          source: attributionSource,
+          mode: isStorefrontMode ? 'storefront' : 'profile',
+          userAgent: navigator.userAgent
+        });
+      });
+    }
+  }, [profile?.uid, attributionSource, isStorefrontMode]);
+
   const [isChangingEmail, setIsChangingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [emailChangeStatus, setEmailChangeStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -819,7 +836,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     emailChangeStatus, emailChangeMessage, handleEmailChange,
     onViewProduct: setSelectedItem,
     onOpenChat,
-    isAdmin
+    isAdmin,
+    isStorefrontMode,
+    attributionSource
   };
 
   return (

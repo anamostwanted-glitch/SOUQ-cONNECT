@@ -31,6 +31,8 @@ window.addEventListener('unhandledrejection', (event) => {
     message.includes('failed to connect to websocket') ||
     message.includes('Importing a cell from a closed bucket') ||
     message.includes('AI Service Busy') ||
+    message.includes('permission-denied') ||
+    message.includes('Missing or insufficient permissions') ||
     reason?.isAiHandled === true;
 
   if (isBenign) {

@@ -25,7 +25,7 @@ import { UserProfile, Message, Chat, ProductRequest, Quote, QuoteItem, Offer, Ap
 import { translateText, generateSmartReplies, moderateContent, translateAudio, negotiateOffer, getPriceIntelligence, summarizeChat, analyzeSentiment, handleAiError, refineChatMessage } from '../../../core/services/geminiService';
 import { createNotification } from '../../../core/services/notificationService';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Mic, Square, ArrowLeft, User as UserIcon, Play, Pause, MessageSquare, Image as ImageIcon, Upload, Tag, Phone, X, ZoomIn, Sparkles as SparklesIcon, Check, CheckCheck, FileText, PlusCircle, Trash2, Download, Printer, Star, Bot, MapPin, Reply, CheckCircle, Settings, Clock, SmilePlus, Search, MoreVertical, Copy, Forward, Pin, ShieldCheck, BrainCircuit, Sparkles, Info, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Package, ChevronRight, Loader2 } from 'lucide-react';
+import { Send, Mic, Square, ArrowLeft, User as UserIcon, Play, Pause, MessageSquare, Image as ImageIcon, Upload, Tag, Phone, X, ZoomIn, Sparkles as SparklesIcon, Check, CheckCheck, FileText, PlusCircle, Trash2, Download, Printer, Star, Bot, MapPin, Reply, CheckCircle, Settings, Clock, SmilePlus, Search, MoreVertical, Copy, Forward, Pin, ShieldCheck, BrainCircuit, Sparkles, Info, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Package, ChevronRight, Loader2, Zap } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { soundService, SoundType } from '../../../core/utils/soundService';
 import { Virtuoso } from 'react-virtuoso';
@@ -1470,8 +1470,13 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                     {otherUser?.role === 'supplier' && (
                       <>
                         <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                          {isRtl ? 'رد سريع' : 'Fast Response'}
+                        <span className="text-[10px] font-black text-amber-500 flex items-center gap-0.5">
+                          <Star size={10} fill="currentColor" />
+                          {otherUser?.rating || '5.0'}
+                        </span>
+                        <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                        <span className="text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] whitespace-nowrap">
+                          {isRtl ? 'رد فائق السرعة' : 'Ultra-Fast'}
                         </span>
                       </>
                     )}
@@ -1876,6 +1881,48 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
                     </motion.div>
                   )}
                 </AnimatePresence>
+                
+                {/* Empty State / Ice Breakers */}
+                {messages.length === 0 && !isAiProcessing && (
+                  <div className="flex flex-col items-center justify-center space-y-6 pt-10 px-4">
+                    <div className="w-20 h-20 rounded-[2rem] bg-brand-primary/5 flex items-center justify-center text-brand-primary animate-pulse">
+                      <SparklesIcon size={40} />
+                    </div>
+                    <div className="text-center space-y-2">
+                      <h4 className="text-xl font-black text-slate-900 dark:text-white">
+                        {isRtl ? 'ابدأ المحادثة بنقرة واحدة' : 'Start the Chat in One Tap'}
+                      </h4>
+                      <p className="text-sm text-slate-500 font-medium max-w-xs mx-auto">
+                        {isRtl 
+                          ? 'اختر أحد الأسئلة المقترحة لتبدأ عملية التفاوض والحصول على العرض المثالي.' 
+                          : 'Choose one of the suggested questions to start negotiating and get the perfect offer.'}
+                      </p>
+                    </div>
+                    
+                    <div className="flex flex-wrap justify-center gap-3 w-full max-w-md">
+                      {(isRtl ? [
+                        'ما هي تكلفتك التقريبية لهذا العمل؟',
+                        'هل يمكنك البدء في العمل فوراً؟',
+                        'ما هي مدة التسليم المتوقعة؟',
+                        'هل السعر يشمل رسوم التوصيل؟'
+                      ] : [
+                        'What is your estimated cost for this task?',
+                        'Can you start working immediately?',
+                        'What is the expected delivery time?',
+                        'Does the price include delivery fees?'
+                      ]).map((q, i) => (
+                        <HapticButton
+                          key={i}
+                          onClick={() => handleSend(undefined, q)}
+                          className="px-4 py-3 bg-white dark:bg-slate-800 border border-brand-border/50 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-2xl hover:border-brand-primary hover:text-brand-primary transition-all shadow-sm flex items-center gap-2 group"
+                        >
+                          <Zap size={14} className="text-amber-500 group-hover:scale-110 transition-transform" />
+                          {q}
+                        </HapticButton>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {isExpired && (
                   <div className="bg-brand-warning/10 border border-brand-warning/20 p-4 rounded-2xl text-center">
                     <p className="text-brand-warning text-sm font-bold">

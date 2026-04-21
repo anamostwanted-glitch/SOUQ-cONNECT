@@ -18,7 +18,7 @@ import {
   CheckCircle2, Info, ArrowLeft, MoreHorizontal,
   Mail, Link as LinkIcon, Facebook, Instagram, Twitter,
   FileText, Bookmark, ExternalLink, Trash2, ImagePlus, Tag, Briefcase,
-  RefreshCw
+  RefreshCw, Target
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { AICategorySelector } from '../../site/components/AICategorySelector';
@@ -28,20 +28,24 @@ import { Card, CardContent } from "../../../shared/components/ui/card";
 import { Skeleton } from "../../../shared/components/ui/skeleton";
 import { ProductCard } from '../../marketplace/components/ProductCard';
 import { AuthorityCard } from '../../../shared/components/AuthorityCard';
+import { SEOHead } from '../../../shared/components/SEOHead';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import imageCompression from 'browser-image-compression';
 import { getProfileInsights, optimizeSupplierProfile, handleAiError } from '../../../core/services/geminiService';
 import { ProfileSettings } from '../../user/components/ProfileSettings';
-import { getStoreShareUrl } from '../../marketplace/services/marketService';
-import { createNotification } from '../../../core/services/notificationService';
-import { SEO } from '../../../shared/components/SEO';
-import { HelmetProvider } from 'react-helmet-async';
+import { getStoreShareUrl, fetchStoreAnalytics } from '../../marketplace/services/marketService';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
+  ResponsiveContainer, PieChart, Pie, Cell 
+} from 'recharts';
 
 interface ConnectStorefrontProps {
   profile: UserProfile;
   isOwner: boolean;
   isAdmin?: boolean;
+  isStorefrontMode?: boolean;
+  attributionSource?: string;
   onViewProduct: (item: MarketplaceItem) => void;
   onBack?: () => void;
   onOpenChat: (id: string) => void;
@@ -60,6 +64,8 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
   profile, 
   isOwner, 
   isAdmin,
+  isStorefrontMode,
+  attributionSource,
   onViewProduct, 
   onBack, 
   onOpenChat,
@@ -85,9 +91,22 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isFollowing, setIsFollowing] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [activeTab, setActiveTab] = useState<'products' | 'requests' | 'saved' | 'about' | 'reviews' | 'settings'>(
+  const [activeTab, setActiveTab] = useState<'products' | 'requests' | 'saved' | 'about' | 'reviews' | 'settings' | 'insights'>(
     profile.role === 'customer' ? 'requests' : 'products'
   );
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'insights' && isOwner && profile.uid) {
+      setIsLoadingAnalytics(true);
+      fetchStoreAnalytics(profile.uid).then(stats => {
+        setAnalytics(stats);
+      }).finally(() => {
+        setIsLoadingAnalytics(false);
+      });
+    }
+  }, [activeTab, isOwner, profile.uid]);
   
   // Architect Mode (Edit Mode)
   const [isArchitectMode, setIsArchitectMode] = useState(false);
@@ -466,7 +485,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
         
         // Notify the merchant - Core Team Implementation
         if (auth.currentUser) {
-          createNotification({
+          await addDoc(collection(db, 'notifications'), {
             userId: profile.uid,
             titleAr: 'متابع جديد لمتجرك! 👤',
             titleEn: 'New Follower for your store! 👤',
@@ -474,7 +493,9 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
             bodyEn: `${auth.currentUser.displayName || 'A user'} followed your store. Stay connected!`,
             actionType: 'view_profile',
             targetId: auth.currentUser.uid,
-            imageUrl: auth.currentUser.photoURL || undefined
+            imageUrl: auth.currentUser.photoURL || undefined,
+            createdAt: new Date().toISOString(),
+            read: false
           });
         }
       }
@@ -714,10 +735,10 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
 
   return (
     <div className="min-h-screen bg-brand-background pb-32 font-sans">
-      <SEO 
+      <SEOHead 
         title={isRtl ? (editData.metaTitleAr || editData.name) : (editData.metaTitleEn || editData.name)}
         description={isRtl ? editData.metaDescriptionAr : editData.metaDescriptionEn}
-        keywords={editData.seoKeywords?.join(', ')}
+        keywords={editData.seoKeywords || []}
         image={editData.logoUrl}
         url={getStoreShareUrl(profile.uid)}
         schema={{
@@ -995,7 +1016,10 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                 ] : []),
                 { id: 'about', label: isRtl ? 'عن المتجر' : 'About', icon: Info },
                 { id: 'reviews', label: isRtl ? 'التقييمات' : 'Reviews', icon: Star },
-                ...(isOwner ? [{ id: 'settings', label: isRtl ? 'الإعدادات' : 'Settings', icon: Settings }] : [])
+                ...(isOwner ? [
+                  { id: 'insights', label: isRtl ? 'رؤى النمو' : 'Growth Insights', icon: TrendingUp },
+                  { id: 'settings', label: isRtl ? 'الإعدادات' : 'Settings', icon: Settings }
+                ] : [])
               ].map((tab) => (
                 <HapticButton
                   key={`storefront-tab-${tab.id}`}
@@ -1435,6 +1459,137 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                           )}
                         </div>
                       ))}
+                    </div>
+                  </Card>
+                </motion.div>
+              )}
+
+              {activeTab === 'insights' && isOwner && (
+                <motion.div 
+                  key="insights"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-8"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Card className="bg-brand-surface p-6 rounded-[2rem] border border-brand-border">
+                      <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em] mb-2">{isRtl ? 'إجمالي الزيارات' : 'Total Views'}</p>
+                      <div className="flex items-end justify-between">
+                        <h3 className="text-3xl font-black text-brand-text-main">{analytics?.totalViews || 0}</h3>
+                        <Badge className="bg-brand-teal/10 text-brand-teal border-none">+12%</Badge>
+                      </div>
+                    </Card>
+                    <Card className="bg-brand-surface p-6 rounded-[2rem] border border-brand-border">
+                      <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em] mb-2">{isRtl ? 'زيارات اجتماعية' : 'Social Views'}</p>
+                      <div className="flex items-end justify-between">
+                        <h3 className="text-3xl font-black text-brand-primary">{analytics?.socialViews || 0}</h3>
+                        <Badge className="bg-brand-primary/10 text-brand-primary border-none">Hot 🔥</Badge>
+                      </div>
+                    </Card>
+                    <Card className="bg-brand-surface p-6 rounded-[2rem] border border-brand-border">
+                      <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em] mb-2">{isRtl ? 'معدل التحويل' : 'Conv. Rate'}</p>
+                      <div className="flex items-end justify-between">
+                        <h3 className="text-3xl font-black text-brand-warning">
+                          {analytics?.totalViews ? ((analytics.conversions / analytics.totalViews) * 100).toFixed(1) : 0}%
+                        </h3>
+                        <Badge className="bg-brand-warning/10 text-brand-warning border-none">Target: 5%</Badge>
+                      </div>
+                    </Card>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <Card className="bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border">
+                      <h4 className="text-lg font-black text-brand-text-main mb-8 flex items-center gap-3">
+                        <Share2 size={18} className="text-brand-primary" />
+                        {isRtl ? 'أداء مصادر الإعلانات' : 'Ad Source Performance'}
+                      </h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={Object.entries(analytics?.sources || {}).map(([name, value]) => ({ name, value }))}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                            <RechartsTooltip 
+                              contentStyle={{ 
+                                backgroundColor: 'var(--brand-surface)', 
+                                borderRadius: '1rem', 
+                                border: '1px solid var(--brand-border)',
+                                fontSize: '12px'
+                              }} 
+                            />
+                            <Bar dataKey="value" fill="var(--brand-primary)" radius={[8, 8, 0, 0]} barSize={40} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </Card>
+
+                    <Card className="bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border">
+                      <h4 className="text-lg font-black text-brand-text-main mb-8 flex items-center gap-3">
+                        <Target size={18} className="text-brand-teal" />
+                        {isRtl ? 'توزيع الجمهور' : 'Audience Distribution'}
+                      </h4>
+                      <div className="h-64 flex items-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Social', value: analytics?.socialViews || 0 },
+                                { name: 'Direct', value: (analytics?.totalViews || 0) - (analytics?.socialViews || 0) }
+                              ]}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              <Cell fill="var(--brand-primary)" />
+                              <Cell fill="#e2e8f0" />
+                            </Pie>
+                            <RechartsTooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="space-y-2">
+                           <div className="flex items-center gap-2">
+                             <div className="w-3 h-3 rounded-full bg-brand-primary" />
+                             <span className="text-[10px] font-bold text-brand-text-muted uppercase transition-all">{isRtl ? 'إعلانات وتواصل' : 'Social/Ads'}</span>
+                           </div>
+                           <div className="flex items-center gap-2">
+                             <div className="w-3 h-3 rounded-full bg-slate-200" />
+                             <span className="text-[10px] font-bold text-brand-text-muted uppercase transition-all">{isRtl ? 'مباشر' : 'Direct'}</span>
+                           </div>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+
+                  <Card className="bg-brand-primary/5 border border-brand-primary/20 rounded-[2.5rem] p-8">
+                    <div className="flex items-start gap-6">
+                      <div className="p-4 bg-brand-primary text-white rounded-2xl shadow-xl shadow-brand-primary/20">
+                        <Sparkles size={24} className="animate-pulse" />
+                      </div>
+                      <div className="space-y-4">
+                        <h4 className="text-xl font-black text-brand-text-main">{isRtl ? 'خطة أخصائي النمو لتحسين مبيعاتك' : 'Growth Specialist Sales Hack'}</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="p-4 bg-brand-surface rounded-xl border border-brand-border">
+                            <h5 className="text-xs font-black text-brand-primary mb-1 uppercase tracking-widest">{isRtl ? 'نصيحة الإعلانات' : 'Ad Strategy'}</h5>
+                            <p className="text-[11px] text-brand-text-muted leading-relaxed">
+                              {isRtl 
+                                ? 'زيارات سناب شات لديك مرتفعة ولكن التحويل ضعيف. جرب إضافة رابط "واتساب المباشر" في وصف سناب شات لزيادة التفاعل.' 
+                                : 'Snapchat views are high but conversion is low. Try adding a "Direct WhatsApp" link in your Bio to boost engagement.'}
+                            </p>
+                          </div>
+                          <div className="p-4 bg-brand-surface rounded-xl border border-brand-border">
+                            <h5 className="text-xs font-black text-brand-teal mb-1 uppercase tracking-widest">{isRtl ? 'رفع الجاذبية' : 'Visual Hook'}</h5>
+                            <p className="text-[11px] text-brand-text-muted leading-relaxed">
+                              {isRtl 
+                                ? 'الملف الشخصي يفتقر لصور واضحة للمنتجات الأكثر مبيعاً. أخصائي تجربة المستخدم ينصح برفع 3 صور جديدة لمنتجك الأساسي.' 
+                                : 'Your profile lacks clear images of best-selling products. UX Designer suggests uploading 3 new photos of your primary item.'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </Card>
                 </motion.div>

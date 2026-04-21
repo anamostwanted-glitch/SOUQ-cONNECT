@@ -39,6 +39,8 @@ const Legal = lazy(() => import('./modules/site/components/Legal'));
 const SupplierLandingPage = lazy(() => import('./modules/site/components/SupplierLandingPage'));
 const SupplierOnboarding = lazy(() => import('./modules/site/components/SupplierOnboarding').then(m => ({ default: m.SupplierOnboarding })));
 
+import { getChatId } from './core/utils/utils';
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,6 +48,16 @@ export default function App() {
   const { profile, viewMode, setViewMode, loading: authLoading } = useAuth();
   const { settings, features, loading: settingsLoading } = useSettings();
   const { categories, loading: categoriesLoading } = useCategories();
+
+  const handleOpenChat = (id: string) => {
+    let targetId = id;
+    // If it's a single target UID and not a special chat, normalize it
+    if (profile && !id.includes('_') && !id.startsWith('category_') && id !== 'system') {
+      targetId = getChatId(profile.uid, id);
+    }
+    setActiveChatId(targetId);
+    setView('chat');
+  };
 
   // Helper for backward compatibility while migrating
   const setView = (view: string, params?: Record<string, string>) => {
@@ -78,6 +90,38 @@ export default function App() {
 
   // Sync currentView state with location for legacy compatibility
   const [currentView, setCurrentView] = useState('home');
+
+  useEffect(() => {
+    const handleGlobalError = (event: ErrorEvent) => {
+      // Avoid tracking small/benign errors
+      if (event.message.includes('ResizeObserver') || event.message.includes('Script error')) return;
+      
+      console.warn('App Warning [Global:error]:', event.message);
+      analytics.trackEvent('app_error', { message: event.message, stack: event.error?.stack });
+    };
+
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason?.message || String(event.reason);
+      
+      // Filter out Firebase permission errors from global tracking as they are handled locally
+      if (reason.includes('Missing or insufficient permissions')) {
+        console.warn('Permission warning (handled locally):', reason);
+        return;
+      }
+
+      console.warn('App Warning [Global:unhandledrejection]:', reason);
+      analytics.trackEvent('promise_rejection', { reason });
+    };
+
+    window.addEventListener('error', handleGlobalError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      window.removeEventListener('error', handleGlobalError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
   useEffect(() => {
     const path = location.pathname;
     if (path === '/') setCurrentView('home');
@@ -107,6 +151,7 @@ export default function App() {
     profile.email === 'anamostwanted@gmail.com'
   );
   const isAuthPage = location.pathname.startsWith('/auth');
+  const isStorefrontMode = new URLSearchParams(location.search).get('mode') === 'storefront';
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [isVoiceHubOpen, setIsVoiceHubOpen] = useState(false);
@@ -355,6 +400,7 @@ export default function App() {
               isMomentOfNeed={isMomentOfNeed}
               onOpenNotifications={() => setIsNotificationsOpen(true)}
               notificationsUnreadCount={unreadNotificationsCount}
+              isStorefrontMode={isStorefrontMode}
             >
               <Routes>
                 <Route path="/join" element={
@@ -391,7 +437,7 @@ export default function App() {
                       <Home 
                         profile={profile} 
                         onNavigate={setView} 
-                        onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+                        onOpenChat={handleOpenChat}
                         onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
                         viewMode={viewMode as any}
                         uiStyle={uiStyle}
@@ -423,7 +469,7 @@ export default function App() {
                   <ErrorBoundary>
                     <Suspense fallback={<Skeleton className="h-screen w-full" />}>
                       <MarketInterface 
-                        onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+                        onOpenChat={handleOpenChat}
                         onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
                         activeTab={dashboardTab as any}
                         setActiveTab={setDashboardTab as any}
@@ -485,7 +531,7 @@ export default function App() {
                         <Dashboard 
                           dashboardTab={dashboardTab}
                           setDashboardTab={setDashboardTab}
-                          onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+                          onOpenChat={handleOpenChat}
                           onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
                           uiStyle={uiStyle}
                         />
@@ -517,7 +563,7 @@ export default function App() {
                         profile={selectedProfileId ? null : profile} 
                         currentUserProfile={profile}
                         features={features} 
-                        onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+                        onOpenChat={handleOpenChat}
                         onBack={() => setView('home')} 
                       />
                     </Suspense>

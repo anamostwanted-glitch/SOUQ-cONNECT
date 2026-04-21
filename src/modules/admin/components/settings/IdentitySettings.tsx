@@ -148,8 +148,8 @@ export const IdentitySettings: React.FC<IdentitySettingsProps> = ({ settings, se
               {[
                 { field: 'seoTitleAr', lang: 'ar', label: isRtl ? 'عنوان الميتا (عربي)' : 'Meta Title (AR)', context: 'SEO Meta Title for AI Multi-Vendor MarketPlace' },
                 { field: 'seoTitleEn', lang: 'en', label: isRtl ? 'عنوان الميتا (إنجليزي)' : 'Meta Title (EN)', context: 'SEO Meta Title for AI Multi-Vendor MarketPlace' }
-              ].map((item) => (
-                <div key={item.field} className="space-y-3">
+              ].map((item, idx) => (
+                <div key={`seo-title-${item.field}-${idx}`} className="space-y-3">
                    <div className="flex items-center justify-between">
                       <label className="text-[9px] font-black text-brand-text-muted uppercase tracking-[0.2em]">{item.label}</label>
                       <button 
@@ -174,8 +174,8 @@ export const IdentitySettings: React.FC<IdentitySettingsProps> = ({ settings, se
               {[
                 { field: 'seoDescriptionAr', lang: 'ar', label: isRtl ? 'وصف الميتا (عربي)' : 'Meta Description (AR)', context: 'SEO Meta Description for AI Multi-Vendor MarketPlace' },
                 { field: 'seoDescriptionEn', lang: 'en', label: isRtl ? 'وصف الميتا (إنجليزي)' : 'Meta Description (EN)', context: 'SEO Meta Description for AI Multi-Vendor MarketPlace' }
-              ].map((item) => (
-                <div key={item.field} className="space-y-3">
+              ].map((item, idx) => (
+                <div key={`seo-desc-${item.field}-${idx}`} className="space-y-3">
                    <div className="flex items-center justify-between">
                       <label className="text-[9px] font-black text-brand-text-muted uppercase tracking-[0.2em]">{item.label}</label>
                       <button 

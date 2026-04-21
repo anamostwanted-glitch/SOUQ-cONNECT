@@ -16,6 +16,8 @@ export type EventType =
   | 'offer_created'
   | 'offer_accepted'
   | 'error_encountered'
+  | 'app_error'
+  | 'promise_rejection'
   | 'performance_metric';
 
 export interface AnalyticsEvent {

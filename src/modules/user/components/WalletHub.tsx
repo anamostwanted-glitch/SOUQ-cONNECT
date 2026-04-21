@@ -151,8 +151,8 @@ export const WalletHub: React.FC<WalletHubProps> = ({ profile, isRtl }) => {
           <button className="text-xs font-bold text-brand-primary hover:underline">{isRtl ? 'عرض الكل' : 'View All'}</button>
         </div>
         <div className="divide-y divide-brand-border">
-          {transactions.map((tx) => (
-            <div key={tx.id} className="p-5 flex items-center justify-between hover:bg-black/[0.02] transition-colors">
+          {transactions.map((tx, idx) => (
+            <div key={tx.id || `tx-${idx}`} className="p-5 flex items-center justify-between hover:bg-black/[0.02] transition-colors">
               <div className="flex items-center gap-4">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tx.type === 'in' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-brand-primary/10 text-brand-primary'}`}>
                   {tx.type === 'in' ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}

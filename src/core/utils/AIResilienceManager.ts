@@ -6,14 +6,27 @@ export class AIResilienceManager {
   private static readonly MAX_RETRIES = 2;
   private static readonly RETRY_DELAY = 2000; // 2 seconds
 
+  /**
+   * Returns whether AI services are currently operational.
+   * This can be used by UI components to show/hide AI features.
+   */
+  static isOperational(): boolean {
+    return !this.isCircuitOpen;
+  }
+
+  /**
+   * Executes an AI task with a circuit breaker and retry logic.
+   * If the circuit is open or task fails repeatedly, it returns the fallback.
+   */
   static async execute<T>(
     task: () => Promise<T>, 
     fallback: T, 
     context: string,
-    isFailure?: (error: any) => boolean
+    onStatusChange?: (isHealthy: boolean) => void
   ): Promise<T> {
     if (this.isCircuitOpen) {
-      console.warn(`AI Resilience: Circuit open for ${context}, returning fallback.`);
+      console.warn(`[AI-RESILIENCE:DEGRADED] Circuit open for ${context}, using static fallback.`);
+      onStatusChange?.(false);
       return fallback;
     }
 
@@ -21,17 +34,17 @@ export class AIResilienceManager {
     for (let attempt = 0; attempt <= this.MAX_RETRIES; attempt++) {
       try {
         if (attempt > 0) {
-          console.log(`AI Resilience: Retrying ${context} (attempt ${attempt}/${this.MAX_RETRIES})...`);
+          console.log(`[AI-RESILIENCE:RETRY] ${context} (attempt ${attempt}/${this.MAX_RETRIES})...`);
           await new Promise(resolve => setTimeout(resolve, this.RETRY_DELAY * attempt));
         }
         
         const result = await task();
-        this.failureCount = 0; // Success!
+        this.failureCount = 0; // Reset on success
+        onStatusChange?.(true);
         return result;
       } catch (error: any) {
         lastError = error;
         
-        // Check if we should retry (only for 503/UNAVAILABLE or high demand)
         const errorMessage = error.message || JSON.stringify(error);
         const isRetryable = errorMessage.includes('503') || 
                           errorMessage.includes('UNAVAILABLE') || 
@@ -44,24 +57,22 @@ export class AIResilienceManager {
       }
     }
 
-    // If we reach here, it's a final failure
-    const error = lastError;
-    if (!isFailure || isFailure(error)) {
-      this.failureCount++;
-      console.error(`AI Resilience: Task ${context} failed (${this.failureCount}/${this.CIRCUIT_BREAKER_THRESHOLD}).`, error);
+    // Handle Persistent Failure
+    this.failureCount++;
+    console.error(`[AI-RESILIENCE:FAILURE] Task ${context} failed (${this.failureCount}/${this.CIRCUIT_BREAKER_THRESHOLD}).`, lastError);
+    
+    if (this.failureCount >= this.CIRCUIT_BREAKER_THRESHOLD) {
+      this.isCircuitOpen = true;
+      onStatusChange?.(false);
+      console.error(`[AI-RESILIENCE:LOCKDOWN] AI services disabled for ${this.CIRCUIT_BREAKER_TIMEOUT / 1000}s due to instability.`);
       
-      if (this.failureCount >= this.CIRCUIT_BREAKER_THRESHOLD) {
-        this.isCircuitOpen = true;
-        console.error(`AI Resilience: Circuit opened for ${context}.`);
-        setTimeout(() => { 
-          this.isCircuitOpen = false; 
-          this.failureCount = 0; 
-          console.log(`AI Resilience: Circuit closed for ${context}.`);
-        }, this.CIRCUIT_BREAKER_TIMEOUT);
-      }
-    } else {
-      console.warn(`AI Resilience: Task ${context} failed but not counting as failure for circuit breaker.`, error);
+      setTimeout(() => { 
+        this.isCircuitOpen = false; 
+        this.failureCount = 0; 
+        console.log(`[AI-RESILIENCE:RECOVERY] Attempting to reconnect to AI services.`);
+      }, this.CIRCUIT_BREAKER_TIMEOUT);
     }
+
     return fallback;
   }
 }

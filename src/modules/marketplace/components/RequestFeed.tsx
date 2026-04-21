@@ -217,9 +217,9 @@ export const RequestFeed: React.FC<RequestFeedProps> = ({
       ) : (
         <div className="grid gap-4">
           <AnimatePresence mode="popLayout">
-            {filteredRequests.map((req) => (
+            {filteredRequests.map((req, idx) => (
               <motion.div
-                key={req.id}
+                key={`${req.id}-${idx}`}
                 layout
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -250,6 +250,9 @@ export const RequestFeed: React.FC<RequestFeedProps> = ({
                         {req.productName}
                       </h4>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2">
+                        <span className="flex items-center gap-1.5 text-[10px] font-black text-brand-primary uppercase tracking-widest bg-brand-primary/5 px-2 py-1 rounded-lg border border-brand-primary/10">
+                          {req.requestType === 'service' ? (isRtl ? 'خدمة' : 'Service') : (isRtl ? 'منتج' : 'Product')}
+                        </span>
                         <span className="flex items-center gap-1.5 text-[10px] font-black text-brand-text-muted uppercase tracking-widest bg-brand-background px-2 py-1 rounded-lg">
                           <Tag size={12} className="text-brand-primary" />
                           {isRtl ? req.categoryNameAr : req.categoryNameEn}

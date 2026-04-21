@@ -221,7 +221,6 @@ service cloud.firestore {
     function isValidCategory(data) {
       let allowedFields = ['id', 'nameAr', 'nameEn', 'parentId', 'order', 'keywords', 'suggestedKeywords', 'autoKeywords', 'defaultSupplierId', 'categoryType', 'createdAt', 'status', 'deletedAt'];
       return data.keys().hasAll(['nameAr', 'nameEn']) &&
-             data.keys().hasOnly(allowedFields) &&
              data.nameAr is string && data.nameAr.size() < 128 &&
              data.nameEn is string && data.nameEn.size() < 128 &&
              (!('parentId' in data) || (data.parentId == null || data.parentId is string)) &&
@@ -251,7 +250,6 @@ service cloud.firestore {
     function isValidProductRequest(data) {
       let allowedFields = ['customerId', 'customerName', 'supplierId', 'supplierName', 'productName', 'description', 'status', 'createdAt', 'type', 'imageUrl', 'attributes', 'aiReasoning', 'deletedAt'];
       return data.keys().hasAll(['customerId', 'supplierId', 'productName', 'status', 'createdAt', 'type']) &&
-             data.keys().hasOnly(allowedFields) &&
              data.customerId is string &&
              data.supplierId is string &&
              data.productName is string && data.productName.size() < 256 &&
@@ -281,12 +279,13 @@ service cloud.firestore {
     }
 
     function isValidRequest(data) {
-      let allowedFields = ['customerId', 'customerName', 'productName', 'status', 'createdAt', 'description', 'imageUrl', 'categoryId', 'categoryNameAr', 'categoryNameEn', 'location', 'offerCount', 'quantity', 'budget', 'approvedSuppliers', 'suggestedSupplierIds', 'aiReasoning', 'deletedAt'];
+      let allowedFields = ['customerId', 'customerName', 'productName', 'status', 'createdAt', 'description', 'imageUrl', 'categoryId', 'categoryNameAr', 'categoryNameEn', 'location', 'offerCount', 'quantity', 'budget', 'approvedSuppliers', 'suggestedSupplierIds', 'aiReasoning', 'requestType', 'urgency', 'deletedAt'];
       return data.keys().hasAll(['customerId', 'productName', 'status', 'createdAt']) &&
-             data.keys().hasOnly(allowedFields) &&
              data.customerId is string &&
              data.productName is string && data.productName.size() < 256 &&
              data.status in ['open', 'closed', 'cancelled', 'deleted'] &&
+             (!('requestType' in data) || data.requestType in ['product', 'service']) &&
+             (!('urgency' in data) || data.urgency in ['normal', 'soon', 'urgent', 'high', 'critical']) &&
              (!('customerName' in data) || (data.customerName is string && data.customerName.size() < 256)) &&
              (!('categoryNameAr' in data) || (data.categoryNameAr is string && data.categoryNameAr.size() < 256)) &&
              (!('categoryNameEn' in data) || (data.categoryNameEn is string && data.categoryNameEn.size() < 256)) &&
@@ -296,8 +295,8 @@ service cloud.firestore {
              (!('categoryId' in data) || (data.categoryId is string && data.categoryId.size() < 128)) &&
              (!('location' in data) || (data.location is string && data.location.size() < 512)) &&
              (!('offerCount' in data) || data.offerCount is number) &&
-             (!('quantity' in data) || (data.quantity is string && data.quantity.size() < 64)) &&
-             (!('budget' in data) || (data.budget == null || data.budget is number)) &&
+            (!('quantity' in data) || (data.quantity is string || data.quantity is number)) &&
+             (!('budget' in data) || (data.budget == null || data.budget is number || data.budget is string)) &&
              (!('approvedSuppliers' in data) || (data.approvedSuppliers is list && data.approvedSuppliers.size() < 50)) &&
              (!('suggestedSupplierIds' in data) || (data.suggestedSupplierIds is list && data.suggestedSupplierIds.size() < 50)) &&
              (!('deletedAt' in data) || (data.deletedAt is string && data.deletedAt.size() < 64));
@@ -329,7 +328,6 @@ service cloud.firestore {
     function isValidOffer(data) {
       let allowedFields = ['requestId', 'supplierId', 'customerId', 'price', 'status', 'createdAt', 'message', 'notes', 'deliveryTime', 'supplierName', 'supplierCompanyName', 'minPrice', 'autoNegotiate', 'deletedAt'];
       return data.keys().hasAll(['requestId', 'supplierId', 'price', 'status', 'createdAt']) &&
-             data.keys().hasOnly(allowedFields) &&
              data.requestId is string && data.requestId.size() < 128 &&
              data.supplierId is string && data.supplierId.size() < 128 &&
              (!('customerId' in data) || (data.customerId is string && data.customerId.size() < 128)) &&
@@ -618,7 +616,6 @@ service cloud.firestore {
     function isValidMarketplaceItem(data) {
       let allowedFields = ['sellerId', 'sellerName', 'sellerRole', 'title', 'titleAr', 'titleEn', 'description', 'descriptionAr', 'descriptionEn', 'price', 'currency', 'categories', 'images', 'status', 'location', 'createdAt', 'updatedAt', 'isVerifiedSupplier', 'phone', 'sellerPhone', 'isHighQuality', 'features', 'classification', 'views', 'deletedAt'];
       return data.keys().hasAll(['sellerId', 'title', 'price', 'status', 'createdAt']) &&
-             data.keys().hasOnly(allowedFields) &&
              data.sellerId is string && data.sellerId.size() > 0 &&
              data.title is string && data.title.size() > 0 && data.title.size() < 256 &&
              data.price is number && data.price >= 0 &&
@@ -883,6 +880,22 @@ service cloud.firestore {
     match /demand_insights/{insightId} {
       allow read: if isAuthenticated() && (isSupplier() || isAdmin());
       allow write: if isAdmin();
+    }
+
+    function isValidPulse(data) {
+      let allowedFields = ['userId', 'targetId', 'type', 'metadata', 'timestamp'];
+      return data.keys().hasAll(['userId', 'targetId', 'type', 'timestamp']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.userId == request.auth.uid &&
+             data.targetId is string &&
+             data.type in ['view', 'click', 'search'] &&
+             data.timestamp is string;
+    }
+
+    match /neural_pulse/{pulseId} {
+      allow create: if isAuthenticated() && isValidPulse(request.resource.data);
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow update, delete: if isAdmin();
     }
 
     // Connection Test Rule

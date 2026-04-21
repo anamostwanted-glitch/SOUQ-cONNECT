@@ -212,7 +212,36 @@ export const softDeleteMarketplaceItem = async (itemId: string): Promise<void> =
   });
 };
 
-export const getStoreShareUrl = (userId: string): string => {
+export const getStoreShareUrl = (userId: string, source: 'share' | 'social' | 'social_ad' = 'share'): string => {
   const baseUrl = window.location.origin;
-  return `${baseUrl}?view=profile&uid=${userId}&source=share`;
+  return `${baseUrl}?view=profile&uid=${userId}&source=${source}&mode=storefront`;
+};
+
+export const fetchStoreAnalytics = async (sellerId: string) => {
+  if (!sellerId) return null;
+  try {
+    const pulseRef = collection(db, 'neural_pulse');
+    // Using simple query first to avoid index issues if not yet created
+    const q = query(pulseRef, where('targetId', '==', sellerId), limit(500));
+    const snap = await getDocs(q);
+    const rawData = snap.docs.map(doc => doc.data());
+    
+    const stats = {
+      totalViews: rawData.filter(d => d.type === 'view').length,
+      socialViews: rawData.filter(d => d.type === 'view' && (d.metadata?.source === 'share' || d.metadata?.source === 'social' || d.metadata?.source === 'social_ad')).length,
+      conversions: rawData.filter(d => d.type === 'chat_init').length,
+      sources: {} as Record<string, number>
+    };
+
+    rawData.forEach(d => {
+      if (d.metadata?.source) {
+        stats.sources[d.metadata.source] = (stats.sources[d.metadata.source] || 0) + 1;
+      }
+    });
+
+    return stats;
+  } catch (error) {
+    console.error('Failed to fetch store analytics:', error);
+    return null;
+  }
 };

@@ -141,11 +141,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const reqs: ProductRequest[] = [];
+      const reqsMap = new Map<string, ProductRequest>();
       snapshot.forEach((doc) => {
-        reqs.push({ id: doc.id, ...doc.data() } as ProductRequest);
+        reqsMap.set(doc.id, { id: doc.id, ...doc.data() } as ProductRequest);
       });
-      setRequests(reqs);
+      setRequests(Array.from(reqsMap.values()));
       setIsLoadingRequests(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'requests', false);
@@ -169,6 +169,19 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       toast.error(isRtl ? 'حدث خطأ أثناء حذف الطلب' : 'Error deleting request');
     } finally {
       setIsDeletingRequest(false);
+    }
+  };
+
+  const handleCloseRequest = async (requestId: string) => {
+    try {
+      await updateDoc(doc(db, 'requests', requestId), {
+        status: 'closed',
+        updatedAt: new Date().toISOString()
+      });
+      toast.success(isRtl ? 'تم إغلاق المهمة بنجاح' : 'Mission closed successfully');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `requests/${requestId}`, false);
+      toast.error(isRtl ? 'حدث خطأ أثناء إغلاق المهمة' : 'Error closing mission');
     }
   };
 
@@ -432,14 +445,15 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   </HapticButton>
                 </motion.div>
               ) : (
-                requests.map(req => (
+                requests.map((req, idx) => (
                   <UserRequestCard 
-                    key={req.id}
+                    key={req.id || `dashboard-req-idx-${idx}`}
                     request={req}
                     profile={profile}
                     onOpenChat={onOpenChat}
                     onViewProfile={onViewProfile}
                     onDelete={() => setRequestToDelete(req.id)}
+                    onClose={handleCloseRequest}
                   />
                 ))
               )}

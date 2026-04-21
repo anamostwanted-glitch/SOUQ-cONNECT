@@ -431,6 +431,19 @@
         "lastUpdated": { "type": "string", "format": "date-time" }
       },
       "required": ["categoryId", "missedOpportunityCount", "lastUpdated"]
+    },
+    "NeuralPulse": {
+      "title": "NeuralPulse",
+      "description": "Real-time user behavior tracking (AI Pulse)",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "targetId": { "type": "string" },
+        "type": { "type": "string", "enum": ["view", "click", "search"] },
+        "metadata": { "type": "object" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "targetId", "type", "timestamp"]
     }
   },
   "firestore": {
@@ -458,6 +471,7 @@
     "/reports/{reportId}": { "schema": "Report", "description": "User reports" },
     "/activities/{activityId}": { "schema": "Activity", "description": "User daily movement logs" },
     "/supplier_performance/{supplierId}": { "schema": "SupplierPerformance", "description": "Supplier performance metrics" },
-    "/demand_insights/{insightId}": { "schema": "DemandInsight", "description": "Market demand analysis" }
+    "/demand_insights/{insightId}": { "schema": "DemandInsight", "description": "Market demand analysis" },
+    "/neural_pulse/{pulseId}": { "schema": "NeuralPulse", "description": "User behavior tracking logs" }
   }
 }

@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { FluidSlider } from './FluidSlider';
 import { PredictiveMatchSection } from './PredictiveMatchSection';
 import { fetchMarketplaceItems, fetchMarketTrends, fetchSuppliers, searchMarketplaceAndSuppliers, fetchPredictiveMatches, trackInteraction } from '../services/marketService';
@@ -21,7 +21,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../../../core/firebase';
-import { MarketplaceItem, UserProfile, Category, AppFeatures, MarketTrend, UserRole } from '../../../core/types';
+import { MarketplaceItem, UserProfile, Category, AppFeatures, MarketTrend, UserRole, ProductRequest } from '../../../core/types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -83,8 +83,9 @@ import { ProductDiscoveryCanvas } from './ProductDiscoveryCanvas';
 import { SmartRequestForm } from './SmartRequestForm';
 import { RequestFeed } from './RequestFeed';
 import { ProfessionalHub } from './ProfessionalHub';
+import { MarketplaceRequestBanner } from './MarketplaceRequestBanner';
 import { MakeOfferModal } from './MakeOfferModal';
-import { BroadcastBox } from './BroadcastBox';
+// import { BroadcastBox } from './BroadcastBox'; // Removed redundant marketplace version
 import { ScrollDirection, useScrollDirection } from '../../../shared/hooks/useScrollDirection';
 
 interface MarketInterfaceProps {
@@ -375,16 +376,51 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     }
   }, [initialItemId]);
 
-  const { data: itemsData = { items: [], lastDoc: null }, isLoading: itemsLoading } = useQuery({
+  const { 
+    data: infiniteData, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage, 
+    isLoading: itemsLoading 
+  } = useInfiniteQuery({
     queryKey: ['marketplace', activeTab, profile?.uid],
-    queryFn: () => fetchMarketplaceItems(activeTab, profile?.uid),
+    queryFn: ({ pageParam }) => fetchMarketplaceItems(activeTab, profile?.uid, undefined, pageParam),
+    initialPageParam: null as any,
+    getNextPageParam: (lastPage) => lastPage.lastDoc || null,
     enabled: !!profile || activeTab === 'discover',
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    refetchOnWindowFocus: false
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
   
-  const items = itemsData.items;
+  const items = useMemo(() => {
+    return infiniteData?.pages.flatMap(page => page.items) || [];
+  }, [infiniteData]);
+
+  const { data: requestsData } = useQuery({
+    queryKey: ['requests'],
+    queryFn: async () => {
+      const snap = await getDocs(query(collection(db, 'requests'), orderBy('createdAt', 'desc'), limit(15)));
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductRequest));
+    },
+    staleTime: 60000
+  });
+
+  const requests = useMemo(() => requestsData || [], [requestsData]);
+
+  // Infinite Scroll Observer
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastItemRef = useCallback((node: HTMLDivElement | null) => {
+    if (itemsLoading || isFetchingNextPage) return;
+    if (observer.current) observer.current.disconnect();
+    
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasNextPage) {
+        fetchNextPage();
+      }
+    });
+    
+    if (node) observer.current.observe(node);
+  }, [itemsLoading, isFetchingNextPage, hasNextPage, fetchNextPage]);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -966,28 +1002,10 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
 
         {activeTab === 'requests' ? (
           <div className="space-y-8">
-            <div className="bg-brand-primary/5 border border-brand-primary/20 rounded-[2.5rem] p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-3xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-                  <Zap size={32} />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black text-brand-text-main">
-                    {isRtl ? 'بث طلبات المنتجات' : 'Product Request Broadcast'}
-                  </h3>
-                  <p className="text-sm text-brand-text-muted font-medium">
-                    {isRtl ? 'اطلب ما تحتاجه وسيقوم الموردون بتقديم عروضهم لك.' : 'Request what you need and suppliers will make offers to you.'}
-                  </p>
-                </div>
-              </div>
-              <HapticButton 
-                onClick={() => setShowRequestForm(true)}
-                className="px-8 py-4 bg-brand-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-brand-primary/20 flex items-center gap-2"
-              >
-                <Plus size={20} />
-                {isRtl ? 'نشر طلب جديد' : 'Post New Request'}
-              </HapticButton>
-            </div>
+            <MarketplaceRequestBanner 
+              onPostClick={() => setShowRequestForm(true)} 
+              requests={requests} 
+            />
 
             <RequestFeed 
               profile={profile!} 
@@ -1113,23 +1131,24 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                         gap: isFullBleed ? '1px' : (typeof window !== 'undefined' && window.innerWidth < 768 ? '2px' : `${settings?.gridSettings?.gap || 16}px`)
                       }}
                     >
-                      {hubItems.map((item, idx) => (
-                        <ProductCard 
-                          key={`hub-${hub.id}-item-${item.id}-${idx}`} 
-                          item={item} 
-                          onOpenChat={onOpenChat}
-                          onViewDetails={() => {
-                            setSelectedItem(item);
-                            analytics.trackEvent('product_view', { productId: item.id, name: item.titleAr || item.titleEn || item.title, tab: activeTab });
-                            if (profile?.uid) trackInteraction(profile.uid, item.id, 'view', { tab: activeTab });
-                          }}
-                          onViewProfile={onViewProfile}
-                          isOwner={profile?.uid === item.sellerId}
-                          isAdmin={profile?.role === 'admin'}
-                          onDelete={() => {}}
-                          onEdit={() => setEditingItem(item)}
-                        />
-                      ))}
+                  {hubItems.map((item, idx) => (
+                    <div key={`hub-${hub.id}-item-${item.id || idx}-${idx}`} ref={idx === hubItems.length - 1 ? lastItemRef : null}>
+                      <ProductCard 
+                        item={item} 
+                        onOpenChat={onOpenChat}
+                        onViewDetails={() => {
+                          setSelectedItem(item);
+                          analytics.trackEvent('product_view', { productId: item.id, name: item.titleAr || item.titleEn || item.title, tab: activeTab });
+                          if (profile?.uid) trackInteraction(profile.uid, item.id, 'view', { tab: activeTab });
+                        }}
+                        onViewProfile={onViewProfile}
+                        isOwner={profile?.uid === item.sellerId}
+                        isAdmin={profile?.role === 'admin'}
+                        onDelete={() => {}}
+                        onEdit={() => setEditingItem(item)}
+                      />
+                    </div>
+                  ))}
                     </div>
                   </div>
                 );
@@ -1143,27 +1162,35 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                   gap: isFullBleed ? '1px' : (typeof window !== 'undefined' && window.innerWidth < 768 ? '2px' : `${settings?.gridSettings?.gap || 16}px`)
                 }}
               >
-                    {uniqueFilteredItems.map((item, idx) => (
-                      <ProductCard 
-                        key={`market-grid-item-${item.id}-${idx}`} 
-                        item={item} 
-                        onOpenChat={onOpenChat}
-                        onViewDetails={() => {
-                          setSelectedItem(item);
-                          analytics.trackEvent('product_view', { productId: item.id, name: item.titleAr || item.titleEn || item.title, tab: activeTab });
-                          if (profile?.uid) trackInteraction(profile.uid, item.id, 'view', { tab: activeTab });
-                        }}
-                        onViewProfile={onViewProfile}
-                    isOwner={profile?.uid === item.sellerId}
-                    isAdmin={profile?.role === 'admin'}
-                    onDelete={() => {}}
-                    onEdit={() => setEditingItem(item)}
-                  />
+                {uniqueFilteredItems.map((item, idx) => (
+                  <div key={`market-grid-item-${item.id || idx}-${idx}`} ref={idx === uniqueFilteredItems.length - 1 ? lastItemRef : null}>
+                    <ProductCard 
+                      item={item} 
+                      onOpenChat={onOpenChat}
+                      onViewDetails={() => {
+                        setSelectedItem(item);
+                        analytics.trackEvent('product_view', { productId: item.id, name: item.titleAr || item.titleEn || item.title, tab: activeTab });
+                        if (profile?.uid) trackInteraction(profile.uid, item.id, 'view', { tab: activeTab });
+                      }}
+                      onViewProfile={onViewProfile}
+                      isOwner={profile?.uid === item.sellerId}
+                      isAdmin={profile?.role === 'admin'}
+                      onDelete={() => {}}
+                      onEdit={() => setEditingItem(item)}
+                    />
+                  </div>
                 ))}
               </div>
             )}
+
+            {/* Infinite Loading Indicator */}
+            {isFetchingNextPage && (
+              <div className="flex justify-center py-8">
+                <Loader2 size={32} className="animate-spin text-brand-primary" />
+              </div>
+            )}
             
-            {filteredItems.length === 0 && (
+            {uniqueFilteredItems.length === 0 && !itemsLoading && (
               <div className="py-20 text-center bg-brand-surface border border-dashed border-brand-border">
                 <div className="w-16 h-16 bg-brand-background flex items-center justify-center mx-auto mb-4 text-brand-text-muted">
                   <Package size={32} />
@@ -1189,6 +1216,20 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           profile={profile!}
         />
       )}
+
+      <AnimatePresence>
+        {showRequestForm && profile && (
+          <SmartRequestForm
+            profile={profile}
+            isRtl={isRtl}
+            onClose={() => setShowRequestForm(false)}
+            onSuccess={() => {
+              setShowRequestForm(false);
+              queryClient.invalidateQueries({ queryKey: ['requests'] });
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {selectedItem && (

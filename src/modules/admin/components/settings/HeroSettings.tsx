@@ -44,8 +44,8 @@ export const HeroSettings: React.FC<HeroSettingsProps> = ({ settings, setSetting
         {[
           { field: 'heroTitleAr', label: isRtl ? 'العنوان الرئيسي (عربي)' : 'Main Title (AR)', lang: 'ar', context: 'Engaging Hero Headline for a Multi-Vendor MarketPlace' },
           { field: 'heroTitleEn', label: isRtl ? 'العنوان الرئيسي (إنجليزي)' : 'Main Title (EN)', lang: 'en', context: 'Engaging Hero Headline for a Multi-Vendor MarketPlace' }
-        ].map(item => (
-          <div key={item.field} className="space-y-3">
+        ].map((item, idx) => (
+          <div key={`hero-title-${item.field}-${idx}`} className="space-y-3">
              <div className="flex items-center justify-between">
                 <label className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em] flex items-center gap-2">
                    <Type size={14} className="text-brand-primary" />
@@ -72,8 +72,8 @@ export const HeroSettings: React.FC<HeroSettingsProps> = ({ settings, setSetting
         {[
           { field: 'heroDescriptionAr', label: isRtl ? 'الوصف المساعد (عربي)' : 'Description (AR)', lang: 'ar', context: 'Compelling Sub-headline describing the value of our marketplace' },
           { field: 'heroDescriptionEn', label: isRtl ? 'الوصف المساعد (إنجليزي)' : 'Description (EN)', lang: 'en', context: 'Compelling Sub-headline describing the value of our marketplace' }
-        ].map(item => (
-          <div key={item.field} className="space-y-3">
+        ].map((item, idx) => (
+          <div key={`hero-desc-${item.field}-${idx}`} className="space-y-3">
              <div className="flex items-center justify-between">
                 <label className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em] flex items-center gap-2">
                    <Sparkles size={14} className="text-brand-primary" />

@@ -39,7 +39,8 @@ import {
   Share2,
   ExternalLink,
   Package,
-  Megaphone
+  Megaphone,
+  Clock
 } from 'lucide-react';
 import { collection, query, where, orderBy, onSnapshot, limit, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../../core/firebase';
@@ -131,26 +132,27 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
         collection(db, 'requests'), 
         where('customerId', '==', profile.uid),
         orderBy('createdAt', 'desc'),
-        limit(10)
+        limit(20)
       );
     } else {
+      // Perspective: Supplier - Show open requests OR matched requests
       q = query(
         collection(db, 'requests'),
-        where('status', '==', 'open'),
+        where('status', 'in', ['open', 'matched']),
         orderBy('createdAt', 'desc'),
-        limit(10)
+        limit(30)
       );
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const reqs: ProductRequest[] = [];
+      const reqsMap = new Map<string, ProductRequest>();
       snapshot.forEach((doc) => {
         const data = doc.data();
         if (!data.isDeleted) {
-          reqs.push({ id: doc.id, ...data } as ProductRequest);
+          reqsMap.set(doc.id, { id: doc.id, ...data } as ProductRequest);
         }
       });
-      setRequests(reqs);
+      setRequests(Array.from(reqsMap.values()));
       setIsLoadingRequests(false);
     }, (error) => {
       console.error('Firestore Error in requests listener:', error, 'Auth:', auth.currentUser?.uid, 'Perspective:', perspective);
@@ -170,7 +172,11 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
       orderBy('createdAt', 'desc')
     );
     const unsub = onSnapshot(q, (snap) => {
-      setMyMarketItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as MarketplaceItem)));
+      const itemsMap = new Map<string, MarketplaceItem>();
+      snap.docs.forEach(d => {
+        itemsMap.set(d.id, { id: d.id, ...d.data() } as MarketplaceItem);
+      });
+      setMyMarketItems(Array.from(itemsMap.values()));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'marketplace', false);
     });
@@ -180,7 +186,11 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
   // Fetch categories
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
-      setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
+      const catsMap = new Map<string, Category>();
+      snap.docs.forEach(d => {
+        catsMap.set(d.id, { id: d.id, ...d.data() } as Category);
+      });
+      setCategories(Array.from(catsMap.values()));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'categories', false);
     });
@@ -487,33 +497,73 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
     return (
       <div className="mb-12">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-black text-brand-text-main">{isRtl ? 'طلباتي الأخيرة' : 'My Recent Orders'}</h3>
+          <div className="flex items-center gap-3">
+             <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
+                <Clock size={20} />
+             </div>
+             <h3 className="text-xl font-black text-brand-text-main">
+                {isRtl ? 'طلباتي الأخيرة' : 'My Recent Orders'}
+             </h3>
+          </div>
           <div className="flex gap-2">
-            <HapticButton onClick={() => setActiveSubView('requests')} className="text-xs font-bold text-brand-primary">
+            <HapticButton onClick={() => setActiveSubView('requests')} className="text-xs font-black uppercase tracking-widest text-brand-primary px-4 py-2 bg-brand-primary/5 rounded-xl transition-all hover:bg-brand-primary/10">
               {isRtl ? 'عرض الكل' : 'View All'}
             </HapticButton>
-            <HapticButton onClick={handleClearAll} className="text-xs font-bold text-rose-500">
+            <HapticButton onClick={handleClearAll} className="text-xs font-black uppercase tracking-widest text-rose-500 px-4 py-2 bg-rose-500/5 rounded-xl transition-all hover:bg-rose-500/10">
               {isRtl ? 'مسح الكل' : 'Clear All'}
             </HapticButton>
           </div>
         </div>
-        <div className="space-y-4">
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {recent.map((req, idx) => (
-            <div key={`ccc-recent-req-${req.id || `idx-${idx}`}`} className={`${cardClass} flex flex-col gap-4`}>
+            <motion.div 
+              key={`ccc-recent-req-${req.id}-${perspective}-${idx}`} 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.1 }}
+              className={`${cardClass} flex flex-col gap-4 border-2 border-transparent hover:border-brand-primary/20 cursor-pointer group`}
+              onClick={() => setActiveSubView('requests')}
+            >
               <div className="flex justify-between items-start">
-                <h4 className="font-black text-brand-text-main">{req.productName}</h4>
-                <span className="text-xs font-bold text-brand-text-muted">{new Date(req.createdAt).toLocaleDateString()}</span>
+                <h4 className="font-black text-brand-text-main group-hover:text-brand-primary transition-colors">{req.productName}</h4>
+                <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${
+                  req.status === 'open' ? 'bg-emerald-500/10 text-emerald-500' : 
+                  req.status === 'matched' ? 'bg-brand-primary/10 text-brand-primary' : 
+                  'bg-brand-text-muted/10 text-brand-text-muted'
+                }`}>
+                  {req.status}
+                </div>
               </div>
+              
+              <div className="flex items-center gap-2 text-[10px] font-bold text-brand-text-muted">
+                 <Clock size={12} />
+                 {new Date(req.createdAt).toLocaleDateString()}
+              </div>
+
               {req.matchedSuppliers && req.matchedSuppliers.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                    {req.matchedSuppliers.map((supplier, sIdx) => (
-                    <div key={`ccc-recent-supplier-${supplier.uid || `sidx-${sIdx}`}`} className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-xs font-bold whitespace-nowrap">
-                      {supplier.name}
+                <div className="flex -space-x-2 mt-2">
+                    {Array.from(new Map(req.matchedSuppliers.slice(0, 3).map(s => [s.uid, s])).values()).map((supplier, sIdx) => (
+                    <div 
+                      key={`ccc-recent-supplier-${req.id}-${supplier.uid}-${sIdx}`} 
+                      className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-800 bg-brand-surface flex items-center justify-center text-[8px] font-black text-brand-primary shadow-sm overflow-hidden"
+                      title={supplier.name}
+                    >
+                      {supplier.photoURL ? (
+                        <img src={supplier.photoURL} alt={supplier.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        supplier.name.substring(0, 2).toUpperCase()
+                      )}
                     </div>
                   ))}
+                  {req.matchedSuppliers.length > 3 && (
+                    <div className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-800 bg-brand-background flex items-center justify-center text-[8px] font-black text-brand-text-muted">
+                        +{req.matchedSuppliers.length - 3}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -533,15 +583,6 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
         {/* Aura Header */}
         {renderAuraHeader()}
 
-        {/* Recent Orders */}
-        {perspective === 'customer' && renderRecentOrders()}
-
-        {/* Pulse Ribbon */}
-        {renderPulseRibbon()}
-
-        {/* Bento Matrix */}
-        {renderBentoMatrix()}
-
         {/* AI Health Check Section */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -549,45 +590,79 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
           viewport={{ once: true }}
           className="mt-12"
         >
-          <div className={`${glassClass} rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden group`}>
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
-            
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 rounded-[1.5rem] bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner">
-                  <Activity size={32} />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black text-brand-text-main mb-1">
-                    {isRtl ? 'فحص صحة الحساب الذكي' : 'Smart Account Health Check'}
-                  </h3>
-                  <p className="text-brand-text-muted text-sm font-medium">
-                    {isRtl ? 'نظام الذكاء الاصطناعي يحلل أداءك وموثوقيتك' : 'AI system analyzing your performance and reliability'}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-8">
-                <div className="text-center">
-                  <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'الموثوقية' : 'Reliability'}</p>
-                  <p className="text-2xl font-black text-emerald-500">98%</p>
-                </div>
-                <div className="w-px h-12 bg-brand-border/30" />
-                <div className="text-center">
-                  <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'الاستجابة' : 'Response'}</p>
-                  <p className="text-2xl font-black text-brand-primary">12m</p>
-                </div>
-                <div className="w-px h-12 bg-brand-border/30" />
-                <div className="text-center">
-                  <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'الحالة' : 'Status'}</p>
-                  <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                    {isRtl ? 'مثالي' : 'Optimal'}
-                  </span>
-                </div>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+             {/* Main AI Pulse Card */}
+             <div className={`${glassClass} rounded-[2.5rem] p-8 lg:col-span-2 relative overflow-hidden group`}>
+               <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
+               <div className="relative z-10 flex flex-col md:flex-row items-center justify-between h-full gap-8">
+                 <div className="flex items-center gap-6">
+                   <div className="w-16 h-16 rounded-[1.5rem] bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner">
+                     <Activity size={32} />
+                   </div>
+                   <div>
+                     <h3 className="text-2xl font-black text-brand-text-main mb-1">
+                       {isRtl ? 'تحليلات المركز العصبي' : 'Neural Center Analytics'}
+                     </h3>
+                     <p className="text-brand-text-muted text-sm font-medium">
+                       {isRtl ? 'الذكاء الاصطناعي يراقب أداءك وموثوقيتك' : 'AI monitoring your performance and reliability'}
+                     </p>
+                   </div>
+                 </div>
+                 
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full md:w-auto">
+                   <div className="text-center">
+                     <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'الموثوقية' : 'Reliability'}</p>
+                     <p className="text-2xl font-black text-emerald-500">98%</p>
+                   </div>
+                   <div className="text-center">
+                     <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'الاستجابة' : 'Response'}</p>
+                     <p className="text-2xl font-black text-brand-primary">12m</p>
+                   </div>
+                   <div className="text-center">
+                     <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'المطابقة' : 'Accuracy'}</p>
+                     <p className="text-2xl font-black text-brand-teal">94%</p>
+                   </div>
+                   <div className="text-center">
+                     <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest mb-1">{isRtl ? 'الجودة' : 'Quality'}</p>
+                     <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                       {isRtl ? 'مثالي' : 'Optimal'}
+                     </span>
+                   </div>
+                 </div>
+               </div>
+             </div>
+
+             {/* Smart Assistant Card */}
+             <motion.div 
+               whileHover={{ y: -5 }}
+               className="bg-gradient-to-br from-brand-primary to-brand-teal p-8 rounded-[2.5rem] text-white relative overflow-hidden shadow-xl shadow-brand-primary/20 flex flex-col justify-center"
+             >
+               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+               <div className="relative z-10">
+                 <div className="bg-white/20 w-10 h-10 rounded-xl flex items-center justify-center mb-4">
+                    <Sparkles size={20} />
+                 </div>
+                 <h4 className="text-lg font-black mb-2 leading-tight">
+                    {isRtl ? 'مساعد التوقع الذكي' : 'Smart Prediction'}
+                 </h4>
+                 <p className="text-xs text-white/80 font-medium mb-6 leading-relaxed">
+                    {isRtl 
+                      ? 'بناءً على طلباتك، قد تحتاج قريباً لحديد تسليح لتكمل مشروعك.' 
+                      : 'Based on recent activity, you might soon need Rebar to complete your build.'}
+                 </p>
+                 <HapticButton className="w-full py-3 bg-white text-brand-primary rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-white/90">
+                    {isRtl ? 'استكشاف المقترحات' : 'Explore Ideas'} <Sparkles size={14} />
+                 </HapticButton>
+               </div>
+             </motion.div>
           </div>
         </motion.div>
+
+        {/* Pulse Ribbon */}
+        {renderPulseRibbon()}
+
+        {/* Recent Orders */}
+        {perspective === 'customer' && renderRecentOrders()}
 
         {/* Logout Button */}
         <div className="mt-12 flex justify-center">

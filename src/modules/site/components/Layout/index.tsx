@@ -46,6 +46,7 @@ interface LayoutProps {
   isMomentOfNeed?: boolean;
   onOpenNotifications?: () => void;
   notificationsUnreadCount?: number;
+  isStorefrontMode?: boolean;
 }
 
 import { useAuth } from '../../../../core/providers/AuthProvider';
@@ -67,7 +68,8 @@ export const Layout: React.FC<LayoutProps> = ({
   progress = null,
   isMomentOfNeed = false,
   onOpenNotifications,
-  notificationsUnreadCount = 0
+  notificationsUnreadCount = 0,
+  isStorefrontMode = false
 }) => {
   const { t } = useTranslation();
   const { profile, viewMode, setViewMode } = useAuth();
@@ -253,45 +255,47 @@ export const Layout: React.FC<LayoutProps> = ({
   return (
     <div className={`viewport-height flex flex-col bg-brand-background text-brand-text-main font-sans ${isRtl ? 'font-arabic' : ''} transition-colors duration-300 overflow-hidden`}>
       <GlobalProgress progress={progress} />
-      <div className="z-50">
-        <Header 
-          settings={settings}
-          siteLogo={siteLogo}
-          siteName={siteName}
-          logoScale={headerLogoScale}
-          animationSpeed={headerAnimationSpeed}
-          currentView={currentView}
-          setView={setView}
-          dashboardTab={dashboardTab}
-          setDashboardTab={setDashboardTab}
-          profile={profile}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          uiStyle={uiStyle}
-          setUiStyle={setUiStyle}
-          features={features}
-          isRtl={isRtl}
-          toggleLanguage={toggleLanguage}
-          isLoadingLocation={isLoadingLocation}
-          locationName={locationName}
-          unreadCount={notificationsUnreadCount}
-          notifications={notifications}
-          onNotificationClick={handleNotificationClick}
-          onVisualSearch={() => {
-            if (window.innerWidth < 768) {
-              setIsAIHubOpen(true);
-            } else {
-              setIsVisualSearchOpen(true);
-            }
-          }}
-          onMobileMenuOpen={() => setIsMobileMenuOpen(true)}
-          onOpenHelpCenter={() => setShowHelpCenter(true)}
-          onOpenNotifications={onOpenNotifications}
-          notifRef={notifRef}
-          onBack={currentView !== 'home' ? onBack : undefined}
-          scrollDirection={scrollDirection}
-        />
-      </div>
+      {!isStorefrontMode && (
+        <div className="z-50">
+          <Header 
+            settings={settings}
+            siteLogo={siteLogo}
+            siteName={siteName}
+            logoScale={headerLogoScale}
+            animationSpeed={headerAnimationSpeed}
+            currentView={currentView}
+            setView={setView}
+            dashboardTab={dashboardTab}
+            setDashboardTab={setDashboardTab}
+            profile={profile}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            uiStyle={uiStyle}
+            setUiStyle={setUiStyle}
+            features={features}
+            isRtl={isRtl}
+            toggleLanguage={toggleLanguage}
+            isLoadingLocation={isLoadingLocation}
+            locationName={locationName}
+            unreadCount={notificationsUnreadCount}
+            notifications={notifications}
+            onNotificationClick={handleNotificationClick}
+            onVisualSearch={() => {
+              if (window.innerWidth < 768) {
+                setIsAIHubOpen(true);
+              } else {
+                setIsVisualSearchOpen(true);
+              }
+            }}
+            onMobileMenuOpen={() => setIsMobileMenuOpen(true)}
+            onOpenHelpCenter={() => setShowHelpCenter(true)}
+            onOpenNotifications={onOpenNotifications}
+            notifRef={notifRef}
+            onBack={currentView !== 'home' ? onBack : undefined}
+            scrollDirection={scrollDirection}
+          />
+        </div>
+      )}
 
       {auth.currentUser && !auth.currentUser.emailVerified && (
         <div className="bg-brand-warning/10 border-b border-brand-warning/20 px-4 py-3 flex items-center justify-between shrink-0">
@@ -323,37 +327,39 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       )}
 
-      <main ref={mainRef} className={`flex-1 overflow-y-auto no-scrollbar relative pt-16 md:pt-20 ${currentView !== 'chat' ? 'pb-32 md:pb-0' : ''}`}>
+      <main ref={mainRef} className={`flex-1 overflow-y-auto no-scrollbar relative ${!isStorefrontMode ? 'pt-16 md:pt-20' : ''} ${currentView !== 'chat' && !isStorefrontMode ? 'pb-32 md:pb-0' : ''}`}>
         <div className="max-w-[2000px] mx-auto" style={{ paddingLeft: 'var(--fluid-px)', paddingRight: 'var(--fluid-px)' }}>
           {children}
         </div>
-        <Footer onNavigate={setView} isRtl={isRtl} />
+        {!isStorefrontMode && <Footer onNavigate={setView} isRtl={isRtl} />}
       </main>
 
-      <MobileMenu 
-        isOpen={isMobileMenuOpen}
-        setIsOpen={setIsMobileMenuOpen}
-        profile={profile}
-        features={features}
-        currentView={currentView}
-        setView={setView}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-        dashboardTab={dashboardTab}
-        setDashboardTab={setDashboardTab}
-        isRtl={isRtl}
-        isDarkMode={isDarkMode}
-        toggleDarkMode={toggleDarkMode}
-        toggleLanguage={toggleLanguage}
-        siteLogo={siteLogo}
-        siteName={siteName}
-        logoScale={headerLogoScale}
-        onPrefetch={onPrefetch}
-        onVisualSearch={() => setIsAIHubOpen(true)}
-        onOpenHelpCenter={() => setShowHelpCenter(true)}
-      />
+      {!isStorefrontMode && (
+        <MobileMenu 
+          isOpen={isMobileMenuOpen}
+          setIsOpen={setIsMobileMenuOpen}
+          profile={profile}
+          features={features}
+          currentView={currentView}
+          setView={setView}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          dashboardTab={dashboardTab}
+          setDashboardTab={setDashboardTab}
+          isRtl={isRtl}
+          isDarkMode={isDarkMode}
+          toggleDarkMode={toggleDarkMode}
+          toggleLanguage={toggleLanguage}
+          siteLogo={siteLogo}
+          siteName={siteName}
+          logoScale={headerLogoScale}
+          onPrefetch={onPrefetch}
+          onVisualSearch={() => setIsAIHubOpen(true)}
+          onOpenHelpCenter={() => setShowHelpCenter(true)}
+        />
+      )}
 
-      {currentView !== 'chat' && !isAIHubOpen && !isVisualSearchOpen && (
+      {currentView !== 'chat' && !isAIHubOpen && !isVisualSearchOpen && !isStorefrontMode && (
         <div className="fixed bottom-0 left-0 right-0 z-[100] md:hidden">
           <BottomNav 
             currentView={currentView}

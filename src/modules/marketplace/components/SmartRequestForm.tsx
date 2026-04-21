@@ -44,6 +44,7 @@ export const SmartRequestForm: React.FC<SmartRequestFormProps> = ({
     categoryId: '',
     categoryNameAr: '',
     categoryNameEn: '',
+    requestType: 'product' as 'product' | 'service',
     budget: '',
     quantity: '1',
     urgency: 'normal' as 'normal' | 'high' | 'critical'
@@ -53,7 +54,9 @@ export const SmartRequestForm: React.FC<SmartRequestFormProps> = ({
     const fetchCategories = async () => {
       try {
         const snap = await getDocs(collection(db, 'categories'));
-        const cats = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+        const cats = snap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() } as Category))
+          .filter(c => c.status !== 'deleted');
         setCategories(cats);
       } catch (error) {
         handleFirestoreError(error, OperationType.GET, 'categories', false);
@@ -67,38 +70,48 @@ export const SmartRequestForm: React.FC<SmartRequestFormProps> = ({
     
     setIsSuggesting(true);
     try {
-      const categoryList = categories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn }));
+      const categoryList = categories.map(c => ({ 
+        id: c.id, 
+        nameAr: c.nameAr, 
+        nameEn: c.nameEn,
+        type: c.categoryType || 'product'
+      }));
       
-      const prompt = `Based on the product name "${productName}", suggest the best category from this list:
-      ${JSON.stringify(categoryList)}
+      const prompt = `Based on the product name "${productName}", perform two tasks:
+      1. Classify if this is a "product" or a "service".
+      2. Suggest the best category ID from this list: ${JSON.stringify(categoryList)}
       
-      Return the ID of the best matching category. If no match, return null.
-      Return JSON only: { "categoryId": "string" | null }`;
+      Return JSON only: { "categoryId": "string" | null, "type": "product" | "service" }`;
 
       const result = await callAiJson(prompt, {
         type: Type.OBJECT,
         properties: {
-          categoryId: { type: Type.STRING, nullable: true }
+          categoryId: { type: Type.STRING, nullable: true },
+          type: { type: Type.STRING, enum: ["product", "service"] }
         },
-        required: ["categoryId"]
+        required: ["categoryId", "type"]
       });
 
-      if (result.categoryId) {
+      if (result.categoryId || result.type) {
         const matched = categories.find(c => c.id === result.categoryId);
-        if (matched) {
-          setFormData(prev => ({
-            ...prev,
+        setFormData(prev => ({
+          ...prev,
+          requestType: result.type || prev.requestType,
+          ...(matched ? {
             categoryId: matched.id!,
             categoryNameAr: matched.nameAr,
             categoryNameEn: matched.nameEn
-          }));
-          toast.info(isRtl ? `تم اقتراح فئة: ${matched.nameAr}` : `Suggested category: ${matched.nameEn}`, {
+          } : {})
+        }));
+
+        if (matched) {
+          toast.info(isRtl ? `تم التحديد تلقائياً: ${result.type === 'service' ? 'خدمة' : 'منتج'} - ${matched.nameAr}` : `Auto-selected: ${result.type} - ${matched.nameEn}`, {
             icon: <Sparkles className="text-brand-primary" size={16} />
           });
         }
       }
     } catch (error) {
-      console.error("Category suggestion failed", error);
+      console.error("Suggestion failed", error);
     } finally {
       setIsSuggesting(false);
     }
@@ -121,6 +134,7 @@ export const SmartRequestForm: React.FC<SmartRequestFormProps> = ({
         categoryId: formData.categoryId,
         categoryNameAr: formData.categoryNameAr,
         categoryNameEn: formData.categoryNameEn,
+        requestType: formData.requestType,
         budget: formData.budget ? Number(formData.budget) : null,
         quantity: Number(formData.quantity),
         urgency: formData.urgency,
@@ -192,6 +206,39 @@ export const SmartRequestForm: React.FC<SmartRequestFormProps> = ({
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest flex items-center gap-2">
+                <Target size={14} />
+                {isRtl ? 'نوع الطلب' : 'Request Type'}
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, requestType: 'product' })}
+                  className={`p-3 rounded-2xl border text-sm font-black transition-all flex items-center justify-center gap-2 ${
+                    formData.requestType === 'product'
+                      ? 'bg-brand-primary text-white border-brand-primary shadow-lg shadow-brand-primary/20'
+                      : 'bg-brand-background border-brand-border text-brand-text-muted'
+                  }`}
+                >
+                  <Package size={16} />
+                  {isRtl ? 'منتج' : 'Product'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, requestType: 'service' })}
+                  className={`p-3 rounded-2xl border text-sm font-black transition-all flex items-center justify-center gap-2 ${
+                    formData.requestType === 'service'
+                      ? 'bg-brand-primary text-white border-brand-primary shadow-lg shadow-brand-primary/20'
+                      : 'bg-brand-background border-brand-border text-brand-text-muted'
+                  }`}
+                >
+                  <Sparkles size={16} />
+                  {isRtl ? 'خدمة' : 'Service'}
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <label className="text-xs font-black text-brand-text-muted uppercase tracking-widest flex items-center gap-2">
                 <Package size={14} />
