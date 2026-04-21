@@ -289,6 +289,7 @@ export const Layout: React.FC<LayoutProps> = ({
           onOpenNotifications={onOpenNotifications}
           notifRef={notifRef}
           onBack={currentView !== 'home' ? onBack : undefined}
+          scrollDirection={scrollDirection}
         />
       </div>
 
@@ -323,7 +324,7 @@ export const Layout: React.FC<LayoutProps> = ({
       )}
 
       <main ref={mainRef} className={`flex-1 overflow-y-auto no-scrollbar relative pt-16 md:pt-20 ${currentView !== 'chat' ? 'pb-32 md:pb-0' : ''}`}>
-        <div className="max-w-[2000px] mx-auto px-4 md:px-8">
+        <div className="max-w-[2000px] mx-auto" style={{ paddingLeft: 'var(--fluid-px)', paddingRight: 'var(--fluid-px)' }}>
           {children}
         </div>
         <Footer onNavigate={setView} isRtl={isRtl} />

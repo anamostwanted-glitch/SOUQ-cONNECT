@@ -120,9 +120,9 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
               x: 0 
             }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            className={`fixed md:absolute bottom-4 left-4 right-4 md:bottom-auto md:top-12 md:left-auto ${isRtl ? 'md:left-0' : 'md:right-0'} md:w-[360px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-[32px] shadow-2xl border border-brand-border/50 overflow-hidden z-[100] pointer-events-auto`}
+            className={`fixed md:absolute bottom-4 left-4 right-4 md:bottom-auto md:top-14 md:left-auto ${isRtl ? 'md:left-0' : 'md:right-0'} md:w-[400px] max-h-[85dvh] overflow-y-auto no-scrollbar bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-[32px] shadow-2xl border border-brand-border/50 z-[100] pointer-events-auto`}
           >
-            <div className="p-6">
+            <div className="p-6 md:p-8">
               {/* User Profile Header (Google Style) */}
               {profile ? (
                 <div className="flex items-center gap-4 mb-8 p-4 bg-brand-surface rounded-[24px] border border-brand-border/30">

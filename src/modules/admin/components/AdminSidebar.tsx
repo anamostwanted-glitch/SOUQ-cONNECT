@@ -1,6 +1,6 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { Shield } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Shield, X } from 'lucide-react';
 import { UserProfile } from '../../../core/types';
 
 interface AdminSidebarProps {
@@ -9,25 +9,51 @@ interface AdminSidebarProps {
   tabs: any[];
   isRtl: boolean;
   profile: UserProfile;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActiveTab, tabs, isRtl, profile }) => {
+export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActiveTab, tabs, isRtl, profile, isOpen, onClose }) => {
   return (
-    <aside className={`fixed inset-y-0 left-0 w-72 bg-brand-surface border-brand-border border-r transform ${isRtl ? 'translate-x-[200%] sm:translate-x-full' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-[100] md:relative md:sticky md:top-0`}>
-      {/* Mobile Close Button would be here if managed by parent, but for now we fix the scroll sidebar to be better */}
-      <div className="p-6 md:p-8 border-b border-brand-border/50 bg-brand-surface/50 backdrop-blur-sm">
-        <h2 className="text-xl md:text-2xl font-black text-brand-text-main tracking-tight flex items-center gap-3">
-          <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-brand-primary to-brand-primary-hover rounded-2xl flex items-center justify-center text-white shadow-lg shadow-brand-primary/25">
-            <Shield size={24} />
-          </div>
-          <div className="flex flex-col">
-            <span>{isRtl ? 'لوحة التحكم' : 'Admin Panel'}</span>
-            <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest mt-0.5">
-              {isRtl ? 'الإدارة المركزية' : 'Central Management'}
-            </span>
-          </div>
-        </h2>
-      </div>
+    <>
+      {/* Overlay for mobile */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[95] md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      <aside className={`fixed inset-y-0 ${isRtl ? 'right-0' : 'left-0'} w-72 bg-brand-surface border-brand-border ${isRtl ? 'border-l' : 'border-r'} transform ${
+        isOpen 
+          ? 'translate-x-0' 
+          : isRtl ? 'translate-x-full' : '-translate-x-full'
+      } md:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-[100] md:relative md:sticky md:top-0`}>
+        <div className="p-6 md:p-8 border-b border-brand-border/50 bg-brand-surface/50 backdrop-blur-sm flex items-center justify-between">
+          <h2 className="text-xl md:text-2xl font-black text-brand-text-main tracking-tight flex items-center gap-3">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-brand-primary to-brand-primary-hover rounded-2xl flex items-center justify-center text-white shadow-lg shadow-brand-primary/25">
+              <Shield size={24} />
+            </div>
+            <div className="flex flex-col">
+              <span>{isRtl ? 'لوحة التحكم' : 'Admin Panel'}</span>
+              <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest mt-0.5">
+                {isRtl ? 'الإدارة المركزية' : 'Central Management'}
+              </span>
+            </div>
+          </h2>
+          {/* Close button for mobile inside sidebar */}
+          <button 
+            onClick={onClose}
+            className="p-2 text-brand-text-muted hover:text-brand-error md:hidden rounded-xl bg-brand-background transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
       <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto custom-scrollbar no-scrollbar scroll-smooth">
         {tabs.map(tab => (
@@ -67,5 +93,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActive
         ))}
       </nav>
     </aside>
+    </>
   );
 };

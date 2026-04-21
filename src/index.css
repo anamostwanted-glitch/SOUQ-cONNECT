@@ -55,6 +55,12 @@
   --ring: #0f172a;
   --radius: 1.25rem;
 
+  /* Fluid Spacing & Typography */
+  --fluid-px: clamp(1rem, 2vw, 2.5rem);
+  --fluid-py: clamp(1.5rem, 3vh, 4rem);
+  --fluid-h1: clamp(2.25rem, 5vw + 1rem, 4.5rem);
+  --fluid-h2: clamp(1.75rem, 3vw + 1rem, 3rem);
+
   /* Adaptive Canvas Architecture Variables */
   --sat: env(safe-area-inset-top);
   --sar: env(safe-area-inset-right);

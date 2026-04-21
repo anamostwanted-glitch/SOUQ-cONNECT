@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { doc, updateDoc, collection, onSnapshot, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { multiFactor } from 'firebase/auth';
+import { multiFactor, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } from 'firebase/auth';
 import { handleFirestoreError, OperationType, handleAiError } from '../../../core/utils/errorHandling';
 import { db, auth, storage } from '../../../core/firebase';
 import { UserProfile, Category } from '../../../core/types';
@@ -43,6 +43,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { enhanceBio, suggestSupplierCategories } from '../../../core/services/geminiService';
 import { compressImage } from '../../../core/utils/imageCropper';
 import { toast } from 'sonner';
+import axios from 'axios';
 import { UserBrandingSettings } from './UserBrandingSettings';
 import { Badge } from '../../../shared/components/ui/badge';
 import { AICategorySelector } from '../../site/components/AICategorySelector';
@@ -100,6 +101,16 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
   const [showMfaModal, setShowMfaModal] = useState(false);
   const [isUnenrollingMfa, setIsUnenrollingMfa] = useState(false);
   const isMfaEnabled = auth.currentUser ? multiFactor(auth.currentUser).enrolledFactors.length > 0 : false;
+
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
+  const [isForceUpdating, setIsForceUpdating] = useState(false);
 
   const glassClass = "bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/40 dark:border-slate-700/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]";
   const bentoCardClass = `${glassClass} rounded-[2.5rem] p-8 md:p-10 transition-all duration-500 hover:shadow-2xl hover:scale-[1.01] border-2 border-transparent hover:border-brand-primary/20`;
@@ -249,6 +260,90 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
       toast.error(isRtl ? 'فشل إيقاف المصادقة الثنائية' : 'Failed to disable MFA');
     } finally {
       setIsUnenrollingMfa(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!auth.currentUser || !auth.currentUser.email) return;
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error(isRtl ? 'كلمات المرور الجديدة غير متطابقة' : 'New passwords do not match');
+      return;
+    }
+    if (passwordData.newPassword.length < 6) {
+      toast.error(isRtl ? 'يجب أن تكون كلمة المرور 6 أحرف على الأقل' : 'Password must be at least 6 characters');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, passwordData.currentPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updatePassword(auth.currentUser, passwordData.newPassword);
+      
+      toast.success(isRtl ? 'تم تغيير كلمة المرور بنجاح' : 'Password updated successfully');
+      setShowPasswordModal(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error: any) {
+      console.error('Password update error:', error);
+      if (error.code === 'auth/wrong-password') {
+        toast.error(isRtl ? 'كلمة المرور الحالية غير صحيحة' : 'Current password is incorrect');
+      } else if (error.code === 'auth/too-many-requests') {
+        toast.error(isRtl ? 'محاولات كثيرة جداً. يرجى المحاولة لاحقاً.' : 'Too many requests. Try again later.');
+      } else {
+        toast.error(isRtl ? 'فشل تغيير كلمة المرور' : 'Failed to update password');
+      }
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const handleSendResetEmail = async () => {
+    if (!auth.currentUser || !auth.currentUser.email) return;
+    setIsSendingReset(true);
+    try {
+      await sendPasswordResetEmail(auth, auth.currentUser.email);
+      toast.success(isRtl 
+        ? `تم إرسال رابط إعادة تعيين كلمة المرور إلى ${auth.currentUser.email}` 
+        : `Password reset link sent to ${auth.currentUser.email}`);
+      setShowPasswordModal(false);
+    } catch (error) {
+      console.error('Reset email error:', error);
+      toast.error(isRtl ? 'فشل إرسال بريد إعادة التعيين' : 'Failed to send reset email');
+    } finally {
+      setIsSendingReset(false);
+    }
+  };
+
+  const handleForcePasswordChange = async () => {
+    if (!auth.currentUser) return;
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error(isRtl ? 'كلمات المرور غير متطابقة' : 'Passwords do not match');
+      return;
+    }
+    if (passwordData.newPassword.length < 6) {
+      toast.error(isRtl ? 'كلمة المرور قصيرة جداً' : 'Password is too short');
+      return;
+    }
+
+    setIsForceUpdating(true);
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      const response = await axios.post('/api/admin/force-password-change', {
+        newPassword: passwordData.newPassword,
+      }, {
+        headers: { Authorization: `Bearer ${idToken}` }
+      });
+
+      if (response.data.success) {
+        toast.success(isRtl ? 'تم تحديث كلمة المرور عبر النظام بنجاح' : 'Password system-updated successfully');
+        setShowPasswordModal(false);
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }
+    } catch (error: any) {
+      console.error('Force update error:', error);
+      toast.error(isRtl ? 'فشل التحديث الإجباري. تأكد من صلاحيات الأدمن.' : 'Force update failed. Verify admin permissions.');
+    } finally {
+      setIsForceUpdating(false);
     }
   };
 
@@ -626,21 +721,39 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
                 <CheckCircle2 size={20} className="text-emerald-500" />
                 <span className="text-sm font-bold text-emerald-500">{isRtl ? 'المصادقة الثنائية مفعلة' : 'MFA is Enabled'}</span>
               </div>
-              <HapticButton 
-                onClick={handleUnenrollMfa}
-                disabled={isUnenrollingMfa}
-                className="w-full bg-rose-500/10 border border-rose-500/20 text-rose-500 py-4 rounded-2xl font-black hover:bg-rose-500 hover:text-white transition-all text-xs uppercase tracking-widest disabled:opacity-50"
-              >
-                {isUnenrollingMfa ? <Loader2 size={16} className="animate-spin" /> : (isRtl ? 'إيقاف المصادقة الثنائية' : 'Disable MFA')}
-              </HapticButton>
+              <div className="grid grid-cols-2 gap-3">
+                <HapticButton 
+                  onClick={() => setShowPasswordModal(true)}
+                  className="bg-brand-background border border-brand-border text-brand-text-main py-4 rounded-2xl font-black hover:bg-brand-primary/5 hover:text-brand-primary transition-all text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"
+                >
+                  <Lock size={14} />
+                  {isRtl ? 'تغيير الباسوورد' : 'Password'}
+                </HapticButton>
+                <HapticButton 
+                  onClick={handleUnenrollMfa}
+                  disabled={isUnenrollingMfa}
+                  className="bg-rose-500/10 border border-rose-500/20 text-rose-500 py-4 rounded-2xl font-black hover:bg-rose-500 hover:text-white transition-all text-[10px] uppercase tracking-widest disabled:opacity-50"
+                >
+                  {isUnenrollingMfa ? <Loader2 size={16} className="animate-spin" /> : (isRtl ? 'إيقاف MFA' : 'Set MFA')}
+                </HapticButton>
+              </div>
             </div>
           ) : (
-            <HapticButton 
-              onClick={() => setShowMfaModal(true)}
-              className="w-full bg-brand-primary text-white py-5 rounded-2xl font-black flex items-center justify-center gap-3 shadow-xl shadow-brand-primary/20 hover:-translate-y-1 transition-all"
-            >
-              <Lock size={20} /> {isRtl ? 'تفعيل المصادقة الثنائية' : 'Enable MFA'}
-            </HapticButton>
+            <div className="space-y-4">
+              <HapticButton 
+                onClick={() => setShowMfaModal(true)}
+                className="w-full bg-brand-primary text-white py-5 rounded-2xl font-black flex items-center justify-center gap-3 shadow-xl shadow-brand-primary/20 hover:-translate-y-1 transition-all"
+              >
+                <Lock size={20} /> {isRtl ? 'تفعيل المصادقة الثنائية' : 'Enable MFA'}
+              </HapticButton>
+              <HapticButton 
+                onClick={() => setShowPasswordModal(true)}
+                className="w-full bg-brand-background border border-brand-border text-brand-text-main py-4 rounded-2xl font-black hover:bg-brand-primary/5 hover:text-brand-primary transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-3"
+              >
+                <ShieldCheck size={18} />
+                {isRtl ? 'تغيير كلمة المرور يدوياً' : 'Change Password Manually'}
+              </HapticButton>
+            </div>
           )}
         </div>
 
@@ -659,6 +772,113 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
           </HapticButton>
         </div>
       </div>
+
+      {/* Password Change Modal */}
+      <AnimatePresence>
+        {showPasswordModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-brand-surface w-full max-w-md rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden"
+            >
+              <div className="p-8">
+                <div className="flex justify-between items-center mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary">
+                      <Lock size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-brand-text-main">
+                        {isRtl ? 'تغيير كلمة المرور' : 'Change Password'}
+                      </h2>
+                      <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-widest">
+                        {isRtl ? 'تحديث بيانات الدخول' : 'Update credentials'}
+                      </p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowPasswordModal(false)} className="text-brand-text-muted hover:text-brand-error transition-colors">
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-brand-text-muted uppercase px-2">{isRtl ? 'كلمة المرور الحالية' : 'Current Password'}</label>
+                    <input 
+                      type="password"
+                      value={passwordData.currentPassword}
+                      onChange={e => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                      className="w-full px-5 py-4 bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all font-bold text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-brand-text-muted uppercase px-2">{isRtl ? 'كلمة المرور الجديدة' : 'New Password'}</label>
+                    <input 
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={e => setPasswordData({...passwordData, newPassword: e.target.value})}
+                      className="w-full px-5 py-4 bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all font-bold text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-brand-text-muted uppercase px-2">{isRtl ? 'تأكيد كلمة المرور' : 'Confirm Password'}</label>
+                    <input 
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={e => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                      className="w-full px-5 py-4 bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all font-bold text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-8 flex flex-col gap-3">
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordModal(false)}
+                      className="flex-1 px-6 py-4 bg-brand-background border border-brand-border rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-surface transition-all text-brand-text-main"
+                    >
+                      {isRtl ? 'إلغاء' : 'Cancel'}
+                    </button>
+                    <HapticButton
+                      onClick={handlePasswordChange}
+                      disabled={isUpdatingPassword || (!passwordData.currentPassword && profile.email !== 'anamostwanted@gmail.com') || !passwordData.newPassword}
+                      className="flex-1 bg-brand-primary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-brand-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isUpdatingPassword ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                      {isRtl ? 'تحديث' : 'Update'}
+                    </HapticButton>
+                  </div>
+
+                  {profile.email === 'anamostwanted@gmail.com' && (
+                    <button
+                      type="button"
+                      onClick={handleForcePasswordChange}
+                      disabled={isForceUpdating || !passwordData.newPassword}
+                      className="w-full py-4 bg-brand-primary/5 border border-brand-primary/10 text-brand-primary rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-primary hover:text-white transition-all flex items-center justify-center gap-2"
+                    >
+                      {isForceUpdating ? <Loader2 size={12} className="animate-spin" /> : <Cpu size={12} />}
+                      {isRtl ? 'تحديث عبر النظام (للأدمن)' : 'Admin Force Update'}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleSendResetEmail}
+                    disabled={isSendingReset}
+                    className="w-full py-4 text-[10px] font-black text-brand-text-muted hover:text-brand-primary transition-colors flex items-center justify-center gap-2"
+                  >
+                    {isSendingReset ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />}
+                    {isRtl ? 'نسيت كلمة المرور؟ أرسل رابط إعادة تعيين' : 'Forgot password? Send reset link'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <CacheOptimizer isOpen={isOptimizerOpen} onClose={() => setIsOptimizerOpen(false)} />
 

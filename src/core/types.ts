@@ -438,6 +438,10 @@ export interface SiteSettings {
   // Master AI Controls
   smartAssistantEnabled?: boolean;
 
+  // Maintenance Settings
+  maintenanceMode?: boolean;
+  maintenanceBypassEmails?: string[];
+
   // Neural Halo Settings (Futuristic AI UI)
   haloSettings?: {
     enabled: boolean;

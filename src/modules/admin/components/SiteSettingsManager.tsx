@@ -22,6 +22,8 @@ import { AISettings } from './settings/AISettings';
 import { NeuralHaloSettings } from './settings/NeuralHaloSettings';
 import { FlubberSettings } from './settings/FlubberSettings';
 import { LoadingCustomizer } from './LoadingCustomizer';
+import { MaintenanceSettings } from './settings/MaintenanceSettings';
+import { ShieldAlert } from 'lucide-react';
 
 export const SiteSettingsManager: React.FC = () => {
   const { i18n } = useTranslation();
@@ -62,6 +64,8 @@ export const SiteSettingsManager: React.FC = () => {
       gap: 16,
       aiAutoPilot: true
     },
+    maintenanceMode: false,
+    maintenanceBypassEmails: ['anamostwanted@gmail.com'],
     seoTitleAr: 'سوق كونكت | منصة Multi-Vendor MarketPlace والبحث البصري',
     seoTitleEn: 'Souq Connect | Multi-Vendor MarketPlace & Visual Search Platform',
     seoDescriptionAr: 'أكبر منصة تجارة Multi-Vendor MarketPlace ذكية للربط بين الموردين والعملاء باستخدام الذكاء الاصطناعي.',
@@ -107,7 +111,7 @@ export const SiteSettingsManager: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [activeLogoTab, setActiveLogoTab] = useState<'hero' | 'header'>('hero');
-  const [currentTab, setCurrentTab] = useState<'settings-identity' | 'settings-hero' | 'settings-search' | 'settings-market' | 'settings-social' | 'settings-registration' | 'settings-footer' | 'settings-loader' | 'settings-ai'>('settings-identity');
+  const [currentTab, setCurrentTab] = useState<'settings-identity' | 'settings-hero' | 'settings-search' | 'settings-market' | 'settings-social' | 'settings-registration' | 'settings-footer' | 'settings-loader' | 'settings-ai' | 'settings-maintenance'>('settings-identity');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'watermark' | 'loaderLogo' | 'favicon' | 'footerLogo') => {
     const file = e.target.files?.[0];
@@ -232,6 +236,7 @@ export const SiteSettingsManager: React.FC = () => {
           { id: 'settings-registration', label: isRtl ? 'قوائم التسجيل' : 'Registration', icon: ListChecks },
           { id: 'settings-footer', label: isRtl ? 'التذييل' : 'Footer', icon: ListChecks },
           { id: 'settings-ai', label: isRtl ? 'الذكاء الاصطناعي' : 'AI Assistant', icon: Bot },
+          { id: 'settings-maintenance', label: isRtl ? 'وضع الصيانة' : 'Maintenance', icon: ShieldAlert },
           { id: 'settings-loader', label: isRtl ? 'شاشة التحميل' : 'Loading Screen', icon: Sparkles },
         ].map(tab => (
           <button
@@ -270,6 +275,7 @@ export const SiteSettingsManager: React.FC = () => {
             <NeuralHaloSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />
           </div>
         )}
+        {currentTab === 'settings-maintenance' && <MaintenanceSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
         {currentTab === 'settings-loader' && <LoadingCustomizer />}
       </motion.div>
     </div>

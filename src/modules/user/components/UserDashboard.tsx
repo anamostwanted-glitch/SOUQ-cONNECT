@@ -594,8 +594,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       <div className="max-w-6xl mx-auto relative z-10">
         {/* Header - Hidden in Minimal Mode if not on settings */}
         {uiStyle !== 'minimal' && activeTab !== 'stats' && (
-          <div className="px-6 pt-8 pb-6 sticky top-0 z-30">
-            <h1 className="text-3xl font-black text-brand-text-main tracking-tight">
+          <div className="pt-8 pb-6 sticky top-0 z-30" style={{ paddingLeft: 'var(--fluid-px)', paddingRight: 'var(--fluid-px)' }}>
+            <h1 className="font-black text-brand-text-main tracking-tight" style={{ fontSize: 'var(--fluid-h1)' }}>
               {isRtl ? 'مرحباً،' : 'Hello,'} <span className="text-brand-primary">{profile.name?.split(' ')[0]}</span> 👋
             </h1>
             <p className="text-brand-text-muted mt-1">
@@ -604,7 +604,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           </div>
         )}
 
-        <div className="p-6">
+        <div style={{ padding: 'var(--fluid-px)' }}>
           {/* Navigation Tabs - Centered Pill Style */}
           <div className="flex justify-center mb-12 overflow-x-auto hide-scrollbar py-4">
             <div className="flex items-center gap-2 md:gap-4 p-2 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl rounded-[2.5rem] border border-white/20 dark:border-slate-700/50 shadow-xl shadow-black/5">

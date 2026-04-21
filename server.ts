@@ -553,6 +553,49 @@ app.post("/api/send-email", async (req, res) => {
     }
   });
 
+  // Admin: Force Password Change (Manual Override)
+  app.post("/api/admin/force-password-change", async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const idToken = authHeader.split('Bearer ')[1];
+    const { newPassword, targetUid } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: "Invalid password length" });
+    }
+
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      const adminUid = decodedToken.uid;
+      const adminEmail = decodedToken.email;
+
+      // Verify if adminUid is indeed an admin or the specific emergency email
+      const userDoc = await admin.firestore().collection('users').doc(adminUid).get();
+      const userData = userDoc.data();
+      const isAdmin = userData?.role === 'admin' || adminEmail === 'anamostwanted@gmail.com';
+
+      if (!isAdmin) {
+        return res.status(403).json({ error: "Forbidden: Admin access required" });
+      }
+
+      // If targetUid is provided, use it. Otherwise, target the admin themselves.
+      const finalTargetUid = targetUid || adminUid;
+
+      await admin.auth().updateUser(finalTargetUid, {
+        password: newPassword
+      });
+
+      console.log(`Admin ${adminUid} (${userData?.email}) force changed password for user ${finalTargetUid}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Force password change error:", error);
+      res.status(500).json({ error: "Failed to update password", details: error.message });
+    }
+  });
+
   // Sync Role to Custom Claims
   app.post("/api/sync-role", async (req, res) => {
     const authHeader = req.headers.authorization;

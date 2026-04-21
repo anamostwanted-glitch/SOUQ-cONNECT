@@ -833,8 +833,15 @@ const Home: React.FC<HomeProps> = ({
       '--secondary-text': secondaryTextColor
     } as React.CSSProperties}>
       <SEO 
-        title={isRtl ? 'الرئيسية' : 'Home'} 
-        description={isRtl ? 'المنصة العصبية لـ Multi-Vendor MarketPlace - سوق كونيكت' : 'Neural Hub for Multi-Vendor MarketPlace - Souq Connect'}
+        title={isRtl ? 'سوق كونيكت - منصة Multi-Vendor MarketPlace الذكية' : 'Souq Connect - Intelligent Multi-Vendor MarketPlace'} 
+        description={isRtl 
+          ? 'سوق كونيكت: المنصة الأولى في الشرق الأوسط لـ Multi-Vendor MarketPlace. تواصل مع آلاف الموردين المعتمدين واطلب اقتباسات الأسعار فوراً.' 
+          : 'Souq Connect: The Middle East\'s leading Multi-Vendor MarketPlace. Connect with thousands of verified suppliers and request quotes instantly.'
+        }
+        keywords={isRtl 
+          ? 'سوق جملة, موردين السعودية, تجارة إلكترونية, Multi-Vendor MarketPlace, توريد رقمي, ذكاء اصطناعي' 
+          : 'wholesale marketplace, Saudi suppliers, e-commerce, Multi-Vendor MarketPlace, digital sourcing, artificial intelligence'
+        }
       />
       <DataStreamBackground />
       {/* Minimal UI Mode */}
@@ -888,7 +895,13 @@ const Home: React.FC<HomeProps> = ({
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20"
+            className="relative z-10 mx-auto w-full"
+            style={{ 
+              paddingLeft: 'var(--fluid-px)', 
+              paddingRight: 'var(--fluid-px)',
+              paddingTop: 'var(--fluid-py)',
+              paddingBottom: 'var(--fluid-py)'
+            }}
             ref={requestsRef}
           >
             {/* Hero Section */}
@@ -953,7 +966,11 @@ const Home: React.FC<HomeProps> = ({
                 </MagneticWrapper>
               </div>
             
-            <h1 className="text-4xl md:text-7xl lg:text-8xl font-black mb-8 tracking-tight leading-[1.1] md:leading-[1.05]" style={{ color: 'var(--primary-text)' }}>
+            <h1 className="font-black mb-8 tracking-tight leading-[1.1] md:leading-[1.05]" 
+              style={{ 
+                color: 'var(--primary-text)',
+                fontSize: 'var(--fluid-h1)' 
+              }}>
               {isRtl ? (
                 <>
                   {heroTitleAr || 'اطلب أي منتج'} <br className="hidden md:block" />

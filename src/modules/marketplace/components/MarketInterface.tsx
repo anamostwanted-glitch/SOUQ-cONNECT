@@ -555,10 +555,18 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           activeCategory?.seoKeywords?.length
             ? activeCategory.seoKeywords :
           isRtl 
-            ? ['سوق جملة', 'الشرق الأوسط', 'خدمات أعمال', 'موردين', 'تجارة إلكترونية Multi-Vendor MarketPlace'] 
-            : ['wholesale market', 'middle east', 'business services', 'suppliers', 'Multi-Vendor MarketPlace ecommerce']
+            ? ['سوق جملة', 'الشرق الأوسط', 'خدمات أعمال', 'موردين', 'تجارة إلكترونية Multi-Vendor MarketPlace', 'سوق الموردين', 'توريد المنتجات', 'معدات صناعية', 'مواد بناء'] 
+            : ['wholesale market', 'middle east', 'business services', 'suppliers', 'Multi-Vendor MarketPlace ecommerce', 'supplier hub', 'product sourcing', 'industrial equipment', 'construction materials']
         }
         url={activeCategory?.slug ? `${window.location.origin}/marketplace/${activeCategory.slug}` : undefined}
+        schema={{
+          "@context": "https://schema.org",
+          "@type": activeCategory ? "CollectionPage" : "WebPage",
+          "name": activeCategory ? (isRtl ? activeCategory.nameAr : activeCategory.nameEn) : (isRtl ? 'السوق' : 'Marketplace'),
+          "description": isRtl 
+            ? 'اكتشف أفضل الموردين والمنتجات والخدمات المهنية في مكان واحد.' 
+            : 'Discover the best suppliers, products, and professional services in one place.',
+        }}
       />
       {/* Search Section */}
       <motion.div 
@@ -736,7 +744,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
          </div>
       </div>
 
-      <div className={`max-w-7xl mx-auto ${isFullBleed ? 'px-0' : 'px-4'}`}>
+      <div className="max-w-7xl mx-auto" style={{ paddingLeft: isFullBleed ? 0 : 'var(--fluid-px)', paddingRight: isFullBleed ? 0 : 'var(--fluid-px)' }}>
         {/* Global Market Pulse Banner */}
         <AnimatePresence>
           {(greeting || nuance) && (

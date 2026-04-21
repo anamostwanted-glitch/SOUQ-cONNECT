@@ -14,6 +14,7 @@ import { PageLoader } from './shared/components/PageLoader';
 import { SmartVoiceHub } from './shared/components/SmartVoiceHub';
 import { ErrorBoundary } from './shared/components/ErrorBoundary';
 import { NotificationCenter } from './modules/common/components/NotificationCenter';
+import { MaintenancePage } from './shared/components/MaintenancePage';
 import { ImmuneSystemProvider } from './core/providers/ImmuneSystemProvider';
 import { NeuralPulseIndicator } from './core/components/NeuralPulseIndicator';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -99,6 +100,13 @@ export default function App() {
   const [uiStyle, setUiStyle] = useState<'classic' | 'minimal'>('classic');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  
+  const isMaintenanceActive = settings?.maintenanceMode;
+  const isBypassed = profile?.email && (
+    settings?.maintenanceBypassEmails?.includes(profile.email) || 
+    profile.email === 'anamostwanted@gmail.com'
+  );
+  const isAuthPage = location.pathname.startsWith('/auth');
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [isVoiceHubOpen, setIsVoiceHubOpen] = useState(false);
@@ -319,7 +327,12 @@ export default function App() {
         onNavigate={handleDeepNavigate}
       />
 
-      <AnimatePresence mode="wait">
+      {isMaintenanceActive && !isBypassed && !isAuthPage ? (
+        <ErrorBoundary>
+          <MaintenancePage settings={settings} />
+        </ErrorBoundary>
+      ) : (
+        <AnimatePresence mode="wait">
           <motion.div
             key="content"
             initial={{ opacity: 0 }}
@@ -533,8 +546,9 @@ export default function App() {
               onProcessed={onVoiceProcessed}
             />
           </motion.div>
-      </AnimatePresence>
-    </div>
+        </AnimatePresence>
+      )}
+      </div>
     </ImmuneSystemProvider>
   );
 }

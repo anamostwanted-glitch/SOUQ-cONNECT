@@ -33,7 +33,8 @@ import {
   FileText,
   Brain,
   Wind,
-  X
+  X,
+  Menu
 } from 'lucide-react';
 import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc, orderBy, limit, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
@@ -701,21 +702,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
       </AnimatePresence>
 
-      <div className={`md:block ${isSidebarOpen ? 'block' : 'hidden'}`}>
-        <AdminSidebar 
-          activeTab={activeHub} 
-          setActiveTab={(hub) => {
-            handleHubChange(hub);
-            setIsSidebarOpen(false);
-          }} 
-          tabs={tabs} 
-          isRtl={isRtl} 
-          profile={profile} 
-        />
-      </div>
+      <AdminSidebar 
+        activeTab={activeHub} 
+        setActiveTab={(hub) => {
+          handleHubChange(hub);
+          setIsSidebarOpen(false);
+        }} 
+        tabs={tabs} 
+        isRtl={isRtl} 
+        profile={profile}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-brand-background p-4 md:p-8">
+      <main className="flex-1 overflow-y-auto bg-brand-background" style={{ padding: 'var(--fluid-px)' }}>
+        {/* Mobile Header with Menu Trigger */}
+        <div className="flex md:hidden items-center justify-between mb-6 bg-brand-surface p-4 rounded-2xl border border-brand-border shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center text-white">
+              <Shield size={20} />
+            </div>
+            <span className="font-black text-brand-text-main">{isRtl ? 'لوحة القيادة' : 'Dashboard'}</span>
+          </div>
+          <HapticButton 
+            onClick={() => setIsSidebarOpen(true)}
+            className="w-10 h-10 flex items-center justify-center bg-brand-background rounded-xl border border-brand-border"
+          >
+            <Menu size={20} />
+          </HapticButton>
+        </div>
         <AnimatePresence>
           {selectedCategoryForKeywords && (
             <KeywordManagerModal 
@@ -731,7 +747,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </AnimatePresence>
 
         {/* Global Hub Navigation Secondary bar for Sub-tabs */}
-        <div className="max-w-7xl mx-auto mb-6 flex flex-wrap gap-2">
+        <div className="max-w-7xl mx-auto mb-6 flex flex-wrap gap-2 overflow-x-auto no-scrollbar scroll-smooth pb-2 md:pb-0">
             {activeHub === 'strategic' && (
                 <div className="flex bg-brand-surface p-1 rounded-2xl border border-brand-border h-fit shadow-sm">
                     {[

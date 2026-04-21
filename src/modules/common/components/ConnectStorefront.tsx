@@ -35,6 +35,8 @@ import { getProfileInsights, optimizeSupplierProfile, handleAiError } from '../.
 import { ProfileSettings } from '../../user/components/ProfileSettings';
 import { getStoreShareUrl } from '../../marketplace/services/marketService';
 import { createNotification } from '../../../core/services/notificationService';
+import { SEO } from '../../../shared/components/SEO';
+import { HelmetProvider } from 'react-helmet-async';
 
 interface ConnectStorefrontProps {
   profile: UserProfile;
@@ -712,6 +714,26 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
 
   return (
     <div className="min-h-screen bg-brand-background pb-32 font-sans">
+      <SEO 
+        title={isRtl ? (editData.metaTitleAr || editData.name) : (editData.metaTitleEn || editData.name)}
+        description={isRtl ? editData.metaDescriptionAr : editData.metaDescriptionEn}
+        keywords={editData.seoKeywords?.join(', ')}
+        image={editData.logoUrl}
+        url={getStoreShareUrl(profile.uid)}
+        schema={{
+          "@context": "https://schema.org",
+          "@type": profile.role === 'supplier' ? "LocalBusiness" : "Person",
+          "name": editData.name,
+          "description": isRtl ? editData.bio : editData.bio,
+          "image": editData.logoUrl,
+          "telephone": editData.phone,
+          "url": getStoreShareUrl(profile.uid),
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": editData.location
+          }
+        }}
+      />
       {/* Immersive Header (Neural Identity Studio Style) */}
       <div className="relative h-60 md:h-96 w-full overflow-hidden">
         <motion.div 
