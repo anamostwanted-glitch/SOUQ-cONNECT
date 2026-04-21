@@ -189,7 +189,7 @@ export const IdentitySettings: React.FC<IdentitySettingsProps> = ({ settings, se
                 value={settings.seoTitleAr || ''}
                 onChange={(e) => setSettings({ ...settings, seoTitleAr: e.target.value })}
                 className="w-full p-3 bg-brand-background rounded-xl border border-brand-border text-brand-text-main"
-                placeholder="سوق كونكت | منصة B2B..."
+                placeholder="سوق كونكت | منصة Multi-Vendor MarketPlace..."
               />
             </div>
             <div className="space-y-4">
@@ -201,7 +201,7 @@ export const IdentitySettings: React.FC<IdentitySettingsProps> = ({ settings, se
                 value={settings.seoTitleEn || ''}
                 onChange={(e) => setSettings({ ...settings, seoTitleEn: e.target.value })}
                 className="w-full p-3 bg-brand-background rounded-xl border border-brand-border text-brand-text-main"
-                placeholder="Souq Connect | B2B Platform..."
+                placeholder="Souq Connect | Multi-Vendor MarketPlace Platform..."
               />
             </div>
             

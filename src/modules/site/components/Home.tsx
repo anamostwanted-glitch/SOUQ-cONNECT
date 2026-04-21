@@ -834,7 +834,7 @@ const Home: React.FC<HomeProps> = ({
     } as React.CSSProperties}>
       <SEO 
         title={isRtl ? 'الرئيسية' : 'Home'} 
-        description={isRtl ? 'المنصة العصبية للتجارة بين الشركات - سوق كونيكت' : 'Neural Hub for B2B - Souq Connect'}
+        description={isRtl ? 'المنصة العصبية لـ Multi-Vendor MarketPlace - سوق كونيكت' : 'Neural Hub for Multi-Vendor MarketPlace - Souq Connect'}
       />
       <DataStreamBackground />
       {/* Minimal UI Mode */}

@@ -13,7 +13,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, isRtl }) => {
 
   const platformAbout = isRtl 
     ? (settings?.footerAboutAr || 'سوق كونكت هو المنصة الأولى المدعومة بالذكاء الاصطناعي للربط بين المؤسسات والموردين في الشرق الأوسط.') 
-    : (settings?.footerAboutEn || 'Connect is the Middle East\'s premier AI-powered B2B marketplace, connecting institutions with trusted suppliers.');
+    : (settings?.footerAboutEn || 'Connect is the Middle East\'s premier AI-powered Multi-Vendor MarketPlace marketplace, connecting institutions with trusted suppliers.');
 
   const copyrightText = isRtl
     ? (settings?.footerCopyrightAr || `جميع الحقوق محفوظة © ${currentYear} سوق كونكت.`)

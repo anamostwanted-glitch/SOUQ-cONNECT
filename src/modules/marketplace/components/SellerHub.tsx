@@ -28,7 +28,7 @@ import { MarketplaceItem, UserProfile, Category } from '../../../core/types';
 import { fetchMarketplaceItems, updateMarketplaceItemStatus, softDeleteMarketplaceItem, getStoreShareUrl } from '../services/marketService';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { BlurImage } from '../../../shared/components/BlurImage';
-import { B2BAnalyticsDashboard } from './B2BAnalyticsDashboard';
+import { MultiVendorMarketPlaceAnalyticsDashboard } from './MultiVendorMarketPlaceAnalyticsDashboard';
 import { toast } from 'sonner';
 
 interface SellerHubProps {
@@ -81,7 +81,7 @@ export const SellerHub: React.FC<SellerHubProps> = ({ profile, categories, onEdi
     };
   }, [items, profile.sharedViews]);
 
-  // Simulated Intelligence Data for B2B Dashboard
+  // Simulated Intelligence Data for Multi-Vendor MarketPlace Dashboard
   const intelligenceData = useMemo(() => ({
     marketDemand: [
       { name: isRtl ? 'بناء وإنشاء' : 'Construction', demand: 85, color: '#0D9488' },
@@ -343,7 +343,7 @@ export const SellerHub: React.FC<SellerHubProps> = ({ profile, categories, onEdi
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
           >
-            <B2BAnalyticsDashboard isRtl={isRtl} data={intelligenceData} />
+            <MultiVendorMarketPlaceAnalyticsDashboard isRtl={isRtl} data={intelligenceData} />
           </motion.div>
         )}
       </AnimatePresence>

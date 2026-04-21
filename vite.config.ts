@@ -15,9 +15,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
       },
       manifest: {
-        name: 'Souq Connect - AI B2B Marketplace',
+        name: 'Souq Connect - AI Multi-Vendor MarketPlace Marketplace',
         short_name: 'SouqConnect',
-        description: 'Professional B2B trading platform powered by Gemini AI.',
+        description: 'Professional Multi-Vendor MarketPlace trading platform powered by Gemini AI.',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',

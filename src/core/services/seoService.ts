@@ -20,7 +20,7 @@ export const generateSEOContent = async (context: {
     const model = (genAI as any).getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `
-      Act as an expert SEO Content Strategist for a B2B Marketplace called "Connect AI".
+      Act as an expert SEO Content Strategist for a Multi-Vendor MarketPlace called "Connect AI".
       Target: ${context.type}
       Name: ${context.name}
       Base Description: ${context.description || 'N/A'}

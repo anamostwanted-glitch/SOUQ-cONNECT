@@ -25,7 +25,7 @@ export const SEO: React.FC<SEOProps> = ({
   
   const defaultDesc = i18n.language === 'ar' 
     ? 'سوق كونيكت: المنصة العصبية للتجارة بين الشركات. تواصل مع موردين معتمدين، وأتمت عملية التوريد باستخدام الذكاء الاصطناعي.'
-    : 'Souq Connect: The Neural Hub for B2B. Connect with verified suppliers and automate sourcing with AI.';
+    : 'Souq Connect: The Neural Hub for Multi-Vendor MarketPlace. Connect with verified suppliers and automate sourcing with AI.';
 
   const finalDesc = description || defaultDesc;
 

@@ -105,7 +105,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
     logoUrl: profile.logoUrl || '',
     coverUrl: profile.coverUrl || 'https://picsum.photos/seed/neural/1200/400',
     socialLinks: profile.socialLinks || { facebook: '', instagram: '', twitter: '' },
-    // B2B Trust Fields
+    // Multi-Vendor MarketPlace Trust Fields
     experienceYears: profile.experienceYears || 1,
     expertiseLevel: profile.expertiseLevel || 'Intermediate',
     notableClients: profile.notableClients || [],
@@ -1245,17 +1245,17 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                   exit={{ opacity: 0, x: -20 }}
                   className="grid grid-cols-1 md:grid-cols-2 gap-8"
                 >
-                  {/* B2B Expert Trust Module */}
+                  {/* Multi-Vendor MarketPlace Expert Trust Module */}
                   <Card className="bg-brand-surface border-brand-border rounded-[2.5rem] p-8 space-y-6 md:col-span-2">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xl font-black text-brand-text-main flex items-center gap-3">
                         <Award size={20} className="text-brand-primary" />
                         {isRtl ? 'الأداء والخبرة المهنية' : 'Expertise & Authority'}
                       </h4>
-                      {profile.isB2BVerified && (
+                      {profile.isMvmVerified && (
                         <Badge className="bg-brand-primary text-white border-none py-1.5 px-4 rounded-xl flex items-center gap-2">
                           <CheckCircle2 size={14} />
-                          {isRtl ? 'اعتماد مؤسسي' : 'B2B Verified'}
+                          {isRtl ? 'اعتماد مؤسسي' : 'Multi-Vendor MarketPlace Verified'}
                         </Badge>
                       )}
                     </div>

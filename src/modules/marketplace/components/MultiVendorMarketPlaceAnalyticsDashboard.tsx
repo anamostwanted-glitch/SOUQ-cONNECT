@@ -24,7 +24,7 @@ import {
   Info 
 } from 'lucide-react';
 
-interface B2BAnalyticsDashboardProps {
+interface MultiVendorMarketPlaceAnalyticsDashboardProps {
   isRtl: boolean;
   data: {
     marketDemand: any[];
@@ -33,7 +33,7 @@ interface B2BAnalyticsDashboardProps {
   }
 }
 
-export const B2BAnalyticsDashboard: React.FC<B2BAnalyticsDashboardProps> = ({ isRtl, data }) => {
+export const MultiVendorMarketPlaceAnalyticsDashboard: React.FC<MultiVendorMarketPlaceAnalyticsDashboardProps> = ({ isRtl, data }) => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-2">

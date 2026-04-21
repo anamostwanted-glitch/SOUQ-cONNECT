@@ -624,7 +624,7 @@ export const refineChatMessage = async (text: string, language: string, context:
       
       Task: Rewrite the message to be world-class, professional, and clear. 
       - Keep it concise but prestigious.
-      - If in Arabic, use professional "White" dialect (suitable for B2B).
+      - If in Arabic, use professional "White" dialect (suitable for Multi-Vendor MarketPlace).
       - Ensure it sounds human and empathetic, not robotic.
       
       Return ONLY the rewritten message text.`;
@@ -2670,7 +2670,7 @@ export const analyzeChatSentiment = async (transcript: string, language: string)
  */
 export const generateCategorySEO = async (categoryNameAr: string, categoryNameEn: string, tier: string): Promise<any> => {
   try {
-    const prompt = `Generate expert B2B SEO metadata for a marketplace category.
+    const prompt = `Generate expert Multi-Vendor MarketPlace SEO metadata for a marketplace category.
       Category Name (Arabic): ${categoryNameAr}
       Category Name (English): ${categoryNameEn}
       Hierarchy Level: ${tier}

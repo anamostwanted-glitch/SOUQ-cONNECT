@@ -69,7 +69,7 @@ const auditData: AuditItem[] = [
     id: '6',
     role: 'Growth Hacker',
     finding: 'Missing social loop for supplier referrals.',
-    fix: 'Connect Rewards: Points-based referral system for B2B partners.',
+    fix: 'Connect Rewards: Points-based referral system for Multi-Vendor MarketPlace partners.',
     status: 'completed',
     icon: <TrendingUp size={18} className="text-brand-teal" />
   },

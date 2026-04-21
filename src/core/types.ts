@@ -97,8 +97,8 @@ export interface UserProfile {
     recommendationsEn: string[];
     lastUpdated: string;
   };
-  // B2B Expert Trust & Authority Fields
-  isB2BVerified?: boolean;
+  // Multi-Vendor MarketPlace Expert Trust & Authority Fields
+  isMvmVerified?: boolean;
   experienceYears?: number;
   expertiseLevel?: 'Intermediate' | 'Expert' | 'Elite' | 'Master';
   notableClients?: string[];

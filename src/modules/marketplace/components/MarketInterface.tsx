@@ -555,8 +555,8 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
           activeCategory?.seoKeywords?.length
             ? activeCategory.seoKeywords :
           isRtl 
-            ? ['سوق جملة', 'الشرق الأوسط', 'خدمات أعمال', 'موردين', 'تجارة إلكترونية B2B'] 
-            : ['wholesale market', 'middle east', 'business services', 'suppliers', 'B2B ecommerce']
+            ? ['سوق جملة', 'الشرق الأوسط', 'خدمات أعمال', 'موردين', 'تجارة إلكترونية Multi-Vendor MarketPlace'] 
+            : ['wholesale market', 'middle east', 'business services', 'suppliers', 'Multi-Vendor MarketPlace ecommerce']
         }
         url={activeCategory?.slug ? `${window.location.origin}/marketplace/${activeCategory.slug}` : undefined}
       />

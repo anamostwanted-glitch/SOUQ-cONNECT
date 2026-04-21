@@ -949,7 +949,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-brand-text-muted font-bold">{isRtl ? 'معدل التحويل (B2B)' : 'B2B Conversion Rate'}</span>
+                        <span className="text-brand-text-muted font-bold">{isRtl ? 'معدل التحويل (MVM)' : 'Multi-Vendor MarketPlace Conversion Rate'}</span>
                         <span className="text-brand-primary font-black">
                           {strategicStats.connections > 0 
                             ? ((strategicStats.connections / (strategicStats.chats || 1)) * 100).toFixed(1) 

@@ -37,7 +37,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // 2. Description
     const description = lang === 'ar' 
       ? (data.seoDescriptionAr || 'منصة ربط الموردين بالعملاء') 
-      : (data.seoDescriptionEn || 'B2B Trading Platform');
+      : (data.seoDescriptionEn || 'Multi-Vendor MarketPlace Trading Platform');
     
     let metaDesc = document.querySelector('meta[name="description"]');
     if (!metaDesc) {

@@ -62,10 +62,10 @@ export const SiteSettingsManager: React.FC = () => {
       gap: 16,
       aiAutoPilot: true
     },
-    seoTitleAr: 'سوق كونكت | منصة B2B والبحث البصري',
-    seoTitleEn: 'Souq Connect | B2B & Visual Search Platform',
-    seoDescriptionAr: 'أكبر منصة تجارة B2B ذكية للربط بين الموردين والعملاء باستخدام الذكاء الاصطناعي.',
-    seoDescriptionEn: 'The smartest B2B trading platform connecting suppliers and customers with AI.',
+    seoTitleAr: 'سوق كونكت | منصة Multi-Vendor MarketPlace والبحث البصري',
+    seoTitleEn: 'Souq Connect | Multi-Vendor MarketPlace & Visual Search Platform',
+    seoDescriptionAr: 'أكبر منصة تجارة Multi-Vendor MarketPlace ذكية للربط بين الموردين والعملاء باستخدام الذكاء الاصطناعي.',
+    seoDescriptionEn: 'The smartest Multi-Vendor MarketPlace trading platform connecting suppliers and customers with AI.',
     faviconUrl: '',
     socialProof: {
       enabled: true

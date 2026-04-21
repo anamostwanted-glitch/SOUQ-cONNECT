@@ -12,7 +12,7 @@ interface Message {
 }
 
 const PLATFORM_KNOWLEDGE = `
-Souq Connect is a smart B2B marketplace connecting customers with verified suppliers.
+Souq Connect is a smart Multi-Vendor MarketPlace marketplace connecting customers with verified suppliers.
 Key Features:
 - Smart Marketplace: AI-driven product discovery and matchmaking.
 - Supplier Verification: All suppliers are vetted for quality and reliability.
