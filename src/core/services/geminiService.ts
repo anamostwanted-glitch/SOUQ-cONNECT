@@ -479,27 +479,26 @@ export const translateText = async (text: string, targetLanguage: string): Promi
   }
 };
 
-export const suggestColorHarmony = async (primaryColor: string): Promise<{ secondaryColor: string; reason: string }> => {
-  try {
-    const result = await callAiJson(
-      `Given the primary brand color ${primaryColor}, suggest a secondary text color that is visually harmonious, maintains high contrast for accessibility (WCAG), and feels professional. Return ONLY a JSON object with 'secondaryColor' (hex) and a brief 'reason'.`,
-      {
-        type: Type.OBJECT,
-        properties: {
-          secondaryColor: { type: Type.STRING },
-          reason: { type: Type.STRING }
-        },
-        required: ["secondaryColor", "reason"]
-      }
-    );
+export const optimizeSettingsContent = async (context: string, currentVal: string, language: string): Promise<string> => {
+  return AIResilienceManager.execute(async () => {
+    const prompt = `[ADMIN-OPTIMIZER:SMART-SETTINGS]
+      Setting Context: ${context}
+      Current Value: "${currentVal}"
+      Target Language: ${language === 'ar' ? 'Arabic (Professional Business)' : 'English (Modern Marketing)'}
+      
+      Task: Optimize this interface text to be more professional, engaging, and suitable for a world-class Multi-Vendor MarketPlace.
+      - If it's a Title/SEO: Make it catchy and high-ranking.
+      - If it's a Description: Make it clear and trustworthy.
+      - If it's a CTA: Make it action-oriented.
+      
+      Return ONLY the optimized text.`;
 
-    const tokens = (primaryColor.length + JSON.stringify(result).length) / 4;
-    await logUsage('Color Harmony', Math.ceil(tokens));
+    const result = await callAiText(prompt);
+    
+    const tokens = (prompt.length + result.length) / 4;
+    await logUsage('Admin Settings Optimization', Math.ceil(tokens));
     return result;
-  } catch (e) {
-    console.warn('Color harmony suggestion failed via proxy:', e);
-    return { secondaryColor: '#ffffff', reason: 'AI service unavailable' };
-  }
+  }, currentVal, 'Settings content optimization', isFailure);
 };
 
 // Removed duplicate preFetchNeuralPulse declaration
