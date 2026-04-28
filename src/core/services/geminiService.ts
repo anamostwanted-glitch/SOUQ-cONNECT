@@ -2762,3 +2762,76 @@ export const generateSupplierSEO = async (profile: UserProfile): Promise<any> =>
     return null;
   }
 };
+
+/**
+ * Generates advanced analytics insights for a supplier's storefront.
+ */
+export const generateStorefrontAnalyticsInsights = async (
+  analytics: any, 
+  profile: UserProfile, 
+  language: string
+): Promise<any> => {
+  try {
+    const prompt = `[STOREFRONT-INSIGHTS:AI] Act as a Senior Growth Specialist and UX Auditor.
+      Analyze this storefront performance data for "${profile.companyName || profile.name}":
+      
+      Performance Data: ${JSON.stringify(analytics)}
+      Supplier Profile: ${JSON.stringify({ bio: profile.bio, categories: profile.categories })}
+      Language: ${language === 'ar' ? 'Arabic' : 'English'}
+
+      Tasks:
+      1. Overall Performance: Evaluate the "vibe" and effectiveness of the storefront.
+      2. Source Analysis: Identify which platforms bring the best traffic and where there is wasted potential.
+      3. Actionable Hacks: Provide 3 high-impact, specific "growth hacks" to increase sales/leads.
+      4. UX Audit: Suggest 2 visual or content improvements.
+      
+      Return JSON: {
+        headline: string (Punchy headline),
+        summary: string (Executive summary),
+        growthHacks: [{ title, description, impact: 'high'|'medium' }],
+        uxAudits: [{ title, description }],
+        sentiment: string (Encouraging sentiment for the supplier)
+      }`;
+
+    const result = await callAiJson(
+      prompt,
+      {
+        type: Type.OBJECT,
+        properties: {
+          headline: { type: Type.STRING },
+          summary: { type: Type.STRING },
+          growthHacks: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                description: { type: Type.STRING },
+                impact: { type: Type.STRING, enum: ['high', 'medium'] }
+              }
+            }
+          },
+          uxAudits: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                description: { type: Type.STRING }
+              }
+            }
+          },
+          sentiment: { type: Type.STRING }
+        },
+        required: ["headline", "summary", "growthHacks", "uxAudits", "sentiment"]
+      }
+    );
+    
+    const tokens = (prompt.length + JSON.stringify(result).length) / 4;
+    await logUsage('Storefront Analytics Insights', Math.ceil(tokens));
+    return result;
+  } catch (e: any) {
+    handleAiError(e, 'Analytics insights generation');
+    return null;
+  }
+};

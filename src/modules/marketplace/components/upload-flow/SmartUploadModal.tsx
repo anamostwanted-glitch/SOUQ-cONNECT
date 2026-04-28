@@ -204,7 +204,7 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
               const processedFile = new File([processedBlob], `ai-generated-${Date.now()}.png`, { type: 'image/png' });
               
               const newImage: ImageFile = {
-                id: `img-ai-${Date.now()}`,
+                id: `img-ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 file: processedFile,
                 previewUrl: URL.createObjectURL(processedFile),
                 status: 'success',
@@ -257,14 +257,17 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
     }
 
     try {
-      const newImages: ImageFile[] = Array.from(files).map((file, index) => ({
-        id: `img-${Date.now()}-${index}`,
-        file,
-        previewUrl: URL.createObjectURL(file),
-        status: 'idle',
-        progress: 0,
-        isMain: images.length === 0 && index === 0, // First image is main if none exist
-      }));
+      const newImages: ImageFile[] = Array.from(files).map((file, index) => {
+        const randomStr = Math.random().toString(36).substring(2, 7);
+        return {
+          id: `img-${Date.now()}-${index}-${randomStr}`,
+          file,
+          previewUrl: URL.createObjectURL(file),
+          status: 'idle',
+          progress: 0,
+          isMain: images.length === 0 && index === 0, // First image is main if none exist
+        };
+      });
 
       const wasEmpty = images.length === 0;
       setImages(prev => [...prev, ...newImages]);
@@ -1078,13 +1081,16 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({ onClose, onA
                               .map(id => categories.find(c => c.id === id))
                               .filter((c): c is Category => !!c);
                             
-                            setSuggestedCategoryOptions(matchedCats);
+                            // Ensure unique categories by ID
+                            const uniqueCats = Array.from(new Map(matchedCats.map(c => [c.id, c])).values()) as Category[];
+                            
+                            setSuggestedCategoryOptions(uniqueCats);
                             setShowCategorySuggestions(true);
                             
                             // Also set the first one as default if none selected
-                            if (selectedCategories.length === 0) {
-                              setClassification(isRtl ? matchedCats[0].nameAr : matchedCats[0].nameEn);
-                              setSelectedCategories([matchedCats[0].id]);
+                            if (selectedCategories.length === 0 && uniqueCats.length > 0) {
+                              setClassification(isRtl ? uniqueCats[0].nameAr : uniqueCats[0].nameEn);
+                              setSelectedCategories([uniqueCats[0].id]);
                             }
                           } else {
                             toast.error(isRtl ? 'لم يتم العثور على فئات مطابقة' : 'No matching categories found');

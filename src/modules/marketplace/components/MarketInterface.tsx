@@ -1095,47 +1095,51 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
             {/* Core Team: Grouped Discover Feed */}
             {activeTab === 'discover' && !selectedHubId && !searchTerm ? (
               // Grouped View (Demand-Driven)
-              filteredCategories.filter(cat => cat.tier === 'hub' || !cat.parentId).map(hub => {
-                const hubItems = uniqueFilteredItems.filter(item => {
-                    const itemCats = categories.filter(c => item.categories?.includes(c.id));
-                    return itemCats.some(c => {
-                        let cur: any = c;
-                        while(cur) {
-                            if (cur.id === hub.id) return true;
-                            cur = cur.parentId ? categories.find(p => p.id === cur.parentId) : null;
-                        }
-                        return false;
-                    });
-                });
+              (() => {
+                const hubsRaw = filteredCategories.filter(cat => cat.tier === 'hub' || !cat.parentId);
+                const uniqueHubs = Array.from(new Map(hubsRaw.map(h => [h.id, h])).values());
                 
-                if (hubItems.length === 0) return null;
+                return uniqueHubs.map(hub => {
+                  const hubItems = uniqueFilteredItems.filter(item => {
+                      const itemCats = categories.filter(c => item.categories?.includes(c.id));
+                      return itemCats.some(c => {
+                          let cur: any = c;
+                          while(cur) {
+                              if (cur.id === hub.id) return true;
+                              cur = cur.parentId ? categories.find(p => p.id === cur.parentId) : null;
+                          }
+                          return false;
+                      });
+                  });
+                  
+                  if (hubItems.length === 0) return null;
 
-                return (
-                  <div key={hub.id} className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-black text-brand-text-main flex items-center gap-2">
-                         <span className="w-1.5 h-6 bg-brand-primary" />
-                         {isRtl ? hub.nameAr : hub.nameEn}
-                      </h3>
-                      <button 
-                        onClick={() => setSelectedHubId(hub.id)}
-                        className="text-xs font-bold text-brand-primary hover:underline"
+                  return (
+                    <div key={`hub-container-${hub.id}`} className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-black text-brand-text-main flex items-center gap-2">
+                           <span className="w-1.5 h-6 bg-brand-primary" />
+                           {isRtl ? hub.nameAr : hub.nameEn}
+                        </h3>
+                        <button 
+                          onClick={() => setSelectedHubId(hub.id)}
+                          className="text-xs font-bold text-brand-primary hover:underline"
+                        >
+                           {isRtl ? 'عرض الكل' : 'View All'}
+                        </button>
+                      </div>
+                      <div 
+                        className="grid"
+                        style={{ 
+                          gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                          gap: isFullBleed ? '1px' : (typeof window !== 'undefined' && window.innerWidth < 768 ? '2px' : `${settings?.gridSettings?.gap || 16}px`)
+                        }}
                       >
-                         {isRtl ? 'عرض الكل' : 'View All'}
-                      </button>
-                    </div>
-                    <div 
-                      className="grid"
-                      style={{ 
-                        gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
-                        gap: isFullBleed ? '1px' : (typeof window !== 'undefined' && window.innerWidth < 768 ? '2px' : `${settings?.gridSettings?.gap || 16}px`)
-                      }}
-                    >
-                  {hubItems.map((item, idx) => (
-                    <div key={`hub-${hub.id}-item-${item.id || idx}-${idx}`} ref={idx === hubItems.length - 1 ? lastItemRef : null}>
-                      <ProductCard 
-                        item={item} 
-                        onOpenChat={onOpenChat}
+                    {hubItems.map((item, idx) => (
+                      <div key={`hub-${hub.id}-item-${item.id}-${idx}`} ref={idx === hubItems.length - 1 ? lastItemRef : null}>
+                        <ProductCard 
+                          item={item} 
+                          onOpenChat={onOpenChat}
                         onViewDetails={() => {
                           setSelectedItem(item);
                           analytics.trackEvent('product_view', { productId: item.id, name: item.titleAr || item.titleEn || item.title, tab: activeTab });
@@ -1152,8 +1156,9 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                     </div>
                   </div>
                 );
-              })
-            ) : (
+              });
+            })()
+          ) : (
               // Flat View (When filter/search is active)
               <div 
                 className="grid"
@@ -1163,7 +1168,7 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
                 }}
               >
                 {uniqueFilteredItems.map((item, idx) => (
-                  <div key={`market-grid-item-${item.id || idx}-${idx}`} ref={idx === uniqueFilteredItems.length - 1 ? lastItemRef : null}>
+                  <div key={`market-grid-item-${item.id}-${idx}`} ref={idx === uniqueFilteredItems.length - 1 ? lastItemRef : null}>
                     <ProductCard 
                       item={item} 
                       onOpenChat={onOpenChat}

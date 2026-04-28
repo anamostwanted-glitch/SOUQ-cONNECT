@@ -39,19 +39,22 @@ export const CategoryNavTray: React.FC<CategoryNavTrayProps> = ({
   isRtl
 }) => {
   // 1. Filter Hubs (Tier 1)
-  const hubs = categories
+  const hubsRaw = categories
     .filter(c => c.tier === 'hub' || (!c.tier && !c.parentId))
     .sort((a, b) => (a.order || 0) - (b.order || 0));
+  const hubs = Array.from(new Map(hubsRaw.map(c => [c.id, c])).values());
 
   // 2. Filter Sectors (Tier 2) based on selected Hub
-  const sectors = selectedHubId 
+  const sectorsRaw = selectedHubId 
     ? categories.filter(c => c.parentId === selectedHubId || (c.tier === 'sector' && c.parentId === selectedHubId))
     : [];
+  const sectors = Array.from(new Map(sectorsRaw.map(c => [c.id, c])).values());
 
   // 3. Filter Niches (Tier 3) based on selected Sector
-  const niches = selectedSectorId
+  const nichesRaw = selectedSectorId
     ? categories.filter(c => c.parentId === selectedSectorId || (c.tier === 'niche' && c.parentId === selectedSectorId))
     : [];
+  const niches = Array.from(new Map(nichesRaw.map(c => [c.id, c])).values());
 
   const renderIcon = (iconName?: string) => {
     const IconComponent = iconName ? IconMap[iconName] : Package;

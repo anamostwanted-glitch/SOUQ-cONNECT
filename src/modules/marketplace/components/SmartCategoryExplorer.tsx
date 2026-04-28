@@ -100,8 +100,8 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({
     const mainCategories = rawCategories.filter(c => !c.parentId);
     
     return mainCategories.map((cat, index) => {
-      const subcategories = categories
-        .filter(c => c.parentId === cat.id)
+      const subcategoriesRaw = categories.filter(c => c.parentId === cat.id);
+      const subcategories = Array.from(new Map(subcategoriesRaw.map(sub => [sub.id, sub])).values())
         .map(sub => ({
           id: sub.id,
           nameAr: sub.nameAr,
@@ -321,7 +321,7 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({
                 {smartResults.length > 0 ? (
                   Array.from(new Map(smartResults.map(sub => [sub.id, sub])).values()).map((sub, idx) => (
                     <motion.div
-                      key={sub.id || `smart-res-${idx}`}
+                      key={`smart-res-${sub.id}-${idx}`}
                       initial={{ opacity: 0, scale: 0.9, y: 10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       transition={{ delay: idx * 0.05 }}

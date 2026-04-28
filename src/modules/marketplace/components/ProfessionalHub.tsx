@@ -50,6 +50,15 @@ export const ProfessionalHub: React.FC<ProfessionalHubProps> = ({
   const [verifiedSuppliers, setVerifiedSuppliers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const uniqueSuppliers = React.useMemo(() => {
+    return Array.from(new Map(verifiedSuppliers.map(s => [s.uid, s])).values());
+  }, [verifiedSuppliers]);
+
+  const uniqueCategories = React.useMemo(() => {
+    const raw = categories.filter(c => c.categoryType === 'service' && !c.parentId);
+    return Array.from(new Map(raw.map(c => [c.id, c])).values());
+  }, [categories]);
+
   // Growth Hacker Strategy: Real-time dynamic fetching of experts
   useEffect(() => {
     const fetchExperts = async () => {
@@ -114,7 +123,7 @@ export const ProfessionalHub: React.FC<ProfessionalHubProps> = ({
                  {isRtl ? 'استكشاف الخدمات' : 'Explore Services'}
                </HapticButton>
                <div className="flex items-center -space-x-3 rtl:space-x-reverse">
-                  {verifiedSuppliers.slice(0, 4).map((pro, i) => (
+                  {uniqueSuppliers.slice(0, 4).map((pro, i) => (
                     <div 
                       key={pro.uid} 
                       className="w-10 h-10 rounded-full border-2 border-brand-primary bg-slate-200 overflow-hidden cursor-pointer"
@@ -150,7 +159,7 @@ export const ProfessionalHub: React.FC<ProfessionalHubProps> = ({
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-               {categories.filter(c => c.categoryType === 'service' && !c.parentId).slice(0, 6).map((cat, i) => (
+               {uniqueCategories.slice(0, 6).map((cat, i) => (
                  <HapticButton
                    key={cat.id}
                    className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-8 flex flex-col items-start gap-4 group hover:shadow-2xl hover:border-brand-primary/30 transition-all text-start"
@@ -196,7 +205,7 @@ export const ProfessionalHub: React.FC<ProfessionalHubProps> = ({
                       </div>
                    </div>
                  ))
-               ) : verifiedSuppliers.map((pro, i) => (
+               ) : uniqueSuppliers.map((pro, i) => (
                  <div 
                    key={pro.uid} 
                    className="flex items-center justify-between group cursor-pointer" 

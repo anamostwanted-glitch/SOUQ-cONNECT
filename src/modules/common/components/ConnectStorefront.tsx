@@ -18,7 +18,7 @@ import {
   CheckCircle2, Info, ArrowLeft, MoreHorizontal,
   Mail, Link as LinkIcon, Facebook, Instagram, Twitter,
   FileText, Bookmark, ExternalLink, Trash2, ImagePlus, Tag, Briefcase,
-  RefreshCw, Target
+  RefreshCw, Target, Copy, ExternalLink as ExternalLinkIcon
 } from 'lucide-react';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { AICategorySelector } from '../../site/components/AICategorySelector';
@@ -32,7 +32,7 @@ import { SEOHead } from '../../../shared/components/SEOHead';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import imageCompression from 'browser-image-compression';
-import { getProfileInsights, optimizeSupplierProfile, handleAiError } from '../../../core/services/geminiService';
+import { getProfileInsights, optimizeSupplierProfile, handleAiError, generateStorefrontAnalyticsInsights } from '../../../core/services/geminiService';
 import { ProfileSettings } from '../../user/components/ProfileSettings';
 import { getStoreShareUrl, fetchStoreAnalytics } from '../../marketplace/services/marketService';
 import { 
@@ -96,6 +96,8 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
   );
   const [analytics, setAnalytics] = useState<any>(null);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+  const [storefrontInsights, setStorefrontInsights] = useState<any>(null);
+  const [isAnalyzingAnalytics, setIsAnalyzingAnalytics] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'insights' && isOwner && profile.uid) {
@@ -115,6 +117,7 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [hasChanges, setHasChanges] = useState(false);
   const [isGeneratingSEO, setIsGeneratingSEO] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   
   // Editable Fields
   const [editData, setEditData] = useState({
@@ -357,6 +360,23 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
       toast.error(isRtl ? 'فشل توليد التحليلات' : 'Failed to generate insights');
     } finally {
       setIsAiAnalyzing(false);
+    }
+  };
+
+  const handleGenerateStorefrontInsights = async () => {
+    if (!analytics || !profile.uid) return;
+    
+    setIsAnalyzingAnalytics(true);
+    try {
+      const insights = await generateStorefrontAnalyticsInsights(analytics, profile, i18n.language);
+      if (insights) {
+        setStorefrontInsights(insights);
+        toast.success(isRtl ? 'تم تحديث التحليلات الذكية بنجاح' : 'Smart insights updated successfully');
+      }
+    } catch (error) {
+      handleAiError(error, 'Storefront Insights');
+    } finally {
+      setIsAnalyzingAnalytics(false);
     }
   };
 
@@ -656,28 +676,15 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
   };
 
   const handleShare = async () => {
-    const url = getStoreShareUrl(profile.uid);
-    const shareData = {
-      title: isRtl ? `متجر ${profile.companyName || profile.name} الرسمي` : `${profile.companyName || profile.name}'s Official Store`,
-      text: isRtl 
-        ? `مرحباً بك في متجر ${profile.companyName || profile.name} الرسمي على منصة كونكت 🌐. \n\nاكتشف مجموعتنا الحصرية من المنتجات والخدمات المميزة، واطلب مباشرة من الرابط التالي: \n${url} \n\nيسعدنا خدمتكم دائماً!` 
-        : `Welcome to ${profile.companyName || profile.name}'s official store on Connect 🌐. \n\nDiscover our exclusive range of premium products and services, and order directly from the link below: \n${url} \n\nWe are always happy to serve you!`,
-      url: url,
-    };
+    setIsShareDialogOpen(true);
+  };
 
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        console.error('Error sharing:', err);
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(url);
-        toast.success(isRtl ? 'تم نسخ الرابط بنجاح' : 'Link copied to clipboard');
-      } catch (err) {
-        toast.error(isRtl ? 'فشل نسخ الرابط' : 'Failed to copy link');
-      }
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(isRtl ? 'تم نسخ الرابط بنجاح' : 'Link copied to clipboard');
+    } catch (err) {
+      toast.error(isRtl ? 'فشل نسخ الرابط' : 'Failed to copy link');
     }
   };
 
@@ -1569,26 +1576,273 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                       <div className="p-4 bg-brand-primary text-white rounded-2xl shadow-xl shadow-brand-primary/20">
                         <Sparkles size={24} className="animate-pulse" />
                       </div>
-                      <div className="space-y-4">
-                        <h4 className="text-xl font-black text-brand-text-main">{isRtl ? 'خطة أخصائي النمو لتحسين مبيعاتك' : 'Growth Specialist Sales Hack'}</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="p-4 bg-brand-surface rounded-xl border border-brand-border">
-                            <h5 className="text-xs font-black text-brand-primary mb-1 uppercase tracking-widest">{isRtl ? 'نصيحة الإعلانات' : 'Ad Strategy'}</h5>
-                            <p className="text-[11px] text-brand-text-muted leading-relaxed">
-                              {isRtl 
-                                ? 'زيارات سناب شات لديك مرتفعة ولكن التحويل ضعيف. جرب إضافة رابط "واتساب المباشر" في وصف سناب شات لزيادة التفاعل.' 
-                                : 'Snapchat views are high but conversion is low. Try adding a "Direct WhatsApp" link in your Bio to boost engagement.'}
-                            </p>
-                          </div>
-                          <div className="p-4 bg-brand-surface rounded-xl border border-brand-border">
-                            <h5 className="text-xs font-black text-brand-teal mb-1 uppercase tracking-widest">{isRtl ? 'رفع الجاذبية' : 'Visual Hook'}</h5>
-                            <p className="text-[11px] text-brand-text-muted leading-relaxed">
-                              {isRtl 
-                                ? 'الملف الشخصي يفتقر لصور واضحة للمنتجات الأكثر مبيعاً. أخصائي تجربة المستخدم ينصح برفع 3 صور جديدة لمنتجك الأساسي.' 
-                                : 'Your profile lacks clear images of best-selling products. UX Designer suggests uploading 3 new photos of your primary item.'}
-                            </p>
-                          </div>
+                      <div className="flex-1 space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <h4 className="text-xl font-black text-brand-text-main">
+                            {isRtl ? 'خطة أخصائي النمو لتحسين مبيعاتك' : 'Growth Specialist Sales Hack'}
+                          </h4>
+                          <HapticButton 
+                            onClick={handleGenerateStorefrontInsights}
+                            disabled={isAnalyzingAnalytics}
+                            className="px-6 py-2.5 bg-brand-primary text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-brand-primary/20 flex items-center gap-2 self-start sm:self-center"
+                          >
+                            {isAnalyzingAnalytics ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
+                            {isRtl ? 'تحديث التحليل الذكي' : 'Update AI Insights'}
+                          </HapticButton>
                         </div>
+
+                        {storefrontInsights ? (
+                          <div className="space-y-8">
+                            <div className="p-6 bg-brand-surface rounded-[1.5rem] border-l-4 border-l-brand-primary shadow-sm">
+                              <h5 className="font-black text-brand-text-main mb-2">{storefrontInsights.headline}</h5>
+                              <p className="text-sm text-brand-text-muted leading-relaxed">{storefrontInsights.summary}</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {storefrontInsights.growthHacks?.map((hack: any, idx: number) => (
+                                <div key={`hack-${idx}`} className="p-5 bg-brand-surface rounded-2xl border border-brand-primary/10 hover:border-brand-primary/30 transition-all">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <h6 className="text-[10px] font-black text-brand-primary uppercase tracking-widest">{hack.title}</h6>
+                                    <Badge className={hack.impact === 'high' ? 'bg-red-500/10 text-red-500 border-none px-2' : 'bg-brand-primary/10 text-brand-primary border-none px-2'}>
+                                      {hack.impact?.toUpperCase()}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-brand-text-muted leading-relaxed">{hack.description}</p>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="p-6 bg-brand-teal/5 rounded-2xl border border-brand-teal/20">
+                              <h6 className="text-xs font-black text-brand-teal mb-4 uppercase tracking-widest flex items-center gap-2">
+                                <ShieldCheck size={14} />
+                                {isRtl ? 'تدقيق تجربة المستخدم' : 'UX Audience Audit'}
+                              </h6>
+                              <div className="space-y-4">
+                                {storefrontInsights.uxAudits?.map((audit: any, idx: number) => (
+                                  <div key={`audit-${idx}`} className="flex items-start gap-3">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-brand-teal mt-1.5 shrink-0" />
+                                    <div>
+                                      <p className="text-xs font-black text-brand-text-main mb-0.5">{audit.title}</p>
+                                      <p className="text-[11px] text-brand-text-muted leading-relaxed">{audit.description}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            <p className="text-sm font-bold text-brand-primary/80 italic text-center">
+                              {storefrontInsights.sentiment}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-50 grayscale pointer-events-none">
+                            <div className="p-4 bg-brand-surface rounded-xl border border-brand-border">
+                              <h5 className="text-xs font-black text-brand-primary mb-1 uppercase tracking-widest">{isRtl ? 'نصيحة الإعلانات' : 'Ad Strategy'}</h5>
+                              <p className="text-[11px] text-brand-text-muted leading-relaxed">
+                                {isRtl 
+                                  ? 'انقر على تحديث للحصول على استراتيجية واعلانات مخصصة لمتجرك.' 
+                                  : 'Click update to get a personalized ad strategy for your store.'}
+                              </p>
+                            </div>
+                            <div className="p-4 bg-brand-surface rounded-xl border border-brand-border">
+                              <h5 className="text-xs font-black text-brand-teal mb-1 uppercase tracking-widest">{isRtl ? 'رفع الجاذبية' : 'Visual Hook'}</h5>
+                              <p className="text-[11px] text-brand-text-muted leading-relaxed">
+                                {isRtl 
+                                  ? 'الملف الشخصي يفتقر لرؤى ذكية. التدقيق البصري يساعد في زيادة المبيعات.' 
+                                  : 'Profile lacks smart insights. Visual audits help increase sales.'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+              )}
+
+              {activeTab === 'insights' && isOwner && (
+                <motion.div 
+                  key="insights"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-8"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Card className="bg-brand-surface p-6 rounded-[2rem] border border-brand-border">
+                      <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em] mb-2">{isRtl ? 'إجمالي الزيارات' : 'Total Views'}</p>
+                      <div className="flex items-end justify-between">
+                        <h3 className="text-3xl font-black text-brand-text-main">{analytics?.totalViews || 0}</h3>
+                        <Badge className="bg-brand-teal/10 text-brand-teal border-none">+12%</Badge>
+                      </div>
+                    </Card>
+                    <Card className="bg-brand-surface p-6 rounded-[2rem] border border-brand-border">
+                      <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em] mb-2">{isRtl ? 'زيارات اجتماعية' : 'Social Views'}</p>
+                      <div className="flex items-end justify-between">
+                        <h3 className="text-3xl font-black text-brand-primary">{analytics?.socialViews || 0}</h3>
+                        <Badge className="bg-brand-primary/10 text-brand-primary border-none">Hot 🔥</Badge>
+                      </div>
+                    </Card>
+                    <Card className="bg-brand-surface p-6 rounded-[2rem] border border-brand-border">
+                      <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-[0.2em] mb-2">{isRtl ? 'معدل التحويل' : 'Conv. Rate'}</p>
+                      <div className="flex items-end justify-between">
+                        <h3 className="text-3xl font-black text-brand-warning">
+                          {analytics?.totalViews ? ((analytics.conversions / analytics.totalViews) * 100).toFixed(1) : 0}%
+                        </h3>
+                        <Badge className="bg-brand-warning/10 text-brand-warning border-none">Target: 5%</Badge>
+                      </div>
+                    </Card>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <Card className="bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border">
+                      <h4 className="text-lg font-black text-brand-text-main mb-8 flex items-center gap-3">
+                        <Share2 size={18} className="text-brand-primary" />
+                        {isRtl ? 'أداء مصادر الإعلانات' : 'Ad Source Performance'}
+                      </h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={Object.entries(analytics?.sources || {}).map(([name, value]) => ({ name, value }))}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                            <RechartsTooltip 
+                              contentStyle={{ 
+                                backgroundColor: 'var(--brand-surface)', 
+                                borderRadius: '1rem', 
+                                border: '1px solid var(--brand-border)',
+                                fontSize: '12px'
+                              }} 
+                            />
+                            <Bar dataKey="value" fill="var(--brand-primary)" radius={[8, 8, 0, 0]} barSize={40} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </Card>
+
+                    <Card className="bg-brand-surface p-8 rounded-[2.5rem] border border-brand-border">
+                      <h4 className="text-lg font-black text-brand-text-main mb-8 flex items-center gap-3">
+                        <Target size={18} className="text-brand-teal" />
+                        {isRtl ? 'توزيع الجمهور' : 'Audience Distribution'}
+                      </h4>
+                      <div className="h-64 flex items-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Social', value: analytics?.socialViews || 0 },
+                                { name: 'Direct', value: (analytics?.totalViews || 0) - (analytics?.socialViews || 0) }
+                              ]}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              <Cell fill="var(--brand-primary)" />
+                              <Cell fill="#e2e8f0" />
+                            </Pie>
+                            <RechartsTooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="space-y-2">
+                           <div className="flex items-center gap-2">
+                             <div className="w-3 h-3 rounded-full bg-brand-primary" />
+                             <span className="text-[10px] font-bold text-brand-text-muted uppercase transition-all">{isRtl ? 'إعلانات وتواصل' : 'Social/Ads'}</span>
+                           </div>
+                           <div className="flex items-center gap-2">
+                             <div className="w-3 h-3 rounded-full bg-slate-200" />
+                             <span className="text-[10px] font-bold text-brand-text-muted uppercase transition-all">{isRtl ? 'مباشر' : 'Direct'}</span>
+                           </div>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+
+                  <Card className="bg-brand-primary/5 border border-brand-primary/20 rounded-[2.5rem] p-8">
+                    <div className="flex items-start gap-6">
+                      <div className="p-4 bg-brand-primary text-white rounded-2xl shadow-xl shadow-brand-primary/20">
+                        <Sparkles size={24} className="animate-pulse" />
+                      </div>
+                      <div className="flex-1 space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <h4 className="text-xl font-black text-brand-text-main">
+                            {isRtl ? 'خطة أخصائي النمو لتحسين مبيعاتك' : 'Growth Specialist Sales Hack'}
+                          </h4>
+                          <HapticButton 
+                            onClick={handleGenerateStorefrontInsights}
+                            disabled={isAnalyzingAnalytics}
+                            className="px-6 py-2.5 bg-brand-primary text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-brand-primary/20 flex items-center gap-2 self-start sm:self-center"
+                          >
+                            {isAnalyzingAnalytics ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
+                            {isRtl ? 'تحديث التحليل الذكي' : 'Update AI Insights'}
+                          </HapticButton>
+                        </div>
+
+                        {storefrontInsights ? (
+                          <div className="space-y-8">
+                            <div className="p-6 bg-brand-surface rounded-[1.5rem] border-l-4 border-l-brand-primary shadow-sm">
+                              <h5 className="font-black text-brand-text-main mb-2">{storefrontInsights.headline}</h5>
+                              <p className="text-sm text-brand-text-muted leading-relaxed">{storefrontInsights.summary}</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {storefrontInsights.growthHacks?.map((hack: any, idx: number) => (
+                                <div key={`hack-${idx}`} className="p-5 bg-brand-surface rounded-2xl border border-brand-primary/10 hover:border-brand-primary/30 transition-all">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <h6 className="text-[10px] font-black text-brand-primary uppercase tracking-widest">{hack.title}</h6>
+                                    <Badge className={hack.impact === 'high' ? 'bg-red-500/10 text-red-500 border-none px-2' : 'bg-brand-primary/10 text-brand-primary border-none px-2'}>
+                                      {hack.impact?.toUpperCase()}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-brand-text-muted leading-relaxed">{hack.description}</p>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="p-6 bg-brand-teal/5 rounded-2xl border border-brand-teal/20">
+                              <h6 className="text-xs font-black text-brand-teal mb-4 uppercase tracking-widest flex items-center gap-2">
+                                <ShieldCheck size={14} />
+                                {isRtl ? 'تدقيق تجربة المستخدم' : 'UX Audience Audit'}
+                              </h6>
+                              <div className="space-y-4">
+                                {storefrontInsights.uxAudits?.map((audit: any, idx: number) => (
+                                  <div key={`audit-${idx}`} className="flex items-start gap-3">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-brand-teal mt-1.5 shrink-0" />
+                                    <div>
+                                      <p className="text-xs font-black text-brand-text-main mb-0.5">{audit.title}</p>
+                                      <p className="text-[11px] text-brand-text-muted leading-relaxed">{audit.description}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            <p className="text-sm font-bold text-brand-primary/80 italic text-center">
+                              {storefrontInsights.sentiment}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-50 grayscale pointer-events-none">
+                            <div className="p-4 bg-brand-surface rounded-xl border border-brand-border">
+                              <h5 className="text-xs font-black text-brand-primary mb-1 uppercase tracking-widest">{isRtl ? 'نصيحة الإعلانات' : 'Ad Strategy'}</h5>
+                              <p className="text-[11px] text-brand-text-muted leading-relaxed">
+                                {isRtl 
+                                  ? 'انقر على تحديث للحصول على استراتيجية واعلانات مخصصة لمتجرك.' 
+                                  : 'Click update to get a personalized ad strategy for your store.'}
+                              </p>
+                            </div>
+                            <div className="p-4 bg-brand-surface rounded-xl border border-brand-border">
+                              <h5 className="text-xs font-black text-brand-teal mb-1 uppercase tracking-widest">{isRtl ? 'رفع الجاذبية' : 'Visual Hook'}</h5>
+                              <p className="text-[11px] text-brand-text-muted leading-relaxed">
+                                {isRtl 
+                                  ? 'الملف الشخصي يفتقر لرؤى ذكية. التدقيق البصري يساعد في زيادة المبيعات.' 
+                                  : 'Profile lacks smart insights. Visual audits help increase sales.'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </Card>
@@ -1691,6 +1945,155 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
         </div>
       </div>
       {/* Floating Save Bar for Architect Mode */}
+      {/* Share Hub Dialog */}
+      <AnimatePresence>
+        {isShareDialogOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsShareDialogOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-brand-surface rounded-[2.5rem] border border-brand-border p-8 shadow-2xl overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 p-8 opacity-5">
+                <Share2 size={120} />
+              </div>
+              
+              <div className="relative z-10 space-y-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-2xl font-black text-brand-text-main">
+                      {isRtl ? 'مركز مشاركة المتجر' : 'Store Share Hub'}
+                    </h3>
+                    <p className="text-xs text-brand-text-muted font-bold tracking-widest uppercase mt-1">
+                      {isRtl ? 'اختر الرابط المناسب لحملتك' : 'Choose the right link for your campaign'}
+                    </p>
+                  </div>
+                  <HapticButton onClick={() => setIsShareDialogOpen(false)} className="p-2 bg-brand-background rounded-full">
+                    <X size={20} />
+                  </HapticButton>
+                </div>
+
+                <div className="space-y-4 pt-4">
+                  {/* Basic Link */}
+                  <div className="p-5 bg-brand-background rounded-2xl border border-brand-border group hover:border-brand-primary/30 transition-all">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <LinkIcon size={16} className="text-brand-primary" />
+                        <span className="text-xs font-black text-brand-text-main">{isRtl ? 'الرابط الرسمي' : 'Official Store Link'}</span>
+                      </div>
+                      <Badge className="bg-brand-primary/10 text-brand-primary border-none">Basic</Badge>
+                    </div>
+                    <div className="bg-brand-surface p-3 rounded-xl border border-brand-border flex items-center justify-between gap-3">
+                      <code className="text-[10px] text-brand-text-muted truncate flex-1 font-mono">
+                        {getStoreShareUrl(profile.uid)}
+                      </code>
+                      <div className="flex gap-1">
+                        <HapticButton 
+                          onClick={() => copyToClipboard(getStoreShareUrl(profile.uid))}
+                          className="p-2 hover:bg-brand-primary/10 rounded-lg text-brand-primary"
+                        >
+                          <Copy size={14} />
+                        </HapticButton>
+                        <HapticButton 
+                          onClick={() => window.open(getStoreShareUrl(profile.uid), '_blank')}
+                          className="p-2 hover:bg-brand-primary/10 rounded-lg text-brand-primary"
+                        >
+                          <ExternalLinkIcon size={14} />
+                        </HapticButton>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-brand-text-muted mt-2 font-medium">
+                      {isRtl ? 'للمشاركة العامة مع الأصدقاء والعائلة.' : 'For general sharing with friends and family.'}
+                    </p>
+                  </div>
+
+                  {/* Storefront Mode Link */}
+                  <div className="p-5 bg-brand-primary/5 rounded-2xl border border-brand-primary/20 group hover:border-brand-primary/40 transition-all">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={16} className="text-brand-primary" />
+                        <span className="text-xs font-black text-brand-primary">{isRtl ? 'رابط الواجهة الاحترافية' : 'Pro Storefront Link'}</span>
+                      </div>
+                      <Badge className="bg-brand-primary text-white border-none">Stand-alone</Badge>
+                    </div>
+                    <div className="bg-brand-surface p-3 rounded-xl border border-brand-primary/10 flex items-center justify-between gap-3 text-brand-primary">
+                      <code className="text-[10px] truncate flex-1 font-mono">
+                        {getStoreShareUrl(profile.uid)}?mode=storefront
+                      </code>
+                      <div className="flex gap-1">
+                        <HapticButton 
+                          onClick={() => copyToClipboard(`${getStoreShareUrl(profile.uid)}?mode=storefront`)}
+                          className="p-2 hover:bg-brand-primary/10 rounded-lg"
+                        >
+                          <Copy size={14} />
+                        </HapticButton>
+                        <HapticButton 
+                          onClick={() => window.open(`${getStoreShareUrl(profile.uid)}?mode=storefront`, '_blank')}
+                          className="p-2 hover:bg-brand-primary/10 rounded-lg"
+                        >
+                          <ExternalLinkIcon size={14} />
+                        </HapticButton>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-brand-primary/60 mt-2 font-medium">
+                      {isRtl ? 'يظهر المتجر كواجهة مستقلة بدون شريط التنقل للمنصة.' : 'Shows your store as a standalone site without platform navigation.'}
+                    </p>
+                  </div>
+
+                  {/* Ads Optimized Link */}
+                  <div className="p-5 bg-brand-teal/5 rounded-2xl border border-brand-teal/20 group hover:border-brand-teal/40 transition-all">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <Target size={16} className="text-brand-teal" />
+                        <span className="text-xs font-black text-brand-teal">{isRtl ? 'رابط الإعلانات (Meta Ads)' : 'Ads Optimized Link'}</span>
+                      </div>
+                      <Badge className="bg-brand-teal text-white border-none">Marketing</Badge>
+                    </div>
+                    <div className="bg-brand-surface p-3 rounded-xl border border-brand-teal/10 flex items-center justify-between gap-3 text-brand-teal">
+                      <code className="text-[10px] truncate flex-1 font-mono">
+                        {getStoreShareUrl(profile.uid)}?mode=storefront&source=meta
+                      </code>
+                      <div className="flex gap-1">
+                        <HapticButton 
+                          onClick={() => copyToClipboard(`${getStoreShareUrl(profile.uid)}?mode=storefront&source=meta`)}
+                          className="p-2 hover:bg-brand-teal/10 rounded-lg"
+                        >
+                          <Copy size={14} />
+                        </HapticButton>
+                        <HapticButton 
+                          onClick={() => window.open(`${getStoreShareUrl(profile.uid)}?mode=storefront&source=meta`, '_blank')}
+                          className="p-2 hover:bg-brand-teal/10 rounded-lg"
+                        >
+                          <ExternalLinkIcon size={14} />
+                        </HapticButton>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-brand-teal/60 mt-2 font-medium">
+                      {isRtl ? 'الرابط المثالي لإعلانات سناب شات، فيسبوك وإنستقرام مع تتبع المصدر.' : 'Ideal for Snapchat, Facebook & Instagram ads with source tracking.'}
+                    </p>
+                  </div>
+                </div>
+
+                <HapticButton 
+                  onClick={() => setIsShareDialogOpen(false)}
+                  className="w-full py-4 mt-4 bg-brand-surface border border-brand-border rounded-2xl text-xs font-black uppercase tracking-widest font-sans"
+                >
+                  {isRtl ? 'إغلاق' : 'Close'}
+                </HapticButton>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {isArchitectMode && hasChanges && (
           <motion.div 
@@ -1896,6 +2299,304 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
                 >
                   {isProductSaving ? <div className="animate-spin h-5 w-5 border-b-2 border-white rounded-full" /> : <Save size={18} />}
                   {isRtl ? 'حفظ المنتج' : 'Save Product'}
+                </HapticButton>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Share Hub Dialog */}
+      <AnimatePresence>
+        {isShareDialogOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsShareDialogOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-brand-surface rounded-[2.5rem] border border-brand-border p-8 shadow-2xl overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 p-8 opacity-5" dir={isRtl ? 'rtl' : 'ltr'}>
+                <Share2 size={120} />
+              </div>
+              
+              <div className="relative z-10 space-y-6" dir={isRtl ? 'rtl' : 'ltr'}>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-2xl font-black text-brand-text-main">
+                      {isRtl ? 'مركز مشاركة المتجر' : 'Store Share Hub'}
+                    </h3>
+                    <p className="text-xs text-brand-text-muted font-bold tracking-widest uppercase mt-1">
+                      {isRtl ? 'اختر الرابط المناسب لحملتك' : 'Choose the right link for your campaign'}
+                    </p>
+                  </div>
+                  <HapticButton onClick={() => setIsShareDialogOpen(false)} className="p-2 bg-brand-background rounded-full">
+                    <X size={20} />
+                  </HapticButton>
+                </div>
+
+                <div className="space-y-4 pt-4">
+                  {/* Basic Link */}
+                  <div className="p-5 bg-brand-background rounded-2xl border border-brand-border group hover:border-brand-primary/30 transition-all">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <LinkIcon size={16} className="text-brand-primary" />
+                        <span className="text-xs font-black text-brand-text-main">{isRtl ? 'الرابط الرسمي' : 'Official Store Link'}</span>
+                      </div>
+                      <Badge className="bg-brand-primary/10 text-brand-primary border-none">Basic</Badge>
+                    </div>
+                    <div className="bg-brand-surface p-3 rounded-xl border border-brand-border flex items-center justify-between gap-3">
+                      <code className="text-[10px] text-brand-text-muted truncate flex-1 font-mono">
+                        {getStoreShareUrl(profile.uid)}
+                      </code>
+                      <div className="flex gap-1">
+                        <HapticButton 
+                          onClick={() => copyToClipboard(getStoreShareUrl(profile.uid))}
+                          className="p-2 hover:bg-brand-primary/10 rounded-lg text-brand-primary"
+                        >
+                          <Copy size={14} />
+                        </HapticButton>
+                        <HapticButton 
+                          onClick={() => window.open(getStoreShareUrl(profile.uid), '_blank')}
+                          className="p-2 hover:bg-brand-primary/10 rounded-lg text-brand-primary"
+                        >
+                          <ExternalLinkIcon size={14} />
+                        </HapticButton>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-brand-text-muted mt-2 font-medium">
+                      {isRtl ? 'للمشاركة العامة مع الأصدقاء والعائلة.' : 'For general sharing with friends and family.'}
+                    </p>
+                  </div>
+
+                  {/* Storefront Mode Link */}
+                  <div className="p-5 bg-brand-primary/5 rounded-2xl border border-brand-primary/20 group hover:border-brand-primary/40 transition-all">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={16} className="text-brand-primary" />
+                        <span className="text-xs font-black text-brand-primary">{isRtl ? 'رابط الواجهة الاحترافية' : 'Pro Storefront Link'}</span>
+                      </div>
+                      <Badge className="bg-brand-primary text-white border-none">Stand-alone</Badge>
+                    </div>
+                    <div className="bg-brand-surface p-3 rounded-xl border border-brand-primary/10 flex items-center justify-between gap-3 text-brand-primary">
+                      <code className="text-[10px] truncate flex-1 font-mono">
+                        {getStoreShareUrl(profile.uid)}?mode=storefront
+                      </code>
+                      <div className="flex gap-1">
+                        <HapticButton 
+                          onClick={() => copyToClipboard(`${getStoreShareUrl(profile.uid)}?mode=storefront`)}
+                          className="p-2 hover:bg-brand-primary/10 rounded-lg"
+                        >
+                          <Copy size={14} />
+                        </HapticButton>
+                        <HapticButton 
+                          onClick={() => window.open(`${getStoreShareUrl(profile.uid)}?mode=storefront`, '_blank')}
+                          className="p-2 hover:bg-brand-primary/10 rounded-lg"
+                        >
+                          <ExternalLinkIcon size={14} />
+                        </HapticButton>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-brand-primary/60 mt-2 font-medium">
+                      {isRtl ? 'يظهر المتجر كواجهة مستقلة بدون شريط التنقل للمنصة.' : 'Shows your store as a standalone site without platform navigation.'}
+                    </p>
+                  </div>
+
+                  {/* Ads Optimized Link */}
+                  <div className="p-5 bg-brand-teal/5 rounded-2xl border border-brand-teal/20 group hover:border-brand-teal/40 transition-all">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <Target size={16} className="text-brand-teal" />
+                        <span className="text-xs font-black text-brand-teal">{isRtl ? 'رابط الإعلانات (Meta Ads)' : 'Ads Optimized Link'}</span>
+                      </div>
+                      <Badge className="bg-brand-teal text-white border-none">Marketing</Badge>
+                    </div>
+                    <div className="bg-brand-surface p-3 rounded-xl border border-brand-teal/10 flex items-center justify-between gap-3 text-brand-teal">
+                      <code className="text-[10px] truncate flex-1 font-mono">
+                        {getStoreShareUrl(profile.uid)}?mode=storefront&source=meta
+                      </code>
+                      <div className="flex gap-1">
+                        <HapticButton 
+                          onClick={() => copyToClipboard(`${getStoreShareUrl(profile.uid)}?mode=storefront&source=meta`)}
+                          className="p-2 hover:bg-brand-teal/10 rounded-lg"
+                        >
+                          <Copy size={14} />
+                        </HapticButton>
+                        <HapticButton 
+                          onClick={() => window.open(`${getStoreShareUrl(profile.uid)}?mode=storefront&source=meta`, '_blank')}
+                          className="p-2 hover:bg-brand-teal/10 rounded-lg"
+                        >
+                          <ExternalLinkIcon size={14} />
+                        </HapticButton>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-brand-teal/60 mt-2 font-medium">
+                      {isRtl ? 'الرابط المثالي لإعلانات سناب شات، فيسبوك وإنستقرام مع تتبع المصدر.' : 'Ideal for Snapchat, Facebook & Instagram ads with source tracking.'}
+                    </p>
+                  </div>
+                </div>
+
+                <HapticButton 
+                  onClick={() => setIsShareDialogOpen(false)}
+                  className="w-full py-4 mt-4 bg-brand-surface border border-brand-border rounded-2xl text-xs font-black uppercase tracking-widest font-sans"
+                >
+                  {isRtl ? 'إغلاق' : 'Close'}
+                </HapticButton>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Share Hub Dialog */}
+      <AnimatePresence>
+        {isShareDialogOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsShareDialogOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-brand-surface rounded-[2.5rem] border border-brand-border p-8 shadow-2xl overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 p-8 opacity-5" dir={isRtl ? 'rtl' : 'ltr'}>
+                <Share2 size={120} />
+              </div>
+              
+              <div className="relative z-10 space-y-6" dir={isRtl ? 'rtl' : 'ltr'}>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-2xl font-black text-brand-text-main">
+                      {isRtl ? 'مركز مشاركة المتجر' : 'Store Share Hub'}
+                    </h3>
+                    <p className="text-xs text-brand-text-muted font-bold tracking-widest uppercase mt-1">
+                      {isRtl ? 'اختر الرابط المناسب لحملتك' : 'Choose the right link for your campaign'}
+                    </p>
+                  </div>
+                  <HapticButton onClick={() => setIsShareDialogOpen(false)} className="p-2 bg-brand-background rounded-full">
+                    <X size={20} />
+                  </HapticButton>
+                </div>
+
+                <div className="space-y-4 pt-4">
+                  {/* Basic Link */}
+                  <div className="p-5 bg-brand-background rounded-2xl border border-brand-border group hover:border-brand-primary/30 transition-all">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <LinkIcon size={16} className="text-brand-primary" />
+                        <span className="text-xs font-black text-brand-text-main">{isRtl ? 'الرابط الرسمي' : 'Official Store Link'}</span>
+                      </div>
+                      <Badge className="bg-brand-primary/10 text-brand-primary border-none">Basic</Badge>
+                    </div>
+                    <div className="bg-brand-surface p-3 rounded-xl border border-brand-border flex items-center justify-between gap-3">
+                      <code className="text-[10px] text-brand-text-muted truncate flex-1 font-mono">
+                        {getStoreShareUrl(profile.uid)}
+                      </code>
+                      <div className="flex gap-1">
+                        <HapticButton 
+                          onClick={() => copyToClipboard(getStoreShareUrl(profile.uid))}
+                          className="p-2 hover:bg-brand-primary/10 rounded-lg text-brand-primary"
+                        >
+                          <Copy size={14} />
+                        </HapticButton>
+                        <HapticButton 
+                          onClick={() => window.open(getStoreShareUrl(profile.uid), '_blank')}
+                          className="p-2 hover:bg-brand-primary/10 rounded-lg text-brand-primary"
+                        >
+                          <ExternalLinkIcon size={14} />
+                        </HapticButton>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-brand-text-muted mt-2 font-medium">
+                      {isRtl ? 'للمشاركة العامة مع الأصدقاء والعائلة.' : 'For general sharing with friends and family.'}
+                    </p>
+                  </div>
+
+                  {/* Storefront Mode Link */}
+                  <div className="p-5 bg-brand-primary/5 rounded-2xl border border-brand-primary/20 group hover:border-brand-primary/40 transition-all">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={16} className="text-brand-primary" />
+                        <span className="text-xs font-black text-brand-primary">{isRtl ? 'رابط الواجهة الاحترافية' : 'Pro Storefront Link'}</span>
+                      </div>
+                      <Badge className="bg-brand-primary text-white border-none">Stand-alone</Badge>
+                    </div>
+                    <div className="bg-brand-surface p-3 rounded-xl border border-brand-primary/10 flex items-center justify-between gap-3 text-brand-primary">
+                      <code className="text-[10px] truncate flex-1 font-mono">
+                        {getStoreShareUrl(profile.uid)}?mode=storefront
+                      </code>
+                      <div className="flex gap-1">
+                        <HapticButton 
+                          onClick={() => copyToClipboard(`${getStoreShareUrl(profile.uid)}?mode=storefront`)}
+                          className="p-2 hover:bg-brand-primary/10 rounded-lg"
+                        >
+                          <Copy size={14} />
+                        </HapticButton>
+                        <HapticButton 
+                          onClick={() => window.open(`${getStoreShareUrl(profile.uid)}?mode=storefront`, '_blank')}
+                          className="p-2 hover:bg-brand-primary/10 rounded-lg"
+                        >
+                          <ExternalLinkIcon size={14} />
+                        </HapticButton>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-brand-primary/60 mt-2 font-medium">
+                      {isRtl ? 'يظهر المتجر كواجهة مستقلة بدون شريط التنقل للمنصة.' : 'Shows your store as a standalone site without platform navigation.'}
+                    </p>
+                  </div>
+
+                  {/* Ads Optimized Link */}
+                  <div className="p-5 bg-brand-teal/5 rounded-2xl border border-brand-teal/20 group hover:border-brand-teal/40 transition-all">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <Target size={16} className="text-brand-teal" />
+                        <span className="text-xs font-black text-brand-teal">{isRtl ? 'رابط الإعلانات (Meta Ads)' : 'Ads Optimized Link'}</span>
+                      </div>
+                      <Badge className="bg-brand-teal text-white border-none">Marketing</Badge>
+                    </div>
+                    <div className="bg-brand-surface p-3 rounded-xl border border-brand-teal/10 flex items-center justify-between gap-3 text-brand-teal">
+                      <code className="text-[10px] truncate flex-1 font-mono">
+                        {getStoreShareUrl(profile.uid)}?mode=storefront&source=meta
+                      </code>
+                      <div className="flex gap-1">
+                        <HapticButton 
+                          onClick={() => copyToClipboard(`${getStoreShareUrl(profile.uid)}?mode=storefront&source=meta`)}
+                          className="p-2 hover:bg-brand-teal/10 rounded-lg"
+                        >
+                          <Copy size={14} />
+                        </HapticButton>
+                        <HapticButton 
+                          onClick={() => window.open(`${getStoreShareUrl(profile.uid)}?mode=storefront&source=meta`, '_blank')}
+                          className="p-2 hover:bg-brand-teal/10 rounded-lg"
+                        >
+                          <ExternalLinkIcon size={14} />
+                        </HapticButton>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-brand-teal/60 mt-2 font-medium">
+                      {isRtl ? 'الرابط المثالي لإعلانات سناب شات، فيسبوك وإنستقرام مع تتبع المصدر.' : 'Ideal for Snapchat, Facebook & Instagram ads with source tracking.'}
+                    </p>
+                  </div>
+                </div>
+
+                <HapticButton 
+                  onClick={() => setIsShareDialogOpen(false)}
+                  className="w-full py-4 mt-4 bg-brand-surface border border-brand-border rounded-2xl text-xs font-black uppercase tracking-widest font-sans"
+                >
+                  {isRtl ? 'إغلاق' : 'Close'}
                 </HapticButton>
               </div>
             </motion.div>
