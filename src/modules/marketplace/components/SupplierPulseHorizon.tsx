@@ -41,7 +41,8 @@ export const SupplierPulseHorizon: React.FC<SupplierPulseHorizonProps> = ({
 
   const shuffledSuppliers = useMemo(() => {
     if (!suppliers.length) return [];
-    return shuffle(suppliers);
+    const unique = Array.from(new Map(suppliers.map(s => [s.uid, s])).values());
+    return shuffle(unique);
   }, [suppliers]);
 
   if (!shuffledSuppliers.length) return null;

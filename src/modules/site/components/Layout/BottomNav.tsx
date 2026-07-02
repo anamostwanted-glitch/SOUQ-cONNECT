@@ -41,6 +41,19 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 }) => {
   const { t } = useTranslation();
 
+  const getActiveTab = () => {
+    if (currentView === 'home') return 'home';
+    if (viewMode === 'supplier') {
+      if (currentView === 'dashboard' && (dashboardTab === 'overview' || dashboardTab === 'requests')) return 'business';
+    } else {
+      if (currentView === 'marketplace') return 'market';
+    }
+    if (currentView === 'chat') return 'chat';
+    if (currentView === 'dashboard' && dashboardTab !== 'overview' && dashboardTab !== 'requests') return 'menu';
+    return '';
+  };
+  const activeTab = getActiveTab();
+
   return (
     <motion.div 
       initial={{ y: 100, opacity: 0 }}
@@ -56,10 +69,18 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       className="fixed bottom-[calc(1rem+var(--sab))] left-4 right-4 bg-white/80 dark:bg-gray-900/90 backdrop-blur-[40px] border border-white/40 dark:border-gray-800/50 rounded-[2.5rem] px-2 py-2 flex items-center justify-between md:hidden z-50 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] ring-1 ring-black/5 dark:ring-white/5"
     >
       <HapticButton 
+        key="bottom-nav-home"
         onClick={() => setView('home')}
         onPrefetch={() => onPrefetch?.('home')}
-        className={`flex-1 flex flex-col items-center gap-1.5 p-2 transition-all relative ${currentView === 'home' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+        className={`flex-1 flex flex-col items-center gap-1.5 p-2 transition-all relative z-10 ${currentView === 'home' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
       >
+        {activeTab === 'home' && (
+          <motion.div 
+            layoutId="bottom-nav-active-pill"
+            className="absolute inset-x-1.5 inset-y-1 bg-brand-primary/10 dark:bg-brand-primary/20 border border-brand-primary/5 rounded-2xl -z-10"
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+          />
+        )}
         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
           <HomeIcon size={20} strokeWidth={currentView === 'home' ? 2.5 : 2} />
         </motion.div>
@@ -68,10 +89,18 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
       {viewMode === 'supplier' ? (
         <HapticButton 
+          key="bottom-nav-business"
           onClick={() => { setView('dashboard'); setDashboardTab?.('overview'); }}
           onPrefetch={() => onPrefetch?.('dashboard')}
-          className={`flex-1 flex flex-col items-center gap-1.5 p-2 transition-all relative ${currentView === 'dashboard' && (dashboardTab === 'overview' || dashboardTab === 'requests') ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+          className={`flex-1 flex flex-col items-center gap-1.5 p-2 transition-all relative z-10 ${currentView === 'dashboard' && (dashboardTab === 'overview' || dashboardTab === 'requests') ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
         >
+          {activeTab === 'business' && (
+            <motion.div 
+              layoutId="bottom-nav-active-pill"
+              className="absolute inset-x-1.5 inset-y-1 bg-brand-primary/10 dark:bg-brand-primary/20 border border-brand-primary/5 rounded-2xl -z-10"
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            />
+          )}
           <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
             <LayoutDashboard size={20} strokeWidth={currentView === 'dashboard' ? 2.5 : 2} />
           </motion.div>
@@ -79,10 +108,18 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         </HapticButton>
       ) : (
         <HapticButton 
+          key="bottom-nav-market"
           onClick={() => setView('marketplace')}
           onPrefetch={() => onPrefetch?.('marketplace')}
-          className={`flex-1 flex flex-col items-center gap-1.5 p-2 transition-all relative ${currentView === 'marketplace' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+          className={`flex-1 flex flex-col items-center gap-1.5 p-2 transition-all relative z-10 ${currentView === 'marketplace' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
         >
+          {activeTab === 'market' && (
+            <motion.div 
+              layoutId="bottom-nav-active-pill"
+              className="absolute inset-x-1.5 inset-y-1 bg-brand-primary/10 dark:bg-brand-primary/20 border border-brand-primary/5 rounded-2xl -z-10"
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            />
+          )}
           <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
             <ShoppingBag size={20} strokeWidth={currentView === 'marketplace' ? 2.5 : 2} />
           </motion.div>
@@ -93,6 +130,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       {/* Primary Action Button (Diamond AI or Add) */}
       <div className="relative -mt-10 px-2">
         <HapticButton 
+          key="bottom-nav-assistant"
           onClick={onVisualSearch}
           className={`flex flex-col items-center justify-center w-16 h-16 bg-gradient-to-br ${features.smartAssistantEnabled ? 'from-brand-primary via-brand-primary to-brand-teal shadow-brand-primary/40' : 'from-brand-secondary via-brand-secondary to-brand-primary shadow-brand-secondary/40'} text-white rounded-[1.75rem] shadow-2xl scale-110 border-[6px] border-white dark:border-gray-900 transition-all duration-300 active:scale-95 relative overflow-hidden group`}
         >
@@ -121,11 +159,19 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       </div>
 
       <HapticButton 
+        key="bottom-nav-chats"
         onClick={() => setView('chat')}
         onPrefetch={() => onPrefetch?.('chat')}
-        className={`flex-1 flex flex-col items-center gap-1.5 p-2 transition-all relative ${currentView === 'chat' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+        className={`flex-1 flex flex-col items-center gap-1.5 p-2 transition-all relative z-10 ${currentView === 'chat' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
       >
-        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="relative">
+        {activeTab === 'chat' && (
+          <motion.div 
+            layoutId="bottom-nav-active-pill"
+            className="absolute inset-x-1.5 inset-y-1 bg-brand-primary/10 dark:bg-brand-primary/20 border border-brand-primary/5 rounded-2xl -z-10"
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+          />
+        )}
+        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="relative z-10">
           <MessageSquare size={20} strokeWidth={currentView === 'chat' ? 2.5 : 2} />
           {unreadCount > 0 && (
             <motion.span 
@@ -137,14 +183,22 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             </motion.span>
           )}
         </motion.div>
-        <span className="text-[9px] font-black tracking-tighter uppercase">{isRtl ? 'المحادثات' : 'Chats'}</span>
+        <span className="text-[9px] font-black tracking-tighter uppercase relative z-10">{isRtl ? 'المحادثات' : 'Chats'}</span>
       </HapticButton>
 
       <HapticButton 
+        key="bottom-nav-menu"
         onClick={onMobileMenuOpen}
         onPrefetch={() => onPrefetch?.('dashboard')}
-        className={`flex-1 flex flex-col items-center gap-1.5 p-2 transition-all relative ${currentView === 'dashboard' && dashboardTab !== 'overview' && dashboardTab !== 'requests' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+        className={`flex-1 flex flex-col items-center gap-1.5 p-2 transition-all relative z-10 ${currentView === 'dashboard' && dashboardTab !== 'overview' && dashboardTab !== 'requests' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
       >
+        {activeTab === 'menu' && (
+          <motion.div 
+            layoutId="bottom-nav-active-pill"
+            className="absolute inset-x-1.5 inset-y-1 bg-brand-primary/10 dark:bg-brand-primary/20 border border-brand-primary/5 rounded-2xl -z-10"
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+          />
+        )}
         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
           <LayoutGrid size={20} strokeWidth={(currentView === 'dashboard' && dashboardTab !== 'overview' && dashboardTab !== 'requests') ? 2.5 : 2} />
         </motion.div>

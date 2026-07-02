@@ -204,42 +204,56 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-y-8 gap-x-4">
-                {menuItems.map((item) => (
-                  <motion.button
-                    key={item.id}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                      if (item.id === 'dashboard') {
-                        setDashboardTab?.('overview');
-                      } else if (item.id === 'profile') {
-                        // If user is admin/supplier, profile is often in dashboard
-                        if (viewMode === 'supplier' || viewMode === 'admin') {
-                          setView('dashboard');
+              <div className="grid grid-cols-3 gap-y-8 gap-x-4 font-sans">
+                {menuItems.map((item) => {
+                  const isItemActive = 
+                    (item.id === currentView) || 
+                    (item.id === 'dashboard' && currentView === 'dashboard') ||
+                    (item.id === 'profile' && currentView === 'profile');
+
+                  return (
+                    <motion.button
+                      key={item.id}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        if (item.id === 'dashboard') {
                           setDashboardTab?.('overview');
-                          setIsOpen(false);
-                          return;
+                        } else if (item.id === 'profile') {
+                          // If user is admin/supplier, profile is often in dashboard
+                          if (viewMode === 'supplier' || viewMode === 'admin') {
+                            setView('dashboard');
+                            setDashboardTab?.('overview');
+                            setIsOpen(false);
+                            return;
+                          }
                         }
-                      }
-                      setView(item.id);
-                      setIsOpen(false);
-                    }}
-                    className="flex flex-col items-center gap-2 group"
-                  >
-                    <div className={`w-12 h-12 rounded-2xl bg-brand-surface flex items-center justify-center transition-all duration-300 group-hover:shadow-md group-hover:bg-white dark:group-hover:bg-gray-800 ${item.color} relative`}>
-                      <item.icon size={24} />
-                      {(item.id === 'smart_pulse' || item.id === 'supplier_landing') && (
-                        <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-brand-primary text-white text-[7px] font-black rounded-full animate-pulse">
-                          NEW
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[11px] font-medium text-brand-text-main text-center leading-tight">
-                      {isRtl ? item.labelAr : item.labelEn}
-                    </span>
-                  </motion.button>
-                ))}
+                        setView(item.id);
+                        setIsOpen(false);
+                      }}
+                      className="flex flex-col items-center gap-2 group relative"
+                    >
+                      <div className={`w-12 h-12 rounded-2xl bg-brand-surface flex items-center justify-center transition-all duration-300 group-hover:shadow-md group-hover:bg-white dark:group-hover:bg-gray-800 ${item.color} relative z-10`}>
+                        {isItemActive && (
+                          <motion.div 
+                            layoutId="bento-active-glow"
+                            className="absolute -inset-1 bg-brand-primary/10 dark:bg-brand-primary/20 rounded-[1.25rem] border border-brand-primary/30 -z-10 shadow-sm"
+                            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                          />
+                        )}
+                        <item.icon size={24} />
+                        {(item.id === 'smart_pulse' || item.id === 'supplier_landing') && (
+                          <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-brand-primary text-white text-[7px] font-black rounded-full animate-pulse z-20">
+                            NEW
+                          </span>
+                        )}
+                      </div>
+                      <span className={`text-[11px] font-medium text-center leading-tight relative z-10 ${isItemActive ? 'text-brand-primary font-bold' : 'text-brand-text-main font-medium'}`}>
+                        {isRtl ? item.labelAr : item.labelEn}
+                      </span>
+                    </motion.button>
+                  );
+                })}
               </div>
 
               {/* Role Switcher Section - Only for Admin and Suppliers */}

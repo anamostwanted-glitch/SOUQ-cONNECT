@@ -64,7 +64,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (snap.exists()) {
         const newSettings = snap.data() as SiteSettings;
         setSettings(newSettings);
-        updateMetadata(newSettings, i18n.language);
       } else {
         setSettings({});
       }
@@ -74,12 +73,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setSettings({});
       setLoading(false);
     });
-
-    // Handle language changes for SEO update
-    const handleLangChange = (lang: string) => {
-      if (settings) updateMetadata(settings, lang);
-    };
-    i18n.on('languageChanged', handleLangChange);
 
     const unsubscribeFeatures = onSnapshot(doc(db, 'settings', 'features'), (snap) => {
       if (snap.exists()) {
@@ -92,9 +85,24 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => {
       unsubscribeSettings();
       unsubscribeFeatures();
+    };
+  }, []);
+
+  // Dynamic Metadata Updates (SEO, Title, Favicon)
+  useEffect(() => {
+    if (settings) {
+      updateMetadata(settings, i18n.language);
+    }
+
+    const handleLangChange = (lang: string) => {
+      if (settings) updateMetadata(settings, lang);
+    };
+    i18n.on('languageChanged', handleLangChange);
+
+    return () => {
       i18n.off('languageChanged', handleLangChange);
     };
-  }, [settings?.siteName, settings?.seoTitleAr, settings?.seoTitleEn, settings?.seoDescriptionAr, settings?.seoDescriptionEn, settings?.faviconUrl]);
+  }, [settings, i18n.language]);
 
   return (
     <SettingsContext.Provider value={{ settings, features, loading }}>

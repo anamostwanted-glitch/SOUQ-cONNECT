@@ -213,6 +213,9 @@ export const MarketInterface: React.FC<MarketInterfaceProps> = ({
     querySuffix?: string;
   }>({});
   const [matchedSuppliers, setMatchedSuppliers] = useState<UserProfile[]>([]);
+  const uniqueMatchedSuppliers = useMemo(() => {
+    return Array.from(new Map(matchedSuppliers.map(s => [s.uid, s])).values());
+  }, [matchedSuppliers]);
   const [voiceMatches, setVoiceMatches] = useState<{ supplierId: string, reason: string }[]>([]);
   const [isFulfillingVoice, setIsFulfillingVoice] = useState(false);
   const [isRefiningVoice, setIsRefiningVoice] = useState(false);

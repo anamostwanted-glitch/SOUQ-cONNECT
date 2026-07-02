@@ -53,6 +53,11 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   onOpenHelpCenter
 }) => {
   const { t, i18n } = useTranslation();
+  const [logoError, setLogoError] = React.useState(false);
+
+  React.useEffect(() => {
+    setLogoError(false);
+  }, [siteLogo]);
 
   return (
     <AnimatePresence>
@@ -82,16 +87,17 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                   <div className="flex items-center gap-3">
                     <div className="relative group">
                       <div className="relative z-10">
-                        {siteLogo ? (
+                        {siteLogo && !logoError ? (
                           <img 
                             src={siteLogo} 
                             alt="Logo" 
                             className="h-10 w-auto relative object-contain drop-shadow-sm" 
                             style={{ transform: `scale(${logoScale})` }}
                             referrerPolicy="no-referrer" 
+                            onError={() => setLogoError(true)}
                           />
                         ) : (
-                          <div className="p-2.5 bg-brand-primary rounded-xl text-white relative shadow-lg shadow-brand-primary/20">
+                          <div className="p-2.5 bg-brand-primary/10 border border-brand-primary/30 rounded-xl text-brand-primary relative shadow-sm">
                             <Building2 size={20} />
                           </div>
                         )}

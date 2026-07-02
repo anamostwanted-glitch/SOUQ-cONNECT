@@ -51,9 +51,9 @@ import { SiteSettingsManager } from './SiteSettingsManager';
 import { LoadingCustomizer } from './LoadingCustomizer';
 import * as Sentry from "@sentry/react";
 
-const AdminNeuralHub = lazy(() => import('./AdminNeuralHub').then(m => ({ default: Sentry.withProfiler(m.AdminNeuralHub) })));
+const AdminNeuralHub = lazy(() => import('./AdminNeuralHub').then(m => ({ default: m.AdminNeuralHub })));
 const BetaLab = lazy(() => import('./BetaLab').then(m => ({ default: m.BetaLab })));
-const CostAnalysisDashboard = lazy(() => import('./CostAnalysisDashboard').then(m => ({ default: Sentry.withProfiler(m.CostAnalysisDashboard) })));
+const CostAnalysisDashboard = lazy(() => import('./CostAnalysisDashboard').then(m => ({ default: m.CostAnalysisDashboard })));
 import { SliderSettingsAdmin } from './SliderSettings';
 import { MarketingManager } from './MarketingManager';
 import { UserDataManager } from './UserDataManager';

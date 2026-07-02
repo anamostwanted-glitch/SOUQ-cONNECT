@@ -34,7 +34,8 @@ export const SupplierMosaic: React.FC<SupplierMosaicProps> = ({
   // but it will re-shuffle on mount or if suppliers change
   const shuffledSuppliers = useMemo(() => {
     if (!suppliers.length) return [];
-    return shuffle(suppliers);
+    const unique = Array.from(new Map(suppliers.map(s => [s.uid, s])).values());
+    return shuffle(unique);
   }, [suppliers]);
 
   // Determine grid size based on index for Bento-Grid feel

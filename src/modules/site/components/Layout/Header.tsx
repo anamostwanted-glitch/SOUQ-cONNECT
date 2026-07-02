@@ -80,6 +80,11 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const { isDarkMode, toggleDarkMode } = useBranding();
+  const [logoError, setLogoError] = useState(false);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [siteLogo]);
 
   const getSpeed = () => {
     switch (animationSpeed) {
@@ -133,17 +138,28 @@ export const Header: React.FC<HeaderProps> = ({
             <Menu size={20} />
           </HapticButton>
           
-          {/* Site Logo - Hidden on mobile, visible on desktop */}
+          {/* Site Logo - Visible on all viewport sizes */}
           <HapticButton
             onClick={() => setView('home')}
-            className="hidden md:flex items-center gap-1.5 md:gap-2 px-1 relative"
+            className="flex items-center gap-1.5 md:gap-2 px-1 relative"
             style={{ transform: `scale(${logoScale})` }}
           >
-            {siteLogo ? (
-              <img src={siteLogo} alt={siteName} className="h-6 md:h-8 w-auto object-contain" referrerPolicy="no-referrer" />
+            {siteLogo && !logoError ? (
+              <img 
+                src={siteLogo} 
+                alt={siteName} 
+                className="h-6 md:h-8 w-auto object-contain" 
+                referrerPolicy="no-referrer" 
+                onError={() => setLogoError(true)}
+              />
             ) : (
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-brand-primary rounded-lg flex items-center justify-center text-white font-black text-xs">
-                {siteName?.[0] || 'C'}
+              <div className="flex items-center gap-1.5 md:gap-2">
+                <div className="w-7 h-7 md:w-8 md:h-8 bg-brand-primary/15 border border-brand-primary/30 rounded-xl flex items-center justify-center text-brand-primary shadow-sm hover:scale-105 transition-all">
+                  <Building2 size={14} className="md:size-4" />
+                </div>
+                <span className="font-black text-brand-text-main text-xs md:text-sm tracking-tight leading-none">
+                  {siteName || 'Souq Connect'}
+                </span>
               </div>
             )}
             <div className="absolute -top-1 -right-4 md:-right-6 px-1 py-0.5 bg-brand-amber text-white text-[7px] md:text-[8px] font-black rounded-sm uppercase tracking-tighter shadow-sm transform rotate-12">

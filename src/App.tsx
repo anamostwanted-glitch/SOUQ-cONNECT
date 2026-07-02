@@ -103,9 +103,20 @@ export default function App() {
     const handleRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason?.message || String(event.reason);
       
-      // Filter out Firebase permission errors from global tracking as they are handled locally
-      if (reason.includes('Missing or insufficient permissions')) {
-        console.warn('Permission warning (handled locally):', reason);
+      const isBenign = 
+        reason.includes('Missing or insufficient permissions') ||
+        reason.includes('permission-denied') ||
+        reason.includes('Failed to fetch') ||
+        reason.includes('NetworkError') ||
+        reason.includes('Load failed') ||
+        reason.includes('The operation is insecure') ||
+        reason.includes('play() request') ||
+        reason.includes('ResizeObserver') ||
+        reason.includes('failed to connect to websocket') ||
+        reason.includes('Quota exceeded');
+
+      if (isBenign) {
+        console.warn('Benign promise warning (handled safely):', reason);
         return;
       }
 

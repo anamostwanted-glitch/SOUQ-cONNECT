@@ -33,6 +33,11 @@ window.addEventListener('unhandledrejection', (event) => {
     message.includes('AI Service Busy') ||
     message.includes('permission-denied') ||
     message.includes('Missing or insufficient permissions') ||
+    message.includes('Failed to fetch') ||
+    message.includes('NetworkError') ||
+    message.includes('Load failed') ||
+    message.includes('The operation is insecure') ||
+    message.includes('play() request') ||
     reason?.isAiHandled === true;
 
   if (isBenign) {

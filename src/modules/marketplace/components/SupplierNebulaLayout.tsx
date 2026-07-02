@@ -24,7 +24,8 @@ export const SupplierNebulaLayout: React.FC<SupplierNebulaLayoutProps> = ({
 }) => {
   const shuffledSuppliers = useMemo(() => {
     if (!suppliers.length) return [];
-    return [...suppliers].sort(() => Math.random() - 0.5);
+    const unique = Array.from(new Map(suppliers.map(s => [s.uid, s])).values());
+    return unique.sort(() => Math.random() - 0.5);
   }, [suppliers]);
 
   if (!shuffledSuppliers.length) return null;

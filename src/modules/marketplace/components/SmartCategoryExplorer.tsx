@@ -354,9 +354,9 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({
               {isRtl ? 'مقترح لك' : 'For You'}
             </h3>
             <div className="flex overflow-x-auto pb-4 -mx-4 px-4 gap-3 snap-x hide-scrollbar">
-              {displayCategories.slice(0, 4).map(cat => (
+              {displayCategories.slice(0, 4).map((cat, idx) => (
                 <HapticButton
-                  key={`foryou-${cat.id}`}
+                  key={`foryou-${cat.id}-${idx}`}
                   onClick={() => setActiveCategory(cat)}
                   onMouseEnter={() => onHoverCategory?.(cat.id)}
                   className="snap-start shrink-0 w-40 p-4 rounded-3xl bg-white dark:bg-gray-800 border border-brand-border/50 shadow-sm flex flex-col gap-3"
@@ -383,7 +383,7 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({
               <div className="grid grid-cols-2 gap-3 auto-rows-[120px]">
                 {displayCategories.map((cat, idx) => (
                   <HapticButton
-                    key={cat.id}
+                    key={`maincat-${cat.id}-${idx}`}
                     onClick={() => setActiveCategory(cat)}
                     onMouseEnter={() => onHoverCategory?.(cat.id)}
                     className={`relative overflow-hidden rounded-3xl p-4 flex flex-col justify-between group ${cat.span || ''} bg-gradient-to-br ${cat.color} shadow-md`}
@@ -460,7 +460,7 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({
                         initial={{ opacity: 0, x: isRtl ? 20 : -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.05 }}
-                        key={sub.id}
+                        key={`subcat-${sub.id}-${idx}`}
                       >
                         <HapticButton 
                           onClick={() => {
