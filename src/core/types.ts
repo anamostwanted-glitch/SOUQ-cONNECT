@@ -440,6 +440,9 @@ export interface SiteSettings {
   // Master AI Controls
   smartAssistantEnabled?: boolean;
 
+  // Marketplace Toggle Controls
+  marketplaceEnabled?: boolean;
+
   // Maintenance Settings
   maintenanceMode?: boolean;
   maintenanceBypassEmails?: string[];

@@ -188,7 +188,7 @@ export const fetchPredictiveMatches = async (interests: string[], recentItems: s
         required: ["matches"]
       }
     );
-    return result.matches;
+    return result?.matches || [];
   } catch (e) {
     handleAiError(e, 'predictive_matching');
     return [];

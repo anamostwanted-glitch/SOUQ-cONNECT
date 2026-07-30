@@ -82,7 +82,14 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
   const menuItems = [
     { id: 'home', icon: Home, labelAr: 'الرئيسية', labelEn: 'Home', color: 'text-blue-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'smart_pulse', icon: Activity, labelAr: 'النبض الذكي', labelEn: 'Smart Pulse', color: 'text-brand-teal', roles: ['customer', 'supplier', 'admin'] },
-    { id: 'marketplace', icon: ShoppingBag, labelAr: 'السوق', labelEn: 'Market', color: 'text-green-500', roles: ['customer', 'supplier', 'admin'] },
+    ...(features.marketplace !== false ? [{
+      id: 'marketplace', 
+      icon: ShoppingBag, 
+      labelAr: 'السوق', 
+      labelEn: 'Market', 
+      color: 'text-green-500', 
+      roles: ['customer', 'supplier', 'admin'] 
+    }] : []),
     { id: 'chat', icon: MessageSquare, labelAr: 'المحادثات', labelEn: 'Chats', color: 'text-yellow-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'connect', icon: Zap, labelAr: 'المكافآت', labelEn: 'Connect', color: 'text-purple-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'dashboard', icon: LayoutGrid, labelAr: 'لوحة التحكم', labelEn: 'Dashboard', color: 'text-red-500', roles: ['supplier', 'admin'] },

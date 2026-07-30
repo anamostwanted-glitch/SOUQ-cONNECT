@@ -34,7 +34,11 @@ import {
   Brain,
   Wind,
   X,
-  Menu
+  Menu,
+  Lock,
+  Unlock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { collection, query, onSnapshot, getDocs, doc, updateDoc, addDoc, orderBy, limit, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
@@ -153,6 +157,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     volume: 0
   });
 
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+  const [isMarketplaceEnabled, setIsMarketplaceEnabled] = useState(true);
+
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'settings', 'site'), (snap) => {
       if (snap.exists()) {
@@ -160,10 +167,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         if (data.smartAssistantEnabled !== undefined) {
           setIsAiEnabled(data.smartAssistantEnabled);
         }
+        if (data.maintenanceMode !== undefined) {
+          setIsMaintenanceMode(!!data.maintenanceMode);
+        }
+        if (data.marketplaceEnabled !== undefined) {
+          setIsMarketplaceEnabled(data.marketplaceEnabled !== false);
+        }
       }
     });
     return () => unsubscribe();
   }, []);
+
+  const toggleMarketplaceVisibility = async () => {
+    try {
+      const nextState = !isMarketplaceEnabled;
+      await setDoc(doc(db, 'settings', 'site'), {
+        marketplaceEnabled: nextState,
+        lastUpdated: new Date().toISOString()
+      }, { merge: true });
+      await setDoc(doc(db, 'settings', 'features'), {
+        marketplace: nextState
+      }, { merge: true });
+
+      toast.success(nextState 
+        ? (isRtl ? 'تم إظهار قسم السوق للجميع 🟢' : 'Marketplace is now VISIBLE to all 🟢') 
+        : (isRtl ? 'تم إخفاء قسم السوق عن الزوار 🔴' : 'Marketplace is now HIDDEN from public 🔴')
+      );
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'settings/site');
+    }
+  };
+
+  const toggleMaintenanceMode = async () => {
+    try {
+      const nextState = !isMaintenanceMode;
+      await setDoc(doc(db, 'settings', 'site'), {
+        maintenanceMode: nextState,
+        lastUpdated: new Date().toISOString()
+      }, { merge: true });
+      toast.success(nextState 
+        ? (isRtl ? 'تم قفل الموقع وتفعيل وضع الصيانة 🔒' : 'Site locked (Maintenance mode ON) 🔒') 
+        : (isRtl ? 'تم فتح الموقع وإيقاف وضع الصيانة 🟢' : 'Site unlocked (Maintenance mode OFF) 🟢')
+      );
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'settings/site');
+    }
+  };
 
   useEffect(() => {
     const fetchRealStats = async () => {

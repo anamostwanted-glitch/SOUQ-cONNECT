@@ -127,14 +127,15 @@ const executeProxyCall = async (payload: any) => {
 };
 
 const isFailure = (error: any) => {
-  const isQuota = error.status === 429 || 
-    error.message?.includes('429') || 
-    error.message?.includes('RESOURCE_EXHAUSTED') ||
-    error.message?.includes('quota');
-  return !(error.isMissingKey || error.isInvalidKey || error.message?.includes('API key not valid') || error.message?.includes('No API key available') || isQuota);
+  const isQuota = error?.status === 429 || 
+    error?.message?.includes('429') || 
+    error?.message?.includes('RESOURCE_EXHAUSTED') ||
+    error?.message?.includes('quota');
+  const isInvalid = error?.isMissingKey || error?.isInvalidKey || error?.message?.includes('API key not valid') || error?.message?.includes('No API key available') || error?.message?.includes('404') || error?.message?.includes('no longer available');
+  return !(isInvalid || isQuota);
 };
 
-export const callAiJson = async (contents: any, schema: any, model: string = "gemini-3-flash-preview") => {
+export const callAiJson = async (contents: any, schema: any, model: string = "gemini-2.0-flash") => {
   if (!isAiMasterEnabled) {
     console.warn('AI Master Switch is OFF. callAiJson aborted.');
     return null;
@@ -211,7 +212,7 @@ export const callAiJson = async (contents: any, schema: any, model: string = "ge
   }, null, 'callAiJson', isFailure); // Fallback null for JSON
 };
 
-export const callAiText = async (contents: any, model: string = "gemini-3-flash-preview") => {
+export const callAiText = async (contents: any, model: string = "gemini-2.0-flash") => {
   if (!isAiMasterEnabled) {
     console.warn('AI Master Switch is OFF. callAiText aborted.');
     return '';
@@ -464,8 +465,8 @@ export const generateGlobalMarketContext = async (region: string, baseCurrency: 
         required: ["exchangeRate", "units", "nuanceAr", "nuanceEn", "greetingAr", "greetingEn"]
       }
     );
-    return result;
-  }, { exchangeRate: 1, units: 'Metric', nuanceEn: 'Standard global trade rules apply', greetingEn: 'Hello' }, 'Global market analysis', isFailure);
+    return result || { exchangeRate: 1, units: 'Metric', nuanceEn: 'Standard global trade rules apply', nuanceAr: 'تطبق قواعد التجارة العالمية القياسية', greetingEn: 'Hello', greetingAr: 'مرحباً' };
+  }, { exchangeRate: 1, units: 'Metric', nuanceEn: 'Standard global trade rules apply', nuanceAr: 'تطبق قواعد التجارة العالمية القياسية', greetingEn: 'Hello', greetingAr: 'مرحباً' }, 'Global market analysis', isFailure);
 };
 
 export const analyzeSystemPulse = async (systemData: any, language: string): Promise<any> => {
@@ -1420,7 +1421,7 @@ export const analyzeProductImage = async (base64Data: string, mimeType: string):
           { text: prompt },
         ],
       }],
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash",
       config: {
         responseMimeType: "application/json",
       }
@@ -2206,7 +2207,7 @@ export const analyzeSupplierDocument = async (
           { text: prompt },
         ],
       }],
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash",
       config: {
         responseMimeType: "application/json",
       }
@@ -2405,7 +2406,7 @@ export const suggestCategoryMerges = async (categories: Category[], language: st
   const proxyCall = async () => {
     const data = await executeProxyCall({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       config: {
         responseMimeType: "application/json"
       }
@@ -2441,7 +2442,7 @@ export const suggestCategoryMerges = async (categories: Category[], language: st
       
       const ai = new GoogleGenAI({ apiKey: key });
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.0-flash',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",

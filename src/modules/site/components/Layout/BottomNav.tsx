@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Home as HomeIcon, Bot, LayoutDashboard, ShoppingBag, MessageSquare, Bell, Sparkles, Store, Compass, LayoutGrid, Plus } from 'lucide-react';
+import { Home as HomeIcon, Bot, LayoutDashboard, ShoppingBag, MessageSquare, Bell, Sparkles, Store, Compass, LayoutGrid, Plus, Activity } from 'lucide-react';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { useTranslation } from 'react-i18next';
 import { UserRole, AppFeatures } from '../../../../core/types';
@@ -106,7 +106,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           </motion.div>
           <span className="text-[9px] font-black tracking-tighter uppercase">{isRtl ? 'الأعمال' : 'Business'}</span>
         </HapticButton>
-      ) : (
+      ) : features.marketplace !== false ? (
         <HapticButton 
           key="bottom-nav-market"
           onClick={() => setView('marketplace')}
@@ -124,6 +124,17 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <ShoppingBag size={20} strokeWidth={currentView === 'marketplace' ? 2.5 : 2} />
           </motion.div>
           <span className="text-[9px] font-black tracking-tighter uppercase">{isRtl ? 'السوق' : 'Market'}</span>
+        </HapticButton>
+      ) : (
+        <HapticButton 
+          key="bottom-nav-pulse"
+          onClick={() => setView('smart_pulse')}
+          className={`flex-1 flex flex-col items-center gap-1.5 p-2 transition-all relative z-10 ${currentView === 'smart_pulse' ? 'text-brand-primary' : 'text-brand-text-muted hover:text-brand-text-main'}`}
+        >
+          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+            <Activity size={20} strokeWidth={currentView === 'smart_pulse' ? 2.5 : 2} />
+          </motion.div>
+          <span className="text-[9px] font-black tracking-tighter uppercase">{isRtl ? 'النبض' : 'Pulse'}</span>
         </HapticButton>
       )}
 

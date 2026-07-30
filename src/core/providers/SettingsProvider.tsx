@@ -104,8 +104,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, [settings, i18n.language]);
 
+  const effectiveFeatures: AppFeatures = {
+    ...features,
+    marketplace: (features.marketplace !== false) && (settings?.marketplaceEnabled !== false),
+  };
+
   return (
-    <SettingsContext.Provider value={{ settings, features, loading }}>
+    <SettingsContext.Provider value={{ settings, features: effectiveFeatures, loading }}>
       {children}
     </SettingsContext.Provider>
   );

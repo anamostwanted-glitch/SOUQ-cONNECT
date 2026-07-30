@@ -1,6 +1,6 @@
 import React from 'react';
 import { SiteSettings } from '../../../../core/types';
-import { LayoutGrid, Smartphone, Maximize, Zap, Layout, Monitor, Cpu, Sparkles, Layers, ListChecks } from 'lucide-react';
+import { LayoutGrid, Smartphone, Maximize, Zap, Layout, Monitor, Cpu, Sparkles, Layers, ListChecks, ShoppingBag, Eye, EyeOff } from 'lucide-react';
 
 interface MarketSettingsProps {
   settings: SiteSettings;
@@ -9,6 +9,8 @@ interface MarketSettingsProps {
 }
 
 export const MarketSettings: React.FC<MarketSettingsProps> = ({ settings, setSettings, isRtl }) => {
+  const isMarketplaceActive = settings.marketplaceEnabled !== false;
+
   return (
     <div className="p-8 bg-brand-surface border border-brand-border rounded-[2.5rem] space-y-8 shadow-sm">
       <div className="flex items-center justify-between">
@@ -19,6 +21,62 @@ export const MarketSettings: React.FC<MarketSettingsProps> = ({ settings, setSet
         <div className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
           <Sparkles size={12} />
           {isRtl ? 'تحسين ذكي' : 'Smart Optimization'}
+        </div>
+      </div>
+
+      {/* Main Marketplace Visibility Toggle Card */}
+      <div className={`p-6 rounded-3xl border transition-all space-y-4 ${
+        isMarketplaceActive 
+          ? 'bg-emerald-500/5 border-emerald-500/20' 
+          : 'bg-red-500/5 border-red-500/20'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <ShoppingBag size={20} className={isMarketplaceActive ? 'text-emerald-500' : 'text-red-500'} />
+              <h4 className="text-base font-black text-brand-text-main">
+                {isRtl ? 'مفتاح إظهار / إخفاء منصة السوق (Marketplace)' : 'Marketplace Visibility Switch'}
+              </h4>
+            </div>
+            <p className="text-xs text-brand-text-muted font-medium max-w-xl">
+              {isRtl 
+                ? 'التحكم المباشر في إتاحة قسم السوق للزوار والمستخدمين. عند الإيقاف يتم إخفاء السوق من القوائم وتوجيه الزوار لصفحة التنبيه.' 
+                : 'Direct control to show or hide the Marketplace module from visitors and users.'}
+            </p>
+          </div>
+          <button
+            onClick={() => setSettings(prev => ({
+              ...prev,
+              marketplaceEnabled: prev.marketplaceEnabled === false ? true : false
+            }))}
+            className={`w-16 h-8 rounded-full transition-all relative shrink-0 shadow-inner ${
+              isMarketplaceActive ? 'bg-emerald-500' : 'bg-red-500'
+            }`}
+          >
+            <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all flex items-center justify-center shadow-md ${
+              isMarketplaceActive ? (isRtl ? 'right-9' : 'left-9') : (isRtl ? 'right-1' : 'left-1')
+            }`}>
+              {isMarketplaceActive ? (
+                <Eye size={14} className="text-emerald-600" />
+              ) : (
+                <EyeOff size={14} className="text-red-600" />
+              )}
+            </div>
+          </button>
+        </div>
+        <div className="pt-2 border-t border-brand-border/40 flex items-center justify-between text-xs font-bold">
+          <span className="text-brand-text-muted">
+            {isRtl ? 'الحالة الحالية:' : 'Current Status:'}
+          </span>
+          <span className={`px-2.5 py-1 rounded-full text-[11px] uppercase tracking-wider ${
+            isMarketplaceActive 
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
+              : 'bg-red-500/10 text-red-600 dark:text-red-400'
+          }`}>
+            {isMarketplaceActive 
+              ? (isRtl ? 'السوق ظاهر ومتاح 🟢' : 'Marketplace Visible 🟢') 
+              : (isRtl ? 'السوق مخفي حالياً 🔴' : 'Marketplace Hidden 🔴')}
+          </span>
         </div>
       </div>
 

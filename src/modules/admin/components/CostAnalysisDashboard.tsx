@@ -262,10 +262,10 @@ export const CostAnalysisDashboard: React.FC = () => {
           </div>
           <div className="grid grid-cols-2 gap-4 mt-8">
             {featureDistribution.map((item, idx) => (
-              <div key={`feature-dist-${item.name}`} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+              <div key={`feature-dist-${item.name}-${idx}`} className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
                 <span className="text-xs font-bold text-brand-text-muted truncate">{item.name}</span>
-                <span className="text-xs font-black text-brand-text-main ml-auto">${item.value.toFixed(4)}</span>
+                <span className="text-xs font-black text-brand-text-main ms-auto">${item.value.toFixed(4)}</span>
               </div>
             ))}
           </div>
@@ -307,27 +307,27 @@ export const CostAnalysisDashboard: React.FC = () => {
             {isRtl ? 'التكلفة حسب المستخدم' : 'Cost per User'}
           </h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-start border-collapse" dir={isRtl ? 'rtl' : 'ltr'}>
               <thead>
                 <tr className="border-b border-brand-border">
-                  <th className="pb-4 text-xs font-bold text-brand-text-muted uppercase tracking-wider">{isRtl ? 'المستخدم' : 'User'}</th>
+                  <th className="pb-4 text-xs font-bold text-brand-text-muted uppercase tracking-wider text-start">{isRtl ? 'المستخدم' : 'User'}</th>
                   <th className="pb-4 text-xs font-bold text-brand-text-muted uppercase tracking-wider text-center">{isRtl ? 'العمليات' : 'Ops'}</th>
-                  <th className="pb-4 text-xs font-bold text-brand-text-muted uppercase tracking-wider text-right">{isRtl ? 'التكلفة' : 'Cost'}</th>
+                  <th className="pb-4 text-xs font-bold text-brand-text-muted uppercase tracking-wider text-end">{isRtl ? 'التكلفة' : 'Cost'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-brand-border/50">
-                {userCosts.map((user) => (
-                  <tr key={`user-cost-${user.uid}`} className="group">
-                    <td className="py-4">
+                {userCosts.map((user, idx) => (
+                  <tr key={`user-cost-${user.uid || idx}`} className="group">
+                    <td className="py-4 text-start">
                       <div className="text-sm font-bold text-brand-text-main truncate max-w-[150px]">{user.email}</div>
-                      <div className="text-[10px] text-brand-text-muted font-mono">{user.uid.substring(0, 8)}...</div>
+                      <div className="text-[10px] text-brand-text-muted font-mono">{user.uid ? `${user.uid.substring(0, 8)}...` : 'N/A'}</div>
                     </td>
                     <td className="py-4 text-center">
                       <span className="px-2 py-1 bg-brand-background rounded-lg text-xs font-bold text-brand-text-main">
                         {user.count}
                       </span>
                     </td>
-                    <td className="py-4 text-right">
+                    <td className="py-4 text-end">
                       <span className="text-sm font-black text-brand-primary">
                         ${user.cost.toFixed(4)}
                       </span>

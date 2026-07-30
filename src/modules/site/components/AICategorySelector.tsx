@@ -151,11 +151,11 @@ export const AICategorySelector: React.FC<AICategorySelectorProps> = ({
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {suggestions.map(suggestion => {
+              {suggestions.map((suggestion, idx) => {
                 const isSelected = selectedCategoryIds.includes(suggestion.id);
                 return (
                   <HapticButton
-                    key={suggestion.id}
+                    key={`ai-cat-suggestion-${suggestion.id || 'cat'}-${idx}`}
                     onClick={() => toggleCategory(suggestion.id)}
                     className={`flex items-center justify-between p-4 rounded-2xl border transition-all text-start group ${
                       isSelected 

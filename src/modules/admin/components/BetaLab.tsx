@@ -53,7 +53,7 @@ export const BetaLab: React.FC<BetaLabProps> = ({ isRtl }) => {
   }, [isSimulating, isRtl]);
 
   const addLog = (msg: string, type: 'info' | 'warn' | 'error') => {
-    setLogs(prev => [{ id: Math.random().toString(), msg, type }, ...prev].slice(0, 10));
+    setLogs(prev => [{ id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, msg, type }, ...prev].slice(0, 10));
   };
 
   const startStressTest = () => {
@@ -69,7 +69,7 @@ export const BetaLab: React.FC<BetaLabProps> = ({ isRtl }) => {
   };
 
   return (
-    <div className="space-y-8 p-6">
+    <div className="space-y-8 p-6" dir={isRtl ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
@@ -106,7 +106,7 @@ export const BetaLab: React.FC<BetaLabProps> = ({ isRtl }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Metric Card: CPU Load */}
         <div className="bg-brand-surface border border-brand-border p-8 rounded-[2.5rem] relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+          <div className="absolute top-0 ltr:right-0 rtl:left-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
             <Activity size={80} />
           </div>
           <h3 className="text-sm font-black text-brand-text-muted uppercase tracking-widest mb-4">
@@ -125,7 +125,7 @@ export const BetaLab: React.FC<BetaLabProps> = ({ isRtl }) => {
 
         {/* Metric Card: Concurrent Sessions */}
         <div className="bg-brand-surface border border-brand-border p-8 rounded-[2.5rem] relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+          <div className="absolute top-0 ltr:right-0 rtl:left-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
             <Users size={80} />
           </div>
           <h3 className="text-sm font-black text-brand-text-muted uppercase tracking-widest mb-4">
@@ -143,7 +143,7 @@ export const BetaLab: React.FC<BetaLabProps> = ({ isRtl }) => {
 
         {/* Metric Card: Neural Latency */}
         <div className="bg-brand-surface border border-brand-border p-8 rounded-[2.5rem] relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+          <div className="absolute top-0 ltr:right-0 rtl:left-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
             <Zap size={80} />
           </div>
           <h3 className="text-sm font-black text-brand-text-muted uppercase tracking-widest mb-4">
@@ -168,7 +168,7 @@ export const BetaLab: React.FC<BetaLabProps> = ({ isRtl }) => {
           </h3>
           <div className="space-y-4">
             {logs.length === 0 ? (
-              <p className="text-brand-text-muted italic border-l-4 border-brand-border pl-4">
+              <p className="text-brand-text-muted italic border-l-4 rtl:border-r-4 rtl:border-l-0 border-brand-border pl-4 rtl:pr-4 rtl:pl-0">
                 {isRtl ? 'لا توجد سجلات حالية...' : 'No active logs...'}
               </p>
             ) : (
@@ -176,7 +176,7 @@ export const BetaLab: React.FC<BetaLabProps> = ({ isRtl }) => {
                 {logs.map(log => (
                   <motion.div 
                     key={log.id}
-                    initial={{ opacity: 0, x: -20 }}
+                    initial={{ opacity: 0, x: isRtl ? 20 : -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className={`p-4 rounded-2xl border flex items-center gap-4 ${
                       log.type === 'warn' ? 'bg-yellow-50 border-yellow-100 text-yellow-700' :
@@ -184,14 +184,14 @@ export const BetaLab: React.FC<BetaLabProps> = ({ isRtl }) => {
                       'bg-slate-50 border-slate-100 text-slate-700'
                     }`}
                   >
-                    <div className={`w-2 h-2 rounded-full ${
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${
                       log.type === 'warn' ? 'bg-yellow-500' :
                       log.type === 'error' ? 'bg-red-500' :
                       'bg-slate-500'
                     }`} />
                     <span className="font-bold font-mono text-xs opacity-50 uppercase">{log.type}</span>
                     <span className="font-medium text-sm">{log.msg}</span>
-                    <span className="ml-auto text-[10px] font-bold opacity-40">
+                    <span className="ms-auto text-[10px] font-bold opacity-40">
                       {new Date().toLocaleTimeString()}
                     </span>
                   </motion.div>

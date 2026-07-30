@@ -1,0 +1,8 @@
+{
+	"appId": "com.connectai.marketplace",
+	"appName": "Connect AI Marketplace",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	}
+}

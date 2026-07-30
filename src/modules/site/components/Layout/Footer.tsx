@@ -8,7 +8,7 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ onNavigate, isRtl }) => {
-  const { settings } = useSettings();
+  const { settings, features } = useSettings();
   const currentYear = new Date().getFullYear();
 
   const platformAbout = isRtl 
@@ -25,7 +25,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, isRtl }) => {
 
   const links = [
     { label: isRtl ? 'الرئيسية' : 'Home', action: () => onNavigate('home') },
-    { label: isRtl ? 'السوق' : 'Market', action: () => onNavigate('marketplace') },
+    ...(features.marketplace !== false ? [{ label: isRtl ? 'السوق' : 'Market', action: () => onNavigate('marketplace') }] : []),
     { label: isRtl ? 'الأحكام' : 'Terms', action: () => onNavigate('terms') },
     { label: isRtl ? 'الخصوصية' : 'Privacy', action: () => onNavigate('privacy') },
     { label: isRtl ? 'المساعدة' : 'Help', action: () => onNavigate('help') },

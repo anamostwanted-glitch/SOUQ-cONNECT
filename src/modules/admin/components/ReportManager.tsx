@@ -148,7 +148,7 @@ export const ReportManager: React.FC = () => {
       </div>
 
       <div className="relative group">
-        <div className="absolute inset-y-0 right-4 flex items-center text-brand-text-muted group-focus-within:text-brand-primary transition-colors">
+        <div className="absolute inset-y-0 ltr:right-4 rtl:left-4 flex items-center text-brand-text-muted group-focus-within:text-brand-primary transition-colors pointer-events-none">
           <Search size={20} />
         </div>
         <input
@@ -156,7 +156,7 @@ export const ReportManager: React.FC = () => {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="بحث في الإبلاغات، الأسباب، أو المبلّغين..."
-          className="w-full pr-12 pl-6 py-4 bg-brand-surface border border-brand-border rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 font-bold transition-all shadow-sm"
+          className="w-full ltr:pr-12 ltr:pl-6 rtl:pl-12 rtl:pr-6 py-4 bg-brand-surface border border-brand-border rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 font-bold transition-all shadow-sm text-brand-text-main"
         />
       </div>
 
@@ -184,7 +184,7 @@ export const ReportManager: React.FC = () => {
                         <h3 className="text-lg font-black text-brand-text-main">{report.reason}</h3>
                         <div className="flex items-center gap-2 text-xs text-brand-text-muted font-bold">
                           <Clock size={12} />
-                          {new Date(report.createdAt).toLocaleString('ar-EG')}
+                          {report.createdAt ? new Date(report.createdAt).toLocaleString('ar-EG') : 'الآن'}
                         </div>
                       </div>
                     </div>

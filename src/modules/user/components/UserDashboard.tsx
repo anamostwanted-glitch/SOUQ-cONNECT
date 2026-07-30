@@ -447,7 +447,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               ) : (
                 requests.map((req, idx) => (
                   <UserRequestCard 
-                    key={req.id || `dashboard-req-idx-${idx}`}
+                    key={`dashboard-req-${req.id || 'id'}-${idx}`}
                     request={req}
                     profile={profile}
                     onOpenChat={onOpenChat}
@@ -486,7 +486,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {Array.from(new Map(favoriteItems.map(item => [item.id || `fav-temp-${Math.random()}`, item])).values()).map((item, idx) => (
                   <ProductCard 
-                    key={item.id || `favorite-${idx}`} 
+                    key={`fav-prod-${item.id || 'id'}-${idx}`} 
                     item={item} 
                     onOpenChat={onOpenChat}
                     onViewDetails={() => setSelectedProduct(item)}

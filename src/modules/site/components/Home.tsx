@@ -1356,15 +1356,17 @@ const Home: React.FC<HomeProps> = ({
       </div>
     )}
     {/* Floating Explore Button */}
-    <motion.button
-      whileHover={{ scale: 1.1 }}
-      whileTap={{ scale: 0.9 }}
-      onClick={() => onNavigate('marketplace')}
-      className="fixed bottom-6 right-6 z-50 bg-brand-primary text-white p-4 rounded-full shadow-2xl flex items-center gap-2"
-    >
-      <SparklesIcon size={24} />
-      <span className="font-bold">{isRtl ? 'اكتشف' : 'Explore'}</span>
-    </motion.button>
+    {features.marketplace !== false && (
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => onNavigate('marketplace')}
+        className="fixed bottom-6 right-6 z-50 bg-brand-primary text-white p-4 rounded-full shadow-2xl flex items-center gap-2"
+      >
+        <SparklesIcon size={24} />
+        <span className="font-bold">{isRtl ? 'اكتشف' : 'Explore'}</span>
+      </motion.button>
+    )}
 
       {/* Concierge Consent Modal */}
       <AnimatePresence>

@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sparkles, MapPin, Globe, Bell, Menu, UploadCloud, Bot, MessageSquare, BookOpen, Zap, ShieldCheck, LogOut, Settings, User as UserIcon, Search, ChevronLeft, ChevronRight, Sun, Moon } from 'lucide-react';
+import { Building2, Home as HomeIcon, LayoutDashboard, Megaphone, ShoppingBag, User, Sparkles, MapPin, Globe, Bell, Menu, UploadCloud, Bot, MessageSquare, BookOpen, Zap, ShieldCheck, ShieldAlert, Lock, Unlock, Eye, EyeOff, LogOut, Settings, User as UserIcon, Search, ChevronLeft, ChevronRight, Sun, Moon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
+import { doc, setDoc } from 'firebase/firestore';
 import { useBranding } from '../../../../core/providers/BrandingProvider';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { NotificationDropdown } from './NotificationDropdown';
 import { BentoMenu } from './BentoMenu';
-import { auth } from '../../../../core/firebase';
+import { auth, db } from '../../../../core/firebase';
 import { getUserImageUrl } from '../../../../core/utils/imageUtils';
 import { UserProfile, AppFeatures, UserRole, Notification, SiteSettings } from '../../../../core/types';
 
@@ -162,9 +163,6 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </div>
             )}
-            <div className="absolute -top-1 -right-4 md:-right-6 px-1 py-0.5 bg-brand-amber text-white text-[7px] md:text-[8px] font-black rounded-sm uppercase tracking-tighter shadow-sm transform rotate-12">
-              BETA
-            </div>
           </HapticButton>
 
           <div className="hidden md:block">

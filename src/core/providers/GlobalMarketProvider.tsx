@@ -40,10 +40,12 @@ export const GlobalMarketProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setIsSyncing(true);
       try {
         const context = await generateGlobalMarketContext(region, 'JOD', currency);
-        setExchangeRate(context.exchangeRate || 1);
-        setUnits(context.units || 'Metric');
-        setGreeting(i18n.language === 'ar' ? context.greetingAr : context.greetingEn);
-        setNuance(i18n.language === 'ar' ? context.nuanceAr : context.nuanceEn);
+        if (context) {
+          setExchangeRate(context.exchangeRate || 1);
+          setUnits(context.units || 'Metric');
+          setGreeting(i18n.language === 'ar' ? (context.greetingAr || context.greetingEn || '') : (context.greetingEn || ''));
+          setNuance(i18n.language === 'ar' ? (context.nuanceAr || context.nuanceEn || '') : (context.nuanceEn || ''));
+        }
       } catch (error) {
         console.error('Failed to sync global market context:', error);
       } finally {

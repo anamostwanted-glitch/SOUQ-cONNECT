@@ -39,6 +39,18 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    cssCodeSplit: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-ui': ['framer-motion', 'motion'],
+          'vendor-charts': ['recharts'],
+        },
+      },
+    },
   },
   resolve: {
     alias: {

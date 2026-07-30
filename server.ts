@@ -470,7 +470,7 @@ app.post("/api/send-email", async (req, res) => {
       const { GoogleGenAI } = await import("@google/genai");
       const genAI = new GoogleGenAI({ apiKey });
       
-      console.log(`Gemini Proxy: Calling model ${model || "gemini-3-flash-preview"}...`);
+      console.log(`Gemini Proxy: Calling model ${model || "gemini-2.0-flash"}...`);
       
       // Implement a simple retry for 503 errors
       let result;
@@ -478,7 +478,7 @@ app.post("/api/send-email", async (req, res) => {
       for (let i = 0; i < 3; i++) {
         try {
           result = await genAI.models.generateContent({
-            model: model || "gemini-3-flash-preview",
+            model: model || "gemini-2.0-flash",
             contents,
             config: config
           });

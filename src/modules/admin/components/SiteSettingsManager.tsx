@@ -39,7 +39,7 @@ export const SiteSettingsManager: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [currentTab, setCurrentTab] = useState('identity');
-  const [showPreview, setShowPreview] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Tabs Configuration
   const tabs = [
@@ -77,6 +77,12 @@ export const SiteSettingsManager: React.FC = () => {
         ...settings,
         lastUpdated: new Date().toISOString()
       }, { merge: true });
+
+      if (settings.marketplaceEnabled !== undefined) {
+        await setDoc(doc(db, 'settings', 'features'), {
+          marketplace: settings.marketplaceEnabled !== false
+        }, { merge: true });
+      }
       
       if (auth.currentUser) {
         await logAction(auth.currentUser.uid, 'UPDATE_SETTINGS', 'settings/site', settings);
@@ -244,7 +250,7 @@ export const SiteSettingsManager: React.FC = () => {
 
                   {/* Canvas Overlay Labels */}
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-brand-primary text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-xl">
-                     Live Preview Mode
+                     {isRtl ? 'وضع المعاينة المباشرة' : 'Live Preview Mode'}
                   </div>
                 </div>
               </motion.div>

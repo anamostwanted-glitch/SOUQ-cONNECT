@@ -22,11 +22,13 @@ export class AIResilienceManager {
     task: () => Promise<T>, 
     fallback: T, 
     context: string,
-    onStatusChange?: (isHealthy: boolean) => void
+    onStatusChange?: ((isHealthy: boolean) => void) | any
   ): Promise<T> {
     if (this.isCircuitOpen) {
       console.warn(`[AI-RESILIENCE:DEGRADED] Circuit open for ${context}, using static fallback.`);
-      onStatusChange?.(false);
+      if (typeof onStatusChange === 'function') {
+        try { onStatusChange(false); } catch (_) {}
+      }
       return fallback;
     }
 
@@ -40,12 +42,30 @@ export class AIResilienceManager {
         
         const result = await task();
         this.failureCount = 0; // Reset on success
-        onStatusChange?.(true);
+        if (typeof onStatusChange === 'function') {
+          try { onStatusChange(true); } catch (_) {}
+        }
         return result;
       } catch (error: any) {
         lastError = error;
         
-        const errorMessage = error.message || JSON.stringify(error);
+        const errorMessage = error?.message || JSON.stringify(error || '');
+        const isKeyOrQuotaError = error?.isMissingKey || 
+                                 error?.isInvalidKey || 
+                                 errorMessage.includes('API key not valid') || 
+                                 errorMessage.includes('No API key available') ||
+                                 errorMessage.includes('MISSING_API_KEY') ||
+                                 errorMessage.includes('429') ||
+                                 errorMessage.includes('quota') ||
+                                 errorMessage.includes('RESOURCE_EXHAUSTED') ||
+                                 errorMessage.includes('404') ||
+                                 errorMessage.includes('no longer available');
+
+        if (isKeyOrQuotaError) {
+          console.warn(`[AI-RESILIENCE:CONFIG] ${context}: ${errorMessage}`);
+          return fallback;
+        }
+
         const isRetryable = errorMessage.includes('503') || 
                           errorMessage.includes('UNAVAILABLE') || 
                           errorMessage.includes('high demand') ||
@@ -57,13 +77,15 @@ export class AIResilienceManager {
       }
     }
 
-    // Handle Persistent Failure
+    // Handle Persistent Transient Failure
     this.failureCount++;
     console.error(`[AI-RESILIENCE:FAILURE] Task ${context} failed (${this.failureCount}/${this.CIRCUIT_BREAKER_THRESHOLD}).`, lastError);
     
     if (this.failureCount >= this.CIRCUIT_BREAKER_THRESHOLD) {
       this.isCircuitOpen = true;
-      onStatusChange?.(false);
+      if (typeof onStatusChange === 'function') {
+        try { onStatusChange(false); } catch (_) {}
+      }
       console.error(`[AI-RESILIENCE:LOCKDOWN] AI services disabled for ${this.CIRCUIT_BREAKER_TIMEOUT / 1000}s due to instability.`);
       
       setTimeout(() => { 

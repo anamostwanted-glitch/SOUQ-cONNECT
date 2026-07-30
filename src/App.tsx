@@ -1,6 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { ProductRequest } from './core/types';
 import { Layout } from './modules/site/components/Layout';
 import { Skeleton } from './shared/components/Skeleton';
@@ -17,7 +17,9 @@ import { NotificationCenter } from './modules/common/components/NotificationCent
 import { MaintenancePage } from './shared/components/MaintenancePage';
 import { ImmuneSystemProvider } from './core/providers/ImmuneSystemProvider';
 import { NeuralPulseIndicator } from './core/components/NeuralPulseIndicator';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { ShoppingBag, EyeOff } from 'lucide-react';
+import { HapticButton } from './shared/components/HapticButton';
 import { db } from './core/firebase';
 import { analytics } from './core/services/AnalyticsService';
 import { soundService } from './core/utils/soundService';
@@ -157,8 +159,9 @@ export default function App() {
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   
   const isMaintenanceActive = settings?.maintenanceMode;
-  const isBypassed = profile?.email && (
-    settings?.maintenanceBypassEmails?.includes(profile.email) || 
+  const isBypassed = profile && (
+    profile.role === 'admin' ||
+    (profile.email && settings?.maintenanceBypassEmails?.includes(profile.email)) || 
     profile.email === 'anamostwanted@gmail.com'
   );
   const isAuthPage = location.pathname.startsWith('/auth');
@@ -479,15 +482,19 @@ export default function App() {
                 <Route path="/marketplace/*" element={
                   <ErrorBoundary>
                     <Suspense fallback={<Skeleton className="h-screen w-full" />}>
-                      <MarketInterface 
-                        onOpenChat={handleOpenChat}
-                        onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
-                        activeTab={dashboardTab as any}
-                        setActiveTab={setDashboardTab as any}
-                        initialItemId={initialItemId}
-                        initialVoiceQuery={voiceSearchQuery}
-                        onClearVoiceQuery={() => setVoiceSearchQuery(null)}
-                      />
+                      {features.marketplace === false ? (
+                        <Navigate to="/" replace />
+                      ) : (
+                        <MarketInterface 
+                          onOpenChat={handleOpenChat}
+                          onViewProfile={(uid) => { setSelectedProfileId(uid); setView('profile'); }}
+                          activeTab={dashboardTab as any}
+                          setActiveTab={setDashboardTab as any}
+                          initialItemId={initialItemId}
+                          initialVoiceQuery={voiceSearchQuery}
+                          onClearVoiceQuery={() => setVoiceSearchQuery(null)}
+                        />
+                      )}
                     </Suspense>
                   </ErrorBoundary>
                 } />
