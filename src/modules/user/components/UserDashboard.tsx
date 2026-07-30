@@ -44,6 +44,7 @@ import { ProfileSettings } from './ProfileSettings';
 import { UserSettings } from './UserSettings';
 import { UserRequestCard } from './UserRequestCard';
 import { WalletHub } from './WalletHub';
+import { SubscriptionManager } from '../../../components/SubscriptionManager';
 
 interface UserDashboardProps {
   profile: UserProfile;
@@ -55,7 +56,7 @@ interface UserDashboardProps {
   uiStyle?: 'classic' | 'minimal';
 }
 
-type UserTab = 'requests' | 'favorites' | 'wallet' | 'addresses' | 'settings' | 'chats' | 'suppliers' | 'market' | 'stats';
+type UserTab = 'requests' | 'favorites' | 'wallet' | 'addresses' | 'settings' | 'chats' | 'suppliers' | 'market' | 'stats' | 'subscription';
 
 export const UserDashboard: React.FC<UserDashboardProps> = ({
   profile,
@@ -71,8 +72,14 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   
   // Map supplierTab to UserTab
   const [activeTab, setActiveTab] = useState<UserTab>(
-    supplierTab === 'personal' ? 'settings' : 'stats'
+    supplierTab === 'personal' ? 'settings' : (supplierTab === 'subscription' || supplierTab === 'subscriptions') ? 'subscription' : 'stats'
   );
+
+  useEffect(() => {
+    if (supplierTab === 'subscription' || supplierTab === 'subscriptions') {
+      setActiveTab('subscription');
+    }
+  }, [supplierTab]);
   const [requestToDelete, setRequestToDelete] = useState<string | null>(null);
   const [isDeletingRequest, setIsDeletingRequest] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
@@ -192,6 +199,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     { id: 'suppliers', icon: Users, label: isRtl ? 'الموردين' : 'Suppliers' },
     { id: 'market', icon: Globe, label: isRtl ? 'السوق' : 'Market' },
     { id: 'stats', icon: BarChart3, label: isRtl ? 'الإحصائيات' : 'Statistics' },
+    { id: 'subscription', icon: Zap, label: isRtl ? 'الاشتراك' : 'Subscription' },
     { id: 'favorites', icon: Heart, label: isRtl ? 'المفضلة' : 'Favorites' },
     { id: 'settings', icon: Settings, label: isRtl ? 'الإعدادات' : 'Settings' },
   ];
@@ -510,6 +518,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
         );
       case 'wallet':
         return <WalletHub profile={profile} isRtl={isRtl} />;
+      case 'subscription':
+        return <SubscriptionManager isRtl={isRtl} />;
       case 'addresses':
         return (
           <div className="space-y-4">
@@ -648,7 +658,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   </span>
                   {activeTab === tab.id && (
                     <motion.div 
-                      layoutId="activeTabGlow"
+                      layoutId="userDashboardTabGlow"
                       className="absolute inset-0 bg-brand-primary/5 rounded-[2rem] -z-10"
                       initial={false}
                       transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}

@@ -77,6 +77,7 @@ interface ConnectCommandCenterProps {
   features: AppFeatures;
   onOpenChat: (chatId: string) => void;
   onViewProfile: (uid: string) => void;
+  dashboardTab?: string;
   uiStyle?: 'classic' | 'minimal';
 }
 
@@ -87,6 +88,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
   features,
   onOpenChat,
   onViewProfile,
+  dashboardTab,
   uiStyle = 'classic'
 }) => {
   const { t, i18n } = useTranslation();
@@ -96,7 +98,13 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
     (profile.role === 'supplier' || profile.role === 'admin') ? 'supplier' : 'customer'
   );
   
-  const [activeSubView, setActiveSubView] = useState<string | null>(null);
+  const [activeSubView, setActiveSubView] = useState<string | null>(dashboardTab || null);
+
+  useEffect(() => {
+    if (dashboardTab) {
+      setActiveSubView(dashboardTab);
+    }
+  }, [dashboardTab]);
   const [requests, setRequests] = useState<ProductRequest[]>([]);
   const [myMarketItems, setMyMarketItems] = useState<MarketplaceItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -467,7 +475,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
             {activeSubView === 'ad_analytics' && (
               <MarketplaceAnalytics />
             )}
-            {activeSubView === 'subscription' && (
+            {(activeSubView === 'subscription' || activeSubView === 'subscriptions') && (
               <SubscriptionManager isRtl={isRtl} />
             )}
           </div>

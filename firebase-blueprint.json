@@ -444,6 +444,65 @@
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "targetId", "type", "timestamp"]
+    },
+    "SubscriptionPlan": {
+      "title": "SubscriptionPlan",
+      "description": "Subscription plans and pricing configuration",
+      "type": "object",
+      "properties": {
+        "nameAr": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "code": { "type": "string" },
+        "targetRole": { "type": "string", "enum": ["supplier", "customer", "both"] },
+        "priceMonthly": { "type": "number" },
+        "priceYearly": { "type": "number" },
+        "currency": { "type": "string" },
+        "descriptionAr": { "type": "string" },
+        "descriptionEn": { "type": "string" },
+        "badgeAr": { "type": "string" },
+        "badgeEn": { "type": "string" },
+        "featuresAr": { "type": "array", "items": { "type": "string" } },
+        "featuresEn": { "type": "array", "items": { "type": "string" } },
+        "isPopular": { "type": "boolean" },
+        "isDefault": { "type": "boolean" },
+        "maxProductsLimit": { "type": "number" },
+        "maxOffersMonthly": { "type": "number" },
+        "commissionPercentage": { "type": "number" },
+        "aiMatchPriority": { "type": "boolean" },
+        "supportLevel": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive", "draft", "deleted"] },
+        "order": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nameAr", "nameEn", "code", "priceMonthly", "priceYearly"]
+    },
+    "MerchantAccount": {
+      "title": "MerchantAccount",
+      "description": "Admin configured merchant payment gateways and bank transfer accounts",
+      "type": "object",
+      "properties": {
+        "merchantName": { "type": "string" },
+        "provider": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive", "testing", "deleted"] },
+        "isDefault": { "type": "boolean" },
+        "currency": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["merchantName", "provider", "status"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "User wallet top ups and platform transactions",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["in", "out", "topup", "withdrawal", "payment", "refund"] },
+        "amount": { "type": "number" },
+        "titleAr": { "type": "string" },
+        "titleEn": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "amount", "createdAt"]
     }
   },
   "firestore": {
@@ -472,6 +531,9 @@
     "/activities/{activityId}": { "schema": "Activity", "description": "User daily movement logs" },
     "/supplier_performance/{supplierId}": { "schema": "SupplierPerformance", "description": "Supplier performance metrics" },
     "/demand_insights/{insightId}": { "schema": "DemandInsight", "description": "Market demand analysis" },
-    "/neural_pulse/{pulseId}": { "schema": "NeuralPulse", "description": "User behavior tracking logs" }
+    "/neural_pulse/{pulseId}": { "schema": "NeuralPulse", "description": "User behavior tracking logs" },
+    "/subscription_plans/{planId}": { "schema": "SubscriptionPlan", "description": "Subscription plans and pricing" },
+    "/merchant_accounts/{accountId}": { "schema": "MerchantAccount", "description": "Merchant accounts & payment gateways" },
+    "/transactions/{transactionId}": { "schema": "Transaction", "description": "User transactions & wallet top-ups" }
   }
 }

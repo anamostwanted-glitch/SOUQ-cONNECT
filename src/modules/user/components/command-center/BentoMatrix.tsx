@@ -95,6 +95,16 @@ export const BentoMatrix: React.FC<BentoMatrixProps> = ({
       span: 'col-span-1'
     },
     { 
+      id: 'subscription', 
+      title: isRtl ? 'باقات الاشتراك' : 'Subscription Tiers', 
+      desc: isRtl ? 'خطط الأسعار ومميزات الحساب' : 'Pricing & features',
+      icon: Zap, 
+      color: 'text-amber-500', 
+      bg: 'bg-amber-500/10', 
+      stat: 'JOD',
+      span: 'col-span-1'
+    },
+    { 
       id: 'branding_settings', 
       title: isRtl ? 'الهوية البصرية' : 'Custom Aura', 
       desc: isRtl ? 'تخصيص مظهر حسابك' : 'Customize your aura',
@@ -102,7 +112,7 @@ export const BentoMatrix: React.FC<BentoMatrixProps> = ({
       color: 'text-brand-primary', 
       bg: 'bg-brand-primary/10', 
       stat: 'Ready',
-      span: 'col-span-2'
+      span: 'col-span-1'
     }
   ];
 

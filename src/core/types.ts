@@ -535,3 +535,55 @@ export interface SupplierPerformance {
   suggestions: string[];
   calculatedAt: string;
 }
+
+export interface MerchantAccount {
+  id: string;
+  merchantName: string;
+  provider: 'moyasar' | 'tap' | 'hyperpay' | 'paytabs' | 'stripe' | 'stcpay' | 'bank_transfer' | 'custom';
+  merchantId?: string;
+  apiKeyPublic?: string;
+  apiKeySecret?: string;
+  webhookSecret?: string;
+  iban?: string;
+  bankName?: string;
+  accountHolder?: string;
+  currency: string;
+  environment: 'sandbox' | 'production';
+  status: 'active' | 'inactive' | 'testing';
+  isDefault?: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  code: 'basic' | 'pro' | 'enterprise' | string;
+  targetRole: 'supplier' | 'customer' | 'both';
+  priceMonthly: number;
+  priceYearly: number;
+  currency: string;
+  descriptionAr: string;
+  descriptionEn: string;
+  badgeAr?: string;
+  badgeEn?: string;
+  featuresAr: string[];
+  featuresEn: string[];
+  isPopular?: boolean;
+  isDefault?: boolean;
+  maxProductsLimit?: number;
+  maxOffersMonthly?: number;
+  commissionPercentage?: number;
+  aiMatchPriority?: boolean;
+  supportLevel?: 'standard' | 'priority' | 'dedicated';
+  status: 'active' | 'inactive';
+  order: number;
+  createdAt: string;
+  updatedAt?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+}

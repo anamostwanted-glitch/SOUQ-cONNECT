@@ -898,6 +898,107 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Subscription Plans
+    function isValidSubscriptionPlan(data) {
+      let allowedFields = [
+        'nameAr', 'nameEn', 'code', 'targetRole', 'priceMonthly', 'priceYearly', 'currency',
+        'descriptionAr', 'descriptionEn', 'badgeAr', 'badgeEn', 'featuresAr', 'featuresEn',
+        'isPopular', 'isDefault', 'maxProductsLimit', 'maxOffersMonthly', 'commissionPercentage',
+        'aiMatchPriority', 'supportLevel', 'status', 'order', 'createdAt', 'updatedAt', 'isDeleted', 'deletedAt'
+      ];
+      return data.keys().hasAll(['nameAr', 'nameEn', 'code', 'priceMonthly', 'priceYearly']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.nameAr is string && data.nameAr.size() < 256 &&
+             data.nameEn is string && data.nameEn.size() < 256 &&
+             data.code is string && data.code.size() < 128 &&
+             data.priceMonthly is number && data.priceMonthly >= 0 &&
+             data.priceYearly is number && data.priceYearly >= 0 &&
+             (!('targetRole' in data) || data.targetRole in ['supplier', 'customer', 'both']) &&
+             (!('currency' in data) || data.currency is string) &&
+             (!('descriptionAr' in data) || data.descriptionAr is string) &&
+             (!('descriptionEn' in data) || data.descriptionEn is string) &&
+             (!('badgeAr' in data) || data.badgeAr is string) &&
+             (!('badgeEn' in data) || data.badgeEn is string) &&
+             (!('featuresAr' in data) || data.featuresAr is list) &&
+             (!('featuresEn' in data) || data.featuresEn is list) &&
+             (!('isPopular' in data) || data.isPopular is bool) &&
+             (!('isDefault' in data) || data.isDefault is bool) &&
+             (!('maxProductsLimit' in data) || data.maxProductsLimit is number) &&
+             (!('maxOffersMonthly' in data) || data.maxOffersMonthly is number) &&
+             (!('commissionPercentage' in data) || data.commissionPercentage is number) &&
+             (!('aiMatchPriority' in data) || data.aiMatchPriority is bool) &&
+             (!('supportLevel' in data) || data.supportLevel is string) &&
+             (!('status' in data) || data.status in ['active', 'inactive', 'draft', 'deleted']) &&
+             (!('order' in data) || data.order is number) &&
+             (!('createdAt' in data) || data.createdAt is string) &&
+             (!('updatedAt' in data) || data.updatedAt is string) &&
+             (!('isDeleted' in data) || data.isDeleted is bool) &&
+             (!('deletedAt' in data) || data.deletedAt is string);
+    }
+
+    match /subscription_plans/{planId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin() && (request.method == 'delete' || isValidSubscriptionPlan(request.resource.data));
+    }
+
+    // Merchant Accounts
+    function isValidMerchantAccount(data) {
+      let allowedFields = [
+        'merchantName', 'provider', 'merchantId', 'apiKeyPublic', 'apiKeySecret', 'webhookSecret',
+        'iban', 'bankName', 'accountHolder', 'currency', 'environment', 'status', 'isDefault',
+        'notes', 'createdAt', 'updatedAt', 'isDeleted', 'deletedAt'
+      ];
+      return data.keys().hasAll(['merchantName', 'provider', 'status']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.merchantName is string && data.merchantName.size() < 256 &&
+             data.provider is string && data.provider.size() < 128 &&
+             data.status in ['active', 'inactive', 'testing', 'deleted'] &&
+             (!('merchantId' in data) || data.merchantId is string) &&
+             (!('apiKeyPublic' in data) || data.apiKeyPublic is string) &&
+             (!('apiKeySecret' in data) || data.apiKeySecret is string) &&
+             (!('webhookSecret' in data) || data.webhookSecret is string) &&
+             (!('iban' in data) || data.iban is string) &&
+             (!('bankName' in data) || data.bankName is string) &&
+             (!('accountHolder' in data) || data.accountHolder is string) &&
+             (!('currency' in data) || data.currency is string) &&
+             (!('environment' in data) || data.environment in ['sandbox', 'production', 'testing']) &&
+             (!('isDefault' in data) || data.isDefault is bool) &&
+             (!('notes' in data) || data.notes is string) &&
+             (!('createdAt' in data) || data.createdAt is string) &&
+             (!('updatedAt' in data) || data.updatedAt is string) &&
+             (!('isDeleted' in data) || data.isDeleted is bool) &&
+             (!('deletedAt' in data) || data.deletedAt is string);
+    }
+
+    match /merchant_accounts/{accountId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource != null && resource.data.status == 'active' && resource.data.get('isDeleted', false) != true);
+      allow create, update: if isAdmin() && isValidMerchantAccount(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // User Transactions & Wallet
+    function isValidTransaction(data) {
+      let allowedFields = ['userId', 'type', 'amount', 'titleAr', 'titleEn', 'status', 'paymentMethod', 'merchantAccountId', 'createdAt', 'updatedAt'];
+      return data.keys().hasAll(['userId', 'type', 'amount', 'createdAt']) &&
+             data.keys().hasOnly(allowedFields) &&
+             data.userId is string &&
+             data.type in ['in', 'out', 'topup', 'withdrawal', 'payment', 'refund'] &&
+             data.amount is number &&
+             data.createdAt is string &&
+             (!('titleAr' in data) || data.titleAr is string) &&
+             (!('titleEn' in data) || data.titleEn is string) &&
+             (!('status' in data) || data.status in ['completed', 'pending', 'failed', 'cancelled']) &&
+             (!('paymentMethod' in data) || data.paymentMethod is string) &&
+             (!('merchantAccountId' in data) || data.merchantAccountId is string) &&
+             (!('updatedAt' in data) || data.updatedAt is string);
+    }
+
+    match /transactions/{txId} {
+      allow read: if isAuthenticated() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidTransaction(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
     // Connection Test Rule
     match /test/connection {
       allow read: if true;

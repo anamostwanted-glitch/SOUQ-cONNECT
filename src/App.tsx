@@ -40,6 +40,7 @@ const SmartHelp = lazy(() => import('./modules/common/components/SmartHelp').the
 const Legal = lazy(() => import('./modules/site/components/Legal'));
 const SupplierLandingPage = lazy(() => import('./modules/site/components/SupplierLandingPage'));
 const SupplierOnboarding = lazy(() => import('./modules/site/components/SupplierOnboarding').then(m => ({ default: m.SupplierOnboarding })));
+const SubscriptionPage = lazy(() => import('./modules/site/components/SubscriptionPage'));
 
 import { getChatId } from './core/utils/utils';
 
@@ -79,6 +80,15 @@ export default function App() {
       case 'terms': path = '/terms'; break;
       case 'privacy': path = '/privacy'; break;
       case 'connect': path = '/rewards'; break;
+      case 'subscriptions':
+      case 'subscription':
+        if (viewMode === 'admin') {
+          path = '/dashboard';
+          setDashboardTab('subscriptions');
+        } else {
+          path = '/subscriptions';
+        }
+        break;
       default: path = `/${view}`;
     }
     
@@ -597,6 +607,18 @@ export default function App() {
                       ) : (
                         <Auth onAuthSuccess={() => setView('connect')} onNavigate={setView} />
                       )}
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/subscriptions" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <SubscriptionPage 
+                        profile={profile}
+                        viewMode={viewMode}
+                        onNavigate={setView}
+                        setDashboardTab={setDashboardTab}
+                      />
                     </Suspense>
                   </ErrorBoundary>
                 } />

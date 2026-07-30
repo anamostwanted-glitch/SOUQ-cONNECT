@@ -150,6 +150,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                   {[
                     { id: 'home', label: t('home'), icon: HomeIcon, view: 'home' },
                     { id: 'dashboard', label: isRtl ? 'مركز كونكت' : 'Connect Center', icon: LayoutGrid, view: 'dashboard', tab: 'dashboard' },
+                    { id: 'subscriptions', label: isRtl ? 'باقات الاشتراك' : 'Subscription Plans', icon: Zap, view: viewMode === 'admin' ? 'dashboard' : 'subscriptions', tab: viewMode === 'admin' ? 'subscriptions' : undefined },
                     { id: 'connect', label: isRtl ? 'مكافآت كونكت' : 'Connect Rewards', icon: Zap, view: 'connect' },
                     { id: 'marketing', label: isRtl ? 'التسويق والنمو' : 'Marketing & Growth', icon: Megaphone, view: 'dashboard', tab: 'marketing', condition: profile && viewMode !== 'admin' },
                     {id: 'help', label: isRtl ? 'مركز المساعدة' : 'Help Center', icon: BookOpen, action: onOpenHelpCenter},
@@ -188,7 +189,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                         </div>
                         {isActive && (
                           <motion.div 
-                            layoutId="active-indicator"
+                            layoutId="mobile-menu-active-indicator"
                             className="w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]"
                           />
                         )}

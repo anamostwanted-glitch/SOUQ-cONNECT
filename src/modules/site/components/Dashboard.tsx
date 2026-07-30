@@ -56,6 +56,7 @@ export default function Dashboard({
           features={features}
           onOpenChat={onOpenChat}
           onViewProfile={onViewProfile}
+          dashboardTab={dashboardTab}
           uiStyle={uiStyle}
         />
       )}

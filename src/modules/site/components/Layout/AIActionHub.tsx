@@ -167,7 +167,7 @@ export const AIActionHub: React.FC<AIActionHubProps> = ({
                 <Zap size={18} />
               </div>
               <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
-                {isRtl ? 'مدعوم بتقنيات Gemini Pro' : 'Powered by Gemini Pro'}
+                {isRtl ? 'مدعوم بالمحرك الذكي' : 'Powered by Smart Engine'}
               </span>
             </div>
             <div className="px-2 py-1 bg-brand-primary text-white text-[8px] font-black rounded-md uppercase tracking-tighter">

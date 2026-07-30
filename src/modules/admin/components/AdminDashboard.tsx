@@ -83,6 +83,7 @@ import { AdminSmartHub } from './AdminSmartHub';
 import { InviteSupplierModal } from './InviteSupplierModal';
 import { DashboardCopilot } from './DashboardCopilot';
 import { PasskeyManager } from '../../user/components/PasskeyManager';
+import { SubscriptionManager } from '../../../components/SubscriptionManager';
 import { toast } from 'sonner';
 import { deleteDoc, writeBatch, where } from 'firebase/firestore';
 
@@ -1437,6 +1438,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               className="max-w-6xl mx-auto"
             >
               <SliderSettingsAdmin />
+            </motion.div>
+          )}
+
+          {(activeTab === 'subscription' || activeTab === 'subscriptions') && (
+            <motion.div
+              key="subscription"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-7xl mx-auto"
+            >
+              <SiteSettingsManager initialTab="subscriptions" />
             </motion.div>
           )}
         </AnimatePresence>

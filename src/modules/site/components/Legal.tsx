@@ -24,10 +24,10 @@ const Legal: React.FC<LegalProps> = ({ type, onBack }) => {
             : 'We collect only the essential data required for system operation, including digital identity data, verified commercial registrations, and precise GPS locations to ensure accurate local matching. We adhere to the "Data Minimization" principle, where no information is gathered unless it serves the commercial connection process or AI performance enhancement.'
         },
         {
-          title: isRtl ? '2. المعالجة العصبية والذكاء الاصطناعي (Gemini)' : '2. Neural Processing & AI (Gemini)',
+          title: isRtl ? '2. المعالجة العصبية والمطابقة الذكية' : '2. Neural Processing & Smart Matching',
           body: isRtl
-            ? 'تتم معالجة بياناتك عبر محركنا العصبي المدعوم بـ Gemini AI لتحليل الأنماط التجارية والمطابقة الذكية. يتم تشفير البيانات قبل معالجتها لضمان عدم وصول الخوارزميات إلى معلوماتك الشخصية الحساسة بشكل مباشر. نستخدم هذه البيانات للتنبؤ باحتياجات السوق وتقديم توصيات استباقية ترفع كفاءة عملياتك.'
-            : 'Your data is processed via our neural engine powered by Gemini AI to analyze business patterns and smart matching. Data is encrypted prior to processing to ensure algorithms do not directly access your sensitive personal information. We utilize this data to predict market needs and provide proactive recommendations that boost your operational efficiency.'
+            ? 'تتم معالجة بياناتك عبر محركنا العصبي المتقدم لتحليل الأنماط التجارية والمطابقة الذكية. يتم تشفير البيانات قبل معالجتها لضمان عدم وصول الخوارزميات إلى معلوماتك الشخصية الحساسة بشكل مباشر. نستخدم هذه البيانات للتنبؤ باحتياجات السوق وتقديم توصيات استباقية ترفع كفاءة عملياتك.'
+            : 'Your data is processed via our advanced neural engine to analyze business patterns and smart matching. Data is encrypted prior to processing to ensure algorithms do not directly access your sensitive personal information. We utilize this data to predict market needs and provide proactive recommendations that boost your operational efficiency.'
         },
         {
           title: isRtl ? '3. سياسة التتبع والتحليلات المتقدمة' : '3. Advanced Tracking & Analytics Policy',

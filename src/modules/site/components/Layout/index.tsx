@@ -372,9 +372,11 @@ export const Layout: React.FC<LayoutProps> = ({
             onVisualSearch={() => {
               if (features.smartAssistantEnabled) {
                 setIsAIHubOpen(true);
-              } else {
+              } else if (features.marketplace !== false) {
                 setView('marketplace');
                 setDashboardTab?.('requests');
+              } else {
+                setView('home');
               }
             }}
             onToggleNotifications={onOpenNotifications || (() => {})}
@@ -444,8 +446,12 @@ export const Layout: React.FC<LayoutProps> = ({
               } else if (action === 'voice') {
                 setView('home');
               } else if (action === 'request') {
-                setView('marketplace');
-                setDashboardTab?.('requests');
+                if (features.marketplace !== false) {
+                  setView('marketplace');
+                  setDashboardTab?.('requests');
+                } else {
+                  setView('home');
+                }
               }
             }}
           />

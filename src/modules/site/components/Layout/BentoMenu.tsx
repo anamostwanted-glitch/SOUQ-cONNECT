@@ -92,6 +92,7 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
     }] : []),
     { id: 'chat', icon: MessageSquare, labelAr: 'المحادثات', labelEn: 'Chats', color: 'text-yellow-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'connect', icon: Zap, labelAr: 'المكافآت', labelEn: 'Connect', color: 'text-purple-500', roles: ['customer', 'supplier', 'admin'] },
+    { id: 'subscriptions', icon: Zap, labelAr: 'باقات الاشتراك', labelEn: 'Subscriptions', color: 'text-amber-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'dashboard', icon: LayoutGrid, labelAr: 'لوحة التحكم', labelEn: 'Dashboard', color: 'text-red-500', roles: ['supplier', 'admin'] },
     { id: 'profile', icon: User, labelAr: 'الملف الشخصي', labelEn: 'Profile', color: 'text-indigo-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'supplier_landing', icon: Building2, labelAr: 'كن مورداً', labelEn: 'Become Supplier', color: 'text-orange-600', roles: ['customer'] },
@@ -215,7 +216,8 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
                 {menuItems.map((item) => {
                   const isItemActive = 
                     (item.id === currentView) || 
-                    (item.id === 'dashboard' && currentView === 'dashboard') ||
+                    (item.id === 'subscriptions' && (currentView === 'subscriptions' || (currentView === 'dashboard' && (dashboardTab === 'subscription' || dashboardTab === 'subscriptions')))) ||
+                    (item.id === 'dashboard' && currentView === 'dashboard' && dashboardTab !== 'subscription' && dashboardTab !== 'subscriptions') ||
                     (item.id === 'profile' && currentView === 'profile');
 
                   return (
@@ -226,6 +228,15 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
                       onClick={() => {
                         if (item.id === 'dashboard') {
                           setDashboardTab?.('overview');
+                        } else if (item.id === 'subscriptions' || item.id === 'subscription') {
+                          if (viewMode === 'admin') {
+                            setView('dashboard');
+                            setDashboardTab?.('subscriptions');
+                          } else {
+                            setView('subscriptions');
+                          }
+                          setIsOpen(false);
+                          return;
                         } else if (item.id === 'profile') {
                           // If user is admin/supplier, profile is often in dashboard
                           if (viewMode === 'supplier' || viewMode === 'admin') {

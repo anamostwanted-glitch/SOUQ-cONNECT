@@ -7,6 +7,8 @@
     "dev": "tsx server.ts",
     "build": "npx vite build",
     "postbuild": "cp -r dist build",
+    "cap:sync": "npx cap sync",
+    "cap:copy": "npx cap copy",
     "start": "node server.ts",
     "preview": "vite preview",
     "lint": "tsc --noEmit"

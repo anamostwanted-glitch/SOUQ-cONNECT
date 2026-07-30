@@ -68,7 +68,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActive
           >
             {activeTab === tab.id && (
               <motion.div 
-                layoutId="activeTabGlow"
+                layoutId="adminSidebarTabGlow"
                 className={`absolute left-0 top-0 bottom-0 w-1 ${tab.color || 'bg-brand-primary'}`}
                 initial={{ height: 0 }}
                 animate={{ height: '100%' }}

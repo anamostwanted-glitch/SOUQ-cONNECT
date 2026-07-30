@@ -23,9 +23,16 @@ import { NeuralHaloSettings } from './settings/NeuralHaloSettings';
 import { FlubberSettings } from './settings/FlubberSettings';
 import { LoadingCustomizer } from './LoadingCustomizer';
 import { MaintenanceSettings } from './settings/MaintenanceSettings';
-import { ShieldAlert } from 'lucide-react';
+import { MerchantSettings } from './settings/MerchantSettings';
+import { SubscriptionSettings } from './settings/SubscriptionSettings';
+import { ShieldAlert, CreditCard, Zap } from 'lucide-react';
 
-export const SiteSettingsManager: React.FC = () => {
+interface SiteSettingsManagerProps {
+  initialTab?: string;
+  onNavigate?: (view: string) => void;
+}
+
+export const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ initialTab = 'identity', onNavigate }) => {
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const [settings, setSettings] = useState<SiteSettings>({
@@ -38,8 +45,14 @@ export const SiteSettingsManager: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-  const [currentTab, setCurrentTab] = useState('identity');
+  const [currentTab, setCurrentTab] = useState(initialTab);
   const [showPreview, setShowPreview] = useState(false);
+
+  useEffect(() => {
+    if (initialTab) {
+      setCurrentTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Tabs Configuration
   const tabs = [
@@ -49,6 +62,8 @@ export const SiteSettingsManager: React.FC = () => {
     { id: 'market', label: isRtl ? 'تخطيط السوق' : 'Marketplace', icon: LayoutGrid, color: 'text-brand-primary' },
     { id: 'ai', label: isRtl ? 'الذكاء الاصطناعي' : 'AI Assistant', icon: Bot, color: 'text-brand-primary' },
     { id: 'footer', label: isRtl ? 'التذييل' : 'Footer', icon: ListChecks, color: 'text-brand-primary' },
+    { id: 'merchant', label: isRtl ? 'حساب التاجر والمدفوعات' : 'Merchant Accounts & Payments', icon: CreditCard, color: 'text-emerald-500' },
+    { id: 'subscriptions', label: isRtl ? 'خطط الاشتراكات والأسعار' : 'Subscription Plans & Pricing', icon: Zap, color: 'text-amber-500' },
     { id: 'loader', label: isRtl ? 'شاشة التحميل' : 'Loading Screen', icon: Sparkles, color: 'text-brand-primary' },
     { id: 'maintenance', label: isRtl ? 'الصيانة' : 'Maintenance', icon: ShieldAlert, color: 'text-brand-error' },
   ];
@@ -161,7 +176,7 @@ export const SiteSettingsManager: React.FC = () => {
               </div>
               {tab.label}
               {currentTab === tab.id && (
-                <motion.div layoutId="activeTabGlow" className="ml-auto w-1.5 h-1.5 rounded-full bg-brand-primary shadow-[0_0_8px_rgba(27,151,167,0.5)]" />
+                <motion.div layoutId="siteSettingsTabGlow" className="ml-auto w-1.5 h-1.5 rounded-full bg-brand-primary shadow-[0_0_8px_rgba(27,151,167,0.5)]" />
               )}
             </button>
           ))}
@@ -192,6 +207,8 @@ export const SiteSettingsManager: React.FC = () => {
                   </div>
                 )}
                 {currentTab === 'maintenance' && <MaintenanceSettings settings={settings} setSettings={setSettings} isRtl={isRtl} />}
+                {currentTab === 'merchant' && <MerchantSettings isRtl={isRtl} />}
+                {currentTab === 'subscriptions' && <SubscriptionSettings />}
                 {currentTab === 'loader' && <LoadingCustomizer />}
               </motion.div>
             </AnimatePresence>

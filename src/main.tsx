@@ -22,6 +22,9 @@ window.addEventListener('unhandledrejection', (event) => {
   
   // Suppress common benign errors or errors handled elsewhere
   const isBenign = 
+    !reason ||
+    message === '' ||
+    message === '[object Object]' ||
     message.includes('Quota exceeded') ||
     message.includes('high demand') ||
     message.includes('503') ||
@@ -38,6 +41,8 @@ window.addEventListener('unhandledrejection', (event) => {
     message.includes('Load failed') ||
     message.includes('The operation is insecure') ||
     message.includes('play() request') ||
+    message.includes('canceled') ||
+    message.includes('cancelled') ||
     reason?.isAiHandled === true;
 
   if (isBenign) {
