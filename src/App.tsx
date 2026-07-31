@@ -41,6 +41,8 @@ const Legal = lazy(() => import('./modules/site/components/Legal'));
 const SupplierLandingPage = lazy(() => import('./modules/site/components/SupplierLandingPage'));
 const SupplierOnboarding = lazy(() => import('./modules/site/components/SupplierOnboarding').then(m => ({ default: m.SupplierOnboarding })));
 const SubscriptionPage = lazy(() => import('./modules/site/components/SubscriptionPage'));
+const HelpCenter = lazy(() => import('./modules/site/components/HelpCenter'));
+const NeuralMarketTrends = lazy(() => import('./modules/common/components/NeuralMarketTrends'));
 
 import { getChatId } from './core/utils/utils';
 
@@ -576,10 +578,33 @@ export default function App() {
                     </Suspense>
                   </ErrorBoundary>
                 } />
+                <Route path="/guide" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <HelpCenter onClose={() => setView('home')} isRtl={i18nInstance.language === 'ar'} />
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/help-center" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <HelpCenter onClose={() => setView('home')} isRtl={i18nInstance.language === 'ar'} />
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
                 <Route path="/partnerships" element={
                   <ErrorBoundary>
                     <Suspense fallback={<Skeleton className="h-screen w-full" />}>
                       <Partnerships />
+                    </Suspense>
+                  </ErrorBoundary>
+                } />
+                <Route path="/market-trends" element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<Skeleton className="h-screen w-full" />}>
+                      <div className="max-w-7xl mx-auto px-4 py-8">
+                        <NeuralMarketTrends profile={profile} isRtl={i18nInstance.language === 'ar'} onUpgradeClick={() => navigate('/pricing')} />
+                      </div>
                     </Suspense>
                   </ErrorBoundary>
                 } />

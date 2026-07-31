@@ -22,7 +22,8 @@ import {
   Accessibility,
   ArrowUpRight,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from 'lucide-react';
 import { MiniSparkline } from '../../../../shared/components/MiniSparkline';
 
@@ -113,6 +114,27 @@ export const BentoMatrix: React.FC<BentoMatrixProps> = ({
       bg: 'bg-brand-primary/10', 
       stat: 'Ready',
       span: 'col-span-1'
+    },
+    { 
+      id: 'market_trends', 
+      title: isRtl ? 'اتجاهات السوق والطلب' : 'Google Market Trends', 
+      desc: isRtl ? 'مقارنة حجم البحث والطلب' : 'Search & demand trends',
+      icon: TrendingUp, 
+      color: 'text-indigo-600', 
+      bg: 'bg-indigo-600/10', 
+      stat: 'PRO',
+      span: 'col-span-1',
+      sparkle: true
+    },
+    { 
+      id: 'user_guide', 
+      title: isRtl ? 'دليل الاستخدام' : 'User Guide', 
+      desc: isRtl ? 'الشرح والطباعة PDF' : 'Guide & PDF export',
+      icon: BookOpen, 
+      color: 'text-indigo-500', 
+      bg: 'bg-indigo-500/10', 
+      stat: 'PDF',
+      span: 'col-span-1'
     }
   ];
 
@@ -188,7 +210,28 @@ export const BentoMatrix: React.FC<BentoMatrixProps> = ({
       color: 'text-slate-500', 
       bg: 'bg-slate-500/10', 
       stat: 'Online',
-      span: 'col-span-2'
+      span: 'col-span-1'
+    },
+    { 
+      id: 'market_trends', 
+      title: isRtl ? 'اتجاهات جوجل والسوق' : 'Google Market Trends', 
+      desc: isRtl ? 'مقارنة حجم البحث والطلب' : 'Search & demand trends',
+      icon: TrendingUp, 
+      color: 'text-indigo-600', 
+      bg: 'bg-indigo-600/10', 
+      stat: 'PRO',
+      span: 'col-span-1',
+      sparkle: true
+    },
+    { 
+      id: 'user_guide', 
+      title: isRtl ? 'دليل الاستخدام' : 'User Guide', 
+      desc: isRtl ? 'الشرح والطباعة PDF' : 'Guide & PDF export',
+      icon: BookOpen, 
+      color: 'text-indigo-500', 
+      bg: 'bg-indigo-500/10', 
+      stat: 'PDF',
+      span: 'col-span-1'
     }
   ];
 

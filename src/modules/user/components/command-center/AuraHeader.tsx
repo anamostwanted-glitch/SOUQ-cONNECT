@@ -24,6 +24,46 @@ export const AuraHeader: React.FC<AuraHeaderProps> = ({
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
 
+  const planCode = typeof profile?.subscriptionPlan === 'object' 
+    ? (profile.subscriptionPlan as any)?.code
+    : (profile?.subscriptionPlan || (profile as any)?.plan || 'basic');
+  const code = (planCode || 'basic').toLowerCase();
+
+  const getPlanBadge = () => {
+    if (code.includes('elite') || code.includes('نخبة')) {
+      return {
+        label: isRtl ? 'باقة النخبة Elite' : 'Elite Tier',
+        bg: 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 font-black shadow-lg shadow-amber-500/20',
+        icon: '👑',
+        border: 'border border-amber-300/60'
+      };
+    }
+    if (code.includes('pro') || code.includes('احتراف')) {
+      return {
+        label: isRtl ? 'باقة احترافية Pro' : 'Pro Tier',
+        bg: 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white font-black shadow-lg shadow-indigo-500/20',
+        icon: '⚡',
+        border: 'border border-indigo-400/60'
+      };
+    }
+    if (code.includes('enterprise') || code.includes('مؤسس')) {
+      return {
+        label: isRtl ? 'باقة المؤسسات Enterprise' : 'Enterprise Tier',
+        bg: 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-lg shadow-emerald-500/20',
+        icon: '💎',
+        border: 'border border-emerald-400/60'
+      };
+    }
+    return {
+      label: isRtl ? 'الباقة الأساسية' : 'Basic Tier',
+      bg: 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold',
+      icon: '🌱',
+      border: 'border border-slate-300 dark:border-slate-700'
+    };
+  };
+
+  const planBadge = getPlanBadge();
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -58,15 +98,23 @@ export const AuraHeader: React.FC<AuraHeaderProps> = ({
           </div>
 
           <div className="flex-1 text-center md:text-left rtl:md:text-right">
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-4 mb-6">
+            <div className="flex flex-col md:flex-row items-center md:items-center gap-4 mb-6">
               <h1 className="text-4xl md:text-6xl font-black text-brand-text-main tracking-tight leading-none">
                 {profile.name}
               </h1>
-              {profile.isVerified && (
-                <Badge className="bg-brand-primary/10 text-brand-primary border-none text-[10px] uppercase tracking-widest font-black py-2 px-4 rounded-full mb-1">
-                  {isRtl ? 'حساب موثق' : 'Verified Identity'}
-                </Badge>
-              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs transition-all ${planBadge.bg} ${planBadge.border}`}>
+                  <span>{planBadge.icon}</span>
+                  <span>{planBadge.label}</span>
+                </span>
+
+                {profile.isVerified && (
+                  <Badge className="bg-brand-primary/10 text-brand-primary border-none text-[10px] uppercase tracking-widest font-black py-2 px-4 rounded-full">
+                    {isRtl ? 'حساب موثق' : 'Verified Identity'}
+                  </Badge>
+                )}
+              </div>
             </div>
             
             <p className="text-brand-text-muted text-lg font-medium mb-8 max-w-2xl mx-auto md:mx-0 leading-relaxed">

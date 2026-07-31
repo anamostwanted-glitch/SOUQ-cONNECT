@@ -262,9 +262,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {user.keywords.map((kw) => (
+                        {user.keywords.map((kw, idx) => (
                           <span 
-                            key={kw}
+                            key={`kw-${kw}-${idx}`}
                             className="px-2 py-1 bg-white text-brand-success rounded-lg text-[10px] font-bold border border-brand-border-light shadow-sm"
                           >
                             {kw}

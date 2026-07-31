@@ -155,10 +155,10 @@ export const KeywordManagerModal: React.FC<KeywordManagerModalProps> = ({ catego
             </div>
             
             <div className="flex flex-wrap gap-2 min-h-[60px] p-4 bg-brand-background rounded-2xl border border-brand-border border-dashed">
-              {keywords.map(kw => {
+              {keywords.map((kw, idx) => {
                 const isAuto = autoKeywords.includes(kw);
                 return (
-                  <span key={kw} className={`px-3 py-1.5 ${isAuto ? 'bg-brand-warning/10 text-brand-warning border-brand-warning/20' : 'bg-brand-primary/10 text-brand-primary border-brand-primary/20'} text-xs font-bold rounded-xl border flex items-center gap-2 group relative`}>
+                  <span key={`kw-${kw}-${idx}`} className={`px-3 py-1.5 ${isAuto ? 'bg-brand-warning/10 text-brand-warning border-brand-warning/20' : 'bg-brand-primary/10 text-brand-primary border-brand-primary/20'} text-xs font-bold rounded-xl border flex items-center gap-2 group relative`}>
                     {kw}
                     {isAuto && (
                       <span className="flex items-center gap-1 ml-1">
@@ -227,8 +227,8 @@ export const KeywordManagerModal: React.FC<KeywordManagerModalProps> = ({ catego
             </div>
 
             <div className="flex flex-wrap gap-2 p-4 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
-              {suggestedKeywords.map(kw => (
-                <div key={kw} className="flex items-center gap-1 bg-brand-surface border border-brand-border rounded-xl overflow-hidden shadow-sm">
+              {suggestedKeywords.map((kw, idx) => (
+                <div key={`sug-kw-${kw}-${idx}`} className="flex items-center gap-1 bg-brand-surface border border-brand-border rounded-xl overflow-hidden shadow-sm">
                   <span className="px-3 py-1.5 text-xs font-bold text-brand-text-main border-r border-brand-border">
                     {kw}
                   </span>

@@ -67,10 +67,12 @@ import { ProductCard } from '../../marketplace/components/ProductCard';
 import { SmartUploadModal } from '../../marketplace/components/upload-flow/SmartUploadModal';
 import { Category } from '../../../core/types';
 import { UserNeuralHub } from '../../common/components/UserNeuralHub';
+import { NeuralMarketTrends } from '../../common/components/NeuralMarketTrends';
 import { UserActivityFeed } from '../../common/components/UserActivityFeed';
 import { AuraHeader } from './command-center/AuraHeader';
 import { PulseRibbon } from './command-center/PulseRibbon';
 import { BentoMatrix } from './command-center/BentoMatrix';
+import HelpCenter from '../../site/components/HelpCenter';
 
 interface ConnectCommandCenterProps {
   profile: UserProfile;
@@ -316,8 +318,18 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
           </div>
 
           <div className="pb-24">
+            {(activeSubView === 'user_guide' || activeSubView === 'help') && (
+              <HelpCenter onClose={() => setActiveSubView(null)} isRtl={isRtl} />
+            )}
             {activeSubView === 'smart_pulse' && (
               <UserNeuralHub profile={profile} isRtl={isRtl} />
+            )}
+            {(activeSubView === 'market_trends' || activeSubView === 'trends') && (
+              <NeuralMarketTrends 
+                profile={profile} 
+                isRtl={isRtl} 
+                onUpgradeClick={() => setActiveSubView('subscription')} 
+              />
             )}
             {activeSubView === 'neural_activity' && (
               <UserActivityFeed />

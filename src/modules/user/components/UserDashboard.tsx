@@ -552,7 +552,22 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <img src={getUserImageUrl(profile)} alt={profile.name} className="w-full h-full object-cover rounded-2xl" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-xl font-black text-brand-text-main truncate">{profile.name}</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-xl font-black text-brand-text-main truncate">{profile.name}</h3>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                    (profile?.subscriptionPlan as any)?.code === 'pro' || profile?.subscriptionPlan === 'pro' || (profile as any)?.plan === 'pro'
+                      ? 'bg-indigo-600 text-white'
+                      : (profile?.subscriptionPlan as any)?.code === 'elite' || profile?.subscriptionPlan === 'elite' || (profile as any)?.plan === 'elite'
+                      ? 'bg-amber-400 text-slate-950'
+                      : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}>
+                    { (profile?.subscriptionPlan as any)?.code === 'pro' || profile?.subscriptionPlan === 'pro' || (profile as any)?.plan === 'pro'
+                      ? 'PRO'
+                      : (profile?.subscriptionPlan as any)?.code === 'elite' || profile?.subscriptionPlan === 'elite' || (profile as any)?.plan === 'elite'
+                      ? 'ELITE'
+                      : 'BASIC' }
+                  </span>
+                </div>
                 <p className="text-brand-text-muted text-sm truncate">{profile.email}</p>
                 <span className="inline-block mt-2 px-3 py-1 bg-brand-primary/10 text-brand-primary text-[10px] font-black uppercase tracking-widest rounded-lg border border-brand-primary/20">
                   {isRtl ? 'مستخدم' : 'User'}

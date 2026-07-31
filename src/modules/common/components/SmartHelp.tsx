@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
-import { Send, Bot, User, Sparkles, X, HelpCircle, MessageSquare, Info } from 'lucide-react';
+import { Send, Bot, User, Sparkles, X, HelpCircle, MessageSquare, Info, BookOpen } from 'lucide-react';
 import { getAiAssistantResponse, handleAiError } from '../../../core/services/geminiService';
+import HelpCenter from '../../site/components/HelpCenter';
 
 interface Message {
   id: string;
@@ -30,6 +31,7 @@ Roles:
 export const SmartHelp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
+  const [showHelpCenterModal, setShowHelpCenterModal] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -196,11 +198,15 @@ export const SmartHelp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         {[
-          { icon: MessageSquare, title: isRtl ? 'تواصل معنا' : 'Contact Us', desc: isRtl ? 'دعم مباشر 24/7' : '24/7 Live Support' },
-          { icon: Info, title: isRtl ? 'دليل الاستخدام' : 'User Guide', desc: isRtl ? 'تعلم كيف تبدأ' : 'Learn how to start' },
-          { icon: HelpCircle, title: isRtl ? 'الأسئلة الشائعة' : 'FAQs', desc: isRtl ? 'إجابات سريعة' : 'Quick answers' }
+          { id: 'contact', icon: MessageSquare, title: isRtl ? 'تواصل معنا' : 'Contact Us', desc: isRtl ? 'دعم مباشر 24/7' : '24/7 Live Support', action: () => setInput(isRtl ? 'أرغب في التواصل مع الدعم الفني' : 'I want to contact support') },
+          { id: 'guide', icon: Info, title: isRtl ? 'دليل الاستخدام والمركز المعرفي' : 'User Guide', desc: isRtl ? 'تعلم كيف تبدأ واطبع الدليل' : 'Learn how to start & print guide', action: () => setShowHelpCenterModal(true) },
+          { id: 'faq', icon: HelpCircle, title: isRtl ? 'الأسئلة الشائعة' : 'FAQs', desc: isRtl ? 'إجابات سريعة والسياسات' : 'Quick answers & policies', action: () => setShowHelpCenterModal(true) }
         ].map((item, i) => (
-          <div key={i} className="p-4 bg-brand-surface border border-brand-border rounded-2xl flex items-start gap-3 hover:border-brand-primary/50 transition-colors cursor-pointer group">
+          <div 
+            key={i} 
+            onClick={item.action}
+            className="p-4 bg-brand-surface border border-brand-border rounded-2xl flex items-start gap-3 hover:border-brand-primary/50 transition-colors cursor-pointer group hover:scale-[1.01] active:scale-[0.99]"
+          >
             <div className="p-2 bg-brand-primary/5 rounded-lg text-brand-primary group-hover:bg-brand-primary group-hover:text-white transition-colors">
               <item.icon size={20} />
             </div>
@@ -211,6 +217,12 @@ export const SmartHelp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </div>
         ))}
       </div>
+
+      <AnimatePresence>
+        {showHelpCenterModal && (
+          <HelpCenter onClose={() => setShowHelpCenterModal(false)} isRtl={isRtl} />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

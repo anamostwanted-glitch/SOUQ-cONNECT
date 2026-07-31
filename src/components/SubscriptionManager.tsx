@@ -65,6 +65,7 @@ const DEFAULT_DISPLAY_PLANS: SubscriptionPlan[] = [
     featuresAr: [
       'منتجات وخدمات غير محدودة في المعرض',
       'تقديم حتى 100 عرض سعر شهرياً',
+      'وصول كامل لأداة اتجاهات السوق والطلب (Google Trends)',
       'أولوية ظهور بالذكاء الاصطناعي (AI Predictive Match)',
       'تنبيهات فورية بالواتساب للطلبات الجديدة',
       'نسبة عمولة منخفضة 2.5%'
@@ -72,6 +73,7 @@ const DEFAULT_DISPLAY_PLANS: SubscriptionPlan[] = [
     featuresEn: [
       'Unlimited products & services in showcase',
       'Submit up to 100 quotes monthly',
+      'Full access to Google Market Trends analytics',
       'AI Predictive Match top visibility',
       'Instant WhatsApp notifications for new RFQs',
       'Reduced platform commission 2.5%'
