@@ -18,10 +18,13 @@ import {
   Bell,
   Plus,
   X,
-  ChevronRight
+  ChevronRight,
+  Layers,
+  Tag
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { UserProfile } from '../../../core/types';
+import { UserProfile, Category } from '../../../core/types';
+import { getEffectiveSubscription } from '../../../core/utils/subscriptionUtils';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { BulkActionToolbar } from './BulkActionToolbar';
 import { PasskeyService } from '../../../core/services/PasskeyService';
@@ -29,7 +32,10 @@ import { toast } from 'sonner';
 
 interface AdminUserManagementProps {
   users: UserProfile[];
+  allCategories?: Category[];
   onUpdateRole: (uid: string, role: string) => void;
+  onUpdateTrialDays?: (uid: string, days: number) => Promise<void>;
+  onUpdatePlan?: (uid: string, plan: 'basic' | 'pro' | 'enterprise') => Promise<void>;
   onVerifySupplier: (uid: string, isVerified: boolean) => void;
   onViewProfile: (uid: string) => void;
   onCheckExpirations: () => void;
@@ -42,7 +48,10 @@ interface AdminUserManagementProps {
 
 export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   users,
+  allCategories = [],
   onUpdateRole,
+  onUpdateTrialDays,
+  onUpdatePlan,
   onVerifySupplier,
   onViewProfile,
   onCheckExpirations,
@@ -57,12 +66,47 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   const [activeTab, setActiveTab] = useState<'all' | 'suppliers' | 'customers'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'verified' | 'unverified'>('all');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+  const [showCategoryMatrix, setShowCategoryMatrix] = useState<boolean>(false);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [usersToBulkDelete, setUsersToBulkDelete] = useState<string[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isVerifyingBio, setIsVerifyingBio] = useState(false);
+
+  // Admin Custom Trial Modal State
+  const [editingTrialUser, setEditingTrialUser] = useState<UserProfile | null>(null);
+  const [customDaysInput, setCustomDaysInput] = useState<number>(15);
+  const [selectedPlanInput, setSelectedPlanInput] = useState<'basic' | 'pro' | 'enterprise'>('pro');
+  const [isSavingTrial, setIsSavingTrial] = useState(false);
+
+  const openTrialModal = (user: UserProfile) => {
+    const subInfo = getEffectiveSubscription(user);
+    setEditingTrialUser(user);
+    setCustomDaysInput(user.customTrialDays || 15);
+    setSelectedPlanInput((user.subscriptionPlan as any)?.code || user.subscriptionPlan || (subInfo.isTrialActive ? 'pro' : 'basic'));
+  };
+
+  const handleSaveTrialCustomization = async () => {
+    if (!editingTrialUser) return;
+    setIsSavingTrial(true);
+    try {
+      if (onUpdateTrialDays) {
+        await onUpdateTrialDays(editingTrialUser.uid, Number(customDaysInput));
+      }
+      if (onUpdatePlan) {
+        await onUpdatePlan(editingTrialUser.uid, selectedPlanInput);
+      }
+      toast.success(isRtl ? 'تم حفظ التعديلات بنجاح' : 'Customization saved successfully');
+      setEditingTrialUser(null);
+    } catch (err) {
+      console.error('Failed to save trial settings:', err);
+      toast.error(isRtl ? 'فشل حفظ البيانات' : 'Failed to save trial settings');
+    } finally {
+      setIsSavingTrial(false);
+    }
+  };
 
   const requireBioVerification = async (actionLabel: string): Promise<boolean> => {
     try {
@@ -94,6 +138,41 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
     }
   };
 
+  // Compute suppliers distribution per category
+  const categorySupplierStats = useMemo(() => {
+    const suppliers = users.filter(u => u.role === 'supplier' && !u.isDeleted);
+    const statsMap: Record<string, UserProfile[]> = {};
+    const uncategorizedSuppliers: UserProfile[] = [];
+
+    allCategories.forEach(cat => {
+      statsMap[cat.id] = [];
+    });
+
+    suppliers.forEach(supplier => {
+      const userCats = supplier.categories || [];
+      if (userCats.length === 0) {
+        uncategorizedSuppliers.push(supplier);
+      } else {
+        userCats.forEach(catIdOrName => {
+          // Find matching category by ID or name
+          const cat = allCategories.find(c => c.id === catIdOrName || c.nameEn === catIdOrName || c.nameAr === catIdOrName);
+          if (cat) {
+            if (!statsMap[cat.id]) statsMap[cat.id] = [];
+            if (!statsMap[cat.id].some(s => s.uid === supplier.uid)) {
+              statsMap[cat.id].push(supplier);
+            }
+          }
+        });
+      }
+    });
+
+    return {
+      statsMap,
+      uncategorizedSuppliers,
+      totalActiveSuppliers: suppliers.length
+    };
+  }, [users, allCategories]);
+
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
       const matchesTab = 
@@ -105,16 +184,26 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
         !searchQuery || 
         user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.companyName?.toLowerCase().includes(searchQuery.toLowerCase());
+        user.companyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.keywords?.some(k => k.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesStatus = 
         filterStatus === 'all' || 
         (filterStatus === 'verified' && user.isVerified) || 
         (filterStatus === 'unverified' && !user.isVerified);
 
-      return matchesTab && matchesSearch && matchesStatus;
+      const matchesCategory = 
+        selectedCategoryFilter === 'all' ||
+        (selectedCategoryFilter === 'uncategorized' && (!user.categories || user.categories.length === 0)) ||
+        (user.categories && user.categories.some(c => {
+          if (c === selectedCategoryFilter) return true;
+          const targetCat = allCategories.find(cat => cat.id === selectedCategoryFilter);
+          return targetCat && (c === targetCat.nameAr || c === targetCat.nameEn);
+        }));
+
+      return matchesTab && matchesSearch && matchesStatus && matchesCategory;
     });
-  }, [users, activeTab, searchQuery, filterStatus]);
+  }, [users, activeTab, searchQuery, filterStatus, selectedCategoryFilter, allCategories]);
 
   const toggleUserSelection = (uid: string) => {
     setSelectedUsers(prev => 
@@ -238,19 +327,143 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
               />
             </div>
             {activeTab !== 'customers' && (
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as any)}
-                className="w-full sm:w-auto px-4 py-3 bg-brand-background border border-brand-border rounded-2xl text-xs font-bold focus:outline-none focus:border-brand-primary transition-all cursor-pointer"
-              >
-                <option value="all">{isRtl ? 'كل حالات التوثيق' : 'All Verification'}</option>
-                <option value="verified">{isRtl ? 'موثق فقط' : 'Verified Only'}</option>
-                <option value="unverified">{isRtl ? 'غير موثق' : 'Unverified Only'}</option>
-              </select>
+              <>
+                <select
+                  value={selectedCategoryFilter}
+                  onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                  className="w-full sm:w-auto px-4 py-3 bg-brand-background border border-brand-border rounded-2xl text-xs font-bold focus:outline-none focus:border-brand-primary transition-all cursor-pointer"
+                >
+                  <option value="all">{isRtl ? 'جميع الفئات التصنيفية' : 'All Categories'}</option>
+                  <option value="uncategorized">{isRtl ? 'غير مصنف' : 'Uncategorized'}</option>
+                  {allCategories.map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {isRtl ? cat.nameAr : cat.nameEn} ({categorySupplierStats.statsMap[cat.id]?.length || 0})
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as any)}
+                  className="w-full sm:w-auto px-4 py-3 bg-brand-background border border-brand-border rounded-2xl text-xs font-bold focus:outline-none focus:border-brand-primary transition-all cursor-pointer"
+                >
+                  <option value="all">{isRtl ? 'كل حالات التوثيق' : 'All Verification'}</option>
+                  <option value="verified">{isRtl ? 'موثق فقط' : 'Verified Only'}</option>
+                  <option value="unverified">{isRtl ? 'غير موثق' : 'Unverified Only'}</option>
+                </select>
+
+                <button
+                  onClick={() => setShowCategoryMatrix(!showCategoryMatrix)}
+                  className={`flex items-center gap-1.5 px-4 py-3 rounded-2xl text-xs font-black border transition-all ${
+                    showCategoryMatrix
+                      ? 'bg-brand-primary text-white border-brand-primary'
+                      : 'bg-brand-background text-brand-text-muted border-brand-border hover:text-brand-text-main'
+                  }`}
+                  title={isRtl ? 'عرض خريطة توزيع الموردين على الفئات' : 'Show supplier category distribution'}
+                >
+                  <Layers size={14} />
+                  <span>{isRtl ? 'خريطة الفئات' : 'Category Matrix'}</span>
+                </button>
+              </>
             )}
           </div>
         </div>
       </div>
+
+      {/* Category Breakdown Matrix */}
+      {showCategoryMatrix && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="bg-brand-surface rounded-[2.5rem] border border-brand-border p-6 shadow-sm space-y-4"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-black text-brand-text-main flex items-center gap-2">
+                <Layers size={18} className="text-brand-primary" />
+                {isRtl ? 'خريطة توزيع الموردين ومقدمي الخدمات حسب الفئات' : 'Suppliers Distribution Matrix by Category'}
+              </h3>
+              <p className="text-xs text-brand-text-muted mt-0.5">
+                {isRtl ? 'انقر على أي فئة لتصفية جدول الموردين المباشر واكتشاف التغطية الحالية.' : 'Click any category to filter suppliers list and review coverage.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setSelectedCategoryFilter('all')}
+              className="text-xs font-bold text-brand-primary hover:underline"
+            >
+              {isRtl ? 'إعادة ضبط الفلاتر' : 'Reset Category Filter'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {allCategories.map(cat => {
+              const count = categorySupplierStats.statsMap[cat.id]?.length || 0;
+              const isSelected = selectedCategoryFilter === cat.id;
+
+              return (
+                <div
+                  key={cat.id}
+                  onClick={() => {
+                    setSelectedCategoryFilter(isSelected ? 'all' : cat.id);
+                    setActiveTab('suppliers');
+                  }}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${
+                    isSelected
+                      ? 'bg-brand-primary text-white border-brand-primary shadow-lg shadow-brand-primary/20 scale-[1.02]'
+                      : 'bg-brand-background border-brand-border hover:border-brand-primary/50 hover:bg-brand-surface'
+                  }`}
+                >
+                  <div className="space-y-1 overflow-hidden pr-2">
+                    <div className={`text-xs font-black truncate ${isSelected ? 'text-white' : 'text-brand-text-main'}`}>
+                      {isRtl ? cat.nameAr : cat.nameEn}
+                    </div>
+                    <div className={`text-[10px] font-bold ${isSelected ? 'text-white/80' : 'text-brand-text-muted'}`}>
+                      {cat.categoryType === 'service' ? (isRtl ? 'خدمية' : 'Service') : (isRtl ? 'منتجات' : 'Product')}
+                    </div>
+                  </div>
+                  <div className={`px-2.5 py-1 rounded-xl text-xs font-black shrink-0 ${
+                    isSelected 
+                      ? 'bg-white/20 text-white' 
+                      : count > 0 ? 'bg-brand-primary/10 text-brand-primary' : 'bg-brand-surface text-brand-text-muted'
+                  }`}>
+                    {count} {isRtl ? 'مورد' : 'suppliers'}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Uncategorized Card */}
+            <div
+              onClick={() => {
+                setSelectedCategoryFilter(selectedCategoryFilter === 'uncategorized' ? 'all' : 'uncategorized');
+                setActiveTab('suppliers');
+              }}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${
+                selectedCategoryFilter === 'uncategorized'
+                  ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20 scale-[1.02]'
+                  : 'bg-brand-background border-brand-border hover:border-amber-500/50 hover:bg-brand-surface'
+              }`}
+            >
+              <div className="space-y-1">
+                <div className={`text-xs font-black ${selectedCategoryFilter === 'uncategorized' ? 'text-white' : 'text-brand-text-main'}`}>
+                  {isRtl ? 'موردون غير مصنفين' : 'Uncategorized Suppliers'}
+                </div>
+                <div className={`text-[10px] font-bold ${selectedCategoryFilter === 'uncategorized' ? 'text-white/80' : 'text-brand-text-muted'}`}>
+                  {isRtl ? 'يحتاجون تحديث تصنيف' : 'Needs category update'}
+                </div>
+              </div>
+              <div className={`px-2.5 py-1 rounded-xl text-xs font-black shrink-0 ${
+                selectedCategoryFilter === 'uncategorized' 
+                  ? 'bg-white/20 text-white' 
+                  : 'bg-amber-500/10 text-amber-600'
+              }`}>
+                {categorySupplierStats.uncategorizedSuppliers.length}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Users Table/Grid */}
       <div className="bg-brand-surface rounded-[2.5rem] border border-brand-border overflow-hidden shadow-sm">
@@ -269,6 +482,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'المستخدم' : 'User'}</th>
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'الدور' : 'Role'}</th>
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'الحالة' : 'Status'}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'الاشتراك والتجربة' : 'Subscription & Trial'}</th>
                 {activeTab !== 'customers' && (
                   <>
                     <th className="px-6 py-4 text-[10px] font-black text-brand-text-muted uppercase tracking-widest whitespace-nowrap">{isRtl ? 'التوثيق' : 'Verification'}</th>
@@ -285,7 +499,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
               <AnimatePresence mode="popLayout">
                 {filteredUsers.map((user, i) => (
                   <motion.tr 
-                    key={user.uid}
+                    key={`admin-user-${user.uid || `row-${i}`}`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
@@ -319,7 +533,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex flex-wrap items-center gap-2 mt-0.5">
                             <span className="text-[10px] font-bold text-brand-text-muted flex items-center gap-1">
                               <Mail size={10} />
                               {user.email}
@@ -337,6 +551,25 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                               </span>
                             )}
                           </div>
+                          {user.categories && user.categories.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                              {user.categories.slice(0, 3).map((catIdOrName, cIdx) => {
+                                const matchedCat = allCategories.find(c => c.id === catIdOrName || c.nameEn === catIdOrName || c.nameAr === catIdOrName);
+                                const displayName = matchedCat ? (isRtl ? matchedCat.nameAr : matchedCat.nameEn) : catIdOrName;
+                                return (
+                                  <span key={cIdx} className="px-2 py-0.5 rounded-md bg-brand-primary/10 text-brand-primary text-[9px] font-extrabold flex items-center gap-1">
+                                    <Tag size={8} />
+                                    <span>{displayName}</span>
+                                  </span>
+                                );
+                              })}
+                              {user.categories.length > 3 && (
+                                <span className="text-[8px] font-bold text-brand-text-muted">
+                                  +{user.categories.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -363,6 +596,39 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                           {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString(isRtl ? 'ar-EG' : 'en-US') : (isRtl ? 'غير متوفر' : 'N/A')}
                         </span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {(() => {
+                        const subInfo = getEffectiveSubscription(user);
+                        return (
+                          <div className="flex items-center gap-2">
+                            {subInfo.isTrialActive ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-emerald-500 to-teal-500 text-white flex items-center gap-1">
+                                <span>🎁</span>
+                                <span>{isRtl ? `تجربة (${subInfo.daysRemaining} يوم)` : `Trial (${subInfo.daysRemaining}d)`}</span>
+                              </span>
+                            ) : (
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                subInfo.effectivePlan === 'pro'
+                                  ? 'bg-indigo-600 text-white'
+                                  : subInfo.effectivePlan === 'enterprise'
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                              }`}>
+                                {subInfo.effectivePlan.toUpperCase()}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => openTrialModal(user)}
+                              title={isRtl ? 'تخصيص مدة التجربة والاشتراك' : 'Customize trial duration & plan'}
+                              className="p-1.5 rounded-lg bg-brand-background border border-brand-border text-brand-primary hover:bg-brand-primary/10 transition-colors text-[10px] font-bold flex items-center gap-1"
+                            >
+                              <span>⚙️</span>
+                              <span className="hidden sm:inline">{isRtl ? 'تخصيص' : 'Customize'}</span>
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </td>
                     {activeTab !== 'customers' && (
                       <>
@@ -569,6 +835,140 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                       </>
                     )}
                   </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Admin Trial & Subscription Customization Modal */}
+      <AnimatePresence>
+        {editingTrialUser && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-brand-surface w-full max-w-lg rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 sm:p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center text-brand-primary">
+                      <Star size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-black text-brand-text-main">
+                        {isRtl ? 'تخصيص مدة التجربة والاشتراك' : 'Customize Trial & Subscription'}
+                      </h2>
+                      <p className="text-xs text-brand-text-muted font-bold truncate max-w-[220px] sm:max-w-xs">
+                        {editingTrialUser.name} ({editingTrialUser.email})
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setEditingTrialUser(null)}
+                    className="p-2 text-brand-text-muted hover:text-brand-text-main rounded-xl hover:bg-brand-background transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Plan Selection */}
+                  <div>
+                    <label className="block text-xs font-black text-brand-text-main uppercase tracking-wider mb-2">
+                      {isRtl ? 'باقة الاشتراك' : 'Subscription Plan'}
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { code: 'basic', labelAr: 'أساسية Basic', labelEn: 'Basic' },
+                        { code: 'pro', labelAr: 'احترافية Pro', labelEn: 'Pro' },
+                        { code: 'enterprise', labelAr: 'مؤسسات Enterprise', labelEn: 'Enterprise' }
+                      ].map(plan => (
+                        <button
+                          key={plan.code}
+                          type="button"
+                          onClick={() => setSelectedPlanInput(plan.code as any)}
+                          className={`py-3 px-2 rounded-xl text-xs font-black border transition-all ${
+                            selectedPlanInput === plan.code
+                              ? 'bg-brand-primary text-white border-brand-primary shadow-lg shadow-brand-primary/20'
+                              : 'bg-brand-background text-brand-text-muted border-brand-border hover:border-brand-primary/50'
+                          }`}
+                        >
+                          {isRtl ? plan.labelAr : plan.labelEn}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom Trial Days */}
+                  <div>
+                    <label className="block text-xs font-black text-brand-text-main uppercase tracking-wider mb-2">
+                      {isRtl ? 'عدد أيام التجربة المجانية' : 'Custom Free Trial Days'}
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={customDaysInput}
+                      onChange={(e) => setCustomDaysInput(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full bg-brand-background border border-brand-border rounded-xl px-4 py-3 text-sm font-bold text-brand-text-main focus:outline-none focus:border-brand-primary transition-all mb-3"
+                    />
+
+                    {/* Quick Presets */}
+                    <div className="flex flex-wrap gap-2">
+                      {[7, 15, 30, 45, 60, 90, 180, 365].map(days => (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => setCustomDaysInput(days)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                            customDaysInput === days
+                              ? 'bg-brand-primary/20 border-brand-primary text-brand-primary'
+                              : 'bg-brand-background border-brand-border text-brand-text-muted hover:border-brand-border'
+                          }`}
+                        >
+                          {days} {isRtl ? 'يوم' : 'days'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Current Active Status Preview */}
+                  <div className="p-4 rounded-2xl bg-brand-background border border-brand-border text-xs text-brand-text-muted space-y-1">
+                    <p className="font-black text-brand-text-main">
+                      {isRtl ? 'معاينة النتيجة:' : 'Preview:'}
+                    </p>
+                    <p>
+                      {isRtl ? `سيحصل المستخدم على وصول كامل للباقة الاحترافية لمدة ${customDaysInput} يوم اعتباراً من تاريخ التسجيل.` : `User will receive full Pro feature access for ${customDaysInput} days from registration.`}
+                    </p>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingTrialUser(null)}
+                      disabled={isSavingTrial}
+                      className="flex-1 px-6 py-3.5 bg-brand-background border border-brand-border rounded-xl font-black text-xs uppercase tracking-widest hover:bg-brand-surface transition-all disabled:opacity-50"
+                    >
+                      {isRtl ? 'إلغاء' : 'Cancel'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveTrialCustomization}
+                      disabled={isSavingTrial}
+                      className="flex-1 px-6 py-3.5 bg-brand-primary text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isSavingTrial ? (
+                        <Clock size={16} className="animate-spin" />
+                      ) : (
+                        isRtl ? 'حفظ التغييرات' : 'Save Changes'
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>

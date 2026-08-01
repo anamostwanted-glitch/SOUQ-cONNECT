@@ -70,9 +70,9 @@ export const SmartCategorySelector: React.FC<SmartCategorySelectorProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        {suggestions.map(cat => (
+        {suggestions.map((cat, idx) => (
           <button
-            key={cat.id}
+            key={`site-smart-cat-${cat.id}-${idx}`}
             onClick={() => onSelect([...selectedCategories, cat.id])}
             className={`p-3 rounded-lg border text-left flex items-center justify-between ${
               selectedCategories.includes(cat.id) ? 'bg-brand-teal/10 border-brand-teal' : 'bg-white border-brand-border'

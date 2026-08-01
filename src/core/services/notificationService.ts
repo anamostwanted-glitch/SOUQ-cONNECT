@@ -59,6 +59,17 @@ export const notifyMatchingSuppliers = async (
       }
     }
 
+    // 2.5. Broad Supplier Fallback (Guarantee every request notifies active suppliers)
+    if (candidates.length === 0) {
+      const allSuppliersQuery = query(
+        collection(db, 'users'),
+        where('role', '==', 'supplier'),
+        limit(25)
+      );
+      const allSnap = await getDocs(allSuppliersQuery);
+      candidates = allSnap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+    }
+
     // 3. Geo-Awareness & Scoring (UX & Growth Hacker Recommendation)
     const scoredSuppliers = candidates
       .filter(s => !s.isDeleted && s.onboardingCompleted)
@@ -216,4 +227,40 @@ export const notifySupplierApproval = async (
   } catch (error) {
     console.error("Approval notification failed", error);
   }
+};
+
+export const resolveNotificationLink = (notif: { link?: string; actionType?: string; targetId?: string }): string => {
+  if (notif?.link && typeof notif.link === 'string' && notif.link.trim() !== '') {
+    return notif.link;
+  }
+  const actionType = notif?.actionType || '';
+  const targetId = notif?.targetId || '';
+
+  if (actionType === 'chat_message' || actionType === 'accept_chat' || actionType === 'chat') {
+    return targetId ? `/chat?id=${targetId}` : '/chat';
+  }
+  if (actionType === 'new_request' || actionType === 'submit_offer' || actionType === 'view_offer' || actionType === 'request_update') {
+    return targetId ? `/marketplace?tab=requests&requestId=${targetId}` : '/marketplace?tab=requests';
+  }
+  if (actionType === 'new_item' || actionType === 'product' || actionType === 'product_match' || actionType === 'price_drop') {
+    return targetId ? `/marketplace?itemId=${targetId}` : '/marketplace';
+  }
+  if (actionType === 'verification_update' || actionType === 'dashboard') {
+    return '/dashboard';
+  }
+  if (actionType === 'growth_plan') {
+    return '/dashboard?tab=growth';
+  }
+
+  if (targetId) {
+    if (targetId.startsWith('req_') || targetId.startsWith('request_')) {
+      return `/marketplace?tab=requests&requestId=${targetId}`;
+    }
+    if (targetId.startsWith('chat_') || targetId.startsWith('chat-')) {
+      return `/chat?id=${targetId}`;
+    }
+    return `/marketplace?itemId=${targetId}`;
+  }
+
+  return '/dashboard';
 };

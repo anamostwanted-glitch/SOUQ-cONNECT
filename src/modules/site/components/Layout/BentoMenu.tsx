@@ -93,8 +93,8 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
     { id: 'chat', icon: MessageSquare, labelAr: 'المحادثات', labelEn: 'Chats', color: 'text-yellow-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'connect', icon: Zap, labelAr: 'المكافآت', labelEn: 'Connect', color: 'text-purple-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'subscriptions', icon: Zap, labelAr: 'باقات الاشتراك', labelEn: 'Subscriptions', color: 'text-amber-500', roles: ['customer', 'supplier', 'admin'] },
-    { id: 'dashboard', icon: LayoutGrid, labelAr: 'لوحة التحكم', labelEn: 'Dashboard', color: 'text-red-500', roles: ['supplier', 'admin'] },
-    { id: 'profile', icon: User, labelAr: 'الملف الشخصي', labelEn: 'Profile', color: 'text-indigo-500', roles: ['customer', 'supplier', 'admin'] },
+    { id: 'dashboard', icon: LayoutGrid, labelAr: 'لوحة التحكم والعمليات', labelEn: 'Operations Dashboard', color: 'text-red-500', roles: ['customer', 'supplier', 'admin'] },
+    { id: 'profile', icon: User, labelAr: 'الملف الشخصي العام', labelEn: 'Public Profile', color: 'text-indigo-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'supplier_landing', icon: Building2, labelAr: 'كن مورداً', labelEn: 'Become Supplier', color: 'text-orange-600', roles: ['customer'] },
     { id: 'partnerships', icon: Handshake, labelAr: 'الشراكات', labelEn: 'Partnerships', color: 'text-pink-500', roles: ['customer', 'supplier', 'admin'] },
     { id: 'help', icon: HelpCircle, labelAr: 'مركز المساعدة', labelEn: 'Help Center', color: 'text-orange-500', roles: ['customer', 'supplier', 'admin'] },
@@ -222,7 +222,7 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
 
                   return (
                     <motion.button
-                      key={item.id}
+                      key={`bento-menu-${item.id}`}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => {
@@ -327,7 +327,7 @@ export const BentoMenu: React.FC<BentoMenuProps> = ({
                   <div className="grid grid-cols-3 gap-4">
                     {adminItems.map((item) => (
                       <button
-                        key={item.id}
+                        key={`bento-admin-${item.id}`}
                         onClick={() => {
                           setViewMode('admin');
                           setView('dashboard');

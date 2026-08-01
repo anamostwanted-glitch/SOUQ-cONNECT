@@ -6,6 +6,8 @@ import { UserProfile } from '../../../../core/types';
 import { HapticButton } from '../../../../shared/components/HapticButton';
 import { Badge } from '../../../../shared/components/ui/badge';
 
+import { getEffectiveSubscription } from '../../../../core/utils/subscriptionUtils';
+
 interface AuraHeaderProps {
   profile: UserProfile;
   onViewProfile: (uid: string) => void;
@@ -24,34 +26,33 @@ export const AuraHeader: React.FC<AuraHeaderProps> = ({
   const { i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
 
-  const planCode = typeof profile?.subscriptionPlan === 'object' 
-    ? (profile.subscriptionPlan as any)?.code
-    : (profile?.subscriptionPlan || (profile as any)?.plan || 'basic');
-  const code = (planCode || 'basic').toLowerCase();
+  const subInfo = getEffectiveSubscription(profile);
 
   const getPlanBadge = () => {
-    if (code.includes('elite') || code.includes('نخبة')) {
+    if (subInfo.isTrialActive) {
       return {
-        label: isRtl ? 'باقة النخبة Elite' : 'Elite Tier',
-        bg: 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 font-black shadow-lg shadow-amber-500/20',
-        icon: '👑',
-        border: 'border border-amber-300/60'
+        label: isRtl ? `تجربة مجانية كاملة (${subInfo.daysRemaining} يوم متبقي)` : `Full Free Trial (${subInfo.daysRemaining} days left)`,
+        bg: 'bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white font-black shadow-lg shadow-teal-500/20',
+        icon: '🎁',
+        border: 'border border-teal-300/60'
       };
     }
-    if (code.includes('pro') || code.includes('احتراف')) {
-      return {
-        label: isRtl ? 'باقة احترافية Pro' : 'Pro Tier',
-        bg: 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white font-black shadow-lg shadow-indigo-500/20',
-        icon: '⚡',
-        border: 'border border-indigo-400/60'
-      };
-    }
-    if (code.includes('enterprise') || code.includes('مؤسس')) {
+
+    const code = subInfo.effectivePlan;
+    if (code === 'enterprise') {
       return {
         label: isRtl ? 'باقة المؤسسات Enterprise' : 'Enterprise Tier',
         bg: 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-lg shadow-emerald-500/20',
         icon: '💎',
         border: 'border border-emerald-400/60'
+      };
+    }
+    if (code === 'pro') {
+      return {
+        label: isRtl ? 'باقة احترافية Pro' : 'Pro Tier',
+        bg: 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white font-black shadow-lg shadow-indigo-500/20',
+        icon: '⚡',
+        border: 'border border-indigo-400/60'
       };
     }
     return {
@@ -132,20 +133,21 @@ export const AuraHeader: React.FC<AuraHeaderProps> = ({
                 </div>
               </div>
 
-              <div className="flex gap-3 items-center">
+              <div className="flex gap-3 items-center flex-wrap">
                 <HapticButton 
                   onClick={onShare}
-                  className="w-14 h-14 rounded-2xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-primary shadow-xl hover:bg-brand-primary hover:text-white transition-all"
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-primary shadow-xl hover:bg-brand-primary hover:text-white transition-all"
                   title={isRtl ? 'مشاركة' : 'Share'}
                 >
-                  <Share2 size={24} />
+                  <Share2 size={22} />
                 </HapticButton>
                 <HapticButton 
                   onClick={() => onViewProfile(profile.uid)}
-                  className="w-14 h-14 rounded-2xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-teal shadow-xl hover:bg-brand-teal hover:text-white transition-all"
-                  title={isRtl ? 'معاينة المتجر' : 'Preview Store'}
+                  className="px-4 sm:px-5 h-12 sm:h-14 rounded-2xl bg-brand-surface border border-brand-border flex items-center gap-2.5 text-brand-teal font-black text-xs shadow-xl hover:bg-brand-teal hover:text-white transition-all"
+                  title={isRtl ? 'معاينة الملف الشخصي العام والمتجر' : 'Preview Public Profile & Storefront'}
                 >
-                  <ExternalLink size={24} />
+                  <ExternalLink size={20} />
+                  <span>{isRtl ? 'الملف العام والمتجر' : 'Public Storefront'}</span>
                 </HapticButton>
               </div>
             </div>

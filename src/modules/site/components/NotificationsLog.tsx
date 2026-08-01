@@ -8,12 +8,14 @@ import { NotificationModal } from '../../../shared/components/NotificationModal'
 import { ArrowLeft, ArrowRight, Bell, CheckCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Skeleton } from '../../../shared/components/Skeleton';
+import { resolveNotificationLink } from '../../../core/services/notificationService';
 
 interface NotificationsLogProps {
   onBack: () => void;
+  onNavigate?: (link: string) => void;
 }
 
-export const NotificationsLog: React.FC<NotificationsLogProps> = ({ onBack }) => {
+export const NotificationsLog: React.FC<NotificationsLogProps> = ({ onBack, onNavigate }) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -130,6 +132,7 @@ export const NotificationsLog: React.FC<NotificationsLogProps> = ({ onBack }) =>
           notification={selectedNotification} 
           onClose={() => setSelectedNotification(null)} 
           isRtl={isRtl}
+          onNavigate={onNavigate}
         />
       )}
     </div>

@@ -43,6 +43,7 @@ import { handleFirestoreError, OperationType } from '../../../core/utils/errorHa
 import { ProfileSettings } from './ProfileSettings';
 import { UserSettings } from './UserSettings';
 import { UserRequestCard } from './UserRequestCard';
+import { getEffectiveSubscription } from '../../../core/utils/subscriptionUtils';
 import { WalletHub } from './WalletHub';
 import { SubscriptionManager } from '../../../components/SubscriptionManager';
 
@@ -554,19 +555,28 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-xl font-black text-brand-text-main truncate">{profile.name}</h3>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                    (profile?.subscriptionPlan as any)?.code === 'pro' || profile?.subscriptionPlan === 'pro' || (profile as any)?.plan === 'pro'
-                      ? 'bg-indigo-600 text-white'
-                      : (profile?.subscriptionPlan as any)?.code === 'elite' || profile?.subscriptionPlan === 'elite' || (profile as any)?.plan === 'elite'
-                      ? 'bg-amber-400 text-slate-950'
-                      : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                  }`}>
-                    { (profile?.subscriptionPlan as any)?.code === 'pro' || profile?.subscriptionPlan === 'pro' || (profile as any)?.plan === 'pro'
-                      ? 'PRO'
-                      : (profile?.subscriptionPlan as any)?.code === 'elite' || profile?.subscriptionPlan === 'elite' || (profile as any)?.plan === 'elite'
-                      ? 'ELITE'
-                      : 'BASIC' }
-                  </span>
+                  {(() => {
+                    const subInfo = getEffectiveSubscription(profile);
+                    if (subInfo.isTrialActive) {
+                      return (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm flex items-center gap-1">
+                          <span>🎁</span>
+                          <span>{isRtl ? `تجربة 15 يوم (متبقي ${subInfo.daysRemaining} يوم)` : `15D Trial (${subInfo.daysRemaining}d left)`}</span>
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                        subInfo.effectivePlan === 'pro'
+                          ? 'bg-indigo-600 text-white'
+                          : subInfo.effectivePlan === 'enterprise'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}>
+                        {subInfo.effectivePlan.toUpperCase()}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <p className="text-brand-text-muted text-sm truncate">{profile.email}</p>
                 <span className="inline-block mt-2 px-3 py-1 bg-brand-primary/10 text-brand-primary text-[10px] font-black uppercase tracking-widest rounded-lg border border-brand-primary/20">

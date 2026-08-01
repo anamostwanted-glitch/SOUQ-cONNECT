@@ -127,9 +127,9 @@ const SmartCategorySelector: React.FC<SmartCategorySelectorProps> = ({
       >
         <div className="flex flex-wrap gap-1.5 flex-1">
           {selectedCategories.length > 0 ? (
-            selectedCategories.map(cat => (
+            selectedCategories.map((cat, idx) => (
               <span 
-                key={cat.id}
+                key={`smart-cat-sel-${cat.id}-${idx}`}
                 className="px-2 py-1 bg-brand-primary/10 text-brand-primary rounded-lg text-xs font-bold flex items-center gap-1"
               >
                 {i18n.language === 'ar' ? cat.nameAr : cat.nameEn}
@@ -230,9 +230,9 @@ const SmartCategorySelector: React.FC<SmartCategorySelectorProps> = ({
                   if (aSelected && !bSelected) return -1;
                   if (!aSelected && bSelected) return 1;
                   return 0;
-                }).map(cat => (
+                }).map((cat, idx) => (
                   <button
-                    key={cat.id}
+                    key={`smart-cat-res-${cat.id}-${idx}`}
                     type="button"
                     onClick={() => toggleCategory(cat.id)}
                     className={`w-full text-left px-4 py-2 rounded-lg transition-all flex items-center justify-between ${selectedCategoryIds.includes(cat.id) ? 'bg-brand-primary/10 text-brand-primary' : 'hover:bg-brand-background'}`}

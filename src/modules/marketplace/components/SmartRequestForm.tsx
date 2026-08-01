@@ -20,6 +20,7 @@ import { callAiJson, handleAiError } from '../../../core/services/geminiService'
 import { Type } from '@google/genai';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { notifyMatchingSuppliers } from '../../../core/services/notificationService';
+import { recordCategoryDemand } from '../services/marketService';
 import { analytics } from '../../../core/services/AnalyticsService';
 
 interface SmartRequestFormProps {
@@ -148,6 +149,11 @@ export const SmartRequestForm: React.FC<SmartRequestFormProps> = ({
         categoryId: formData.categoryId,
         urgency: formData.urgency
       });
+
+      // Neural Lexicon: Record category demand for supplier market insights
+      if (formData.categoryId) {
+        recordCategoryDemand(formData.productName, [formData.categoryId]).catch(() => {});
+      }
 
       // Growth Hack: Instant Push Notifications to matching suppliers
       const matchedIds = await notifyMatchingSuppliers(

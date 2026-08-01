@@ -74,6 +74,8 @@ export interface UserProfile {
   commercialRegistration?: string;
   subscriptionPlan?: 'basic' | 'pro' | 'enterprise';
   subscriptionExpiry?: string;
+  customTrialDays?: number;
+  trialEndsAt?: string;
   referralCode?: string;
   referredBy?: string;
   onboardingCompleted?: boolean;

@@ -20,7 +20,9 @@ window.addEventListener('unhandledrejection', (event) => {
   const reason = event.reason;
   const message = String(reason?.message || reason || '');
   
-  // Suppress common benign errors or errors handled elsewhere
+  // Prevent unhandled rejection crashes / console errors
+  event.preventDefault();
+
   const isBenign = 
     !reason ||
     message === '' ||
@@ -43,14 +45,13 @@ window.addEventListener('unhandledrejection', (event) => {
     message.includes('play() request') ||
     message.includes('canceled') ||
     message.includes('cancelled') ||
+    message.includes('IndexedDB') ||
+    message.includes('analytics') ||
     reason?.isAiHandled === true;
 
-  if (isBenign) {
-    event.preventDefault();
-    return;
+  if (!isBenign) {
+    console.warn('Unhandled Promise Rejection:', reason);
   }
-
-  handleAiError(reason, 'Global:unhandledrejection', false);
 });
 
 import { CoreProvider } from './core/providers/CoreProvider';

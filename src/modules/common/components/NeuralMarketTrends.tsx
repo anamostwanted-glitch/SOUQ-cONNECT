@@ -34,6 +34,7 @@ import {
   Cell
 } from 'recharts';
 import { UserProfile } from '../../../core/types';
+import { getEffectiveSubscription } from '../../../core/utils/subscriptionUtils';
 
 interface NeuralMarketTrendsProps {
   profile?: UserProfile | null;
@@ -72,9 +73,9 @@ export const NeuralMarketTrends: React.FC<NeuralMarketTrendsProps> = ({
   isRtl = true,
   onUpgradeClick
 }) => {
-  // Check subscription plan - Pro or Elite unlock full trends
-  const plan = profile?.subscriptionPlan?.code || profile?.plan || 'basic';
-  const isProOrElite = plan === 'pro' || plan === 'elite' || plan === 'enterprise' || profile?.role === 'admin';
+  // Check subscription plan (includes 15-day full free trial for new users)
+  const subInfo = getEffectiveSubscription(profile);
+  const isProOrElite = subInfo.effectivePlan === 'pro' || subInfo.effectivePlan === 'enterprise' || profile?.role === 'admin';
 
   const [activeTerms, setActiveTerms] = useState<string[]>([
     isRtl ? 'حديد تسليح' : 'Rebar Steel',

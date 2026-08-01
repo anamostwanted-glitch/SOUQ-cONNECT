@@ -19,6 +19,7 @@ import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, writeBat
 import { db, auth } from '../../../core/firebase';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { Notification } from '../../../core/types';
+import { resolveNotificationLink } from '../../../core/services/notificationService';
 
 interface NotificationCenterProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
   const isRtl = i18n.language === 'ar';
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'unread' | 'requests_chats' | 'marketplace'>('all');
 
   useEffect(() => {
     if (!auth.currentUser || !isOpen) return;
@@ -60,33 +62,68 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
     await batch.commit();
   };
 
+  const deleteNotification = async (e: React.MouseEvent, id?: string) => {
+    e.stopPropagation();
+    if (!id || !auth.currentUser) return;
+    try {
+      await updateDoc(doc(db, 'notifications', id), { isDeleted: true, status: 'deleted' });
+    } catch (err) {
+      console.warn('Failed to delete notification:', err);
+    }
+  };
+
+  const clearReadNotifications = async () => {
+    if (!auth.currentUser) return;
+    const batch = writeBatch(db);
+    notifications.filter(n => n.read).forEach(n => {
+      batch.update(doc(db, 'notifications', n.id), { isDeleted: true, status: 'deleted' });
+    });
+    await batch.commit();
+  };
+
   const handleNotificationClick = async (notif: Notification) => {
     if (!notif.read && notif.id) {
-      await updateDoc(doc(db, 'notifications', notif.id), { read: true });
+      try {
+        await updateDoc(doc(db, 'notifications', notif.id), { read: true });
+      } catch (e) {
+        console.warn('Notification read update error:', e);
+      }
     }
-    if (notif.link) {
-      onNavigate(notif.link);
+    const targetLink = resolveNotificationLink(notif);
+    if (targetLink) {
+      onNavigate(targetLink);
       onClose();
     }
   };
 
-  const getIcon = (link?: string) => {
-    const safeLink = (typeof link === 'string') ? link : '';
+  const getIcon = (notif: Notification) => {
+    const safeLink = resolveNotificationLink(notif);
     if (safeLink.includes('chat')) return <MessageSquare size={18} />;
-    if (safeLink.includes('request')) return <ShoppingBag size={18} />;
-    if (safeLink.includes('requestId')) return <Target size={18} />;
+    if (safeLink.includes('requestId') || safeLink.includes('requests')) return <Target size={18} />;
+    if (safeLink.includes('marketplace') || safeLink.includes('itemId')) return <ShoppingBag size={18} />;
     if (safeLink.includes('offer')) return <Zap size={18} />;
     return <Info size={18} />;
   };
 
-  const getColor = (link?: string) => {
-    const safeLink = (typeof link === 'string') ? link : '';
+  const getColor = (notif: Notification) => {
+    const safeLink = resolveNotificationLink(notif);
     if (safeLink.includes('chat')) return 'text-brand-primary bg-brand-primary/10';
     if (safeLink.includes('requestId')) return 'text-brand-primary bg-brand-primary/10 animate-pulse';
-    if (safeLink.includes('request')) return 'text-brand-teal bg-brand-teal/10';
+    if (safeLink.includes('marketplace')) return 'text-brand-teal bg-brand-teal/10';
     if (safeLink.includes('offer')) return 'text-brand-warning bg-brand-warning/10';
     return 'text-brand-text-muted bg-brand-background';
   };
+
+  const filteredNotifications = notifications.filter(notif => {
+    if ((notif as any).isDeleted || (notif as any).status === 'deleted') return false;
+    if (filter === 'unread') return !notif.read;
+    const link = resolveNotificationLink(notif);
+    if (filter === 'requests_chats') return link.includes('chat') || link.includes('requests');
+    if (filter === 'marketplace') return link.includes('marketplace') || link.includes('itemId') || link.includes('offer');
+    return true;
+  });
+
+  const unreadCount = notifications.filter(n => !n.read && !(n as any).isDeleted).length;
 
   return (
     <AnimatePresence>
@@ -109,22 +146,77 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
             className={`fixed top-0 bottom-0 ${isRtl ? 'left-0' : 'right-0'} w-full sm:w-[480px] bg-brand-background z-[101] shadow-2xl flex flex-col border-l border-brand-border`}
           >
             {/* Header */}
-            <div className="p-8 border-b border-brand-border flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-                  <Bell size={24} />
+            <div className="p-6 pb-4 border-b border-brand-border space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                    <Bell size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-black text-brand-text-main">{isRtl ? 'الإشعارات الذكية' : 'Smart Notifications'}</h2>
+                      {unreadCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-brand-primary text-white text-[10px] font-black">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'مركز التنبيهات والتوجيه' : 'Neural Direct Hub'}</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-black text-brand-text-main">{isRtl ? 'الإشعارات الذكية' : 'Smart Notifications'}</h2>
-                  <p className="text-[10px] font-black text-brand-text-muted uppercase tracking-widest">{isRtl ? 'مركز التنبيهات العصبية' : 'Neural Alert Hub'}</p>
+                <div className="flex items-center gap-1">
+                  {unreadCount > 0 && (
+                    <HapticButton onClick={markAllAsRead} className="text-[10px] font-black text-brand-primary hover:bg-brand-primary/5 px-3 py-1.5 rounded-xl transition-all">
+                      {isRtl ? 'تحديد الكل كمقروء' : 'Mark all read'}
+                    </HapticButton>
+                  )}
+                  <button onClick={onClose} className="p-2 hover:bg-brand-surface rounded-2xl text-brand-text-muted transition-colors">
+                    <X size={20} />
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <HapticButton onClick={markAllAsRead} className="text-[10px] font-black text-brand-primary hover:bg-brand-primary/5 px-4 py-2 rounded-xl transition-all">
-                  {isRtl ? 'تحديد الكل كمقروء' : 'Mark all as read'}
-                </HapticButton>
-                <button onClick={onClose} className="p-3 hover:bg-brand-surface rounded-2xl text-brand-text-muted transition-colors">
-                  <X size={24} />
+
+              {/* Filter Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+                <button
+                  onClick={() => setFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition-all ${
+                    filter === 'all'
+                      ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20'
+                      : 'bg-brand-surface text-brand-text-muted hover:text-brand-text-main'
+                  }`}
+                >
+                  {isRtl ? 'الكل' : 'All'} ({notifications.filter(n => !(n as any).isDeleted).length})
+                </button>
+                <button
+                  onClick={() => setFilter('unread')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition-all ${
+                    filter === 'unread'
+                      ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20'
+                      : 'bg-brand-surface text-brand-text-muted hover:text-brand-text-main'
+                  }`}
+                >
+                  {isRtl ? 'غير مقروءة' : 'Unread'} ({unreadCount})
+                </button>
+                <button
+                  onClick={() => setFilter('requests_chats')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition-all ${
+                    filter === 'requests_chats'
+                      ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20'
+                      : 'bg-brand-surface text-brand-text-muted hover:text-brand-text-main'
+                  }`}
+                >
+                  {isRtl ? 'الطلبات والمحادثات 💬' : 'Requests & Chats 💬'}
+                </button>
+                <button
+                  onClick={() => setFilter('marketplace')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition-all ${
+                    filter === 'marketplace'
+                      ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20'
+                      : 'bg-brand-surface text-brand-text-muted hover:text-brand-text-main'
+                  }`}
+                >
+                  {isRtl ? 'السوق والعروض 🛍️' : 'Market & Offers 🛍️'}
                 </button>
               </div>
             </div>
@@ -136,8 +228,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
                   <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full" />
                   <p className="text-sm font-bold text-brand-text-muted">{isRtl ? 'جاري المزامنة...' : 'Syncing...'}</p>
                 </div>
-              ) : notifications.length > 0 ? (
-                notifications.map((notif, idx) => {
+              ) : filteredNotifications.length > 0 ? (
+                filteredNotifications.map((notif, idx) => {
                   if (!notif) return null;
                   const itemKey = `notif-${notif.id || idx}-${idx}`;
                   
@@ -146,12 +238,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
                       key={itemKey}
                       initial={{ opacity: 0, scale: 0.95, y: 10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05 }}
+                      transition={{ delay: idx * 0.03 }}
                       onClick={() => handleNotificationClick(notif)}
                       className={`p-5 rounded-3xl border-2 cursor-pointer group transition-all relative ${
                         notif.read 
-                          ? 'bg-brand-surface/50 border-transparent grayscale-[0.3]' 
-                          : 'bg-white dark:bg-slate-900 border-brand-primary/20 shadow-lg shadow-brand-primary/5'
+                          ? 'bg-brand-surface/50 border-transparent opacity-85' 
+                          : 'bg-white dark:bg-slate-900 border-brand-primary/30 shadow-lg shadow-brand-primary/5'
                       }`}
                     >
                       {!notif.read && (
@@ -159,13 +251,30 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
                       )}
                       
                       <div className="flex gap-4">
-                        <div className={`w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center ${getColor(notif.link)}`}>
-                          {getIcon(notif.link)}
+                        <div className={`w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center ${getColor(notif)}`}>
+                          {getIcon(notif)}
                         </div>
                         <div className="flex-1 space-y-1">
-                          <h3 className={`font-black text-sm ${notif.read ? 'text-brand-text-main' : 'text-brand-primary'}`}>
-                            {isRtl ? notif.titleAr : notif.titleEn}
-                          </h3>
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className={`font-black text-sm ${notif.read ? 'text-brand-text-main' : 'text-brand-primary'}`}>
+                              {isRtl ? notif.titleAr : notif.titleEn}
+                            </h3>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-brand-primary/10 text-brand-primary whitespace-nowrap">
+                                {resolveNotificationLink(notif).includes('chat') ? (isRtl ? 'المحادثة 💬' : 'Chat 💬') :
+                                 resolveNotificationLink(notif).includes('requests') ? (isRtl ? 'الطلبات 🎯' : 'Requests 🎯') :
+                                 resolveNotificationLink(notif).includes('marketplace') ? (isRtl ? 'السوق 🛍️' : 'Marketplace 🛍️') :
+                                 (isRtl ? 'الانتقال 🚀' : 'Navigate 🚀')}
+                              </span>
+                              <button
+                                onClick={(e) => deleteNotification(e, notif.id)}
+                                title={isRtl ? 'حذف الإشعار' : 'Delete notification'}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 text-brand-text-muted transition-all"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
                           <p className="text-xs font-medium text-brand-text-muted leading-relaxed">
                             {isRtl ? notif.bodyAr : notif.bodyEn}
                           </p>

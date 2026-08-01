@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
@@ -7,21 +7,63 @@
     <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="description" content="Souq Connect: The Neural Hub for Multi-Vendor MarketPlace. Connect with verified suppliers, automate sourcing with smart algorithms, and optimize your global trade pulse. Features Smart Matching and Visual Search." />
-    <meta name="keywords" content="Souq Connect, Multi-Vendor MarketPlace Marketplace, Smart Sourcing, Verified Suppliers, Global Trade, Smart Matching, Visual Search" />
-    <meta property="og:title" content="Souq Connect - Smart Multi-Vendor MarketPlace Marketplace" />
-    <meta property="og:description" content="Connect with verified suppliers and automate your sourcing with smart tools. Experience the future of global trade." />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="author" content="Souq Connect AI Team" />
+    <meta name="description" content="سوق كونكت (Souq Connect) - المنصة الذكية للربط والتوريد بين الشركات والموردين الموثوقين. ابحث وتصفح المنتجات والخدمات مع التوفيق التنبؤي والتحليل العصبي." />
+    <meta name="keywords" content="سوق كونكت, Souq Connect, B2B Marketplace, توريد شركات, موردين موثوقين, طلبات توريد, B2B Sourcing, منصة صفقات, بحث بالذكاء الاصطناعي" />
+    
+    <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="سوق كونكت | Souq Connect" />
+    <meta property="og:title" content="سوق كونكت | المنصة الذكية للتوريد والربط بين الشركات B2B" />
+    <meta property="og:description" content="ربط عالي الدقة بين الشركات والموردين الموثوقين عبر التحليل التنبؤي والبحث المرئي الآلي." />
     <meta property="og:image" content="/og-image.png" />
+    
+    <!-- Twitter Cards -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Souq Connect - Neural Hub for Multi-Vendor MarketPlace" />
-    <meta name="twitter:description" content="Automate sourcing and connect with verified suppliers worldwide using smart data insights." />
+    <meta name="twitter:title" content="سوق كونكت | Souq Connect B2B Marketplace" />
+    <meta name="twitter:description" content="منصة الربط الذكي والتحليل التنبؤي لطلبات التوريد والخدمات في الشرق الأوسط." />
     <meta name="twitter:image" content="/og-image.png" />
+
+    <!-- Performance & Typography Preconnect -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Kufi+Arabic:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>Souq Connect</title>
+    
+    <title>سوق كونكت | Souq Connect - منصة التوريد الذكي للشركات</title>
+
+    <!-- Schema.org JSON-LD Structured Data for B2B Marketplace Search Engines -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://souqconnect.app/#organization",
+          "name": "Souq Connect",
+          "alternateName": "سوق كونكت",
+          "url": "https://souqconnect.app",
+          "logo": "https://souqconnect.app/icon.png",
+          "description": "B2B Neural Marketplace connecting verified suppliers with corporate buyer demands using predictive AI matching.",
+          "knowsLanguage": ["ar", "en"]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://souqconnect.app/#website",
+          "url": "https://souqconnect.app",
+          "name": "Souq Connect Marketplace",
+          "alternateName": "سوق كونكت للتوريد الذكي",
+          "publisher": { "@id": "https://souqconnect.app/#organization" },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://souqconnect.app/?search={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

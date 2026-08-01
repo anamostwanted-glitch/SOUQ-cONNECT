@@ -16,7 +16,7 @@ interface AdminSidebarProps {
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActiveTab, tabs, isRtl, profile, isOpen, onClose }) => {
   return (
     <>
-      {/* Overlay for mobile */}
+      {/* Overlay for mobile and tablet */}
       <AnimatePresence>
         {isOpen && (
           <motion.div 
@@ -24,7 +24,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActive
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[95] md:hidden"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[95] lg:hidden"
           />
         )}
       </AnimatePresence>
@@ -33,7 +33,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActive
         isOpen 
           ? 'translate-x-0' 
           : isRtl ? 'translate-x-full' : '-translate-x-full'
-      } md:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-[100] md:relative md:sticky md:top-0`}>
+      } lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-[100] lg:relative lg:sticky lg:top-0`}>
         <div className="p-6 md:p-8 border-b border-brand-border/50 bg-brand-surface/50 backdrop-blur-sm flex items-center justify-between">
           <h2 className="text-xl md:text-2xl font-black text-brand-text-main tracking-tight flex items-center gap-3">
             <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-brand-primary to-brand-primary-hover rounded-2xl flex items-center justify-center text-white shadow-lg shadow-brand-primary/25">
@@ -49,7 +49,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActive
           {/* Close button for mobile inside sidebar */}
           <button 
             onClick={onClose}
-            className="p-2 text-brand-text-muted hover:text-brand-error md:hidden rounded-xl bg-brand-background transition-colors"
+            className="p-2 text-brand-text-muted hover:text-brand-error lg:hidden rounded-xl bg-brand-background transition-colors"
           >
             <X size={20} />
           </button>

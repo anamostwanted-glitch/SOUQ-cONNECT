@@ -40,9 +40,10 @@ import {
   ExternalLink,
   Package,
   Megaphone,
-  Clock
+  Clock,
+  Loader2
 } from 'lucide-react';
-import { collection, query, where, orderBy, onSnapshot, limit, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, limit, doc, updateDoc, getDocs, documentId } from 'firebase/firestore';
 import { db, auth } from '../../../core/firebase';
 import { UserProfile, AppFeatures, ProductRequest, MarketplaceItem } from '../../../core/types';
 import { HapticButton } from '../../../shared/components/HapticButton';
@@ -72,6 +73,8 @@ import { UserActivityFeed } from '../../common/components/UserActivityFeed';
 import { AuraHeader } from './command-center/AuraHeader';
 import { PulseRibbon } from './command-center/PulseRibbon';
 import { BentoMatrix } from './command-center/BentoMatrix';
+import { WalletHub } from './WalletHub';
+import { ChatHub } from '../../common/components/ChatHub';
 import HelpCenter from '../../site/components/HelpCenter';
 
 interface ConnectCommandCenterProps {
@@ -110,6 +113,8 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
   const [requests, setRequests] = useState<ProductRequest[]>([]);
   const [myMarketItems, setMyMarketItems] = useState<MarketplaceItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [favoriteItems, setFavoriteItems] = useState<MarketplaceItem[]>([]);
+  const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [insights, setInsights] = useState<{ ar: string; en: string }[]>([]);
@@ -141,16 +146,14 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
       q = query(
         collection(db, 'requests'), 
         where('customerId', '==', profile.uid),
-        orderBy('createdAt', 'desc'),
-        limit(20)
+        limit(30)
       );
     } else {
       // Perspective: Supplier - Show open requests OR matched requests
       q = query(
         collection(db, 'requests'),
         where('status', 'in', ['open', 'matched']),
-        orderBy('createdAt', 'desc'),
-        limit(30)
+        limit(40)
       );
     }
 
@@ -162,7 +165,9 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
           reqsMap.set(doc.id, { id: doc.id, ...data } as ProductRequest);
         }
       });
-      setRequests(Array.from(reqsMap.values()));
+      const reqsArr = Array.from(reqsMap.values());
+      reqsArr.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      setRequests(reqsArr);
       setIsLoadingRequests(false);
     }, (error) => {
       console.error('Firestore Error in requests listener:', error, 'Auth:', auth.currentUser?.uid, 'Perspective:', perspective);
@@ -178,20 +183,59 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
     if (!profile?.uid) return;
     const q = query(
       collection(db, 'marketplace'),
-      where('sellerId', '==', profile.uid),
-      orderBy('createdAt', 'desc')
+      where('sellerId', '==', profile.uid)
     );
     const unsub = onSnapshot(q, (snap) => {
       const itemsMap = new Map<string, MarketplaceItem>();
       snap.docs.forEach(d => {
         itemsMap.set(d.id, { id: d.id, ...d.data() } as MarketplaceItem);
       });
-      setMyMarketItems(Array.from(itemsMap.values()));
+      const itemsArr = Array.from(itemsMap.values());
+      itemsArr.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      setMyMarketItems(itemsArr);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'marketplace', false);
     });
     return () => unsub();
   }, [profile?.uid]);
+
+  // Fetch favorite products
+  useEffect(() => {
+    if (activeSubView !== 'favorites' || !profile?.favoriteProducts || profile.favoriteProducts.length === 0) {
+      setFavoriteItems([]);
+      setIsLoadingFavorites(false);
+      return;
+    }
+
+    const fetchFavorites = async () => {
+      setIsLoadingFavorites(true);
+      const chunkedIds = [];
+      for (let i = 0; i < profile.favoriteProducts!.length; i += 10) {
+        chunkedIds.push(profile.favoriteProducts!.slice(i, i + 10));
+      }
+
+      try {
+        const allItems: MarketplaceItem[] = [];
+        for (const chunk of chunkedIds) {
+          const q = query(
+            collection(db, 'marketplace'),
+            where(documentId(), 'in', chunk)
+          );
+          const snapshot = await getDocs(q);
+          snapshot.docs.forEach(doc => {
+            allItems.push({ id: doc.id, ...doc.data() } as MarketplaceItem);
+          });
+        }
+        setFavoriteItems(allItems);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, 'marketplace', false);
+      } finally {
+        setIsLoadingFavorites(false);
+      }
+    };
+
+    fetchFavorites().catch(err => handleFirestoreError(err, OperationType.GET, 'marketplace', false));
+  }, [activeSubView, profile?.favoriteProducts]);
 
   // Fetch categories
   useEffect(() => {
@@ -290,6 +334,52 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
     />
   );
 
+  const getSubViewTitle = (view: string) => {
+    switch (view) {
+      case 'settings':
+      case 'store_settings':
+        return isRtl ? 'الإعدادات' : 'Settings';
+      case 'inclusive_mode':
+        return isRtl ? 'وضع الشمولية والوصول' : 'Inclusive & Accessibility Mode';
+      case 'wallet':
+        return isRtl ? 'المحفظة الرقمية' : 'Connect Wallet';
+      case 'chats':
+        return isRtl ? 'المحادثات المباشرة' : 'Live Chats';
+      case 'favorites':
+        return isRtl ? 'المنتجات والخدمات المحفوظة' : 'Saved Favorites';
+      case 'requests':
+        return isRtl ? 'طلبات الشراء الخاصة بي' : 'My Requests';
+      case 'available_requests':
+        return isRtl ? 'الطلبات المتاحة للرد' : 'Available Requests';
+      case 'my_offers':
+        return isRtl ? 'عروضي المقدمة' : 'My Offers';
+      case 'my_ads':
+        return isRtl ? 'إعلاناتي' : 'My Ads';
+      case 'my_products':
+        return isRtl ? 'منتجاتي وخدماتي' : 'My Products & Services';
+      case 'ad_analytics':
+        return isRtl ? 'تحليلات الأداء' : 'Analytics';
+      case 'subscription':
+      case 'subscriptions':
+        return isRtl ? 'باقات الاشتراك' : 'Subscription Plans';
+      case 'smart_pulse':
+        return isRtl ? 'المركز العصبي' : 'Neural Pulse';
+      case 'market_trends':
+      case 'trends':
+        return isRtl ? 'توجهات السوق' : 'Market Trends';
+      case 'neural_activity':
+        return isRtl ? 'سجل النشاط العصبي' : 'Activity Log';
+      case 'notifications':
+        return isRtl ? 'إعدادات الإشعارات' : 'Notification Settings';
+      case 'neural_lexicon':
+        return isRtl ? 'معجم التوجهات الذكي' : 'Demand Lexicon';
+      case 'branding_settings':
+        return isRtl ? 'إعدادات الهوية البصرية' : 'Branding Settings';
+      default:
+        return '';
+    }
+  };
+
   const renderSubView = () => {
     if (!activeSubView) return null;
 
@@ -312,14 +402,53 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
               <span className="font-black text-sm uppercase tracking-widest">{isRtl ? 'العودة للمركز' : 'Back to Connect'}</span>
             </HapticButton>
             <h2 className="text-2xl font-black text-brand-text-main">
-              {activeSubView === 'settings' || activeSubView === 'store_settings' ? (isRtl ? 'الإعدادات' : 'Settings') : 
-               activeSubView === 'inclusive_mode' ? (isRtl ? 'وضع الشمولية' : 'Inclusive Mode') : ''}
+              {getSubViewTitle(activeSubView)}
             </h2>
           </div>
 
           <div className="pb-24">
             {(activeSubView === 'user_guide' || activeSubView === 'help') && (
               <HelpCenter onClose={() => setActiveSubView(null)} isRtl={isRtl} />
+            )}
+            {activeSubView === 'wallet' && (
+              <WalletHub profile={profile} isRtl={isRtl} />
+            )}
+            {activeSubView === 'chats' && (
+              <ChatHub 
+                profile={profile} 
+                onOpenChat={(chatId) => {
+                  setActiveSubView(null);
+                  onOpenChat(chatId);
+                }} 
+                onBack={() => setActiveSubView(null)} 
+              />
+            )}
+            {activeSubView === 'favorites' && (
+              <div>
+                {isLoadingFavorites ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="animate-spin text-brand-primary" size={32} />
+                  </div>
+                ) : favoriteItems.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    {favoriteItems.map(item => (
+                      <ProductCard 
+                        key={`fav-${item.id}`} 
+                        item={item} 
+                        onOpenChat={onOpenChat}
+                        onViewProfile={onViewProfile}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-brand-surface rounded-3xl border border-brand-border">
+                    <Heart size={48} className="mx-auto text-brand-text-muted mb-3" />
+                    <p className="font-bold text-brand-text-muted">
+                      {isRtl ? 'لا توجد منتجات محفوظة في المفضلة بعد' : 'No saved favorites yet'}
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
             {activeSubView === 'smart_pulse' && (
               <UserNeuralHub profile={profile} isRtl={isRtl} />
@@ -680,6 +809,11 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
 
         {/* Pulse Ribbon */}
         {renderPulseRibbon()}
+
+        {/* Bento Matrix Navigation Grid */}
+        <div className="mt-12 mb-12">
+          {renderBentoMatrix()}
+        </div>
 
         {/* Recent Orders */}
         {perspective === 'customer' && renderRecentOrders()}

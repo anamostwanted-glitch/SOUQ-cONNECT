@@ -52,8 +52,8 @@ export const MarketplaceAnalytics: React.FC = () => {
       <div className="bg-brand-surface p-6 rounded-3xl border border-brand-border">
         <h3 className="text-lg font-black text-brand-text-main mb-4">{isRtl ? 'تفاصيل الإعلانات' : 'Ad Details'}</h3>
         <div className="space-y-4">
-          {analytics.map(item => (
-            <div key={item.id} className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
+          {analytics.map((item, idx) => (
+            <div key={`analytics-item-${item.id || item.adId || idx}-${idx}`} className="flex items-center justify-between p-4 bg-brand-background rounded-2xl border border-brand-border">
               <span className="font-bold text-sm text-brand-text-main">Ad ID: {item.adId}</span>
               <div className="flex gap-4">
                 <span className="text-xs font-bold text-brand-text-muted">{isRtl ? 'مشاهدات:' : 'Views:'} {item.views}</span>

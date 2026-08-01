@@ -797,17 +797,29 @@ export const ConnectStorefront: React.FC<ConnectStorefrontProps> = ({
           
           <div className="flex items-center gap-2">
             {(isOwner || isAdmin) && (
-              <HapticButton 
-                onClick={() => setIsArchitectMode(!isArchitectMode)}
-                className={`px-4 md:px-6 py-2.5 md:py-3 rounded-[1.2rem] font-black text-[9px] md:text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-2xl ${
-                  isArchitectMode 
-                    ? 'bg-brand-primary text-white scale-105' 
-                    : 'bg-black/30 backdrop-blur-xl border border-white/10 text-white hover:bg-black/50'
-                }`}
-              >
-                <Zap size={12} className={isArchitectMode ? 'animate-pulse' : ''} />
-                {isArchitectMode ? (isRtl ? 'حفظ' : 'Save') : (isRtl ? 'تعديل الهوية' : 'Edit Identity')}
-              </HapticButton>
+              <>
+                <HapticButton 
+                  onClick={() => {
+                    window.location.href = '/dashboard';
+                  }}
+                  className="px-4 md:px-5 py-2.5 md:py-3 rounded-[1.2rem] bg-brand-teal text-white font-black text-[9px] md:text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-2xl hover:bg-brand-teal/90 transition-all border border-teal-400/30"
+                  title={isRtl ? 'الانتقال إلى لوحة التحكم والعمليات' : 'Switch to Operational Dashboard'}
+                >
+                  <LayoutGrid size={14} />
+                  <span>{isRtl ? 'لوحة التحكم' : 'Dashboard'}</span>
+                </HapticButton>
+                <HapticButton 
+                  onClick={() => setIsArchitectMode(!isArchitectMode)}
+                  className={`px-4 md:px-6 py-2.5 md:py-3 rounded-[1.2rem] font-black text-[9px] md:text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-2xl ${
+                    isArchitectMode 
+                      ? 'bg-brand-primary text-white scale-105' 
+                      : 'bg-black/30 backdrop-blur-xl border border-white/10 text-white hover:bg-black/50'
+                  }`}
+                >
+                  <Zap size={12} className={isArchitectMode ? 'animate-pulse' : ''} />
+                  {isArchitectMode ? (isRtl ? 'حفظ' : 'Save') : (isRtl ? 'تعديل الهوية' : 'Edit Identity')}
+                </HapticButton>
+              </>
             )}
             <HapticButton 
               onClick={handleShare}

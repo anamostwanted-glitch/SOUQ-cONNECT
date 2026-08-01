@@ -516,6 +516,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handleUpdateTrialDays = async (uid: string, customTrialDays: number) => {
+    try {
+      await updateDoc(doc(db, 'users', uid), { customTrialDays });
+      toast.success(isRtl ? `تم تخصيص الفترة التجريبية بـ ${customTrialDays} يوم` : `Custom trial set to ${customTrialDays} days`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`, false);
+    }
+  };
+
+  const handleUpdatePlan = async (uid: string, subscriptionPlan: 'basic' | 'pro' | 'enterprise') => {
+    try {
+      await updateDoc(doc(db, 'users', uid), { subscriptionPlan });
+      toast.success(isRtl ? 'تم تحديث باقة الاشتراك' : 'Subscription plan updated');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`, false);
+    }
+  };
+
   const [isScanning, setIsScanning] = useState(false);
   const [scanResults, setScanResults] = useState<any>(null);
 
@@ -765,10 +783,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      {/* Main Content */}
+      {/* Mobile & Tablet Header with Menu Trigger */}
       <main className="flex-1 overflow-y-auto bg-brand-background" style={{ padding: 'var(--fluid-px)' }}>
-        {/* Mobile Header with Menu Trigger */}
-        <div className="flex md:hidden items-center justify-between mb-6 bg-brand-surface p-4 rounded-2xl border border-brand-border shadow-sm">
+        {/* Mobile & Tablet Header with Menu Trigger */}
+        <div className="flex lg:hidden items-center justify-between mb-6 bg-brand-surface p-4 rounded-2xl border border-brand-border shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center text-white">
               <Shield size={20} />
@@ -1080,7 +1098,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             >
               <AdminUserManagement 
                 users={users}
+                allCategories={categories}
                 onUpdateRole={handleUpdateRole}
+                onUpdateTrialDays={handleUpdateTrialDays}
+                onUpdatePlan={handleUpdatePlan}
                 onVerifySupplier={handleVerifySupplier}
                 onViewProfile={onViewProfile}
                 onCheckExpirations={handleCheckExpirations}
