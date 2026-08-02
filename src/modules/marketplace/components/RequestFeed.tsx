@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../../core/firebase';
-import { UserProfile, ProductRequest } from '../../../core/types';
+import { UserProfile, ProductRequest, Category } from '../../../core/types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Package, 
@@ -17,6 +17,7 @@ import {
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { calculateDistributionMetrics, isRequestVisible } from '../../../core/services/distributionService';
+import { isSupplierMatchedToCategory } from '../../../core/services/notificationService';
 import { Info, TrendingUp, ShieldCheck, Star } from 'lucide-react';
 
 interface RequestFeedProps {
@@ -31,6 +32,7 @@ export const RequestFeed: React.FC<RequestFeedProps> = ({
   onMakeOffer 
 }) => {
   const [requests, setRequests] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'matched'>('all');
   const [showFairnessInfo, setShowFairnessInfo] = useState(false);
@@ -38,7 +40,17 @@ export const RequestFeed: React.FC<RequestFeedProps> = ({
   const metrics = calculateDistributionMetrics(profile);
 
   useEffect(() => {
-    // If supplier, we can filter by their categories
+    const fetchCats = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'categories'));
+        const cats = snap.docs.map(d => ({ id: d.id, ...d.data() } as Category));
+        setCategories(cats);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchCats();
+
     let q = query(
       collection(db, 'requests'),
       where('status', '==', 'open'),
@@ -66,7 +78,7 @@ export const RequestFeed: React.FC<RequestFeedProps> = ({
     }
 
     if (filter === 'matched' && profile.role === 'supplier' && profile.categories) {
-      return profile.categories.includes(req.categoryId);
+      return isSupplierMatchedToCategory(profile.categories, req.categoryId, categories);
     }
     return true;
   });

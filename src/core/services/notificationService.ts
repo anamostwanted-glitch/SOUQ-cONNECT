@@ -14,14 +14,50 @@ export const createNotification = async (notification: {
   [key: string]: any; // Allow extra fields
 }) => {
   try {
-    await addDoc(collection(db, 'notifications'), {
-      ...notification,
-      createdAt: new Date().toISOString(),
-      read: false,
-    });
+    const cleanData = Object.fromEntries(
+      Object.entries({
+        ...notification,
+        createdAt: new Date().toISOString(),
+        read: false,
+      }).filter(([_, v]) => v !== undefined)
+    );
+    await addDoc(collection(db, 'notifications'), cleanData);
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, 'notifications', false);
   }
+};
+
+export const isSupplierMatchedToCategory = (supplierCategories: string[] = [], targetCategoryId: string, categoriesList: Category[] = []): boolean => {
+  if (!supplierCategories || supplierCategories.length === 0) return false;
+  const targetLower = targetCategoryId.toLowerCase();
+  
+  const targetCat = categoriesList.find(c => 
+    c.id.toLowerCase() === targetLower || 
+    c.nameEn?.toLowerCase() === targetLower || 
+    c.nameAr?.toLowerCase() === targetLower
+  );
+
+  return supplierCategories.some(cat => {
+    const catLower = cat.toLowerCase();
+    if (catLower === targetLower) return true;
+    if (targetCat) {
+      if (catLower === targetCat.id.toLowerCase()) return true;
+      if (targetCat.nameEn && catLower === targetCat.nameEn.toLowerCase()) return true;
+      if (targetCat.nameAr && catLower === targetCat.nameAr.toLowerCase()) return true;
+      if (targetCat.parentId && catLower === targetCat.parentId.toLowerCase()) return true;
+    }
+    const supCatObj = categoriesList.find(c => 
+      c.id.toLowerCase() === catLower || 
+      c.nameEn?.toLowerCase() === catLower || 
+      c.nameAr?.toLowerCase() === catLower
+    );
+    if (supCatObj) {
+      if (supCatObj.id.toLowerCase() === targetLower) return true;
+      if (targetCat && supCatObj.parentId === targetCat.id) return true;
+      if (targetCat && targetCat.parentId === supCatObj.id) return true;
+    }
+    return false;
+  });
 };
 
 export const notifyMatchingSuppliers = async (
@@ -34,54 +70,49 @@ export const notifyMatchingSuppliers = async (
   urgency: 'normal' | 'high' | 'critical' = 'normal'
 ) => {
   try {
-    console.log('[CoreTeam] Initiating resilient notification strategy for:', productName);
+    console.log('[CoreTeam] Initiating resilient and precise notification strategy for:', productName, 'categoryId:', categoryId);
     
-    // 1. Fetch Candidates (Primary Category)
+    // Fetch all suppliers to ensure robust category, name, and hierarchy matching
     const suppliersQuery = query(
       collection(db, 'users'),
-      where('role', '==', 'supplier'),
-      where('categories', 'array-contains', categoryId)
+      where('role', '==', 'supplier')
     );
     const snap = await getDocs(suppliersQuery);
-    let candidates: UserProfile[] = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+    const allSuppliers: UserProfile[] = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
 
-    // 2. Hierarchy Fallback (Solution Architect Recommendation)
-    if (candidates.length === 0) {
-      const currentCat = categories.find(c => c.id === categoryId);
-      if (currentCat?.parentId) {
-        const parentQuery = query(
-          collection(db, 'users'),
-          where('role', '==', 'supplier'),
-          where('categories', 'array-contains', currentCat.parentId)
-        );
-        const parentSnap = await getDocs(parentQuery);
-        candidates = parentSnap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
-      }
-    }
+    // 1. Filter candidates using robust category matching
+    let candidates = allSuppliers.filter(supplier => 
+      !supplier.isDeleted && 
+      supplier.onboardingCompleted && 
+      isSupplierMatchedToCategory(supplier.categories, categoryId, categories)
+    );
 
-    // 2.5. Broad Supplier Fallback (Guarantee every request notifies active suppliers)
+    // 2. Hierarchy / Keyword Fallback if strict category count is low
     if (candidates.length === 0) {
-      const allSuppliersQuery = query(
-        collection(db, 'users'),
-        where('role', '==', 'supplier'),
-        limit(25)
+      candidates = allSuppliers.filter(supplier => 
+        !supplier.isDeleted && 
+        supplier.onboardingCompleted && 
+        (supplier.keywords?.some(kw => productName.toLowerCase().includes(kw.toLowerCase())) ||
+         supplier.bio?.toLowerCase().includes(productName.toLowerCase()))
       );
-      const allSnap = await getDocs(allSuppliersQuery);
-      candidates = allSnap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
     }
 
-    // 3. Geo-Awareness & Scoring (UX & Growth Hacker Recommendation)
+    // 2.5. General Active Suppliers Fallback if still empty
+    if (candidates.length === 0) {
+      candidates = allSuppliers.filter(s => !s.isDeleted && s.onboardingCompleted).slice(0, 15);
+    }
+
+    // 3. Geo-Awareness & Scoring
     const scoredSuppliers = candidates
-      .filter(s => !s.isDeleted && s.onboardingCompleted)
       .map(supplier => {
-        let score = 80; // Base score for category match
-        let reasonAr = 'مطابقة دقيقة للفئة';
-        let reasonEn = 'Direct category match';
+        let score = isSupplierMatchedToCategory(supplier.categories, categoryId, categories) ? 90 : 75;
+        let reasonAr = 'مطابقة دقيقة لفئة النشاط';
+        let reasonEn = 'Exact category match';
 
         // Geo Match (+15)
-        if (requestLocation && supplier.location === requestLocation) {
+        if (requestLocation && supplier.location && requestLocation.trim().toLowerCase() === supplier.location.trim().toLowerCase()) {
           score += 15;
-          reasonAr = 'مورد محلي في منطقتك';
+          reasonAr = 'مورد محلي في نفس منطقتك';
           reasonEn = 'Local supplier in your area';
         }
 
@@ -92,7 +123,7 @@ export const notifyMatchingSuppliers = async (
       })
       .sort((a, b) => b.score - a.score);
 
-    const finalists = scoredSuppliers.slice(0, 15); // Limit noise (UX Researcher recommendation)
+    const finalists = scoredSuppliers.slice(0, 15);
     const scarcityCount = finalists.length;
 
     // 4. Atomic Dispatch

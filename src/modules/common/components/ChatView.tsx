@@ -24,6 +24,7 @@ import imageCompression from 'browser-image-compression';
 import { UserProfile, Message, Chat, ProductRequest, Quote, QuoteItem, Offer, AppFeatures } from '../../../core/types';
 import { translateText, generateSmartReplies, moderateContent, translateAudio, negotiateOffer, getPriceIntelligence, summarizeChat, analyzeSentiment, handleAiError, refineChatMessage } from '../../../core/services/geminiService';
 import { createNotification } from '../../../core/services/notificationService';
+import { SecurityService } from '../../../core/services/SecurityService';
 import { motion, AnimatePresence } from 'motion/react';
 import { Send, Mic, Square, ArrowLeft, User as UserIcon, Play, Pause, MessageSquare, Image as ImageIcon, Upload, Tag, Phone, X, ZoomIn, Sparkles as SparklesIcon, Check, CheckCheck, FileText, PlusCircle, Trash2, Download, Printer, Star, Bot, MapPin, Reply, CheckCircle, Settings, Clock, SmilePlus, Search, MoreVertical, Copy, Forward, Pin, ShieldCheck, BrainCircuit, Sparkles, Info, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Package, ChevronRight, Loader2, Zap } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
@@ -876,6 +877,13 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, profile, features, onBack, 
     e?.preventDefault();
     const textToSend = overrideText || inputText;
     if (!textToSend.trim() || !profile) return;
+
+    // Apply Rate Limiting
+    if (!SecurityService.checkRateLimit('send_message', 30)) {
+      setChatError(i18n.language === 'ar' ? 'أنت ترسل الرسائل بسرعة كبيرة، يرجى الانتظار' : 'You are sending messages too fast, please wait');
+      setTimeout(() => setChatError(null), 3000);
+      return;
+    }
 
     const text = textToSend;
     if (!overrideText) setInputText('');

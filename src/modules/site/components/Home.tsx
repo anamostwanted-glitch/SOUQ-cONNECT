@@ -827,6 +827,38 @@ const Home: React.FC<HomeProps> = ({
     }
   };
 
+  const handleSuggestMore = async () => {
+    toast.loading(isRtl ? 'جاري البحث عن المزيد من الموردين...' : 'Searching for more suppliers...');
+    try {
+      const suppliersQuery = query(collection(db, 'users_public'), where('role', '==', 'supplier'), limit(50));
+      const snap = await getDocs(suppliersQuery);
+      let newSuppliers = snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile));
+      // filter out existing
+      newSuppliers = newSuppliers.filter(ns => !matchedSuppliers.some(ms => ms.uid === ns.uid));
+      // get 3 random ones
+      newSuppliers.sort(() => 0.5 - Math.random());
+      const selected = newSuppliers.slice(0, 3);
+      if (selected.length > 0) {
+        setMatchedSuppliers(prev => [...prev, ...selected]);
+        toast.dismiss();
+        toast.success(isRtl ? 'تم إضافة موردين جدد للقائمة!' : 'New suppliers added to the list!');
+      } else {
+        toast.dismiss();
+        toast.error(isRtl ? 'لا يوجد موردين إضافيين متاحين حالياً.' : 'No more suppliers available at the moment.');
+      }
+    } catch (e) {
+      toast.dismiss();
+      toast.error(isRtl ? 'حدث خطأ. يرجى المحاولة لاحقاً.' : 'An error occurred. Please try again later.');
+    }
+  };
+
+  const handleClearOldRequest = () => {
+    setMatchedSuppliers([]);
+    setLastRequest(null);
+    setLastRequestId(null);
+    toast.success(isRtl ? 'تم أرشفة الموردين للرجوع إليهم في ملفك الشخصي.' : 'Suppliers archived for later reference in your profile.');
+  };
+
   return (
     <div className="min-h-screen bg-brand-background relative overflow-x-hidden" style={{ 
       '--primary-text': primaryTextColor,
@@ -973,14 +1005,14 @@ const Home: React.FC<HomeProps> = ({
               }}>
               {isRtl ? (
                 <>
-                  {heroTitleAr || 'اطلب أي منتج'} <br className="hidden md:block" />
+                  {heroTitleAr || 'جد احتياجك القادم.'} <br className="hidden md:block" />
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-primary via-brand-teal to-brand-primary bg-[length:200%_auto] animate-gradient-x">
                     {heroTitleAr ? '' : 'بذكاء وسهولة'}
                   </span>
                 </>
               ) : (
                 <>
-                  {heroTitleEn || 'Request Any Product'} <br className="hidden md:block" />
+                  {heroTitleEn || 'Find your next need.'} <br className="hidden md:block" />
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-primary via-brand-teal to-brand-primary bg-[length:200%_auto] animate-gradient-x">
                     {heroTitleEn ? '' : 'Smart & Easy'}
                   </span>
@@ -1035,7 +1067,7 @@ const Home: React.FC<HomeProps> = ({
                     value={searchQuery || ''}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleRequest(e as any)}
-                    placeholder={isRtl ? (searchPlaceholderAr || 'ماذا تريد أن تطلب اليوم؟') : (searchPlaceholderEn || 'What do you want to request today?')}
+                    placeholder={isRtl ? (searchPlaceholderAr || 'أخبر الذكاء الاصطناعي عما تبحث عنه...') : (searchPlaceholderEn || 'Tell AI what you\'re looking for...')}
                     className={`w-full bg-transparent border-none focus:ring-0 text-base md:text-xl font-bold text-brand-text-main placeholder:text-brand-text-muted/60 py-3.5 md:py-6 ${isRtl ? 'pr-14 md:pr-20 pl-12 md:pl-20' : 'pl-14 md:pl-20 pr-12 md:pr-20'} rounded-full`}
                     dir={isRtl ? 'rtl' : 'ltr'}
                   />
@@ -1342,6 +1374,8 @@ const Home: React.FC<HomeProps> = ({
                   isRtl={isRtl} 
                   onOpenChat={onOpenChat || (() => {})} 
                   onViewProfile={onViewProfile || (() => {})} 
+                  onSuggestMore={handleSuggestMore}
+                  onClearOldRequest={handleClearOldRequest}
                 />
               )}
 

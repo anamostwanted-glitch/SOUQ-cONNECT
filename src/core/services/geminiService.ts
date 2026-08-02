@@ -108,16 +108,20 @@ const executeProxyCall = async (payload: any) => {
 
   let data: any;
   try {
-    data = await response.json();
+    data = await response.clone().json();
   } catch (e) {
-    const text = await response.text();
-    throw new Error(`Proxy response was not JSON (${response.status} ${response.statusText}): ${text.substring(0, 100)}`);
+    try {
+      const text = await response.clone().text();
+      throw new Error(`Proxy response was not JSON (${response.status} ${response.statusText}): ${text.substring(0, 100)}`);
+    } catch (textErr) {
+      throw new Error(`Proxy response failed (${response.status} ${response.statusText})`);
+    }
   }
 
   if (!response.ok) {
-    const errorMessage = data.error || 'Proxy AI request failed';
+    const errorMessage = data?.error || 'Proxy AI request failed';
     const error = new Error(errorMessage);
-    if (data.isInvalidKey) {
+    if (data?.isInvalidKey) {
       (error as any).isInvalidKey = true;
     }
     throw error;
@@ -1384,6 +1388,10 @@ export const matchSuppliers = async (query: string, suppliers: UserProfile[], ca
         required: ["matches", "reasoning"]
       }
     );
+
+    if (!data) {
+      return { matches: [], reasoning: 'AI matching unavailable' };
+    }
 
     return { 
       matches: data.matches || [], 

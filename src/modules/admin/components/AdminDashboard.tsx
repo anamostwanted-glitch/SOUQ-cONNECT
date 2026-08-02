@@ -86,6 +86,7 @@ import { PasskeyManager } from '../../user/components/PasskeyManager';
 import { SubscriptionManager } from '../../../components/SubscriptionManager';
 import { toast } from 'sonner';
 import { deleteDoc, writeBatch, where } from 'firebase/firestore';
+import { SecurityService } from '../../../core/services/SecurityService';
 
 interface AdminDashboardProps {
   profile: UserProfile;
@@ -196,6 +197,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       );
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, 'settings/site');
+    }
+  };
+
+  const handleUpdateUserCategories = async (uid: string, newCategories: string[]) => {
+    try {
+      const userRef = doc(db, 'users', uid);
+      const publicUserRef = doc(db, 'users_public', uid);
+      await updateDoc(userRef, { categories: newCategories });
+      await updateDoc(publicUserRef, { categories: newCategories }).catch(() => {});
+      toast.success(isRtl ? 'تم تحديث فئات المورد بنجاح' : 'Supplier categories updated successfully');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${uid}`);
+      toast.error(isRtl ? 'فشل تحديث فئات المورد' : 'Failed to update supplier categories');
     }
   };
 
@@ -511,6 +525,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       await updateDoc(doc(db, 'users', uid), { role: newRole });
       toast.success(isRtl ? 'تم تحديث الدور بنجاح' : 'Role updated successfully');
+      SecurityService.logSecurityEvent({
+        userId: profile.uid,
+        eventType: 'suspicious_activity', // Admin action
+        metadata: { action: 'update_role', targetUid: uid, newRole }
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`, false);
     }
@@ -520,6 +539,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       await updateDoc(doc(db, 'users', uid), { customTrialDays });
       toast.success(isRtl ? `تم تخصيص الفترة التجريبية بـ ${customTrialDays} يوم` : `Custom trial set to ${customTrialDays} days`);
+      SecurityService.logSecurityEvent({
+        userId: profile.uid,
+        eventType: 'suspicious_activity', // Admin action
+        metadata: { action: 'update_trial_days', targetUid: uid, customTrialDays }
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`, false);
     }
@@ -529,6 +553,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       await updateDoc(doc(db, 'users', uid), { subscriptionPlan });
       toast.success(isRtl ? 'تم تحديث باقة الاشتراك' : 'Subscription plan updated');
+      SecurityService.logSecurityEvent({
+        userId: profile.uid,
+        eventType: 'suspicious_activity', // Admin action
+        metadata: { action: 'update_plan', targetUid: uid, subscriptionPlan }
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`, false);
     }
@@ -1100,6 +1129,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 users={users}
                 allCategories={categories}
                 onUpdateRole={handleUpdateRole}
+                onUpdateCategories={handleUpdateUserCategories}
                 onUpdateTrialDays={handleUpdateTrialDays}
                 onUpdatePlan={handleUpdatePlan}
                 onVerifySupplier={handleVerifySupplier}

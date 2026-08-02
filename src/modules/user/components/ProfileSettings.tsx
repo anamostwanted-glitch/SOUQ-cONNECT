@@ -509,6 +509,114 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onBac
         </div>
       </div>
 
+      {/* Supplier Profile Completeness Meter */}
+      {isSupplierView && (() => {
+        const hasLogo = Boolean(formData.logoUrl);
+        const hasCover = Boolean(formData.coverUrl);
+        const hasBio = Boolean(formData.bio && formData.bio.trim().length >= 15);
+        const hasContact = Boolean(formData.phone && formData.location);
+        const hasCategories = Boolean(formData.categories && formData.categories.length > 0);
+        const hasKeywords = Boolean(formData.keywords && formData.keywords.length > 0);
+
+        let score = 0;
+        if (hasLogo) score += 20;
+        if (hasCover) score += 15;
+        if (hasBio) score += 20;
+        if (hasContact) score += 15;
+        if (hasCategories) score += 20;
+        if (hasKeywords) score += 10;
+
+        return (
+          <div className="px-4 md:px-8 max-w-7xl mx-auto mb-8">
+            <div className="p-6 md:p-8 bg-gradient-to-r from-brand-surface via-brand-background to-brand-surface border border-brand-border rounded-[2.5rem] shadow-xl relative overflow-hidden">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-primary to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-brand-primary/25 shrink-0">
+                    <Sparkles size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl md:text-2xl font-black text-brand-text-main flex items-center gap-2">
+                      <span>{isRtl ? 'مؤشر جاهزية واستكمال ملف المورد' : 'Supplier Profile Readiness Meter'}</span>
+                      <span className={`px-3 py-1 rounded-full text-xs font-black ${
+                        score === 100 
+                          ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' 
+                          : score >= 60 
+                            ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20'
+                            : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                      }`}>
+                        {score}% {isRtl ? 'مكتمل' : 'Complete'}
+                      </span>
+                    </h3>
+                    <p className="text-xs font-bold text-brand-text-muted mt-0.5">
+                      {score === 100 
+                        ? (isRtl ? 'متجرك جاهز 100% للتألق والجذب في سوق نواتنا المفتوح! 🚀' : 'Your store is 100% ready to shine in the marketplace!')
+                        : (isRtl ? 'استكمل باقي البيانات لرفع ترتيب متجرك وزيادة الثقة لدى العملاء' : 'Complete remaining details to boost store ranking and customer trust')}
+                    </p>
+                  </div>
+                </div>
+
+                <HapticButton
+                  onClick={() => handleAiSuggestCategories()}
+                  disabled={isAiSuggestingCategories}
+                  className="px-6 py-3 bg-gradient-to-r from-brand-primary to-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2 shrink-0 disabled:opacity-50"
+                >
+                  {isAiSuggestingCategories ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={18} />
+                  )}
+                  <span>{isRtl ? 'تصنيف متجري بالذكاء الاصطناعي ✨' : 'AI Categorize Store ✨'}</span>
+                </HapticButton>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full h-3.5 bg-brand-border/40 rounded-full overflow-hidden p-0.5 mb-6">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${score}%` }}
+                  transition={{ duration: 1, ease: 'easeOut' }}
+                  className={`h-full rounded-full transition-all ${
+                    score === 100
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                      : score >= 60
+                        ? 'bg-gradient-to-r from-brand-primary to-indigo-500'
+                        : 'bg-gradient-to-r from-amber-500 to-orange-400'
+                  }`}
+                />
+              </div>
+
+              {/* Checklist Pills */}
+              <div className="flex flex-wrap items-center gap-2">
+                {[
+                  { key: 'logo', labelAr: 'شعار المتجر', labelEn: 'Store Logo', done: hasLogo, pts: 20 },
+                  { key: 'cover', labelAr: 'غلاف المتجر', labelEn: 'Store Cover', done: hasCover, pts: 15 },
+                  { key: 'bio', labelAr: 'النبذة الاحترافية', labelEn: 'Bio', done: hasBio, pts: 20 },
+                  { key: 'contact', labelAr: 'بيانات التواصل', labelEn: 'Contact Info', done: hasContact, pts: 15 },
+                  { key: 'cats', labelAr: 'فئات النشاط', labelEn: 'Categories', done: hasCategories, pts: 20 },
+                  { key: 'kw', labelAr: 'الكلمات المفتاحية', labelEn: 'Keywords', done: hasKeywords, pts: 10 },
+                ].map((item) => (
+                  <div
+                    key={`checklist-${item.key}`}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${
+                      item.done
+                        ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                        : 'bg-brand-background border border-brand-border text-brand-text-muted opacity-80'
+                    }`}
+                  >
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
+                      item.done ? 'bg-emerald-500 text-white' : 'bg-brand-border text-brand-text-muted'
+                    }`}>
+                      {item.done ? '✓' : '+'}
+                    </div>
+                    <span>{isRtl ? item.labelAr : item.labelEn} (+{item.pts}%)</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 3. Bento Grid Data Section */}
       <motion.div 
         variants={containerVariants}

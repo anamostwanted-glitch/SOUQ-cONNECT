@@ -141,14 +141,24 @@ export const BentoMatrix: React.FC<BentoMatrixProps> = ({
   const supplierItems = [
     { 
       id: 'ad_analytics', 
-      title: isRtl ? 'تحليلات الأداء' : 'Growth Analytics', 
+      title: isRtl ? 'إجمالي الظهور' : 'Total Exposure', 
       desc: isRtl ? 'مراقبة نمو مبيعاتك' : 'Monitor sales growth',
       icon: BarChart3, 
       color: 'text-brand-primary', 
       bg: 'bg-brand-primary/10', 
       stat: '94%',
-      span: 'col-span-2',
+      span: 'col-span-1',
       hasChart: true 
+    },
+    { 
+      id: 'action_rate', 
+      title: isRtl ? 'معدل الإجراءات' : 'Action Rate', 
+      desc: isRtl ? 'تفاعل العملاء مع عروضك' : 'Customer interaction rate',
+      icon: TrendingUp, 
+      color: 'text-brand-teal', 
+      bg: 'bg-brand-teal/10', 
+      stat: '12%',
+      span: 'col-span-1'
     },
     { 
       id: 'my_products', 

@@ -164,9 +164,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                       {isRtl ? 'سبب الإبلاغ' : 'Reason for Reporting'}
                     </label>
                     <div className="grid grid-cols-1 gap-2">
-                      {reasons.map((r) => (
+                      {reasons.map((r, idx) => (
                         <button
-                          key={r}
+                          key={`${r}-${idx}`}
                           onClick={() => setReason(r)}
                           className={`flex items-center justify-between p-4 rounded-2xl border transition-all text-sm font-bold ${
                             reason === r 

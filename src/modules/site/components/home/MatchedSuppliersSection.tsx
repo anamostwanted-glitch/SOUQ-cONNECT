@@ -18,6 +18,8 @@ interface MatchedSuppliersSectionProps {
   isRtl: boolean;
   onOpenChat: (uid: string) => void;
   onViewProfile: (uid: string) => void;
+  onSuggestMore?: () => void;
+  onClearOldRequest?: () => void;
 }
 
 export const MatchedSuppliersSection: React.FC<MatchedSuppliersSectionProps> = ({ 
@@ -25,7 +27,9 @@ export const MatchedSuppliersSection: React.FC<MatchedSuppliersSectionProps> = (
   matchMetadata = {},
   isRtl, 
   onOpenChat, 
-  onViewProfile 
+  onViewProfile,
+  onSuggestMore,
+  onClearOldRequest
 }) => {
   if (matchedSuppliers.length === 0) return null;
 
@@ -68,11 +72,7 @@ export const MatchedSuppliersSection: React.FC<MatchedSuppliersSectionProps> = (
               {/* AI Score Badge - Floating */}
               {hasScore && (
                 <div className={`absolute top-6 ${isRtl ? 'left-6' : 'right-6'} z-30`}>
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border backdrop-blur-md shadow-lg ${
-                    meta.strength === 'perfect' 
-                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' 
-                      : 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary'
-                  }`}>
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border backdrop-blur-md shadow-lg bg-gradient-to-r from-brand-primary/20 to-brand-teal/20 border-brand-primary/30 text-brand-primary`}>
                     {meta.strength === 'perfect' ? (
                       <Star size={12} fill="currentColor" className="animate-pulse" />
                     ) : (
@@ -171,6 +171,34 @@ export const MatchedSuppliersSection: React.FC<MatchedSuppliersSectionProps> = (
           );
         })}
       </div>
+
+      {/* Action Buttons for Old/Current Request */}
+      {(onSuggestMore || onClearOldRequest) && (
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="flex flex-col sm:flex-row items-center gap-4 mt-8 pt-6 border-t border-brand-border/40"
+        >
+          {onSuggestMore && (
+            <HapticButton
+              onClick={onSuggestMore}
+              className="w-full sm:w-auto px-8 py-4 bg-brand-primary text-white rounded-2xl text-[12px] font-black uppercase tracking-widest shadow-xl shadow-brand-primary/20 hover:shadow-2xl hover:shadow-brand-primary/40 transition-all flex items-center justify-center gap-2 flex-1"
+            >
+              <SparklesIcon size={16} />
+              {isRtl ? 'اقتراح موردين آخرين' : 'Suggest Other Suppliers'}
+            </HapticButton>
+          )}
+          {onClearOldRequest && (
+            <HapticButton
+              onClick={onClearOldRequest}
+              className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-slate-900 text-brand-text-muted border border-brand-border rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-brand-background transition-all flex items-center justify-center gap-2 flex-1"
+            >
+              {isRtl ? 'إخفاء والأرشفة للرجوع لاحقاً' : 'Archive & Hide'}
+            </HapticButton>
+          )}
+        </motion.div>
+      )}
     </div>
   );
 };

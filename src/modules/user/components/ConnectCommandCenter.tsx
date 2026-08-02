@@ -437,6 +437,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
                         item={item} 
                         onOpenChat={onOpenChat}
                         onViewProfile={onViewProfile}
+                        onViewDetails={(item) => console.log('View details', item)}
                       />
                     ))}
                   </div>
@@ -781,7 +782,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
                </div>
              </div>
 
-             {/* Smart Assistant Card */}
+             {/* Smart Assistant / AI Growth Module */}
              <motion.div 
                whileHover={{ y: -5 }}
                className="bg-gradient-to-br from-brand-primary to-brand-teal p-8 rounded-[2.5rem] text-white relative overflow-hidden shadow-xl shadow-brand-primary/20 flex flex-col justify-center"
@@ -792,15 +793,19 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
                     <Sparkles size={20} />
                  </div>
                  <h4 className="text-lg font-black mb-2 leading-tight">
-                    {isRtl ? 'مساعد التوقع الذكي' : 'Smart Prediction'}
+                    {perspective === 'supplier' 
+                      ? (isRtl ? 'استراتيجية نمو كونكت AI' : 'Connect AI Growth Strategy')
+                      : (isRtl ? 'مساعد التوقع الذكي' : 'Smart Prediction')}
                  </h4>
                  <p className="text-xs text-white/80 font-medium mb-6 leading-relaxed">
-                    {isRtl 
-                      ? 'بناءً على طلباتك، قد تحتاج قريباً لحديد تسليح لتكمل مشروعك.' 
-                      : 'Based on recent activity, you might soon need Rebar to complete your build.'}
+                    {perspective === 'supplier'
+                      ? (isRtl ? 'اكتشف حيل المبيعات وزد من نسبة وصولك بناءً على تحليلات السوق الأخيرة.' : 'Discover sales hacks and increase your reach based on recent market analytics.')
+                      : (isRtl ? 'بناءً على طلباتك، قد تحتاج قريباً لحديد تسليح لتكمل مشروعك.' : 'Based on recent activity, you might soon need Rebar to complete your build.')}
                  </p>
                  <HapticButton className="w-full py-3 bg-white text-brand-primary rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-white/90">
-                    {isRtl ? 'استكشاف المقترحات' : 'Explore Ideas'} <Sparkles size={14} />
+                    {perspective === 'supplier'
+                      ? (isRtl ? 'تحسين الأداء' : 'Optimize Performance')
+                      : (isRtl ? 'استكشاف المقترحات' : 'Explore Ideas')} <Sparkles size={14} />
                  </HapticButton>
                </div>
              </motion.div>

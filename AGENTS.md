@@ -37,6 +37,8 @@
 - **Full-Stack Developer**: Focuses on error handling, soft-delete patterns, and platform core.
 - **DevOps Engineer**: Focuses on env safety, build reliability, and deployment monitoring.
 - **Growth Hacker**: Focuses on "Neural Lexicon" conversion loops and supplier engagement.
+- **Data Scientist**: Focuses on data models, predictive matching algorithms, Neural Pulse insights, and advanced analytics.
+- **Security Expert**: Focuses on platform security, firestore rules validation, data protection, and authentication hardening.
 
 ## 7. Project Context Summary (Backup)
 - **Project Name:** Connect AI Marketplace (Multi-User Platform)

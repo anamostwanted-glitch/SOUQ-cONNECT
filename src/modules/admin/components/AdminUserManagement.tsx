@@ -20,7 +20,11 @@ import {
   X,
   ChevronRight,
   Layers,
-  Tag
+  Tag,
+  Wand2,
+  Check,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { UserProfile, Category } from '../../../core/types';
@@ -34,6 +38,7 @@ interface AdminUserManagementProps {
   users: UserProfile[];
   allCategories?: Category[];
   onUpdateRole: (uid: string, role: string) => void;
+  onUpdateCategories?: (uid: string, categories: string[]) => Promise<void>;
   onUpdateTrialDays?: (uid: string, days: number) => Promise<void>;
   onUpdatePlan?: (uid: string, plan: 'basic' | 'pro' | 'enterprise') => Promise<void>;
   onVerifySupplier: (uid: string, isVerified: boolean) => void;
@@ -50,6 +55,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   users,
   allCategories = [],
   onUpdateRole,
+  onUpdateCategories,
   onUpdateTrialDays,
   onUpdatePlan,
   onVerifySupplier,
@@ -80,6 +86,68 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   const [customDaysInput, setCustomDaysInput] = useState<number>(15);
   const [selectedPlanInput, setSelectedPlanInput] = useState<'basic' | 'pro' | 'enterprise'>('pro');
   const [isSavingTrial, setIsSavingTrial] = useState(false);
+
+  // Admin Manual Category Assignment Modal State
+  const [editingCategoriesUser, setEditingCategoriesUser] = useState<UserProfile | null>(null);
+  const [selectedUserCategoryIds, setSelectedUserCategoryIds] = useState<string[]>([]);
+  const [categorySearchQuery, setCategorySearchQuery] = useState<string>('');
+  const [isSavingCategories, setIsSavingCategories] = useState<boolean>(false);
+  const [isAiSuggestingCategories, setIsAiSuggestingCategories] = useState<boolean>(false);
+
+  const openCategoryModal = (user: UserProfile) => {
+    setEditingCategoriesUser(user);
+    const mappedIds = (user.categories || []).map(catIdOrName => {
+      const match = allCategories.find(c => c.id === catIdOrName || c.nameEn === catIdOrName || c.nameAr === catIdOrName);
+      return match ? match.id : catIdOrName;
+    });
+    setSelectedUserCategoryIds(mappedIds);
+    setCategorySearchQuery('');
+  };
+
+  const handleToggleUserCategory = (catId: string) => {
+    setSelectedUserCategoryIds(prev => 
+      prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
+    );
+  };
+
+  const handleAiSuggestCategoriesForUser = async () => {
+    if (!editingCategoriesUser || allCategories.length === 0) return;
+    setIsAiSuggestingCategories(true);
+    try {
+      const { suggestSmartCategories } = await import('../../../core/services/geminiService');
+      const title = `${editingCategoriesUser.companyName || editingCategoriesUser.name || ''}`;
+      const description = `${editingCategoriesUser.bio || ''} ${editingCategoriesUser.keywords?.join(' ') || ''}`;
+      
+      const suggestedCategoryIds = await suggestSmartCategories({ title, description }, allCategories);
+      
+      if (suggestedCategoryIds && suggestedCategoryIds.length > 0) {
+        setSelectedUserCategoryIds(prev => Array.from(new Set([...prev, ...suggestedCategoryIds])));
+        toast.success(isRtl ? `تم اقتراح ${suggestedCategoryIds.length} فئات متطابقة بالذكاء الاصطناعي ✨` : `AI suggested ${suggestedCategoryIds.length} matching categories ✨`);
+      } else {
+        toast.info(isRtl ? 'لم يجد الذكاء الاصطناعي فئات مطابقة مباشرة، يرجى التحديد يدوياً' : 'No direct matches found, please select manually');
+      }
+    } catch (err) {
+      console.error('AI Suggestion Error:', err);
+      toast.error(isRtl ? 'فشل توليد الاقتراحات الذكية' : 'Failed to generate smart suggestions');
+    } finally {
+      setIsAiSuggestingCategories(false);
+    }
+  };
+
+  const handleSaveCategories = async () => {
+    if (!editingCategoriesUser || !onUpdateCategories) return;
+    setIsSavingCategories(true);
+    try {
+      await onUpdateCategories(editingCategoriesUser.uid, selectedUserCategoryIds);
+      toast.success(isRtl ? 'تم تحديث فئات المورد بنجاح 🏷️' : 'Supplier categories updated successfully 🏷️');
+      setEditingCategoriesUser(null);
+    } catch (err) {
+      console.error('Save Categories Error:', err);
+      toast.error(isRtl ? 'حدث خطأ أثناء حفظ الفئات' : 'Failed to save categories');
+    } finally {
+      setIsSavingCategories(false);
+    }
+  };
 
   const openTrialModal = (user: UserProfile) => {
     const subInfo = getEffectiveSubscription(user);
@@ -551,25 +619,41 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                               </span>
                             )}
                           </div>
-                          {user.categories && user.categories.length > 0 && (
-                            <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                              {user.categories.slice(0, 3).map((catIdOrName, cIdx) => {
-                                const matchedCat = allCategories.find(c => c.id === catIdOrName || c.nameEn === catIdOrName || c.nameAr === catIdOrName);
-                                const displayName = matchedCat ? (isRtl ? matchedCat.nameAr : matchedCat.nameEn) : catIdOrName;
-                                return (
-                                  <span key={cIdx} className="px-2 py-0.5 rounded-md bg-brand-primary/10 text-brand-primary text-[9px] font-extrabold flex items-center gap-1">
-                                    <Tag size={8} />
-                                    <span>{displayName}</span>
+                          <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                            {user.categories && user.categories.length > 0 ? (
+                              <>
+                                {user.categories.slice(0, 3).map((catIdOrName, cIdx) => {
+                                  const matchedCat = allCategories.find(c => c.id === catIdOrName || c.nameEn === catIdOrName || c.nameAr === catIdOrName);
+                                  const displayName = matchedCat ? (isRtl ? matchedCat.nameAr : matchedCat.nameEn) : catIdOrName;
+                                  return (
+                                    <span key={cIdx} className="px-2 py-0.5 rounded-md bg-brand-primary/10 text-brand-primary text-[9px] font-extrabold flex items-center gap-1">
+                                      <Tag size={8} />
+                                      <span>{displayName}</span>
+                                    </span>
+                                  );
+                                })}
+                                {user.categories.length > 3 && (
+                                  <span className="text-[8px] font-bold text-brand-text-muted">
+                                    +{user.categories.length - 3}
                                   </span>
-                                );
-                              })}
-                              {user.categories.length > 3 && (
-                                <span className="text-[8px] font-bold text-brand-text-muted">
-                                  +{user.categories.length - 3}
-                                </span>
-                              )}
-                            </div>
-                          )}
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-md">
+                                {isRtl ? 'بدون فئة' : 'Uncategorized'}
+                              </span>
+                            )}
+                            {user.role === 'supplier' && (
+                              <button
+                                onClick={() => openCategoryModal(user)}
+                                className="px-1.5 py-0.5 rounded-md bg-brand-background hover:bg-brand-primary/10 border border-brand-border text-brand-primary text-[9px] font-extrabold flex items-center gap-1 transition-colors"
+                                title={isRtl ? 'تعديل الفئات يدوياً' : 'Edit Categories Manually'}
+                              >
+                                <Tag size={8} />
+                                <span>{isRtl ? 'تعديل الفئات' : 'Edit Categories'}</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -970,6 +1054,181 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                     </button>
                   </div>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Category Selection Modal for Suppliers */}
+      <AnimatePresence>
+        {editingCategoriesUser && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-brand-surface w-full max-w-2xl rounded-[2.5rem] border border-brand-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-brand-border flex items-center justify-between shrink-0 bg-brand-background/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center text-brand-primary shrink-0">
+                    <Tag size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-brand-text-main flex items-center gap-2">
+                      <span>{isRtl ? 'إدارة فئات المورد يدوياً' : 'Manage Supplier Categories'}</span>
+                    </h2>
+                    <p className="text-xs text-brand-text-muted font-bold">
+                      {editingCategoriesUser.companyName || editingCategoriesUser.name} ({editingCategoriesUser.email})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingCategoriesUser(null)}
+                  className="p-2 text-brand-text-muted hover:text-brand-text-main rounded-xl hover:bg-brand-background transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Controls & Search */}
+              <div className="p-6 border-b border-brand-border bg-brand-surface space-y-3 shrink-0">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  {/* Search Bar */}
+                  <div className="relative flex-1">
+                    <Search size={16} className="absolute text-brand-text-muted rtl:right-3.5 rtl:left-auto ltr:left-3.5 ltr:right-auto top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={categorySearchQuery}
+                      onChange={(e) => setCategorySearchQuery(e.target.value)}
+                      placeholder={isRtl ? 'ابحث في الفئات بالاسم أو النوع...' : 'Search categories by name or type...'}
+                      className="w-full bg-brand-background border border-brand-border rounded-xl rtl:pr-10 rtl:pl-4 ltr:pl-10 ltr:pr-4 py-2.5 text-xs font-bold text-brand-text-main focus:outline-none focus:border-brand-primary transition-all"
+                    />
+                  </div>
+
+                  {/* AI Auto-Suggest Button */}
+                  <button
+                    type="button"
+                    onClick={handleAiSuggestCategoriesForUser}
+                    disabled={isAiSuggestingCategories}
+                    className="px-4 py-2.5 bg-gradient-to-r from-brand-primary to-indigo-600 text-white rounded-xl text-xs font-black shadow-md hover:shadow-lg hover:brightness-110 transition-all flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
+                  >
+                    {isAiSuggestingCategories ? (
+                      <Clock size={16} className="animate-spin" />
+                    ) : (
+                      <Wand2 size={16} />
+                    )}
+                    <span>{isRtl ? 'اقتراح بالذكاء الاصطناعي ✨' : 'AI Auto-Suggest ✨'}</span>
+                  </button>
+                </div>
+
+                {/* Quick Selection Summary & Clear All */}
+                <div className="flex items-center justify-between text-xs font-bold text-brand-text-muted pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-brand-primary/10 text-brand-primary font-black px-2.5 py-0.5 rounded-md text-[11px]">
+                      {selectedUserCategoryIds.length} {isRtl ? 'فئة محددة' : 'selected'}
+                    </span>
+                    {selectedUserCategoryIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUserCategoryIds([])}
+                        className="text-brand-error hover:underline text-[11px]"
+                      >
+                        {isRtl ? 'إلغاء التحديد' : 'Clear all'}
+                      </button>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-brand-text-muted">
+                    {isRtl ? `إجمالي الفئات المتاحة: ${allCategories.length}` : `Total available: ${allCategories.length}`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Categories Scrollable Grid */}
+              <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                {allCategories.length === 0 ? (
+                  <div className="p-8 text-center text-brand-text-muted font-bold text-xs">
+                    {isRtl ? 'لا توجد فئات مضافة في النظام حالياً' : 'No categories available in the system'}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {allCategories
+                      .filter(cat => {
+                        if (!categorySearchQuery.trim()) return true;
+                        const queryLower = categorySearchQuery.toLowerCase();
+                        return (
+                          cat.nameAr?.toLowerCase().includes(queryLower) ||
+                          cat.nameEn?.toLowerCase().includes(queryLower) ||
+                          cat.id?.toLowerCase().includes(queryLower)
+                        );
+                      })
+                      .map(cat => {
+                        const isSelected = selectedUserCategoryIds.includes(cat.id);
+                        const displayName = isRtl ? cat.nameAr : cat.nameEn;
+                        const catTypeLabel = cat.categoryType === 'service' ? (isRtl ? 'خدمة' : 'Service') : (isRtl ? 'منتج' : 'Product');
+                        
+                        return (
+                          <div
+                            key={`cat-select-${cat.id}`}
+                            onClick={() => handleToggleUserCategory(cat.id)}
+                            className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                              isSelected
+                                ? 'bg-brand-primary/10 border-brand-primary shadow-sm text-brand-text-main'
+                                : 'bg-brand-background/60 hover:bg-brand-background border-brand-border text-brand-text-muted hover:text-brand-text-main'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+                                isSelected ? 'bg-brand-primary text-white' : 'border border-brand-border bg-brand-surface'
+                              }`}>
+                                {isSelected && <Check size={12} strokeWidth={3} />}
+                              </div>
+                              <div className="truncate">
+                                <div className="text-xs font-black truncate">{displayName}</div>
+                                {cat.nameEn && isRtl && (
+                                  <div className="text-[10px] text-brand-text-muted truncate">{cat.nameEn}</div>
+                                )}
+                              </div>
+                            </div>
+
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black shrink-0 ${
+                              cat.categoryType === 'service'
+                                ? 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'
+                                : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                            }`}>
+                              {catTypeLabel}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-brand-border bg-brand-background/50 flex gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setEditingCategoriesUser(null)}
+                  disabled={isSavingCategories}
+                  className="flex-1 px-6 py-3.5 bg-brand-surface border border-brand-border rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-background transition-all disabled:opacity-50"
+                >
+                  {isRtl ? 'إلغاء' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveCategories}
+                  disabled={isSavingCategories}
+                  className="flex-1 px-6 py-3.5 bg-brand-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSavingCategories ? (
+                    <Clock size={16} className="animate-spin" />
+                  ) : (
+                    isRtl ? 'حفظ فئات المورد' : 'Save Categories'
+                  )}
+                </button>
               </div>
             </motion.div>
           </div>

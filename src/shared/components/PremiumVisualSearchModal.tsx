@@ -131,6 +131,11 @@ export const PremiumVisualSearchModal: React.FC<PremiumVisualSearchModalProps> =
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Clear previous request state and matched suppliers immediately
+      setMatchedSuppliersList([]);
+      setAnalysis(null);
+      setError(null);
+      setSentToAllSuccess(false);
       setSelectedFile(file);
       setStep('analyzing'); // Move this here to show loading immediately
       
