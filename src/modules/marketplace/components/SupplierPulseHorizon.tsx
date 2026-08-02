@@ -90,7 +90,7 @@ export const SupplierPulseHorizon: React.FC<SupplierPulseHorizonProps> = ({
         <AnimatePresence mode="popLayout">
           {shuffledSuppliers.map((supplier, index) => (
             <SupplierPulseSlab 
-              key={supplier.uid} 
+              key={`pulse-supplier-${supplier.uid || index}-${index}`} 
               supplier={supplier} 
               isRtl={isRtl} 
               onViewProfile={onViewProfile}

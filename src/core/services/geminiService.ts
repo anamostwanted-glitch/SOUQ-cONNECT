@@ -1295,6 +1295,10 @@ export const categorizeProduct = async (query: string, categories: Category[]): 
       }
     );
     
+    if (!result || !result.categoryId) {
+      return defaultCat;
+    }
+
     const matched = categories.find(c => c.id === result.categoryId);
     const tokens = (query.length + JSON.stringify(result).length) / 4;
     await logUsage('Product Categorization', Math.ceil(tokens));

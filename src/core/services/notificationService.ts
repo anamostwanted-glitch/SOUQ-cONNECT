@@ -97,9 +97,23 @@ export const notifyMatchingSuppliers = async (
       );
     }
 
-    // 2.5. General Active Suppliers Fallback if still empty
+    // 2. Strict keyword/bio fallback if strict category count is zero, but require actual relevance
     if (candidates.length === 0) {
-      candidates = allSuppliers.filter(s => !s.isDeleted && s.onboardingCompleted).slice(0, 15);
+      const queryWords = productName.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      candidates = allSuppliers.filter(supplier => 
+        !supplier.isDeleted && 
+        supplier.onboardingCompleted && 
+        queryWords.some(qw => 
+          supplier.keywords?.some(kw => kw.toLowerCase().includes(qw)) ||
+          supplier.bio?.toLowerCase().includes(qw) ||
+          supplier.companyName?.toLowerCase().includes(qw)
+        )
+      );
+    }
+
+    if (candidates.length === 0) {
+      console.log('[CoreTeam] No matching suppliers found for category or query keywords.');
+      return [];
     }
 
     // 3. Geo-Awareness & Scoring

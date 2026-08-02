@@ -88,7 +88,7 @@ export const SupplierMosaic: React.FC<SupplierMosaicProps> = ({
         <AnimatePresence mode="popLayout">
           {shuffledSuppliers.map((supplier, index) => (
             <motion.div
-              key={supplier.uid}
+              key={`mosaic-supplier-${supplier.uid || index}-${index}`}
               layout
               initial={{ opacity: 0, scale: 0.8, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}

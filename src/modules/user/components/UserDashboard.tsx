@@ -493,7 +493,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {Array.from(new Map(favoriteItems.map(item => [item.id || `fav-temp-${Math.random()}`, item])).values()).map((item, idx) => (
+                {Array.from(new Map(favoriteItems.map((item, i) => [item.id || item.sellerId || `fav-${i}`, item])).values()).map((item, idx) => (
                   <ProductCard 
                     key={`fav-prod-${item.id || 'id'}-${idx}`} 
                     item={item} 

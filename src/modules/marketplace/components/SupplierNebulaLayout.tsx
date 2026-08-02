@@ -73,7 +73,7 @@ export const SupplierNebulaLayout: React.FC<SupplierNebulaLayoutProps> = ({
         <AnimatePresence mode="popLayout">
           {shuffledSuppliers.map((supplier, index) => (
             <motion.div
-              key={supplier.uid}
+              key={`nebula-supplier-${supplier.uid || index}-${index}`}
               layout
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}

@@ -52,7 +52,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { notifyMatchingSuppliers } from '../../../core/services/notificationService';
+import { notifyMatchingSuppliers, isSupplierMatchedToCategory } from '../../../core/services/notificationService';
 import { OptimizedImage } from '../../../shared/components/OptimizedImage';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
@@ -530,6 +530,11 @@ const Home: React.FC<HomeProps> = ({
     setSearchQuery('');
     setDraftDescription('');
     setShowDraftArea(false);
+    // Clear previous matched suppliers and request state for the new request
+    setMatchedSuppliers([]);
+    setMatchMetadata({});
+    setLastRequest(null);
+    setLastRequestId(null);
     const initialStatus = i18n.language === 'ar' 
       ? 'نعمل على تحسين طلبك باستخدام الذكاء الاصطناعي لضمان أفضل العروض...' 
       : 'Enhancing your request with AI to ensure the best offers...';
@@ -828,23 +833,40 @@ const Home: React.FC<HomeProps> = ({
   };
 
   const handleSuggestMore = async () => {
-    toast.loading(isRtl ? 'جاري البحث عن المزيد من الموردين...' : 'Searching for more suppliers...');
+    toast.loading(isRtl ? 'جاري البحث عن المزيد من الموردين المطابقين...' : 'Searching for more matching suppliers...');
     try {
-      const suppliersQuery = query(collection(db, 'users_public'), where('role', '==', 'supplier'), limit(50));
+      const suppliersQuery = query(collection(db, 'users_public'), where('role', '==', 'supplier'), limit(100));
       const snap = await getDocs(suppliersQuery);
-      let newSuppliers = snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile));
-      // filter out existing
-      newSuppliers = newSuppliers.filter(ns => !matchedSuppliers.some(ms => ms.uid === ns.uid));
-      // get 3 random ones
-      newSuppliers.sort(() => 0.5 - Math.random());
-      const selected = newSuppliers.slice(0, 3);
+      let allSellers = snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile));
+      
+      // Filter out existing matched suppliers
+      allSellers = allSellers.filter(ns => !matchedSuppliers.some(ms => ms.uid === ns.uid));
+      
+      // Filter by category match if lastRequest has categoryId
+      if (lastRequest?.categoryId) {
+        allSellers = allSellers.filter(s => isSupplierMatchedToCategory(s.categories, lastRequest.categoryId, categories));
+      } else if (searchQuery) {
+        // Fallback to query keyword matching
+        const queryWords = searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        if (queryWords.length > 0) {
+          allSellers = allSellers.filter(s => 
+            queryWords.some(qw => 
+              s.keywords?.some(kw => kw.toLowerCase().includes(qw)) ||
+              s.bio?.toLowerCase().includes(qw) ||
+              s.companyName?.toLowerCase().includes(qw)
+            )
+          );
+        }
+      }
+
+      const selected = allSellers.slice(0, 3);
       if (selected.length > 0) {
         setMatchedSuppliers(prev => [...prev, ...selected]);
         toast.dismiss();
-        toast.success(isRtl ? 'تم إضافة موردين جدد للقائمة!' : 'New suppliers added to the list!');
+        toast.success(isRtl ? 'تم إضافة موردين جدد مطابقين للقائمة!' : 'New matching suppliers added to the list!');
       } else {
         toast.dismiss();
-        toast.error(isRtl ? 'لا يوجد موردين إضافيين متاحين حالياً.' : 'No more suppliers available at the moment.');
+        toast.error(isRtl ? 'لا يوجد موردين إضافيين مطابقين لهذه الفئة حالياً.' : 'No more matching suppliers available for this category at the moment.');
       }
     } catch (e) {
       toast.dismiss();

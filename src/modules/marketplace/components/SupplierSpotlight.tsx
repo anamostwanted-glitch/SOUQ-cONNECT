@@ -26,7 +26,7 @@ export const SupplierSpotlight: React.FC<SupplierSpotlightProps> = ({ suppliers,
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {featuredSuppliers.map((supplier, index) => (
           <motion.div
-            key={supplier.uid}
+            key={`spotlight-supplier-${supplier.uid || index}-${index}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
