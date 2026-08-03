@@ -28,6 +28,8 @@ export interface UserProfile {
   metaDescriptionEn?: string;
   seoKeywords?: string[];
   companyName?: string;
+  businessName?: string;
+  displayName?: string;
   phone?: string;
   location?: string;
   coordinates?: {

@@ -91,8 +91,8 @@ export const SmartCategoryExplorer: React.FC<SmartCategoryExplorerProps> = ({
     // Sort logic
     if (sortBy === 'az') {
       rawCategories.sort((a, b) => {
-        const nameA = isRtl ? a.nameAr : a.nameEn;
-        const nameB = isRtl ? b.nameAr : b.nameEn;
+        const nameA = (isRtl ? a.nameAr : a.nameEn) || a.nameAr || a.nameEn || '';
+        const nameB = (isRtl ? b.nameAr : b.nameEn) || b.nameAr || b.nameEn || '';
         return nameA.localeCompare(nameB);
       });
     }

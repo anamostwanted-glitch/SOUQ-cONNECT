@@ -7,6 +7,7 @@ import axios from "axios";
 import nodemailer from "nodemailer";
 import admin from "firebase-admin";
 import fs from "fs";
+import { mobileApiRouter } from "./src/server/mobileApi";
 
 dotenv.config();
 
@@ -32,6 +33,9 @@ async function startServer() {
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
+
+  // Mobile App Web APIs (for Users & Service Providers)
+  app.use("/api/mobile", mobileApiRouter);
 
   // Dynamic Sitemap
   app.get("/sitemap.xml", async (req, res) => {

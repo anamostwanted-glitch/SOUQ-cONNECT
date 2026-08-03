@@ -72,18 +72,24 @@ export const notifyMatchingSuppliers = async (
   try {
     console.log('[CoreTeam] Initiating resilient and precise notification strategy for:', productName, 'categoryId:', categoryId);
     
-    // Fetch all suppliers to ensure robust category, name, and hierarchy matching
-    const suppliersQuery = query(
-      collection(db, 'users'),
-      where('role', '==', 'supplier')
-    );
-    const snap = await getDocs(suppliersQuery);
-    const allSuppliers: UserProfile[] = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+    // Fetch all suppliers from users_public and users to ensure robust category, name, and hierarchy matching
+    let allSuppliers: UserProfile[] = [];
+    try {
+      const pubSnap = await getDocs(query(collection(db, 'users_public'), limit(50)));
+      allSuppliers = pubSnap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+      
+      if (allSuppliers.length === 0) {
+        const uSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'supplier'), limit(50)));
+        allSuppliers = uSnap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+      }
+    } catch (e) {
+      console.warn('Error fetching suppliers in notifyMatchingSuppliers:', e);
+    }
 
     // 1. Filter candidates using robust category matching
     let candidates = allSuppliers.filter(supplier => 
       !supplier.isDeleted && 
-      supplier.onboardingCompleted && 
+      supplier.onboardingCompleted !== false && 
       isSupplierMatchedToCategory(supplier.categories, categoryId, categories)
     );
 
@@ -91,24 +97,31 @@ export const notifyMatchingSuppliers = async (
     if (candidates.length === 0) {
       candidates = allSuppliers.filter(supplier => 
         !supplier.isDeleted && 
-        supplier.onboardingCompleted && 
+        supplier.onboardingCompleted !== false && 
         (supplier.keywords?.some(kw => productName.toLowerCase().includes(kw.toLowerCase())) ||
          supplier.bio?.toLowerCase().includes(productName.toLowerCase()))
       );
     }
 
-    // 2. Strict keyword/bio fallback if strict category count is zero, but require actual relevance
+    // 3. Strict keyword/bio fallback if strict category count is zero
     if (candidates.length === 0) {
       const queryWords = productName.toLowerCase().split(/\s+/).filter(w => w.length > 2);
       candidates = allSuppliers.filter(supplier => 
         !supplier.isDeleted && 
-        supplier.onboardingCompleted && 
+        supplier.onboardingCompleted !== false && 
         queryWords.some(qw => 
           supplier.keywords?.some(kw => kw.toLowerCase().includes(qw)) ||
           supplier.bio?.toLowerCase().includes(qw) ||
-          supplier.companyName?.toLowerCase().includes(qw)
+          supplier.companyName?.toLowerCase().includes(qw) ||
+          supplier.businessName?.toLowerCase().includes(qw) ||
+          supplier.displayName?.toLowerCase().includes(qw)
         )
       );
+    }
+
+    // 4. Final Fallback: Return all available suppliers if still zero so customer always sees matched options
+    if (candidates.length === 0 && allSuppliers.length > 0) {
+      candidates = allSuppliers.filter(s => !s.isDeleted);
     }
 
     if (candidates.length === 0) {

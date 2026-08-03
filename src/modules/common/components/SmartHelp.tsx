@@ -56,7 +56,7 @@ export const SmartHelp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (!input.trim() || isLoading) return;
 
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       text: input,
       sender: 'user',
       timestamp: new Date()
@@ -82,7 +82,7 @@ export const SmartHelp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       const response = await getAiAssistantResponse(prompt, PLATFORM_KNOWLEDGE, i18n.language);
       
       const aiMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         text: response,
         sender: 'ai',
         timestamp: new Date()
@@ -92,7 +92,7 @@ export const SmartHelp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     } catch (error) {
       handleAiError(error, 'SmartHelp');
       const errorMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         text: isRtl 
           ? 'عذراً، واجهت مشكلة في الاتصال. يرجى المحاولة مرة أخرى.' 
           : 'Sorry, I encountered a connection issue. Please try again.',

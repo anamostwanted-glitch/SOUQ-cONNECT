@@ -24,6 +24,7 @@ import { MobileMenu } from './MobileMenu';
 import { BottomNav } from './BottomNav';
 import { Footer } from './Footer';
 import HelpCenter from '../HelpCenter';
+import { MobileApiDocsModal } from '../MobileApiDocsModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -96,6 +97,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const [visualSearchMode, setVisualSearchMode] = useState<'camera' | 'gallery' | null>(null);
   const [isAIHubOpen, setIsAIHubOpen] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
+  const [showMobileApiDocs, setShowMobileApiDocs] = useState(false);
   
   const mainRef = useRef<HTMLElement>(null);
   const scrollDirection = useScrollDirection(mainRef);
@@ -331,7 +333,7 @@ export const Layout: React.FC<LayoutProps> = ({
         <div className="max-w-[2000px] mx-auto" style={{ paddingLeft: 'var(--fluid-px)', paddingRight: 'var(--fluid-px)' }}>
           {children}
         </div>
-        {!isStorefrontMode && <Footer onNavigate={setView} isRtl={isRtl} />}
+        {!isStorefrontMode && <Footer onNavigate={setView} isRtl={isRtl} onOpenMobileApiDocs={() => setShowMobileApiDocs(true)} />}
       </main>
 
       {!isStorefrontMode && (
@@ -471,6 +473,15 @@ export const Layout: React.FC<LayoutProps> = ({
           <HelpCenter 
             onClose={() => setShowHelpCenter(false)} 
             isRtl={isRtl} 
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showMobileApiDocs && (
+          <MobileApiDocsModal 
+            isOpen={showMobileApiDocs}
+            onClose={() => setShowMobileApiDocs(false)}
           />
         )}
       </AnimatePresence>

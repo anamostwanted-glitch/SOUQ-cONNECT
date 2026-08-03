@@ -1,3 +1,13 @@
+
+const originalError = console.error;
+console.error = (...args) => {
+  if (args[0] && typeof args[0] === 'string' && args[0].includes('Encountered two children with the same key')) {
+    originalError(...args);
+    console.trace('Duplicate key trace');
+  } else {
+    originalError(...args);
+  }
+};
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';

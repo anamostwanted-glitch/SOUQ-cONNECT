@@ -13,6 +13,8 @@ import {
   enhanceRequestDescription, 
   analyzeProductImage, 
   matchSuppliers,
+  planEventBundle,
+  EventBundlePlan,
   analyzeUserBehavior,
   parseVoiceRequest as processSmartVoice,
   translateText,
@@ -27,6 +29,7 @@ import { soundService, SoundType } from '../../../core/utils/soundService';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { SupplierRegistrationCTA } from './home/SupplierRegistrationCTA';
 import { MatchedSuppliersSection } from './home/MatchedSuppliersSection';
+import { SmartEventBundle } from './home/SmartEventBundle';
 import { ConciergeConsent } from './home/ConciergeConsent';
 import { MinimalUI } from './home/MinimalUI';
 import { getNextBestAction } from '../../../core/services/PredictiveService';
@@ -105,6 +108,8 @@ const Home: React.FC<HomeProps> = ({
   const [success, setSuccess] = useState(false);
   const [aiStatus, setAiStatus] = useState('');
   const [matchedSuppliers, setMatchedSuppliers] = useState<UserProfile[]>([]);
+  const [eventBundlePlan, setEventBundlePlan] = useState<EventBundlePlan | null>(null);
+  const [bundleSuppliers, setBundleSuppliers] = useState<UserProfile[]>([]);
   const [matchMetadata, setMatchMetadata] = useState<Record<string, { score: number; highlight: string; strength: 'high' | 'medium' | 'perfect' }>>({});
   const [stats, setStats] = useState({ suppliers: 0, requests: 0, satisfaction: 98 });
   const [isMatching, setIsMatching] = useState(false);
@@ -167,9 +172,9 @@ const Home: React.FC<HomeProps> = ({
 
   const categories = React.useMemo(() => {
     return [...allCategories].sort((a, b) => {
-      const nameA = isRtl ? a.nameAr : a.nameEn;
-      const nameB = isRtl ? b.nameAr : b.nameEn;
-      return nameA.localeCompare(nameB, i18n.language);
+      const nameA = (isRtl ? a.nameAr : a.nameEn) || a.nameAr || a.nameEn || '';
+      const nameB = (isRtl ? b.nameAr : b.nameEn) || b.nameAr || b.nameEn || '';
+      return nameA.localeCompare(nameB, i18n.language || 'ar');
     });
   }, [allCategories, isRtl, i18n.language]);
 
@@ -533,6 +538,8 @@ const Home: React.FC<HomeProps> = ({
     // Clear previous matched suppliers and request state for the new request
     setMatchedSuppliers([]);
     setMatchMetadata({});
+    setEventBundlePlan(null);
+    setBundleSuppliers([]);
     setLastRequest(null);
     setLastRequestId(null);
     const initialStatus = i18n.language === 'ar' 
@@ -606,7 +613,30 @@ const Home: React.FC<HomeProps> = ({
           descriptionPromise = Promise.resolve(draftDescription);
         }
 
-        const [aiCategoryId, aiFinalDescription] = await Promise.all([categoryPromise, descriptionPromise]);
+        const bundlePromise = currentCategories.length > 0
+          ? planEventBundle(trimmedQuery, currentCategories)
+          : Promise.resolve(null);
+        
+        const [aiCategoryId, aiFinalDescription, bundlePlan] = await Promise.all([categoryPromise, descriptionPromise, bundlePromise]);
+        
+        
+        if (bundlePlan && bundlePlan.isEvent) {
+          setEventBundlePlan(bundlePlan);
+          
+          // Fetch suppliers for the bundle categories
+          try {
+            const suppliersQuery = query(
+              collection(db, 'users_public'),
+              limit(50)
+            );
+            const bSnap = await getDocs(suppliersQuery);
+            const bSuppliers = bSnap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile));
+            setBundleSuppliers(bSuppliers);
+          } catch (e) {
+            console.error("Failed to fetch bundle suppliers", e);
+          }
+        }
+
         categoryId = aiCategoryId;
         finalDescription = aiFinalDescription || trimmedQuery;
       } catch (aiError) {
@@ -789,8 +819,14 @@ const Home: React.FC<HomeProps> = ({
                 setIsMatching(false);
               }
             } else {
-              setMatchedSuppliers([]);
-              console.log('No suppliers found even after broad search.');
+              try {
+                const fallbackSnap = await getDocs(query(collection(db, 'users_public'), limit(10)));
+                const fallbackSuppliers = fallbackSnap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile));
+                setMatchedSuppliers(fallbackSuppliers);
+              } catch (fErr) {
+                console.error('Error fetching fallback suppliers:', fErr);
+                setMatchedSuppliers([]);
+              }
             }
 
           } catch (notifErr) {
@@ -861,7 +897,10 @@ const Home: React.FC<HomeProps> = ({
 
       const selected = allSellers.slice(0, 3);
       if (selected.length > 0) {
-        setMatchedSuppliers(prev => [...prev, ...selected]);
+        setMatchedSuppliers(prev => {
+          const newSuppliers = selected.filter(s => !prev.some(p => p.uid === s.uid));
+          return [...prev, ...newSuppliers];
+        });
         toast.dismiss();
         toast.success(isRtl ? 'تم إضافة موردين جدد مطابقين للقائمة!' : 'New matching suppliers added to the list!');
       } else {
@@ -1388,7 +1427,19 @@ const Home: React.FC<HomeProps> = ({
                 </div>
               )}
 
-              {matchedSuppliers.length > 0 && (
+              
+              {eventBundlePlan && eventBundlePlan.isEvent && (
+                <SmartEventBundle
+                  plan={eventBundlePlan}
+                  isRtl={isRtl}
+                  suppliers={bundleSuppliers}
+                  onViewProfile={onViewProfile || (() => {})}
+                  onOpenChat={onOpenChat || (() => {})}
+                />
+              )}
+
+              {matchedSuppliers.length > 0 && !eventBundlePlan?.isEvent && (
+
                 <MatchedSuppliersSection 
                   key={`home-matches-${lastRequestId || 'default'}`}
                   matchedSuppliers={matchedSuppliers} 

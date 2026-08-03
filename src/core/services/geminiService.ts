@@ -2848,3 +2848,77 @@ export const generateStorefrontAnalyticsInsights = async (
     return null;
   }
 };
+export interface EventBundleRole {
+  roleNameAr: string;
+  roleNameEn: string;
+  descriptionAr: string;
+  descriptionEn: string;
+  suggestedCategoryId?: string;
+  requiredCapacity?: number;
+}
+
+export interface EventBundlePlan {
+  isEvent: boolean;
+  eventNameAr?: string;
+  eventNameEn?: string;
+  estimatedBudget?: string;
+  roles?: EventBundleRole[];
+}
+
+export const planEventBundle = async (query: string, categories: Category[]): Promise<EventBundlePlan | null> => {
+  try {
+    const categoriesStr = categories.map(c => `- ${c.nameEn} (${c.nameAr}) [ID: ${c.id}]`).join('\n');
+
+    const prompt = `Analyze this user request: "${query}".
+Determine if it's a complex event or project (like a birthday party, wedding, building a house, starting a restaurant) that requires a bundle of multiple distinct suppliers/roles.
+If it is, break it down into the required roles (e.g., Cake, Balloons, Hall, DJ).
+Match each role to the most appropriate category ID from this list, if possible:
+${categoriesStr}
+
+Return JSON with this schema:
+{
+  "isEvent": boolean,
+  "eventNameAr": string (if isEvent),
+  "eventNameEn": string (if isEvent),
+  "estimatedBudget": string (like "$500 - $1000", optional),
+  "roles": [
+    {
+      "roleNameAr": string,
+      "roleNameEn": string,
+      "descriptionAr": string,
+      "descriptionEn": string,
+      "suggestedCategoryId": string (the exact ID from the list, or null)
+    }
+  ]
+}`;
+
+    const schema = {
+      type: Type.OBJECT,
+      properties: {
+        isEvent: { type: Type.BOOLEAN },
+        eventNameAr: { type: Type.STRING },
+        eventNameEn: { type: Type.STRING },
+        estimatedBudget: { type: Type.STRING },
+        roles: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              roleNameAr: { type: Type.STRING },
+              roleNameEn: { type: Type.STRING },
+              descriptionAr: { type: Type.STRING },
+              descriptionEn: { type: Type.STRING },
+              suggestedCategoryId: { type: Type.STRING }
+            }
+          }
+        }
+      }
+    };
+
+    const res = await callAiJson(prompt, schema, "gemini-2.5-flash");
+    return res as EventBundlePlan;
+  } catch (error) {
+    console.error("Error in planEventBundle:", error);
+    return null;
+  }
+};

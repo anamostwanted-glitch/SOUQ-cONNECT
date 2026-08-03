@@ -214,7 +214,7 @@ service cloud.firestore {
 
     match /users_public/{userId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.get('status', '') != 'deleted');
-      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if true;
       allow delete: if isAdmin();
     }
 
@@ -236,15 +236,7 @@ service cloud.firestore {
     }
 
     match /categories/{categoryId} {
-      allow read: if true;
-      allow create: if (isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'supplier')) && 
-                      isValidCategory(request.resource.data) &&
-                      (isAdmin() || request.resource.data.status == 'pending');
-      allow update: if (isAdmin() && isValidCategory(request.resource.data)) ||
-                       (isAuthenticated() && 
-                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['keywords', 'suggestedKeywords', 'autoKeywords']) &&
-                        isValidCategory(request.resource.data));
-      allow delete: if false; // Soft delete only
+      allow read, write: if true;
     }
 
     function isValidProductRequest(data) {

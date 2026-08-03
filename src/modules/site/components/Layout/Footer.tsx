@@ -5,9 +5,10 @@ import { useSettings } from '../../../../core/providers/SettingsProvider';
 interface FooterProps {
   onNavigate: (view: string) => void;
   isRtl: boolean;
+  onOpenMobileApiDocs?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onNavigate, isRtl }) => {
+export const Footer: React.FC<FooterProps> = ({ onNavigate, isRtl, onOpenMobileApiDocs }) => {
   const { settings, features } = useSettings();
   const currentYear = new Date().getFullYear();
 
@@ -26,6 +27,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, isRtl }) => {
   const links = [
     { label: isRtl ? 'الرئيسية' : 'Home', action: () => onNavigate('home') },
     ...(features.marketplace !== false ? [{ label: isRtl ? 'السوق' : 'Market', action: () => onNavigate('marketplace') }] : []),
+    ...(onOpenMobileApiDocs ? [{ label: isRtl ? 'واجهة الموبايل (API)' : 'Mobile API', action: onOpenMobileApiDocs }] : []),
     { label: isRtl ? 'الأحكام' : 'Terms', action: () => onNavigate('terms') },
     { label: isRtl ? 'الخصوصية' : 'Privacy', action: () => onNavigate('privacy') },
     { label: isRtl ? 'المساعدة' : 'Help', action: () => onNavigate('help') },
