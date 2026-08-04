@@ -32,29 +32,50 @@ export const SEO: React.FC<SEOProps> = ({
 
   const finalDesc = description || defaultDesc;
 
-  // Default Organization Schema
-  const defaultSchema = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "Souq Connect",
-    "url": window.location.origin,
-    "logo": `${window.location.origin}/logo.png`,
-    "description": finalDesc,
-    "sameAs": [
-      "https://twitter.com/souqconnect",
-      "https://linkedin.com/company/souqconnect"
-    ]
-  };
+  // Default Organization & WebSite Schema with Sitelinks Searchbox
+  const defaultSchema = [
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Souq Connect - سوق كونيكت",
+      "url": window.location.origin,
+      "logo": `${window.location.origin}/logo.png`,
+      "description": finalDesc,
+      "sameAs": [
+        "https://twitter.com/souqconnect",
+        "https://linkedin.com/company/souqconnect"
+      ]
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Souq Connect",
+      "url": window.location.origin,
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": `${window.location.origin}/marketplace?search={search_term_string}`
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+  ];
 
-  const jsonLd = schema || defaultSchema;
+  const jsonLd = schema ? (Array.isArray(schema) ? schema : [schema]) : defaultSchema;
 
   return (
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={finalDesc} />
-      {keywords && <meta name="keywords" content={keywords} /> }
+      {keywords && <meta name="keywords" content={keywords} />}
       <link rel="canonical" href={currentUrl} />
       
+      {/* Alternate Language Tags for SEO */}
+      <link rel="alternate" hrefLang="ar" href={currentUrl} />
+      <link rel="alternate" hrefLang="en" href={currentUrl} />
+      <link rel="alternate" hrefLang="x-default" href={currentUrl} />
+
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />
       <meta property="og:url" content={currentUrl} />

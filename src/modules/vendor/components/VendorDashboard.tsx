@@ -363,27 +363,30 @@ export const VendorDashboard: React.FC<VendorDashboardProps> = ({
       {/* Navigation Tabs - Minimalist Underline Style */}
       <div className={`border-b border-brand-border/40 mb-8 overflow-x-auto hide-scrollbar ${uiStyle === 'minimal' ? 'sticky top-0 bg-brand-background/80 backdrop-blur-md z-30 py-2' : ''}`}>
         <div className="flex gap-8 min-w-max px-1">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setSupplierTab(tab.id)}
-              className={`flex items-center gap-2 py-4 text-sm font-bold transition-all relative border-b-2 ${
-                supplierTab === tab.id 
-                  ? 'text-brand-primary border-brand-primary' 
-                  : 'text-brand-text-muted border-transparent hover:text-brand-text-main'
-              }`}
-            >
-              <tab.icon size={18} strokeWidth={supplierTab === tab.id ? 2.5 : 2} />
-              {tab.label}
-            </button>
-          ))}
+          {tabs.map(tab => {
+            const isActive = supplierTab === tab.id || (tab.id === 'requests' && (supplierTab === 'overview' || supplierTab === 'dashboard' || !supplierTab));
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setSupplierTab(tab.id)}
+                className={`flex items-center gap-2 py-4 text-sm font-bold transition-all relative border-b-2 ${
+                  isActive 
+                    ? 'text-brand-primary border-brand-primary' 
+                    : 'text-brand-text-muted border-transparent hover:text-brand-text-main'
+                }`}
+              >
+                <tab.icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Tab Content */}
       <div className="min-h-[400px]">
         <AnimatePresence mode="wait">
-          {supplierTab === 'requests' && (
+          {(supplierTab === 'requests' || supplierTab === 'overview' || supplierTab === 'dashboard' || !supplierTab) && (
             <motion.div
               key="requests"
               initial={{ opacity: 0, x: 20 }}

@@ -103,11 +103,27 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
     (profile.role === 'supplier' || profile.role === 'admin') ? 'supplier' : 'customer'
   );
   
-  const [activeSubView, setActiveSubView] = useState<string | null>(dashboardTab || null);
+  const isSubViewOverlay = (tab?: string | null): boolean => {
+    if (!tab) return false;
+    const knownSubViews = [
+      'user_guide', 'help', 'wallet', 'chats', 'favorites', 'smart_pulse',
+      'market_trends', 'trends', 'neural_activity', 'notifications',
+      'settings', 'store_settings', 'neural_lexicon', 'branding_settings',
+      'inclusive_mode', 'requests', 'available_requests', 'my_offers',
+      'my_ads', 'my_products', 'ad_analytics', 'subscription', 'subscriptions'
+    ];
+    return knownSubViews.includes(tab);
+  };
+
+  const [activeSubView, setActiveSubView] = useState<string | null>(
+    isSubViewOverlay(dashboardTab) ? dashboardTab! : null
+  );
 
   useEffect(() => {
-    if (dashboardTab) {
-      setActiveSubView(dashboardTab);
+    if (isSubViewOverlay(dashboardTab)) {
+      setActiveSubView(dashboardTab!);
+    } else {
+      setActiveSubView(null);
     }
   }, [dashboardTab]);
   const [requests, setRequests] = useState<ProductRequest[]>([]);
@@ -381,7 +397,7 @@ export const ConnectCommandCenter: React.FC<ConnectCommandCenterProps> = ({
   };
 
   const renderSubView = () => {
-    if (!activeSubView) return null;
+    if (!activeSubView || !isSubViewOverlay(activeSubView)) return null;
 
     return (
       <motion.div

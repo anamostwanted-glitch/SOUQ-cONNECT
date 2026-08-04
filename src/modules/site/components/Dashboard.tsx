@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { lazyWithRetry } from '../../../core/utils/lazyWithRetry';
 
 const AdminDashboard = lazyWithRetry(() => import('../../admin/components/AdminDashboard').then(m => m.AdminDashboard));
+const VendorDashboard = lazyWithRetry(() => import('../../vendor/components/VendorDashboard').then(m => m.VendorDashboard));
 const ConnectCommandCenter = lazyWithRetry(() => import('../../user/components/ConnectCommandCenter').then(m => m.ConnectCommandCenter));
 
 interface DashboardProps {
@@ -49,6 +50,16 @@ export default function Dashboard({
           onViewProfile={onViewProfile}
           activeTab={dashboardTab}
           setActiveTab={setDashboardTab}
+        />
+      ) : effectiveRole === 'supplier' ? (
+        <VendorDashboard
+          profile={profile}
+          features={features}
+          supplierTab={dashboardTab === 'overview' || dashboardTab === 'dashboard' ? 'requests' : dashboardTab}
+          setSupplierTab={setDashboardTab}
+          onOpenChat={onOpenChat}
+          onViewProfile={onViewProfile}
+          uiStyle={uiStyle}
         />
       ) : (
         <ConnectCommandCenter
