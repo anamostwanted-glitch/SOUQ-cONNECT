@@ -125,7 +125,7 @@ export const ProfessionalHub: React.FC<ProfessionalHubProps> = ({
                <div className="flex items-center -space-x-3 rtl:space-x-reverse">
                   {uniqueSuppliers.slice(0, 4).map((pro, i) => (
                     <div 
-                      key={pro.uid} 
+                      key={`top-pro-${pro.uid || i}-${i}`} 
                       className="w-10 h-10 rounded-full border-2 border-brand-primary bg-slate-200 overflow-hidden cursor-pointer"
                       onClick={() => onViewProfile(pro.uid)}
                     >
@@ -161,7 +161,7 @@ export const ProfessionalHub: React.FC<ProfessionalHubProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                {uniqueCategories.slice(0, 6).map((cat, i) => (
                  <HapticButton
-                   key={cat.id}
+                   key={`pro-cat-${cat.id || i}-${i}`}
                    className="bg-brand-surface border border-brand-border rounded-[2.5rem] p-8 flex flex-col items-start gap-4 group hover:shadow-2xl hover:border-brand-primary/30 transition-all text-start"
                  >
                     <div className="w-14 h-14 rounded-2xl bg-brand-primary/5 flex items-center justify-center text-brand-primary group-hover:bg-brand-primary group-hover:text-white transition-all duration-500">
@@ -207,7 +207,7 @@ export const ProfessionalHub: React.FC<ProfessionalHubProps> = ({
                  ))
                ) : uniqueSuppliers.map((pro, i) => (
                  <div 
-                   key={pro.uid} 
+                   key={`verified-pro-${pro.uid || i}-${i}`} 
                    className="flex items-center justify-between group cursor-pointer" 
                  >
                     <div className="flex items-center gap-4 flex-1" onClick={() => onViewProfile(pro.uid)}>

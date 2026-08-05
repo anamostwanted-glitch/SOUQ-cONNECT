@@ -41,7 +41,8 @@ const Legal = lazy(() => import('./modules/site/components/Legal'));
 const SupplierLandingPage = lazy(() => import('./modules/site/components/SupplierLandingPage'));
 const SupplierOnboarding = lazy(() => import('./modules/site/components/SupplierOnboarding').then(m => ({ default: m.SupplierOnboarding })));
 const SubscriptionPage = lazy(() => import('./modules/site/components/SubscriptionPage'));
-const HelpCenter = lazy(() => import('./modules/site/components/HelpCenter'));
+import { HelpCenter } from './modules/site/components/HelpCenter';
+import { WelcomeOnboardingModal } from './shared/components/WelcomeOnboardingModal';
 const NeuralMarketTrends = lazy(() => import('./modules/common/components/NeuralMarketTrends'));
 
 import { getChatId } from './core/utils/utils';
@@ -181,6 +182,14 @@ export default function App() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [isVoiceHubOpen, setIsVoiceHubOpen] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+
+  // Check for onboarding / welcome modal on route change
+  useEffect(() => {
+    if (location.pathname === '/guide' || location.pathname === '/help') {
+      setShowWelcomeModal(true);
+    }
+  }, [location.pathname]);
 
   // Track Session Start
   useEffect(() => {
@@ -655,6 +664,17 @@ export default function App() {
               isOpen={isVoiceHubOpen} 
               onClose={() => setIsVoiceHubOpen(false)}
               onProcessed={onVoiceProcessed}
+            />
+
+            <WelcomeOnboardingModal
+              isOpen={showWelcomeModal}
+              onClose={() => {
+                setShowWelcomeModal(false);
+                localStorage.setItem('connect_welcome_seen', 'true');
+              }}
+              userRole={profile?.role || viewMode}
+              userName={profile?.name || profile?.companyName}
+              onNavigate={setView}
             />
           </motion.div>
         </AnimatePresence>

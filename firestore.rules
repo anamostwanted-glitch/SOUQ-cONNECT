@@ -31,7 +31,7 @@ service cloud.firestore {
 
     // Helper Functions
     function isAuthenticated() {
-      return request.auth != null && request.auth.token.email_verified == true;
+      return request.auth != null;
     }
 
     function isOwner(userId) {
@@ -686,6 +686,19 @@ service cloud.firestore {
         (isAuthenticated() && request.resource.data.uid == request.auth.uid) ||
         (!isAuthenticated() && request.resource.data.uid == 'anonymous')
       ) && isValidUsageLog(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    function isValidActivity(data) {
+      return data.keys().hasAll(['userId', 'type', 'createdAt']) &&
+             data.userId is string &&
+             data.type is string &&
+             data.createdAt is string;
+    }
+
+    match /activities/{activityId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidActivity(request.resource.data);
       allow update, delete: if isAdmin();
     }
 

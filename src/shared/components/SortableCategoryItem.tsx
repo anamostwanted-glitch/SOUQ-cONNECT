@@ -7,7 +7,7 @@ import { handleFirestoreError, OperationType, handleAiError } from '../../core/u
 import { CategoryList } from './CategoryList';
 import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../core/firebase';
-import { translateText, generateCategorySEO } from '../../core/services/geminiService';
+import { translateText, generateCategorySEO, formatCategoryName } from '../../core/services/geminiService';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -47,11 +47,21 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
   const hasSubCategories = subCategories.length > 0;
 
   const handleAddSub = async () => {
-    if (!newSubAr || !newSubEn) return;
+    if (!newSubAr && !newSubEn) return;
     try {
+      let finalAr = newSubAr.trim();
+      let finalEn = newSubEn.trim();
+
+      if (!finalAr || !finalEn) {
+        const source = finalAr || finalEn;
+        const formatted = await formatCategoryName(source);
+        if (!finalAr) finalAr = formatted.nameAr;
+        if (!finalEn) finalEn = formatted.nameEn;
+      }
+
       await addDoc(collection(db, 'categories'), {
-        nameAr: newSubAr.trim(),
-        nameEn: newSubEn.trim(),
+        nameAr: finalAr,
+        nameEn: finalEn,
         parentId: category.id,
         order: subCategories.length,
         categoryType: category.categoryType || 'product',
@@ -61,31 +71,46 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
       setNewSubEn('');
       setIsAddingSub(false);
       setIsExpanded(true);
+      toast.success(isRtl ? 'تمت إضافة الفئة الفرعية بنجاح' : 'Subcategory added successfully');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'categories', false);
     }
   };
 
   const handleEdit = async () => {
-    if (!editAr || !editEn) return;
+    if (!editAr && !editEn) return;
     try {
+      let finalAr = editAr.trim();
+      let finalEn = editEn.trim();
+
+      if (!finalAr || !finalEn) {
+        const source = finalAr || finalEn;
+        const formatted = await formatCategoryName(source);
+        if (!finalAr) finalAr = formatted.nameAr;
+        if (!finalEn) finalEn = formatted.nameEn;
+      }
+
       await updateDoc(doc(db, 'categories', category.id), {
-        nameAr: editAr.trim(),
-        nameEn: editEn.trim(),
+        nameAr: finalAr,
+        nameEn: finalEn,
         categoryType: editType
       });
       setIsEditing(false);
+      toast.success(isRtl ? 'تم تحديث الفئة بنجاح' : 'Category updated successfully');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`, false);
     }
   };
 
   const handleTranslate = async () => {
-    if (!newSubAr) return;
+    if (!newSubAr && !newSubEn) return;
     setIsTranslating(true);
     try {
-      const translation = await translateText(newSubAr, 'English');
-      setNewSubEn(translation);
+      const source = newSubAr || newSubEn;
+      const formatted = await formatCategoryName(source);
+      if (formatted.nameAr) setNewSubAr(formatted.nameAr);
+      if (formatted.nameEn) setNewSubEn(formatted.nameEn);
+      toast.success(isRtl ? 'تمت الترجمة بالذكاء الاصطناعي' : 'Translated with AI');
     } catch (error) {
       handleAiError(error, 'SortableCategoryItem:handleTranslate', false);
     } finally {
@@ -178,12 +203,15 @@ export const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({ cate
                     placeholder="English Name"
                   />
                   <button 
+                    type="button"
                     onClick={async () => {
-                      if (!editAr) return;
+                      if (!editAr && !editEn) return;
                       setIsTranslating(true);
                       try {
-                        const translation = await translateText(editAr, 'English');
-                        setEditEn(translation);
+                        const source = editAr || editEn;
+                        const formatted = await formatCategoryName(source);
+                        if (formatted.nameAr) setEditAr(formatted.nameAr);
+                        if (formatted.nameEn) setEditEn(formatted.nameEn);
                       } catch (error) {
                         handleAiError(error, 'SortableCategoryItem:handleEdit:translate', false);
                       } finally {

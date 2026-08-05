@@ -13,11 +13,16 @@ interface CategoryListProps {
 }
 
 export const CategoryList: React.FC<CategoryListProps> = ({ categories, allCategories, onReorder, onManageKeywords, onSuggestSubcategories, viewMode }) => {
+  // Deduplicate categories by ID to prevent dnd-kit & React duplicate key errors
+  const uniqueCategories = categories.filter((cat, index, self) => 
+    cat.id && self.findIndex(c => c.id === cat.id) === index
+  );
+
   return (
-    <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
+    <SortableContext items={uniqueCategories.map(c => c.id)} strategy={verticalListSortingStrategy}>
       <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-6' : 'space-y-4'}>
-        {categories.map((category) => (
-          <div key={category.id} className="whitespace-nowrap">
+        {uniqueCategories.map((category, index) => (
+          <div key={category.id || `cat-${index}`} className="whitespace-nowrap">
             <SortableCategoryItem 
               category={category} 
               allCategories={allCategories} 

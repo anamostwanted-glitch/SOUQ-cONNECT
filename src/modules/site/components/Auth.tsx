@@ -18,7 +18,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '../../../core/firebase';
 import { UserRole, UserProfile, Category } from '../../../core/types';
 import { motion } from 'motion/react';
-import { User, Package, Upload, Phone, MapPin, Apple, Layers, Check, Mail, Sparkles } from 'lucide-react';
+import { User, Package, Upload, Phone, MapPin, Apple, Layers, Check, Mail, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { AICategorySelector } from './AICategorySelector';
 import { handleFirestoreError, OperationType } from '../../../core/utils/errorHandling';
 import { HapticButton } from '../../../shared/components/HapticButton';
@@ -68,6 +68,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigate, initialRole }) =
     }
   }, []);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
 
@@ -191,13 +192,25 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigate, initialRole }) =
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (role === 'supplier' && supplierSubStep < totalSupplierSteps) {
+    
+    // Only check multi-step registration when NOT logging in
+    if (!isLogin && role === 'supplier' && supplierSubStep < totalSupplierSteps) {
       nextStep();
       return;
     }
 
     if (!isLogin && role === 'supplier' && !agreedToTerms) {
       setError(t('mustAgreeTerms'));
+      return;
+    }
+
+    if (!isLogin && role === 'customer' && !agreedToTerms) {
+      setError(t('mustAgreeTerms'));
+      return;
+    }
+
+    if (isLogin && (!email.trim() || !password)) {
+      setError(i18n.language === 'ar' ? 'يرجى إدخال البريد الإلكتروني وكلمة المرور' : 'Please enter your email and password');
       return;
     }
     
@@ -207,25 +220,56 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigate, initialRole }) =
         await signInWithEmailAndPassword(auth, email, password);
         analytics.trackEvent('login', { method: 'email' });
         soundService.play(SoundType.SUCCESS);
-        const docSnap = await getDoc(doc(db, 'users', auth.currentUser!.uid));
+        const currentUser = auth.currentUser!;
+        const docSnap = await getDoc(doc(db, 'users', currentUser.uid));
+        let userRole = role || 'customer';
+        
         if (docSnap.exists()) {
           const userData = docSnap.data() as UserProfile;
-          // Sync role on login too
-          const idToken = await auth.currentUser!.getIdToken();
+          userRole = userData.role || userRole;
+        } else {
+          // If profile doc doesn't exist in Firestore, create default profile
+          const defaultProfile = {
+            uid: currentUser.uid,
+            email: currentUser.email || email,
+            name: currentUser.displayName || email.split('@')[0],
+            role: userRole,
+            createdAt: new Date().toISOString(),
+            status: 'active',
+            isVerified: currentUser.emailVerified
+          };
+          await setDoc(doc(db, 'users', currentUser.uid), defaultProfile);
+          await setDoc(doc(db, 'users_public', currentUser.uid), {
+            uid: currentUser.uid,
+            name: defaultProfile.name,
+            role: userRole,
+            isVerified: currentUser.emailVerified,
+            rating: 0,
+            reviewCount: 0,
+            isOnline: true,
+            status: 'active'
+          });
+        }
+
+        // Sync role on login
+        try {
+          const idToken = await currentUser.getIdToken();
           await fetch('/api/sync-role', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify({ role: userData.role })
+            body: JSON.stringify({ role: userRole })
           });
-          
-          await logActivity(
-            'login',
-            'تم تسجيل الدخول إلى المنصة',
-            'Logged in to the platform'
-          );
-
-          onAuthSuccess(userData.role);
+        } catch (syncErr) {
+          console.warn('Role sync skipped or failed:', syncErr);
         }
+        
+        await logActivity(
+          'login',
+          'تم تسجيل الدخول إلى المنصة',
+          'Logged in to the platform'
+        );
+
+        onAuthSuccess(userRole);
       } else {
         setUploading(true);
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -493,14 +537,24 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigate, initialRole }) =
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-brand-text-main mb-1">{t('password')}</label>
-                    <input 
-                      type="password" 
-                      value={password} 
-                      onChange={(e) => setPassword(e.target.value)} 
-                      autoComplete="new-password"
-                      className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
-                      required 
-                    />
+                    <div className="relative">
+                      <input 
+                        type={showPassword ? "text" : "password"} 
+                        value={password} 
+                        onChange={(e) => setPassword(e.target.value)} 
+                        autoComplete="new-password"
+                        className="w-full px-4 py-3 pe-11 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
+                        required 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute top-1/2 -translate-y-1/2 end-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                        title={showPassword ? (i18n.language === 'ar' ? 'إخفاء كلمة المرور' : 'Hide password') : (i18n.language === 'ar' ? 'إظهار كلمة المرور' : 'Show password')}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -648,14 +702,24 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigate, initialRole }) =
               </div>
               <div>
                 <label className="block text-sm font-medium text-brand-text-main mb-1">{t('password')}</label>
-                <input 
-                  type="password" 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  autoComplete={isLogin ? "current-password" : "new-password"}
-                  className="w-full px-4 py-3 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
-                  required 
-                />
+                <div className="relative">
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    autoComplete={isLogin ? "current-password" : "new-password"}
+                    className="w-full px-4 py-3 pe-11 rounded-xl border border-brand-border focus:ring-2 focus:ring-brand-primary/20 outline-none transition-all" 
+                    required 
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute top-1/2 -translate-y-1/2 end-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                    title={showPassword ? (i18n.language === 'ar' ? 'إخفاء كلمة المرور' : 'Hide password') : (i18n.language === 'ar' ? 'إظهار كلمة المرور' : 'Show password')}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
                 {isLogin && (
                   <button 
                     type="button"

@@ -27,16 +27,19 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Key
+  Key,
+  BookOpen
 } from 'lucide-react';
 import { AdminNeuralHealthDashboard } from './AdminNeuralHealthDashboard';
 import { AdminNeuralAlertDashboard } from './AdminNeuralAlertDashboard';
+import { AdminNeuralLexiconManager } from './AdminNeuralLexiconManager';
 import { HapticButton } from '../../../shared/components/HapticButton';
 import { toast } from 'sonner';
 
 export const AdminNeuralHub: React.FC = () => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
+  const [activeTab, setActiveTab] = useState<'keys' | 'lexicon'>('keys');
   const [keys, setKeys] = useState<GeminiApiKey[]>([]);
   const [newKey, setNewKey] = useState('');
   const [newLabel, setNewLabel] = useState('');
@@ -211,8 +214,38 @@ export const AdminNeuralHub: React.FC = () => {
           </div>
         </header>
 
-        <AdminNeuralHealthDashboard keys={keys} isRtl={isRtl} />
-        <AdminNeuralAlertDashboard keys={keys} isRtl={isRtl} onRetry={testKey} isTesting={isTesting} />
+        {/* Neural Hub Tabs */}
+        <div className="flex items-center gap-2 p-1 bg-slate-900/80 rounded-2xl border border-white/10 w-fit">
+          <button
+            onClick={() => setActiveTab('keys')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'keys'
+                ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/25'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Key size={15} />
+            <span>{isRtl ? 'محركات المفاتيح (Gemini Keys)' : 'Engine Keys'}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('lexicon')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'lexicon'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/25'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <BookOpen size={15} />
+            <span>{isRtl ? 'المعجم العصبي الذكي (Neural Lexicon)' : 'Neural Lexicon'}</span>
+          </button>
+        </div>
+
+        {activeTab === 'lexicon' ? (
+          <AdminNeuralLexiconManager />
+        ) : (
+          <>
+            <AdminNeuralHealthDashboard keys={keys} isRtl={isRtl} />
+            <AdminNeuralAlertDashboard keys={keys} isRtl={isRtl} onRetry={testKey} isTesting={isTesting} />
 
         {/* Add New Key Section */}
         <section className="bg-white/5 backdrop-blur-2xl rounded-[2.5rem] p-6 border border-white/10 shadow-2xl relative overflow-hidden group">
@@ -425,6 +458,8 @@ export const AdminNeuralHub: React.FC = () => {
             )}
           </AnimatePresence>
         </div>
+        </>
+        )}
 
         {/* Footer Info */}
         <footer className="pt-8 pb-12 text-center">

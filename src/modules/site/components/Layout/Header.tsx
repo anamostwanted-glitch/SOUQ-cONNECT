@@ -242,6 +242,15 @@ export const Header: React.FC<HeaderProps> = ({
             </HapticButton>
           )}
 
+          {/* Quick Guide Trigger */}
+          <HapticButton 
+            onClick={() => setView('guide')}
+            className="hidden sm:flex w-10 h-10 items-center justify-center hover:bg-brand-surface rounded-full transition-all text-brand-text-muted hover:text-brand-primary"
+            title={isRtl ? 'دليل المنصة والبداية السريعة' : 'Quick Guide'}
+          >
+            <BookOpen size={18} />
+          </HapticButton>
+
           {/* Bento Menu */}
           <BentoMenu 
             profile={profile}

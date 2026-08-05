@@ -431,9 +431,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleAddSuggested = async (name: string) => {
     try {
-      const { translateText } = await import('../../../core/services/geminiService');
-      const nameEn = await translateText(name, 'English');
-      const nameAr = await translateText(name, 'Arabic');
+      const { formatCategoryName } = await import('../../../core/services/geminiService');
+      const { nameAr, nameEn } = await formatCategoryName(name);
       
       await addDoc(collection(db, 'categories'), {
         nameAr,
@@ -472,14 +471,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
 
     const unsubscribeCategories = onSnapshot(query(collection(db, 'categories'), orderBy('nameEn', 'asc')), (snap) => {
-      const fetchedCategories: Category[] = [];
+      const uniqueCatsMap = new Map<string, Category>();
       snap.forEach(doc => {
         const data = doc.data();
         if (data.status !== 'deleted') {
-          fetchedCategories.push({ id: doc.id, ...data } as Category);
+          uniqueCatsMap.set(doc.id, { id: doc.id, ...data } as Category);
         }
       });
-      setCategories(fetchedCategories);
+      setCategories(Array.from(uniqueCatsMap.values()));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'categories', false);
     });

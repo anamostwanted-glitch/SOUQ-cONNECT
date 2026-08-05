@@ -13,7 +13,25 @@ let lastFetch = 0;
 let isAiMasterEnabled = true; // Default to true
 const exhaustedKeys = new Map<string, number>(); // key -> expiry timestamp
 
-// Listen to global settings for AI toggle
+// Listen to custom lexicon rules in real-time
+let dynamicLexiconMap: Record<string, { en: string; ar: string }> = {};
+
+try {
+  onSnapshot(collection(db, 'lexicon_custom'), (snap) => {
+    const newMap: Record<string, { en: string; ar: string }> = {};
+    snap.forEach((d) => {
+      const data = d.data();
+      if (data.ar && data.en && data.status !== 'deleted' && !data.isDeleted) {
+        newMap[data.ar.trim()] = { en: data.en.trim(), ar: data.ar.trim() };
+      }
+    });
+    dynamicLexiconMap = newMap;
+  }, (err) => {
+    console.warn('Lexicon custom listener snapshot warning:', err.message);
+  });
+} catch (e) {
+  console.warn('Lexicon snapshot init error:', e);
+}
 onSnapshot(doc(db, 'settings', 'site'), (snap) => {
   if (snap.exists()) {
     const data = snap.data();
@@ -139,7 +157,7 @@ const isFailure = (error: any) => {
   return !(isInvalid || isQuota);
 };
 
-export const callAiJson = async (contents: any, schema: any, model: string = "gemini-2.0-flash") => {
+export const callAiJson = async (contents: any, schema: any, model: string = "gemini-3.6-flash") => {
   if (!isAiMasterEnabled) {
     console.warn('AI Master Switch is OFF. callAiJson aborted.');
     return null;
@@ -216,7 +234,7 @@ export const callAiJson = async (contents: any, schema: any, model: string = "ge
   }, null, 'callAiJson', isFailure); // Fallback null for JSON
 };
 
-export const callAiText = async (contents: any, model: string = "gemini-2.0-flash") => {
+export const callAiText = async (contents: any, model: string = "gemini-3.6-flash") => {
   if (!isAiMasterEnabled) {
     console.warn('AI Master Switch is OFF. callAiText aborted.');
     return '';
@@ -478,12 +496,297 @@ export const analyzeSystemPulse = async (systemData: any, language: string): Pro
 };
 
 export const translateText = async (text: string, targetLanguage: string): Promise<string> => {
-  try {
-    return await callAiText(`Translate the following text to ${targetLanguage}. Return ONLY the translated text.\n\n${text}`);
-  } catch (e) {
-    console.warn('Server translation failed, returning original text:', e);
-    return text;
+  if (!text || !text.trim()) return '';
+  const cleanInput = text.trim();
+
+  const langLower = (targetLanguage || '').toLowerCase().trim();
+  const isTargetEn = langLower === 'en' || langLower.includes('eng') || langLower.includes('english');
+  const isTargetAr = langLower === 'ar' || langLower.includes('arab') || langLower.includes('arabic');
+
+  const destinationLangName = isTargetEn ? 'ENGLISH' : isTargetAr ? 'ARABIC' : targetLanguage;
+
+  // Complete multi-phrase dictionary for exact/phrase matching
+  const phraseMap: Record<string, { en: string; ar: string }> = {
+    'فريق النواة': { en: 'Core Team', ar: 'فريق النواة' },
+    'فريق النواه': { en: 'Core Team', ar: 'فريق النواة' },
+    'فريق العمل': { en: 'Operations Team', ar: 'فريق العمل' },
+    'تقنية المعلومات': { en: 'Information Technology', ar: 'تقنية المعلومات' },
+    'خدمة العملاء': { en: 'Customer Service', ar: 'خدمة العملاء' },
+    'الموارد البشرية': { en: 'Human Resources', ar: 'الموارد البشرية' },
+    'التسويق الرقمي': { en: 'Digital Marketing', ar: 'التسويق الرقمي' },
+    'إلكترونيات': { en: 'Electronics', ar: 'إلكترونيات' },
+    'الكترونيات': { en: 'Electronics', ar: 'إلكترونيات' },
+    'أجهزة إلكترونية': { en: 'Electronic Devices', ar: 'أجهزة إلكترونية' },
+    'جوالات': { en: 'Mobile Phones', ar: 'جوالات' },
+    'هواتف': { en: 'Phones', ar: 'هواتف' },
+    'كمبيوتر': { en: 'Computers', ar: 'كمبيوتر' },
+    'حاسوب': { en: 'Computers', ar: 'حاسوب' },
+    'شاشات': { en: 'Monitors & Displays', ar: 'شاشات' },
+    'كاميرات': { en: 'Cameras', ar: 'كاميرات' },
+    'كاميرات مراقبة': { en: 'Surveillance Cameras', ar: 'كاميرات مراقبة' },
+    'سماعات': { en: 'Audio & Headphones', ar: 'سماعات' },
+    'ساعات': { en: 'Watches & Smartwatches', ar: 'ساعات' },
+    'ملابس': { en: 'Clothing & Apparel', ar: 'ملابس' },
+    'ملابس رجالية': { en: "Men's Clothing", ar: 'ملابس رجالية' },
+    'ملابس نسائية': { en: "Women's Clothing", ar: 'ملابس نسائية' },
+    'ملابس أطفال': { en: "Children's Clothing", ar: 'ملابس أطفال' },
+    'أزياء': { en: 'Fashion', ar: 'أزياء' },
+    'أحذية': { en: 'Shoes & Footwear', ar: 'أحذية' },
+    'حقائب': { en: 'Bags & Luggage', ar: 'حقائب' },
+    'مجوهرات': { en: 'Jewelry & Accessories', ar: 'مجوهرات' },
+    'عطور': { en: 'Perfumes & Fragrances', ar: 'عطور' },
+    'عطور فاخرة': { en: 'Luxury Perfumes', ar: 'عطور فاخرة' },
+    'مستحضرات تجميل': { en: 'Cosmetics & Makeup', ar: 'مستحضرات تجميل' },
+    'عناية': { en: 'Personal Care', ar: 'عناية شخصية' },
+    'أثاث': { en: 'Furniture', ar: 'أثاث' },
+    'أثاث منزلي': { en: 'Home Furniture', ar: 'أثاث منزلي' },
+    'أثاث مكتبي': { en: 'Office Furniture', ar: 'أثاث مكتبي' },
+    'مطبخ': { en: 'Kitchenware & Dining', ar: 'مطبخ' },
+    'أدوات مطبخ': { en: 'Kitchen Tools', ar: 'أدوات مطبخ' },
+    'ديكور': { en: 'Home Decor', ar: 'ديكور' },
+    'إضاءة': { en: 'Lighting', ar: 'إضاءة' },
+    'أدوات منزلية': { en: 'Home Appliances', ar: 'أدوات منزلية' },
+    'أجهزة منزلية': { en: 'Home Appliances', ar: 'أجهزة منزلية' },
+    'سجاد': { en: 'Rugs & Carpets', ar: 'سجاد' },
+    'مفارش': { en: 'Bedding & Linens', ar: 'مفارش' },
+    'قهوة': { en: 'Coffee', ar: 'قهوة' },
+    'قهوة مختصة': { en: 'Specialty Coffee', ar: 'قهوة مختصة' },
+    'آلات قهوة': { en: 'Coffee Machines', ar: 'آلات قهوة' },
+    'باريستا': { en: 'Barista Supplies', ar: 'باريستا' },
+    'شاي': { en: 'Tea', ar: 'شاي' },
+    'شاي ومكسرات': { en: 'Tea & Nuts', ar: 'شاي ومكسرات' },
+    'تمور': { en: 'Dates', ar: 'تمور' },
+    'تمر': { en: 'Dates', ar: 'تمر' },
+    'عسل': { en: 'Honey', ar: 'عسل' },
+    'مكسرات': { en: 'Nuts & Snacks', ar: 'مكسرات' },
+    'حلويات': { en: 'Sweets & Confectionery', ar: 'حلويات' },
+    'أغذية': { en: 'Food & Groceries', ar: 'أغذية' },
+    'طعام': { en: 'Food', ar: 'طعام' },
+    'مأكولات': { en: 'Food Items', ar: 'مأكولات' },
+    'توابل': { en: 'Spices & Seasoning', ar: 'توابل' },
+    'بهارات': { en: 'Spices', ar: 'بهارات' },
+    'معدات': { en: 'Equipment', ar: 'معدات' },
+    'معدات طبية': { en: 'Medical Equipment', ar: 'معدات طبية' },
+    'أدوات ومعدات': { en: 'Tools & Equipment', ar: 'أدوات ومعدات' },
+    'قطع غيار': { en: 'Spare Parts', ar: 'قطع غيار' },
+    'قطع غيار سيارات': { en: 'Automotive Spare Parts', ar: 'قطع غيار سيارات' },
+    'سيارات': { en: 'Automotive & Vehicles', ar: 'سيارات' },
+    'مركبات': { en: 'Vehicles', ar: 'مركبات' },
+    'صيانة': { en: 'Maintenance & Repair', ar: 'صيانة' },
+    'خدمات': { en: 'Services', ar: 'خدمات' },
+    'صحة وجمال': { en: 'Health & Beauty', ar: 'صحة وجمال' },
+    'عقارات': { en: 'Real Estate', ar: 'عقارات' },
+    'تقنية': { en: 'Technology', ar: 'تقنية' },
+    'برمجيات': { en: 'Software & IT', ar: 'برمجيات' },
+    'استشارات': { en: 'Consulting', ar: 'استشارات' },
+    'تصميم': { en: 'Design & Creative', ar: 'تصميم' },
+    'تسويق': { en: 'Marketing', ar: 'تسويق' },
+    'لوجستيات': { en: 'Logistics & Transport', ar: 'لوجستيات' },
+    'شحن': { en: 'Shipping & Freight', ar: 'شحن' },
+    'نقل': { en: 'Transportation', ar: 'نقل' },
+    'رياضة': { en: 'Sports & Fitness', ar: 'رياضة' },
+    'ألعاب': { en: 'Toys & Games', ar: 'ألعاب' },
+    'كتب': { en: 'Books & Stationery', ar: 'كتب' },
+    'صناعة': { en: 'Industrial & Manufacturing', ar: 'صناعة' },
+    'ضيافة': { en: 'Hospitality & Catering', ar: 'ضيافة' },
+    'مطاعم': { en: 'Restaurants & Catering', ar: 'مطاعم' },
+    'مقاهي': { en: 'Cafes & Coffee Shops', ar: 'مقاهي' },
+    'تعليم': { en: 'Education & Training', ar: 'تعليم' },
+    'سباكة': { en: 'Plumbing', ar: 'سباكة' },
+    'كهرباء': { en: 'Electrical Supplies', ar: 'كهرباء' },
+    'مواد بناء': { en: 'Building Materials', ar: 'مواد بناء' },
+    'تغليف': { en: 'Packaging & Wrapping', ar: 'تغليف' },
+    'طباعة': { en: 'Printing & Graphics', ar: 'طباعة' },
+    'أمن وسلامة': { en: 'Safety & Security', ar: 'أمن وسلامة' },
+    'تنظيف': { en: 'Cleaning Supplies', ar: 'تنظيف' },
+    'منظفات': { en: 'Detergents & Cleaners', ar: 'منظفات' },
+    'توريدات': { en: 'Wholesale Supplies', ar: 'توريدات' },
+    'مستلزمات طبية': { en: 'Medical Supplies', ar: 'مستلزمات طبية' },
+    'مستلزمات': { en: 'Supplies', ar: 'مستلزمات' }
+  };
+
+  // Normalized Arabic helper
+  const normalizeAr = (str: string) => {
+    return str
+      .trim()
+      .replace(/^[ال]+/g, '')
+      .replace(/[أإآ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/ي/g, 'ى');
+  };
+
+  const normalizedInput = normalizeAr(cleanInput);
+
+  // 0. Immediate dynamic lexicon check (highest priority override)
+  if (isTargetEn) {
+    if (dynamicLexiconMap[cleanInput]) return dynamicLexiconMap[cleanInput].en;
+    for (const [key, val] of Object.entries(dynamicLexiconMap)) {
+      if (normalizeAr(key) === normalizedInput) return val.en;
+    }
+  } else if (isTargetAr) {
+    const lower = cleanInput.toLowerCase();
+    for (const [, val] of Object.values(dynamicLexiconMap)) {
+      if (val.en.toLowerCase() === lower) return val.ar;
+    }
   }
+
+  // 1. Immediate exact/normalized match from dictionary
+  if (isTargetEn) {
+    for (const [key, val] of Object.entries(phraseMap)) {
+      if (cleanInput === key || normalizeAr(key) === normalizedInput) {
+        return val.en;
+      }
+    }
+  } else if (isTargetAr) {
+    const lower = cleanInput.toLowerCase();
+    for (const [, val] of Object.entries(phraseMap)) {
+      if (val.en.toLowerCase() === lower) {
+        return val.ar;
+      }
+    }
+  }
+
+  // 2. Try AI Translation
+  try {
+    const prompt = `You are a professional e-commerce translator.
+Translate the meaning of the text below into ${destinationLangName}.
+
+STRICT CONSTRAINTS:
+- Output ONLY the translated phrase in ${destinationLangName}.
+${isTargetEn ? '- MUST be in English script using real English words (e.g. "Coffee", "Surveillance Cameras", "Spare Parts"). NEVER output phonetic transliterations like "Qahwa", "Mtbkh", "Jwalat".' : ''}
+${isTargetAr ? '- MUST be in Arabic script using standard clean Arabic terms.' : ''}
+- Do NOT include markdown, quotes, explanations, or punctuation.
+
+Text: "${cleanInput}"`;
+
+    const result = await callAiText(prompt);
+
+    if (result && typeof result === 'string') {
+      let cleaned = result
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/^["'`«»\s]+|["'`«»\s]+$/g, '')
+        .replace(/^Translation:\s*/i, '')
+        .replace(/^الترجمة:\s*/i, '')
+        .replace(/\.$/, '')
+        .trim();
+
+      if (isTargetEn) {
+        cleaned = cleaned.replace(/[\u0600-\u06FF]+/g, '').replace(/\(\s*\)/g, '').replace(/\[\s*\]/g, '').trim();
+      }
+
+      if (cleaned.length > 0) {
+        const isPhonetic = isTargetEn && /^(qahwa|qhwah|mtbkh|jwalat|ajhizah|sayarat|malabis|uthath|at'imah|a'diyah)$/i.test(cleaned);
+        if (!isPhonetic) {
+          return cleaned;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn(`Translation to ${targetLanguage} failed via AI:`, e);
+  }
+
+  // 3. Smart Word-by-Word Translation Fallback for Compound Phrases
+  if (isTargetEn && /[\u0600-\u06FF]/.test(cleanInput)) {
+    const singleWordMap: Record<string, string> = {
+      'فريق': 'Team', 'النواة': 'Core', 'نواة': 'Core', 'نواه': 'Core', 'النواه': 'Core',
+      'العمل': 'Operations', 'عمل': 'Work',
+      'إدارة': 'Management', 'ادارة': 'Management', 'تطوير': 'Development',
+      'برمجة': 'Programming', 'تقنية': 'Technology', 'معلومات': 'Information',
+      'خدمة': 'Service', 'عملاء': 'Customers', 'دعم': 'Support', 'فني': 'Technical',
+      'الكترونيات': 'Electronics', 'إلكترونيات': 'Electronics',
+      'اجهزة': 'Devices', 'أجهزة': 'Devices',
+      'جوالات': 'Mobile Phones', 'هواتف': 'Phones',
+      'كمبيوتر': 'Computers', 'حاسوب': 'Computers', 'شاشات': 'Monitors',
+      'كاميرات': 'Cameras', 'مراقبة': 'Surveillance',
+      'سماعات': 'Headphones', 'ساعات': 'Watches',
+      'ملابس': 'Clothing', 'ازياء': 'Fashion', 'أزياء': 'Fashion',
+      'احذية': 'Shoes', 'أحذية': 'Shoes', 'حقائب': 'Bags',
+      'مجوهرات': 'Jewelry', 'عطور': 'Perfumes',
+      'مستحضرات': 'Cosmetics', 'تجميل': 'Beauty', 'عناية': 'Care',
+      'شخصية': 'Personal', 'اثاث': 'Furniture', 'أثاث': 'Furniture',
+      'مطبخ': 'Kitchenware', 'ديكور': 'Decor', 'اضاءة': 'Lighting', 'إضاءة': 'Lighting',
+      'سجاد': 'Rugs', 'مفارش': 'Bedding',
+      'قهوة': 'Coffee', 'مختصة': 'Specialty', 'آلات': 'Machines', 'الات': 'Machines',
+      'شاي': 'Tea', 'تمور': 'Dates', 'تمر': 'Dates', 'عسل': 'Honey',
+      'مكسرات': 'Nuts', 'حلويات': 'Sweets', 'اغذية': 'Groceries', 'أغذية': 'Groceries',
+      'طعام': 'Food', 'مأكولات': 'Food Items', 'توابل': 'Spices', 'بهارات': 'Spices',
+      'معدات': 'Equipment', 'ادوات': 'Tools', 'أدوات': 'Tools',
+      'قطع': 'Parts', 'غيار': 'Spare', 'سيارات': 'Automotive', 'مركبات': 'Vehicles',
+      'صيانة': 'Maintenance', 'خدمات': 'Services', 'صحة': 'Health',
+      'جمال': 'Beauty', 'عقارات': 'Real Estate', 'تقنية': 'Technology',
+      'برمجيات': 'Software', 'استشارات': 'Consulting', 'تصميم': 'Design',
+      'تسويق': 'Marketing', 'لوجستيات': 'Logistics', 'شحن': 'Shipping',
+      'نقل': 'Transport', 'رياضة': 'Sports', 'العاب': 'Games', 'ألعاب': 'Games',
+      'كتب': 'Books', 'صناعة': 'Industrial', 'ضيافة': 'Hospitality',
+      'مطاعم': 'Restaurants', 'مقاهي': 'Cafes', 'تعليم': 'Education',
+      'سباكة': 'Plumbing', 'كهرباء': 'Electrical', 'بناء': 'Building',
+      'تغليف': 'Packaging', 'طباعة': 'Printing', 'امن': 'Safety', 'أمن': 'Safety',
+      'سلامة': 'Security', 'تنظيف': 'Cleaning', 'منظفات': 'Detergents',
+      'توريدات': 'Supplies', 'طبية': 'Medical', 'مستلزمات': 'Supplies',
+      'رجالية': "Men's", 'نسائية': "Women's", 'اطفال': "Children's", 'أطفال': "Children's",
+      'منزلية': 'Home', 'ذكية': 'Smart', 'جديدة': 'New', 'مستعملة': 'Used',
+      'جملة': 'Wholesale', 'تجزئة': 'Retail', 'فاخرة': 'Luxury', 'طبيعي': 'Natural',
+      'زجاج': 'Glass', 'بلاستيك': 'Plastic', 'ورق': 'Paper', 'معادن': 'Metals',
+      'شمسية': 'Solar', 'امنية': 'Security', 'أمنية': 'Security', 'هدايا': 'Gifts',
+      'و': '&'
+    };
+
+    const words = cleanInput.split(/\s+/);
+    const translatedWords: string[] = [];
+
+    for (const w of words) {
+      const normW = normalizeAr(w);
+      let foundEn = '';
+
+      // Check phraseMap or singleWordMap
+      for (const [k, v] of Object.entries(singleWordMap)) {
+        if (normW === normalizeAr(k)) {
+          foundEn = v;
+          break;
+        }
+      }
+
+      if (!foundEn) {
+        for (const [k, v] of Object.entries(phraseMap)) {
+          if (normW === normalizeAr(k)) {
+            foundEn = v.en;
+            break;
+          }
+        }
+      }
+
+      if (foundEn) {
+        translatedWords.push(foundEn);
+      } else if (!/[\u0600-\u06FF]/.test(w)) {
+        // Keep original English/Latin words (e.g. "Pro", "Max", "3D")
+        translatedWords.push(w);
+      } else {
+        // Character transliteration fallback for completely custom Arabic words
+        const charMap: Record<string, string> = {
+          'أ': 'A', 'إ': 'I', 'آ': 'Aa', 'ا': 'a', 'ب': 'b', 'ت': 't', 'ث': 'th',
+          'ج': 'j', 'ح': 'h', 'خ': 'kh', 'د': 'd', 'ذ': 'dh', 'ر': 'r', 'ز': 'z',
+          'س': 's', 'ش': 'sh', 'ص': 's', 'ض': 'd', 'ط': 't', 'ظ': 'z', 'ع': 'a',
+          'غ': 'gh', 'ف': 'f', 'ق': 'q', 'ك': 'k', 'ل': 'l', 'م': 'm', 'ن': 'n',
+          'ه': 'h', 'و': 'w', 'ي': 'y', 'ى': 'a', 'ئ': 'e', 'ء': 'a', 'ؤ': 'o', 'ة': 'h'
+        };
+        const transliterated = w
+          .split('')
+          .map(ch => charMap[ch] || ch)
+          .join('')
+          .replace(/[^a-zA-Z0-9]/g, '');
+        if (transliterated) {
+          translatedWords.push(transliterated.charAt(0).toUpperCase() + transliterated.slice(1));
+        }
+      }
+    }
+
+    if (translatedWords.length > 0) {
+      return translatedWords.join(' ');
+    }
+  }
+
+  // Final fallback: return original clean input if target is Arabic or unknown
+  return cleanInput;
 };
 
 export const optimizeSettingsContent = async (context: string, currentVal: string, language: string): Promise<string> => {
@@ -1433,7 +1736,7 @@ export const analyzeProductImage = async (base64Data: string, mimeType: string):
           { text: prompt },
         ],
       }],
-      model: "gemini-2.0-flash",
+      model: "gemini-3.6-flash",
       config: {
         responseMimeType: "application/json",
       }
@@ -1575,7 +1878,7 @@ export const generateAlternativeProductImage = async (base64Image: string, mimeT
 
       const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, "");
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image",
+        model: "gemini-3.6-flash",
         contents: {
           parts: [
             { inlineData: { data: cleanBase64, mimeType: mimeType } },
@@ -2219,7 +2522,7 @@ export const analyzeSupplierDocument = async (
           { text: prompt },
         ],
       }],
-      model: "gemini-2.0-flash",
+      model: "gemini-3.6-flash",
       config: {
         responseMimeType: "application/json",
       }
@@ -2402,7 +2705,62 @@ export const analyzeSupplyDemandGap = async (
 };
 export const generateNegotiationResponse = async (...args: any[]) => 'Response';
 export const extractKeywordsFromRequests = async (...args: any[]) => ['keyword'];
-export const formatCategoryName = async (...args: any[]) => ({ nameAr: args[0], nameEn: args[0] });
+export const formatCategoryName = async (inputName: string): Promise<{ nameAr: string; nameEn: string }> => {
+  if (!inputName || !inputName.trim()) return { nameAr: '', nameEn: '' };
+  
+  const cleanInput = inputName.trim();
+  const inputHasArabic = /[\u0600-\u06FF]/.test(cleanInput);
+  
+  try {
+    const prompt = `As a bilingual e-commerce taxonomy expert, format and translate the category name "${cleanInput}" into both proper Arabic (nameAr) and standard English (nameEn).
+
+CRITICAL CONSTRAINTS:
+1. nameAr MUST be in Arabic script using clean formal Arabic.
+2. nameEn MUST be the actual semantic English translation (e.g. "Coffee", "Kitchen", "Mobile Phones").
+3. DO NOT output phonetic transliterations for nameEn (e.g. NEVER write "Qahwa", "Mtbkh", "Jwalat"). Always provide the true English terminology.
+4. nameEn MUST contain Latin characters ONLY. No Arabic script in nameEn.
+
+Return ONLY a JSON object:
+{
+  "nameAr": "اسم الفئة بالعربية",
+  "nameEn": "Category Name in English"
+}`;
+
+    const result = await callAiJson(prompt, {
+      type: Type.OBJECT,
+      properties: {
+        nameAr: { type: Type.STRING },
+        nameEn: { type: Type.STRING }
+      },
+      required: ["nameAr", "nameEn"]
+    });
+
+    if (result && result.nameAr && result.nameEn) {
+      let ar = result.nameAr.replace(/^["'`\s]+|["'`\s]+$/g, '').trim();
+      let en = result.nameEn.replace(/^["'`\s]+|["'`\s]+$/g, '').trim();
+
+      // If nameEn accidentally contains Arabic characters or looks like phonetic transliteration, re-translate via translateText
+      if (/[\u0600-\u06FF]/.test(en) || /^(qahwa|qhwah|mtbkh|jwalat|ajhizah)$/i.test(en)) {
+        en = await translateText(cleanInput, 'English');
+      }
+      if (inputHasArabic && !/[\u0600-\u06FF]/.test(ar)) {
+        ar = await translateText(cleanInput, 'Arabic');
+      }
+
+      return { nameAr: ar || cleanInput, nameEn: en || 'Category' };
+    }
+  } catch (e) {
+    console.warn('formatCategoryName AI call failed:', e);
+  }
+
+  if (inputHasArabic) {
+    const nameEn = await translateText(cleanInput, 'English');
+    return { nameAr: cleanInput, nameEn: nameEn || 'Category' };
+  } else {
+    const nameAr = await translateText(cleanInput, 'Arabic');
+    return { nameAr: nameAr || cleanInput, nameEn: cleanInput };
+  }
+};
 export const suggestCategoryMerges = async (categories: Category[], language: string): Promise<{ sourceId: string; targetId: string; categoryIds: string[]; reasonAr: string; reasonEn: string }[]> => {
   const prompt = `Analyze this list of categories and identify potential duplicates or highly similar categories that should be merged. 
     Categories: ${JSON.stringify(categories.map(c => ({ id: c.id, nameAr: c.nameAr, nameEn: c.nameEn, parentId: c.parentId })))}
@@ -2418,7 +2776,7 @@ export const suggestCategoryMerges = async (categories: Category[], language: st
   const proxyCall = async () => {
     const data = await executeProxyCall({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.6-flash',
       config: {
         responseMimeType: "application/json"
       }
@@ -2454,7 +2812,7 @@ export const suggestCategoryMerges = async (categories: Category[], language: st
       
       const ai = new GoogleGenAI({ apiKey: key });
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3.6-flash',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",
@@ -2915,10 +3273,40 @@ Return JSON with this schema:
       }
     };
 
-    const res = await callAiJson(prompt, schema, "gemini-2.5-flash");
+    const res = await callAiJson(prompt, schema, "gemini-3.6-flash");
     return res as EventBundlePlan;
   } catch (error) {
     console.error("Error in planEventBundle:", error);
     return null;
   }
 };
+
+export const addCustomLexiconRule = async (ar: string, en: string) => {
+  if (!ar || !en) return;
+  try {
+    const docRef = doc(collection(db, 'lexicon_custom'));
+    await setDoc(docRef, {
+      id: docRef.id,
+      ar: ar.trim(),
+      en: en.trim(),
+      createdAt: new Date().toISOString(),
+      source: 'admin'
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'lexicon_custom', false);
+  }
+};
+
+export const deleteCustomLexiconRule = async (id: string) => {
+  if (!id) return;
+  try {
+    await updateDoc(doc(db, 'lexicon_custom', id), {
+      isDeleted: true,
+      status: 'deleted',
+      deletedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, 'lexicon_custom', false);
+  }
+};
+

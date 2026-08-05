@@ -444,7 +444,7 @@ export const AdminSmartHub: React.FC<AdminSmartHubProps> = ({ users, requests, i
 
           <div className="space-y-4">
              {users.filter(u => u.role === 'supplier' && !u.isVerified).slice(0, 3).map((u, i) => (
-               <div key={u.uid} className="p-5 bg-brand-background rounded-2xl border border-brand-border flex items-center justify-between group hover:border-brand-error/30 transition-all">
+               <div key={`unverified-user-${u.uid || i}-${i}`} className="p-5 bg-brand-background rounded-2xl border border-brand-border flex items-center justify-between group hover:border-brand-error/30 transition-all">
                  <div className="flex items-center gap-4">
                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-error/5 to-white flex items-center justify-center text-brand-error border border-brand-error/10">
                      <AlertTriangle size={20} />

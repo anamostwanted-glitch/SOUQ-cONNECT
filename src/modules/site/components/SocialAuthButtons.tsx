@@ -74,6 +74,16 @@ export const SocialAuthButtons: React.FC<SocialAuthButtonsProps> = ({ onSuccess,
       soundService.play(SoundType.ERROR);
       if (error.code === 'auth/popup-closed-by-user') {
         toast.error(i18n.language === 'ar' ? 'تم إغلاق نافذة تسجيل الدخول.' : 'Login window was closed.');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        const providerName = providerId === 'facebook' ? (i18n.language === 'ar' ? 'فيسبوك' : 'Facebook')
+          : providerId === 'google' ? (i18n.language === 'ar' ? 'جوجل' : 'Google')
+          : (i18n.language === 'ar' ? 'أبل' : 'Apple');
+        
+        toast.error(
+          i18n.language === 'ar' 
+            ? `تسجيل الدخول عبر (${providerName}) غير مفعّل حالياً في لوحة تحكم Firebase (يتطلب App ID & Secret في Firebase Console). يرجى استخدام البريد الإلكتروني وكلمة المرور.` 
+            : `${providerName} sign-in is not enabled in Firebase Console settings. Please enable it in Firebase Authentication or sign in with Email/Password.`
+        );
       } else {
         toast.error(i18n.language === 'ar' ? 'فشل تسجيل الدخول الاجتماعي.' : 'Social login failed.');
       }

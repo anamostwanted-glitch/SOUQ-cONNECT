@@ -55,7 +55,7 @@ export const FluidSlider: React.FC = () => {
     <div className="relative overflow-hidden rounded-3xl" style={{ width: settings.globalSettings.width, height: settings.globalSettings.height }}>
       <AnimatePresence mode="wait">
         <motion.img
-          key={item.id}
+          key={`slider-item-${item.id || currentIndex}-${currentIndex}`}
           src={item.imageUrl}
           initial={{ opacity: 0, scale: 1.05 }}
           animate={{ opacity: 1, scale: 1 }}

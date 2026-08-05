@@ -116,7 +116,7 @@ export const SmartEventBundle: React.FC<SmartEventBundleProps> = ({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.1 }}
-                key={idx} 
+                key={`bundle-role-${role.roleId || idx}-${idx}`} 
                 className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow group flex flex-col sm:flex-row gap-4"
               >
                 {/* Role Info */}
@@ -139,8 +139,8 @@ export const SmartEventBundle: React.FC<SmartEventBundleProps> = ({
                   
                   {matchingSuppliers.length > 0 ? (
                     <div className="flex flex-col gap-2">
-                      {matchingSuppliers.map(supplier => (
-                        <div key={supplier.uid} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 group-hover:bg-brand-primary/5 transition-colors">
+                      {matchingSuppliers.map((supplier, sIdx) => (
+                        <div key={`bundle-supplier-${supplier.uid || sIdx}-${sIdx}`} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 group-hover:bg-brand-primary/5 transition-colors">
                           <div className="flex items-center gap-2 overflow-hidden">
                             <img src={supplier.photoURL || 'https://api.dicebear.com/7.x/initials/svg?seed=' + (supplier.displayName || 'Supplier')} alt={supplier.displayName || 'Supplier'} className="w-8 h-8 rounded-full object-cover" />
                             <div className="flex flex-col overflow-hidden">

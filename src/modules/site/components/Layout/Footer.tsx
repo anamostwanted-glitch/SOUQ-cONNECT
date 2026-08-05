@@ -94,6 +94,80 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, isRtl, onOpenMobileA
                   {address}
                 </div>
               </div>
+
+              {/* Social Media Channels */}
+              <div className="pt-2">
+                <span className="text-[10px] font-black text-brand-text-main uppercase tracking-[0.15em] block mb-2">
+                  {isRtl ? 'تابعنا على شبكات التواصل' : 'Follow Us'}
+                </span>
+                <div className="flex items-center gap-2">
+                  {/* WhatsApp */}
+                  <a 
+                    href={settings?.socialLinks?.whatsapp ? `https://wa.me/${settings.socialLinks.whatsapp.replace(/\D/g, '')}` : 'https://wa.me/966500000000'}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    title="WhatsApp"
+                    className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center border border-emerald-500/20"
+                  >
+                    <Phone size={14} />
+                  </a>
+
+                  {/* X / Twitter */}
+                  <a 
+                    href={settings?.socialLinks?.twitter || 'https://x.com/souqconnect'} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    title="X / Twitter"
+                    className="w-8 h-8 rounded-xl bg-slate-500/10 text-slate-700 dark:text-slate-300 hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-black transition-all flex items-center justify-center border border-slate-500/20"
+                  >
+                    <span className="font-black text-xs">𝕏</span>
+                  </a>
+
+                  {/* Instagram */}
+                  <a 
+                    href={settings?.socialLinks?.instagram || 'https://instagram.com/souqconnect'} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    title="Instagram"
+                    className="w-8 h-8 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 hover:bg-gradient-to-tr hover:from-amber-500 hover:via-rose-500 hover:to-purple-600 hover:text-white transition-all flex items-center justify-center border border-pink-500/20 font-bold text-xs"
+                  >
+                    IG
+                  </a>
+
+                  {/* LinkedIn */}
+                  <a 
+                    href={settings?.socialLinks?.linkedin || 'https://linkedin.com/company/souqconnect'} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    title="LinkedIn"
+                    className="w-8 h-8 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center border border-blue-600/20 font-black text-xs"
+                  >
+                    in
+                  </a>
+
+                  {/* Facebook */}
+                  <a 
+                    href={settings?.socialLinks?.facebook || 'https://facebook.com/souqconnect'} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    title="Facebook"
+                    className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-500 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center border border-blue-500/20 font-black text-xs"
+                  >
+                    f
+                  </a>
+
+                  {/* YouTube */}
+                  <a 
+                    href={settings?.socialLinks?.youtube || 'https://youtube.com/@souqconnect'} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    title="YouTube"
+                    className="w-8 h-8 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center border border-red-500/20 font-black text-xs"
+                  >
+                    YT
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         </div>

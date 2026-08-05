@@ -81,9 +81,9 @@ export const CategoryNavTray: React.FC<CategoryNavTrayProps> = ({
             {isRtl ? 'الكل' : 'All'}
           </HapticButton>
 
-          {hubs.map((hub) => (
+          {hubs.map((hub, idx) => (
             <HapticButton
-              key={hub.id}
+              key={`hub-${hub.id || idx}-${idx}`}
               onClick={() => {
                 onSelectHub(hub.id === selectedHubId ? undefined : hub.id);
                 onSelectSector(undefined);
@@ -114,9 +114,9 @@ export const CategoryNavTray: React.FC<CategoryNavTrayProps> = ({
             className="overflow-hidden"
           >
             <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar px-1">
-              {sectors.map((sector) => (
+              {sectors.map((sector, idx) => (
                 <button
-                  key={sector.id}
+                  key={`sector-${sector.id || idx}-${idx}`}
                   onClick={() => {
                     onSelectSector(sector.id === selectedSectorId ? undefined : sector.id);
                     onSelectNiche(undefined);
@@ -144,9 +144,9 @@ export const CategoryNavTray: React.FC<CategoryNavTrayProps> = ({
             exit={{ opacity: 0, scale: 0.95 }}
             className="flex flex-wrap gap-2 pt-1 px-1"
           >
-            {niches.map((niche) => (
+            {niches.map((niche, idx) => (
               <button
-                key={niche.id}
+                key={`niche-${niche.id || idx}-${idx}`}
                 onClick={() => onSelectNiche(niche.id === selectedNicheId ? undefined : niche.id)}
                 className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border ${
                   selectedNicheId === niche.id

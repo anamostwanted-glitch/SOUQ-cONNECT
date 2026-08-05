@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { X, Sparkles, Plus } from 'lucide-react';
 import { addDoc, collection } from 'firebase/firestore';
 import { db } from '../../core/firebase';
-import { translateText } from '../../core/services/geminiService';
+import { translateText, formatCategoryName } from '../../core/services/geminiService';
 import { useTranslation } from 'react-i18next';
 import { handleFirestoreError, OperationType, handleAiError } from '../../core/utils/errorHandling';
+import { toast } from 'sonner';
 
 interface AddCategoryModalProps {
   isOpen: boolean;
@@ -24,31 +25,52 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ isOpen, onCl
   const isRtl = i18n.language === 'ar';
 
   const handleTranslate = async () => {
-    if (!nameAr) return;
+    if (!nameAr && !nameEn) {
+      toast.error(isRtl ? 'يرجى كتابة اسم الفئة أولاً (بالعربية أو الإنجليزية)' : 'Please enter category name first (Arabic or English)');
+      return;
+    }
+    
     setIsTranslating(true);
     try {
-      const translation = await translateText(nameAr, 'English');
-      setNameEn(translation);
+      const source = nameAr || nameEn;
+      const formatted = await formatCategoryName(source);
+      if (formatted.nameAr) setNameAr(formatted.nameAr);
+      if (formatted.nameEn) setNameEn(formatted.nameEn);
+      toast.success(isRtl ? 'تم توليد وترجمة الاسم بالذكاء الاصطناعي' : 'Generated & translated with AI');
     } catch (error) {
       handleAiError(error, 'AddCategoryModal:handleTranslate', false);
+      toast.error(isRtl ? 'فشلت الترجمة بالذكاء الاصطناعي' : 'AI Translation failed');
     } finally {
       setIsTranslating(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (!nameAr || !nameEn) return;
+    if (!nameAr && !nameEn) return;
     setLoading(true);
+
     try {
+      let finalAr = nameAr.trim();
+      let finalEn = nameEn.trim();
+
+      if (!finalAr || !finalEn) {
+        const source = finalAr || finalEn;
+        const formatted = await formatCategoryName(source);
+        if (!finalAr) finalAr = formatted.nameAr;
+        if (!finalEn) finalEn = formatted.nameEn;
+      }
+
       await addDoc(collection(db, 'categories'), {
-        nameAr: nameAr.trim(),
-        nameEn: nameEn.trim(),
+        nameAr: finalAr,
+        nameEn: finalEn,
         parentId: null,
         order: 0,
         categoryType: activeCategoryTab,
         status: 'pending',
         createdAt: new Date().toISOString()
       });
+
+      toast.success(isRtl ? 'تمت إضافة الفئة بنجاح' : 'Category added successfully');
       onClose();
       setNameAr('');
       setNameEn('');
@@ -92,32 +114,44 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ isOpen, onCl
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-brand-text-muted uppercase tracking-wider mb-2">
-              {isRtl ? 'الاسم بالإنجليزية' : 'English Name'}
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold text-brand-text-muted uppercase tracking-wider">
+                {isRtl ? 'الاسم بالإنجليزية' : 'English Name'}
+              </label>
+              <span className="text-[10px] font-bold text-brand-primary flex items-center gap-1">
+                <Sparkles size={12} />
+                {isRtl ? 'توليد بالذكاء الاصطناعي' : 'AI Generation'}
+              </span>
+            </div>
             <div className="relative">
               <input 
                 type="text"
-                placeholder={isRtl ? 'مثال: Electronics' : 'e.g. Electronics'}
+                placeholder={isRtl ? 'مثال: Electronics (أو اضغط زر AI)' : 'e.g. Electronics (or click AI)'}
                 value={nameEn}
                 onChange={e => setNameEn(e.target.value)}
                 className={`w-full p-4 ${isRtl ? 'pl-12' : 'pr-12'} bg-brand-background border border-brand-border rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 text-brand-text-main placeholder-brand-text-muted/50 transition-all`}
               />
               <button 
+                type="button"
                 onClick={handleTranslate}
-                disabled={isTranslating || !nameAr}
-                className={`absolute ${isRtl ? 'left-2' : 'right-2'} top-1/2 -translate-y-1/2 p-2.5 text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
-                title={isRtl ? 'ترجمة من العربية' : 'Translate from Arabic'}
+                disabled={isTranslating || (!nameAr && !nameEn)}
+                className={`absolute ${isRtl ? 'left-2' : 'right-2'} top-1/2 -translate-y-1/2 p-2.5 text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 font-bold text-xs`}
+                title={isRtl ? 'توليد/ترجمة بالذكاء الاصطناعي' : 'Generate/Translate with AI'}
               >
-                {isTranslating ? <div className="w-5 h-5 border-2 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" /> : <Sparkles size={20} />}
+                {isTranslating ? (
+                  <div className="w-5 h-5 border-2 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" />
+                ) : (
+                  <Sparkles size={20} className="text-brand-primary animate-pulse" />
+                )}
               </button>
             </div>
           </div>
           <div className="pt-4">
             <button 
+              type="button"
               onClick={handleSubmit}
-              disabled={loading || !nameAr || !nameEn}
-              className="w-full bg-brand-primary text-white py-4 rounded-2xl font-bold hover:bg-brand-primary-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              disabled={loading || (!nameAr && !nameEn)}
+              className="w-full bg-brand-primary text-white py-4 rounded-2xl font-bold hover:bg-brand-primary-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-brand-primary/20"
             >
               {loading ? (
                 <>

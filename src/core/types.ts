@@ -441,6 +441,18 @@ export interface SiteSettings {
   footerCopyrightEn?: string;
   footerShowSecurityBadge?: boolean;
 
+  // Social Links
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+    linkedin?: string;
+    youtube?: string;
+    whatsapp?: string;
+    tiktok?: string;
+    snapchat?: string;
+  };
+
   // Master AI Controls
   smartAssistantEnabled?: boolean;
 

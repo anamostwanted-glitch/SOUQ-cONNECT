@@ -147,7 +147,7 @@ export const AICategorySelector: React.FC<AICategorySelectorProps> = ({
             <div className="flex items-center gap-2 mb-4">
               <Sparkles size={16} className="text-brand-primary" />
               <p className="text-xs font-black text-brand-primary uppercase tracking-widest">
-                {isRtl ? 'اقتراحات ذكية' : 'Smart Suggestions'}
+                {isRtl ? 'اقتراحات ذكية تلقائية' : 'Smart AI Suggestions'}
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -180,6 +180,84 @@ export const AICategorySelector: React.FC<AICategorySelectorProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Selected Categories Chips */}
+      {selectedCategoryIds.length > 0 && (
+        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+              <Check size={14} />
+              {isRtl ? `الفئات المحددة (${selectedCategoryIds.length})` : `Selected Categories (${selectedCategoryIds.length})`}
+            </span>
+            <button 
+              onClick={() => onChange([])} 
+              className="text-[11px] font-medium text-rose-500 hover:underline"
+            >
+              {isRtl ? 'مسح الكل' : 'Clear All'}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {selectedCategoryIds.map(id => {
+              const cat = categories.find(c => c.id === id);
+              if (!cat) return null;
+              const catName = isRtl ? cat.nameAr : cat.nameEn;
+              return (
+                <span 
+                  key={`selected-chip-${id}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-slate-800 border border-emerald-500/30 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 shadow-xs"
+                >
+                  <span>{catName}</span>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); toggleCategory(id); }}
+                    className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400 hover:text-rose-500 transition-colors"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Visual Category List / Search Grid */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+            <Tag size={16} className="text-brand-primary" />
+            <span>{isRtl ? 'جميع التصنيفات المتاحة' : 'All Available Categories'}</span>
+          </h4>
+          <span className="text-xs text-slate-400 font-medium">
+            {categories.length} {isRtl ? 'فئة' : 'categories'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto p-1 pr-2 custom-scrollbar">
+          {categories.map((cat) => {
+            const isSelected = selectedCategoryIds.includes(cat.id);
+            const catName = isRtl ? cat.nameAr : cat.nameEn;
+            return (
+              <button
+                key={`cat-grid-item-${cat.id}`}
+                type="button"
+                onClick={() => toggleCategory(cat.id)}
+                className={`p-3 rounded-xl border text-start transition-all flex items-center justify-between gap-2 text-xs font-semibold ${
+                  isSelected
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                    : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700/60 hover:border-emerald-500/50 hover:bg-emerald-50/50 dark:hover:bg-slate-800'
+                }`}
+              >
+                <span className="truncate">{catName}</span>
+                {isSelected ? (
+                  <Check size={14} className="shrink-0 text-white" />
+                ) : (
+                  <span className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-600 shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Selection Summary Floating Bar */}
       <AnimatePresence>

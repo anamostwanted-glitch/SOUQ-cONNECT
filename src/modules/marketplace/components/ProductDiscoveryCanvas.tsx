@@ -97,8 +97,8 @@ export const ProductDiscoveryCanvas: React.FC<ProductDiscoveryCanvasProps> = ({
           
           return (
             <motion.div
-              key={item.id}
-              layoutId={`product-${item.id}`}
+              key={`disc-prod-${item.id || index}-${index}`}
+              layoutId={`product-${item.id || index}`}
               className={`relative overflow-hidden cursor-pointer group rounded-3xl shadow-lg ${isSpan2 ? 'col-span-2 aspect-[16/10]' : 'col-span-1 aspect-[9/16]'}`}
               onClick={() => handleItemClick(item)}
               whileHover={{ scale: 0.98 }}
