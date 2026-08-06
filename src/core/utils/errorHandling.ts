@@ -17,8 +17,13 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, shouldThrow: boolean = false) {
+  const errMsg = error instanceof Error ? error.message : String(error);
+  if (errMsg.includes('has-been-suspended') || errMsg.includes('api-key') || errMsg.includes('Fetching auth token failed')) {
+    console.warn('Suppressing suspended API key / auth token error:', errMsg);
+    return;
+  }
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMsg,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -80,6 +85,12 @@ export function handleAiError(error: unknown, context: string, shouldThrow: bool
 
   // Ignore benign Vite/WebSocket errors
   if (errorMessage.includes('failed to connect to websocket') || errorMessage.includes('WebSocket connection failed')) {
+    return;
+  }
+
+  // Ignore suspended API key errors
+  if (errorMessage.includes('has-been-suspended') || errorMessage.includes('api-key') || errorMessage.includes('Fetching auth token failed')) {
+    console.warn('Suppressing suspended API key / auth token error:', errorMessage);
     return;
   }
 

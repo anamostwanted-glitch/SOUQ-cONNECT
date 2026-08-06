@@ -86,6 +86,7 @@ import { PasskeyManager } from '../../user/components/PasskeyManager';
 import { SubscriptionManager } from '../../../components/SubscriptionManager';
 import { toast } from 'sonner';
 import { deleteDoc, writeBatch, where } from 'firebase/firestore';
+import { AdminMobileApiGateway } from './AdminMobileApiGateway';
 import { SecurityService } from '../../../core/services/SecurityService';
 
 interface AdminDashboardProps {
@@ -920,7 +921,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       { id: 'cost-analyzer', label: isRtl ? 'التكاليف' : 'Costs' },
                       { id: 'beta-lab', label: isRtl ? 'بيتا' : 'Beta' },
                       { id: 'sovereign-keys', label: isRtl ? 'الهوية السيادية' : 'Sovereign Keys' },
-                      { id: 'reports-archive', label: isRtl ? 'البلاغات' : 'Alerts' }
+                      { id: 'reports-archive', label: isRtl ? 'البلاغات' : 'Alerts' },
+                      { id: 'mobile-api', label: isRtl ? 'بوابة الموبايل API' : 'Mobile API' }
                     ].map(v => (
                         <button 
                             key={v.id}
@@ -1476,6 +1478,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               exit={{ opacity: 0, y: -20 }}
             >
               <ConnectManager />
+            </motion.div>
+          )}
+
+          {activeTab === 'mobile-api' && (
+            <motion.div
+              key="mobile-api"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-7xl mx-auto"
+            >
+              <AdminMobileApiGateway />
             </motion.div>
           )}
 
