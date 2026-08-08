@@ -98,7 +98,6 @@ service cloud.firestore {
       return data.get('uid', '') is string &&
              data.get('email', '') is string &&
              data.get('role', '') in ['admin', 'supplier', 'customer', 'manager', 'supervisor'] &&
-             data.keys().hasOnly(allowedFields) &&
              (!('name' in data) || (data.name is string && data.name.size() < 128)) &&
              (!('companyName' in data) || (data.companyName is string && data.companyName.size() < 256)) &&
              (!('phone' in data) || (data.phone is string && data.phone.size() < 32)) &&
@@ -179,7 +178,7 @@ service cloud.firestore {
       allow create: if isAuthenticated() && (
                       request.auth.uid == userId || 
                       isAdmin()
-                    ) && isValidUser(request.resource.data);
+                    ) && isValidUser(request.resource.data) && request.resource.data.keys().hasOnly(['uid', 'email', 'role', 'name', 'companyName', 'phone', 'location', 'coordinates', 'website', 'logoUrl', 'coverUrl', 'photoURL', 'photoUrl', 'providerId', 'categories', 'keywords', 'language', 'createdAt', 'updatedAt', 'lastActive', 'bio', 'businessDescription', 'supplierType', 'rating', 'reviewCount', 'verificationDocUrl', 'isVerified', 'verificationDetails', 'verificationExpiryDate', 'trustScore', 'followersCount', 'followingCount', 'followers', 'following', 'logoGenerationUsage', 'isOnline', 'isDeleted', 'lastLoginAt', 'averageResponseTime', 'notificationPreferences', 'conciergeConsent', 'branding', 'referralPoints', 'loyaltyPoints', 'commercialRegistration', 'subscriptionPlan', 'subscriptionExpiry', 'referralCode', 'referredBy', 'onboardingCompleted', 'favoriteProducts', 'aiInsights', 'aiBio', 'socialLinks', 'status', 'deletedAt', 'deletedBy']);
       
       allow update: if isAuthenticated() && (
                     (isAdmin() && isValidUser(request.resource.data)) || 
